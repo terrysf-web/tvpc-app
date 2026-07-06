@@ -1,0 +1,190 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import * as WebBrowser from 'expo-web-browser';
+import { Play } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PhotoSlot } from '../../src/components/PhotoSlot';
+import { SegmentTabs } from '../../src/components/SegmentTabs';
+import { useSermons } from '../../src/data/hooks';
+import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
+import type { SermonDoc } from '../../src/types';
+
+type SermonTab = 'recent' | 'series' | 'topic';
+
+const TABS: { key: SermonTab; label: string }[] = [
+  { key: 'recent', label: '최근 설교' },
+  { key: 'series', label: '시리즈' },
+  { key: 'topic', label: '말씀별' },
+];
+
+function openSermon(s: SermonDoc) {
+  if (s.youtubeId) {
+    WebBrowser.openBrowserAsync(`https://www.youtube.com/watch?v=${s.youtubeId}`).catch(() => {});
+  }
+}
+
+function fmtDate(d: string): string {
+  const dt = new Date(d + 'T00:00:00');
+  return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+export default function SermonScreen() {
+  const insets = useSafeAreaInsets();
+  const { sermons } = useSermons();
+  const [tab, setTab] = useState<SermonTab>('recent');
+
+  const featured = sermons.find((s) => s.featured) ?? sermons[0];
+  const rest = sermons.filter((s) => s !== featured);
+
+  /** 시리즈/말씀별 탭 — 그룹 헤더로 묶어서 표시 */
+  const grouped = useMemo(() => {
+    if (tab === 'recent') return null;
+    const keyOf = (s: SermonDoc) =>
+      tab === 'series' ? s.series : s.scripture.split(' ')[0] || '기타';
+    const map = new Map<string, SermonDoc[]>();
+    for (const s of sermons) {
+      const k = keyOf(s);
+      map.set(k, [...(map.get(k) ?? []), s]);
+    }
+    return [...map.entries()];
+  }, [tab, sermons]);
+
+  const listItem = (s: SermonDoc) => (
+    <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => openSermon(s)}>
+      <PhotoSlot uri={s.imageUrl} tone="deep" style={styles.thumb}>
+        <View style={styles.thumbBadge}>
+          <Text style={styles.thumbBadgeText}>{s.duration}</Text>
+        </View>
+      </PhotoSlot>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.itemTitle} numberOfLines={1}>
+          {s.title}
+        </Text>
+        <Text style={styles.itemMeta} numberOfLines={1}>
+          {s.scripture} · {fmtDate(s.date)}
+        </Text>
+        <Text style={styles.itemMeta2} numberOfLines={1}>
+          {s.service} · {s.preacher}
+        </Text>
+      </View>
+    </Pressable>
+  );
+
+  return (
+    <View style={styles.screen}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
+        <Text style={styles.headerTitle}>설교</Text>
+      </View>
+      <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {tab === 'recent' && featured && (
+          <View style={[styles.featuredWrap, shadows.imageCard]}>
+            <PhotoSlot uri={featured.imageUrl} tone="deep" style={styles.featured}>
+              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+              <Pressable style={styles.playBtn} onPress={() => openSermon(featured)} hitSlop={8}>
+                <Play size={22} color={colors.primary} fill={colors.primary} strokeWidth={0} />
+              </Pressable>
+              <View style={styles.durationBadge}>
+                <Text style={styles.durationText}>{featured.duration}</Text>
+              </View>
+              <View style={styles.featuredBottom}>
+                <Text style={styles.featuredTitle}>{featured.title}</Text>
+                <Text style={styles.featuredMeta}>
+                  {featured.subtitle} · {featured.preacher}
+                </Text>
+              </View>
+            </PhotoSlot>
+          </View>
+        )}
+
+        {tab === 'recent' && rest.map(listItem)}
+
+        {grouped?.map(([group, items]) => (
+          <View key={group}>
+            <Text style={styles.groupTitle}>{group}</Text>
+            {items.map(listItem)}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.screenBg },
+  header: {
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    paddingBottom: 12,
+  },
+  headerTitle: { fontFamily: font.bold, fontSize: 17, color: colors.title },
+  content: { padding: 16, gap: 12, paddingBottom: 28 },
+
+  featuredWrap: { borderRadius: 18, marginBottom: 4 },
+  featured: { borderRadius: 18, height: 176, justifyContent: 'flex-end' },
+  playBtn: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: 88 - 27 - 14,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 3,
+  },
+  durationBadge: {
+    position: 'absolute',
+    right: 12,
+    bottom: 58,
+    backgroundColor: 'rgba(10,20,38,0.72)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  durationText: { fontFamily: font.bold, fontSize: 11, color: '#FFFFFF' },
+  featuredBottom: { padding: 14 },
+  featuredTitle: { fontFamily: font.extraBold, fontSize: 15.5, color: '#FFFFFF', ...textShadow },
+  featuredMeta: {
+    marginTop: 3,
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    color: 'rgba(255,255,255,0.85)',
+    ...textShadow,
+  },
+
+  groupTitle: {
+    fontFamily: font.extraBold,
+    fontSize: 14,
+    color: colors.muted,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+
+  item: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    marginBottom: 0,
+  },
+  thumb: { width: 96, height: 60, borderRadius: 10 },
+  thumbBadge: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    backgroundColor: 'rgba(10,20,38,0.72)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  thumbBadgeText: { fontFamily: font.bold, fontSize: 9.5, color: '#FFFFFF' },
+  itemTitle: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
+  itemMeta: { marginTop: 3, fontFamily: font.medium, fontSize: 12, color: colors.muted2 },
+  itemMeta2: { marginTop: 1, fontFamily: font.regular, fontSize: 12, color: colors.faint },
+});

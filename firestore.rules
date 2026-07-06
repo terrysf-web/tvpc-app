@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// 무료(Spark) 요금제 기준 Firestore 보안 규칙.
+// 콘텐츠(말씀/설교/소식/일정)는 읽기 전용 — 관리자는 Firebase 콘솔이나 시드 스크립트로 관리.
+// 기도요청만 앱에서 쓰기 가능(익명 인증 필요).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /verses/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /sermons/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /news/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /events/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /prayers/{id} {
+      allow read: if true;
+
+      // 작성: 익명 로그인 사용자, 필드 형식 검증 + 본문 1000자 제한
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['category', 'answered', 'text', 'authorName', 'createdAt', 'prayCount'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() <= 40
+        && request.resource.data.prayCount == 0;
+
+      // 수정: "함께 기도" 카운트(±1)만 허용
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayCount'])
+        && (request.resource.data.prayCount - resource.data.prayCount == 1
+            || request.resource.data.prayCount - resource.data.prayCount == -1)
+        && request.resource.data.prayCount >= 0;
+
+      allow delete: if false;
+    }
+  }
+}
