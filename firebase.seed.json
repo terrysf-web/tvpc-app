@@ -1,0 +1,5 @@
+{
+  "firestore": {
+    "rules": "scripts/seed-open.rules"
+  }
+}

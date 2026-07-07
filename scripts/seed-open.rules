@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// 시드 전용 임시 규칙 — npm run seed:unlock 으로 배포.
+// 시드가 끝나면 반드시 npm run deploy:rules 로 다시 잠글 것!
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
