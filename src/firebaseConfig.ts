@@ -11,14 +11,11 @@ import type { FirebaseOptions } from 'firebase/app';
  *
  * null이면 앱은 번들 샘플 데이터로 동작합니다 (데모 모드).
  */
-export const firebaseConfig: FirebaseOptions | null = null;
-
-// 예시:
-// export const firebaseConfig: FirebaseOptions | null = {
-//   apiKey: 'AIza...',
-//   authDomain: 'tvpc-app.firebaseapp.com',
-//   projectId: 'tvpc-app',
-//   storageBucket: 'tvpc-app.firebasestorage.app',
-//   messagingSenderId: '1234567890',
-//   appId: '1:1234567890:web:abcdef',
-// };
+export const firebaseConfig: FirebaseOptions | null = {
+  apiKey: 'AIzaSyAd37hhPfm1GFecAxfyTQtg8GHsfuhrUJA',
+  authDomain: 'tvpc-40043.firebaseapp.com',
+  projectId: 'tvpc-40043',
+  storageBucket: 'tvpc-40043.firebasestorage.app',
+  messagingSenderId: '447584603547',
+  appId: '1:447584603547:web:33ff97f4aa3cf26b7de53e',
+};

@@ -35,30 +35,22 @@ Firebase를 설정하지 않아도 **번들 샘플 데이터로 즉시 동작**�
 (스토어 없이 QR로 *설치형* 앱을 배포하는 건 안드로이드만 가능하고 아이폰은
 불가능하므로, 웹앱 방식이 두 플랫폼을 모두 커버하는 유일한 방법입니다.)
 
-### 주 주소 — 교회 도메인 (Firebase Hosting 커스텀 도메인)
+### 주 주소 — Firebase Hosting: https://happytvpc.web.app
 
-`tvpc.web.app`은 선점돼 있어, **교회 보유 도메인**(예: `app.tvpc.org`)을 Firebase
-Hosting에 연결하는 방식을 사용합니다. QR 코드는 이 커스텀 도메인을 가리킵니다.
+호스팅 사이트 ID는 `happytvpc`(행복한 교회), 프로젝트는 `tvpc-40043`입니다.
+QR 코드는 https://happytvpc.web.app 을 가리킵니다.
 
-1. Firebase 프로젝트(아래 "Firebase 연결" 참고)를 만들고 호스팅 사이트 생성
-   — 사이트 ID는 내부용이므로 `tvpc-app` 권장 (`firebase.json`의 `hosting.site`와
-   일치해야 함. 다른 ID를 썼다면 그 값을 수정)
+```bash
+npm install -g firebase-tools
+firebase login
+firebase hosting:sites:create happytvpc   # 콘솔에서 이미 만들었다면 생략
+npm run deploy:web                        # 빌드 + 배포 → https://happytvpc.web.app
+npm run deploy:rules                      # Firestore 보안 규칙 배포
+```
 
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase use --add                       # 만든 프로젝트 선택
-   firebase hosting:sites:create tvpc-app   # 콘솔에서 이미 만들었다면 생략
-   npm run deploy:web                       # 빌드 + 배포 → https://tvpc-app.web.app
-   ```
-
-2. Firebase 콘솔 → **Hosting → 커스텀 도메인 추가** → 교회 도메인 입력
-3. 콘솔이 알려주는 **TXT(소유권 확인) / A 또는 CNAME 레코드**를 도메인 관리
-   업체(DNS)에 추가 — SSL 인증서는 자동 발급(최대 24시간)
-4. 연결 완료 후 커스텀 도메인으로 QR 코드 생성
-
-- 이후 배포는 `npm run deploy:web` 한 줄. 보안 규칙 배포는 `npm run deploy:rules`.
-- 커스텀 도메인 연결 전에는 `https://tvpc-app.web.app`이 예비 주소로 동작합니다.
+- 이후 업데이트 배포는 `npm run deploy:web` 한 줄이면 됩니다.
+- 원하면 교회 보유 도메인을 콘솔 → Hosting → 커스텀 도메인 추가로 연결할 수
+  있습니다 (TXT/A 레코드 추가, SSL 자동 발급). 그 경우 QR만 새 주소로 교체.
 - 푸시 때마다 자동 배포하려면 `.github/workflows/deploy-firebase.yml` 상단의
   활성화 방법(서비스 계정 시크릿 + 레포 변수)을 따라 설정하세요.
 

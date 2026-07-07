@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "tvpc-app",
+    "site": "happytvpc",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
