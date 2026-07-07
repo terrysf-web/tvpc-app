@@ -30,15 +30,33 @@ Firebase를 설정하지 않아도 **번들 샘플 데이터로 즉시 동작**�
 
 ## QR 코드 배포 (앱스토어 없이)
 
-이 레포는 푸시할 때마다 웹 버전을 **GitHub Pages**로 자동 배포합니다
-(`.github/workflows/deploy-web.yml`).
+교인들은 QR 코드 → 웹 주소로 접속합니다. 아이폰/안드로이드 구분 없이 **설치 없이
+바로** 열리고, 브라우저의 **"홈 화면에 추가"** 로 앱처럼 쓸 수 있습니다.
+(스토어 없이 QR로 *설치형* 앱을 배포하는 건 안드로이드만 가능하고 아이폰은
+불가능하므로, 웹앱 방식이 두 플랫폼을 모두 커버하는 유일한 방법입니다.)
 
-- **접속 주소**: https://terrysf-web.github.io/tvpc-app/
-- 이 주소를 QR 코드로 만들어 주보·게시판에 실으면, 교인들이 아이폰/안드로이드
-  구분 없이 **설치 없이 바로** 사용할 수 있습니다.
-- 브라우저 메뉴에서 **"홈 화면에 추가"** 하면 아이콘이 생겨 앱처럼 실행됩니다.
-- 참고: 스토어 없이 QR로 *설치형* 앱을 배포하는 건 안드로이드(APK)만 가능하고
-  아이폰은 불가능하므로, 웹앱 방식이 두 플랫폼을 모두 커버하는 유일한 방법입니다.
+### 주 주소 — Firebase Hosting: https://tvpc.web.app
+
+Firebase 프로젝트(아래 "Firebase 연결" 참고)를 만든 뒤:
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase use --add            # 만든 프로젝트 선택
+firebase hosting:sites:create tvpc   # tvpc.web.app 사이트 생성 (이름이 선점됐으면 다른 이름)
+npm run deploy:web            # 빌드 + 배포
+```
+
+- `tvpc`가 이미 선점됐거나 생성이 거부되면 `tvpc-app`, `trivalleypc` 등으로 만들고
+  `firebase.json`의 `hosting.site` 값을 같은 이름으로 바꾸세요.
+- 이후 배포는 `npm run deploy:web` 한 줄. 보안 규칙 배포는 `npm run deploy:rules`.
+- 푸시 때마다 자동 배포하려면 `.github/workflows/deploy-firebase.yml` 상단의
+  활성화 방법(서비스 계정 시크릿 + 레포 변수)을 따라 설정하세요.
+
+### 예비 주소 — GitHub Pages: https://terrysf-web.github.io/tvpc-app/
+
+푸시할 때마다 자동 배포됩니다(`.github/workflows/deploy-web.yml`).
+최초 1회 레포 Settings → Pages → Source를 "GitHub Actions"로 설정해야 합니다.
 
 ## Firebase 연결 (무료 Spark 요금제)
 

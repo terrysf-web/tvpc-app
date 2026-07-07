@@ -1,0 +1,43 @@
+# Firebase Hosting 자동 배포 — https://tvpc.web.app
+#
+# 활성화 방법 (1회):
+#   1. 로컬에서 `firebase init hosting:github` 를 실행하면 서비스 계정 시크릿
+#      (FIREBASE_SERVICE_ACCOUNT)이 자동으로 레포에 등록됩니다.
+#      (또는 Firebase 콘솔 → 프로젝트 설정 → 서비스 계정에서 키를 만들어
+#       GitHub 레포 Settings → Secrets 에 FIREBASE_SERVICE_ACCOUNT 로 등록)
+#   2. 레포 Settings → Variables 에 FIREBASE_DEPLOY = true 추가
+#   3. FIREBASE_PROJECT_ID 변수도 함께 추가 (Firebase 프로젝트 ID)
+name: Deploy web to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - claude/react-native-firebase-app-e0vg1r
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ vars.FIREBASE_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export web build
+        run: npx expo export --platform web
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          channelId: live
