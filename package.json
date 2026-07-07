@@ -37,8 +37,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
-    "deploy:web": "expo export --platform web && firebase deploy --only hosting",
-    "deploy:rules": "firebase deploy --only firestore:rules"
+    "deploy:web": "expo export --platform web && firebase deploy --only hosting --project tvpc-40043",
+    "deploy:rules": "firebase deploy --only firestore:rules --project tvpc-40043"
   },
   "private": true
 }
