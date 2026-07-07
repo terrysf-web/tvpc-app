@@ -8,6 +8,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useUser } from '../../src/data/user';
+import { sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
 function greeting(): string {
@@ -157,7 +158,7 @@ export default function HomeScreen() {
         <FadeInUp delay={160}>
           <Text style={styles.sectionTitle}>최근 설교</Text>
           <View style={[styles.sermonWrap, shadows.imageCard]}>
-            <PhotoSlot uri={featured.imageUrl} tone="deep" style={styles.sermonCard}>
+            <PhotoSlot uri={sermonThumb(featured)} tone="deep" style={styles.sermonCard}>
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               <Pressable
                 style={styles.playBtn}
