@@ -1,11 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
 import { HandCoins, Landmark, ReceiptText } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { sampleOfferings } from '../src/data/sample';
+import { openExternal } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 
 /**
@@ -25,7 +25,7 @@ export default function OfferingScreen() {
 
   const give = () => {
     if (GIVING_URL) {
-      WebBrowser.openBrowserAsync(GIVING_URL).catch(() => {});
+      openExternal(GIVING_URL);
     } else {
       Alert.alert(
         '온라인 헌금',

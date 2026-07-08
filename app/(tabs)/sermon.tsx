@@ -1,5 +1,4 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
 import { Play } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -7,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useSermons } from '../../src/data/hooks';
-import { sermonThumb, sermonVideoUrl } from '../../src/links';
+import { openExternal, sermonThumb, sermonVideoUrl } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import type { SermonDoc } from '../../src/types';
 
@@ -21,7 +20,7 @@ const TABS: { key: SermonTab; label: string }[] = [
 
 function openSermon(s: SermonDoc) {
   // 개별 영상 ID가 있으면 해당 영상, 없으면 교회 유튜브 채널로
-  WebBrowser.openBrowserAsync(sermonVideoUrl(s)).catch(() => {});
+  openExternal(sermonVideoUrl(s));
 }
 
 function fmtDate(d: string): string {

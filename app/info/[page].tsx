@@ -1,11 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { Clock, Globe, MapPin, MonitorPlay, Phone } from 'lucide-react-native';
 import React from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../../src/components/OverlayHeader';
 import { churchInfo, mapsUrl } from '../../src/churchInfo';
+import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 
 type PageKey = 'about' | 'staff' | 'newcomer' | 'worship' | 'directions' | 'contact';
@@ -51,8 +51,8 @@ export default function InfoScreen() {
     : 'about';
 
   const call = () => Linking.openURL(`tel:${churchInfo.phone.replaceAll('-', '')}`).catch(() => {});
-  const openSite = () => WebBrowser.openBrowserAsync(churchInfo.website).catch(() => {});
-  const openYoutube = () => WebBrowser.openBrowserAsync(churchInfo.youtube).catch(() => {});
+  const openSite = () => openExternal(churchInfo.website);
+  const openYoutube = () => openExternal(churchInfo.youtube);
   const openMap = () => Linking.openURL(mapsUrl).catch(() => {});
 
   return (

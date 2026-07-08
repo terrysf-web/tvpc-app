@@ -1,4 +1,21 @@
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import type { SermonDoc } from './types';
+
+/**
+ * 외부 링크 열기.
+ * 웹: window.open으로 새 탭에 목적지 URL을 직접 로드 — expo-web-browser의
+ * 웹 구현은 about:blank 팝업을 먼저 만들고 이동해서, iOS 사파리에서
+ * 뒤로가기 시 빈 탭이 남는 문제가 있다.
+ * 네이티브: 인앱 브라우저(SFSafariViewController/Custom Tabs).
+ */
+export function openExternal(url: string) {
+  if (Platform.OS === 'web') {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } else {
+    WebBrowser.openBrowserAsync(url).catch(() => {});
+  }
+}
 
 /** 교회 유튜브 채널 — 설교 영상에 youtubeId가 없으면 여기로 이동 */
 export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@tri-valley';
