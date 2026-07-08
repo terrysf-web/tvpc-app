@@ -37,7 +37,7 @@ Firebase를 설정하지 않아도 **번들 샘플 데이터로 즉시 동작**�
 
 ### 주 주소 — Firebase Hosting: https://happytvpc.web.app
 
-호스팅 사이트 ID는 `happytvpc`(행복한 교회), 프로젝트는 `tvpc-40043`입니다.
+호스팅 사이트 ID는 `happytvpc`, 프로젝트는 `tvpc-40043`입니다.
 QR 코드는 https://happytvpc.web.app 을 가리킵니다.
 
 ```bash

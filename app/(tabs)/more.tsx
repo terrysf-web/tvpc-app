@@ -36,7 +36,7 @@ export default function MoreScreen() {
     if (key === 'share') {
       Share.share({
         message:
-          '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요. Faith. Every Day.\nhttps://happytvpc.web.app',
+          '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요.\nhttps://happytvpc.web.app',
       }).catch(() => {});
       return;
     }
@@ -104,7 +104,7 @@ export default function MoreScreen() {
         ))}
       </View>
 
-      <Text style={styles.footer}>트라이밸리 장로교회 · 행복한 교회{'\n'}Faith. Every Day.</Text>
+      <Text style={styles.footer}>트라이밸리 장로교회{'\n'}Tri-Valley Presbyterian Church</Text>
     </ScrollView>
   );
 }

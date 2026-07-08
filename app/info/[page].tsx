@@ -67,7 +67,6 @@ export default function InfoScreen() {
             <View style={[styles.card, shadows.card]}>
               <Text style={styles.churchName}>{churchInfo.nameKo}</Text>
               <Text style={styles.churchNameEn}>{churchInfo.nameEn}</Text>
-              <Text style={styles.slogan}>{churchInfo.slogan}</Text>
               <Text style={styles.paragraph}>{churchInfo.intro}</Text>
             </View>
             <ActionRow
@@ -215,7 +214,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 18 },
   churchName: { fontFamily: font.extraBold, fontSize: 19, color: colors.title },
   churchNameEn: { marginTop: 2, fontFamily: font.medium, fontSize: 13, color: colors.muted2 },
-  slogan: { marginTop: 8, fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
   paragraph: {
     marginTop: 12,
     fontFamily: font.regular,

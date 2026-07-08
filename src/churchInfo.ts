@@ -5,14 +5,13 @@
 export const churchInfo = {
   nameKo: '트라이밸리 장로교회',
   nameEn: 'Tri-Valley Presbyterian Church',
-  slogan: '행복한 교회 · Faith. Every Day.',
   address: '5925 W. Las Positas Blvd, Pleasanton, CA 94588',
   phone: '925-227-0880',
   website: 'https://tvpc.church',
   youtube: 'https://www.youtube.com/@tri-valley',
 
   intro:
-    '트라이밸리 장로교회는 캘리포니아 트라이밸리 지역(플레젠튼·더블린·산라몬·리버모어)의 한인 교회입니다. 예배와 말씀, 기도와 교제를 통해 모든 세대가 신앙 안에서 함께 자라가는 행복한 교회를 꿈꿉니다.',
+    '트라이밸리 장로교회는 캘리포니아 트라이밸리 지역(플레젠튼·더블린·산라몬·리버모어)의 한인 교회입니다. 예배와 말씀, 기도와 교제를 통해 모든 세대가 신앙 안에서 함께 자라가는 공동체를 꿈꿉니다.',
 
   /** 예배 시간 — 교회 공지 기준으로 수정하세요 */
   services: [

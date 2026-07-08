@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const FILE = 'dist/index.html';
 
 const TAGS = `
-    <meta name="description" content="매일 말씀, 설교, 교회 소식, 기도요청 — 트라이밸리 장로교회 (행복한 교회)" />
+    <meta name="description" content="매일 말씀, 설교, 교회 소식, 기도요청 — 트라이밸리 장로교회 (Tri-Valley Presbyterian Church)" />
     <meta name="theme-color" content="#1E5AA8" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -16,7 +16,7 @@ const TAGS = `
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="행복한교회" />
+    <meta name="apple-mobile-web-app-title" content="TVPC" />
 `;
 
 let html = readFileSync(FILE, 'utf8');
