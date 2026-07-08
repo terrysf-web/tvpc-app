@@ -37,7 +37,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
-    "deploy:web": "expo export --platform web && firebase deploy --only hosting --project tvpc-40043",
+    "deploy:web": "expo export --platform web && node scripts/inject-pwa.mjs && firebase deploy --only hosting --project tvpc-40043",
     "deploy:rules": "firebase deploy --only firestore:rules --project tvpc-40043",
     "seed:unlock": "firebase deploy --only firestore:rules --project tvpc-40043 --config firebase.seed.json"
   },

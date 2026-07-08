@@ -122,7 +122,7 @@ export default function HomeScreen() {
 
       {/* 3. 오늘의 한눈에 — 4열 빠른 메뉴 */}
       <FadeInUp delay={80}>
-        <Text style={styles.sectionTitle}>오늘의 한눈에</Text>
+        <Text style={styles.sectionTitle}>한눈에 보기</Text>
         <View style={styles.quickRow}>
           {quickMenu.map((m) => (
             <Pressable key={m.key} style={[styles.quickCard, shadows.card]} onPress={m.onPress}>
