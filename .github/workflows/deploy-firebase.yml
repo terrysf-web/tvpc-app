@@ -1,12 +1,9 @@
-# Firebase Hosting 자동 배포 — https://tvpc.web.app
+# Firebase Hosting 자동 배포 — https://happytvpc.web.app
 #
-# 활성화 방법 (1회):
-#   1. 로컬에서 `firebase init hosting:github` 를 실행하면 서비스 계정 시크릿
-#      (FIREBASE_SERVICE_ACCOUNT)이 자동으로 레포에 등록됩니다.
-#      (또는 Firebase 콘솔 → 프로젝트 설정 → 서비스 계정에서 키를 만들어
-#       GitHub 레포 Settings → Secrets 에 FIREBASE_SERVICE_ACCOUNT 로 등록)
-#   2. 레포 Settings → Variables 에 FIREBASE_DEPLOY = true 추가
-#   3. FIREBASE_PROJECT_ID 변수도 함께 추가 (Firebase 프로젝트 ID)
+# 활성화 방법 (1회): Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 →
+# "새 비공개 키 생성"으로 받은 JSON 전체를 GitHub 레포
+# Settings → Secrets and variables → Actions → (Secrets 탭) 에
+# FIREBASE_SERVICE_ACCOUNT 이름으로 등록. 시크릿이 없으면 조용히 건너뜁니다.
 name: Deploy web to Firebase Hosting
 
 on:
@@ -18,7 +15,6 @@ on:
 
 jobs:
   deploy:
-    if: ${{ vars.FIREBASE_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,16 +24,28 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 배포를 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
       - name: Install dependencies
+        if: env.skip != 'true'
         run: npm ci
 
       - name: Export web build
+        if: env.skip != 'true'
         run: npx expo export --platform web
 
       - name: Deploy to Firebase Hosting
+        if: env.skip != 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          projectId: tvpc-40043
           channelId: live
