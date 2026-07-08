@@ -1,5 +1,13 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
-import { Auth, getAuth, signInAnonymously } from 'firebase/auth';
+import {
+  Auth,
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+} from 'firebase/auth';
 import {
   Firestore,
   initializeFirestore,
@@ -50,4 +58,35 @@ export async function ensureAnonymousAuth(): Promise<string | null> {
     console.warn('[firebase] anonymous sign-in failed:', e);
     return null;
   }
+}
+
+/** 관리자(교역자) 이메일 로그인 */
+export function getAuthOrNull(): Auth | null {
+  const a = ensureApp();
+  if (!a) return null;
+  if (!auth) auth = getAuth(a);
+  return auth;
+}
+
+export async function adminSignIn(email: string, password: string): Promise<void> {
+  const au = getAuthOrNull();
+  if (!au) throw new Error('Firebase가 설정되지 않았습니다.');
+  await signInWithEmailAndPassword(au, email.trim(), password);
+}
+
+export async function adminSignOut(): Promise<void> {
+  const au = getAuthOrNull();
+  if (au) await signOut(au);
+  // 일반 사용자 기능(기도요청)을 위해 익명 세션 복구
+  await ensureAnonymousAuth();
+}
+
+/** 로그인 상태 구독 — 해제 함수 반환 */
+export function watchUser(cb: (user: User | null) => void): () => void {
+  const au = getAuthOrNull();
+  if (!au) {
+    cb(null);
+    return () => {};
+  }
+  return onAuthStateChanged(au, cb);
 }

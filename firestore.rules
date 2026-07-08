@@ -1,29 +1,42 @@
 rules_version = '2';
 
 // 무료(Spark) 요금제 기준 Firestore 보안 규칙.
-// 콘텐츠(말씀/설교/소식/일정)는 읽기 전용 — 관리자는 Firebase 콘솔이나 시드 스크립트로 관리.
-// 기도요청만 앱에서 쓰기 가능(익명 인증 필요).
+// - 콘텐츠(말씀/설교/소식/일정): 누구나 읽기, 관리자(admins 컬렉션 등록 이메일)만 쓰기
+// - 기도요청: 누구나 읽기, 익명 인증 사용자 작성 + 좋아요, 관리자 삭제(운영)
+// - 관리자 등록: Firebase 콘솔에서 admins 컬렉션에 문서 ID = 이메일 로 추가
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
+    match /admins/{email} {
+      // 본인 여부 확인용 읽기만 허용, 쓰기는 콘솔에서만
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow write: if false;
+    }
+
     match /verses/{id} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /sermons/{id} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /news/{id} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /events/{id} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     match /prayers/{id} {
@@ -39,14 +52,16 @@ service cloud.firestore {
         && request.resource.data.authorName.size() <= 40
         && request.resource.data.prayCount == 0;
 
-      // 수정: "함께 기도" 카운트(±1)만 허용
-      allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayCount'])
-        && (request.resource.data.prayCount - resource.data.prayCount == 1
-            || request.resource.data.prayCount - resource.data.prayCount == -1)
-        && request.resource.data.prayCount >= 0;
+      // 수정: "함께 기도" 카운트(±1)만 허용 (관리자는 전체 수정 가능)
+      allow update: if isAdmin()
+        || (request.auth != null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayCount'])
+            && (request.resource.data.prayCount - resource.data.prayCount == 1
+                || request.resource.data.prayCount - resource.data.prayCount == -1)
+            && request.resource.data.prayCount >= 0);
 
-      allow delete: if false;
+      // 삭제: 관리자만 (부적절한 글 운영)
+      allow delete: if isAdmin();
     }
   }
 }

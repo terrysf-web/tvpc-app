@@ -105,6 +105,10 @@ export default function MoreScreen() {
       </View>
 
       <Text style={styles.footer}>트라이밸리 장로교회{'\n'}Tri-Valley Presbyterian Church</Text>
+
+      <Pressable style={styles.adminLink} onPress={() => router.push('/admin')} hitSlop={8}>
+        <Text style={styles.adminLinkText}>교역자 · 관리자</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -182,4 +186,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.faint,
   },
+  adminLink: { alignSelf: 'center', marginTop: 10, padding: 6 },
+  adminLinkText: { fontFamily: font.medium, fontSize: 11.5, color: colors.faint2 },
 });
