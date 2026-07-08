@@ -35,10 +35,20 @@ export default function MoreScreen() {
   const onMenu = (key: (typeof MENU)[number]['key']) => {
     if (key === 'share') {
       Share.share({
-        message: '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요. Faith. Every Day.',
+        message:
+          '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요. Faith. Every Day.\nhttps://happytvpc.web.app',
       }).catch(() => {});
+      return;
     }
-    // 나머지 정적 페이지는 교회 콘텐츠 확정 후 연결
+    const pages: Record<string, string> = {
+      about: 'about',
+      staff: 'staff',
+      newcomer: 'newcomer',
+      service: 'worship',
+      direction: 'directions',
+      contact: 'contact',
+    };
+    router.push(`/info/${pages[key]}`);
   };
 
   return (

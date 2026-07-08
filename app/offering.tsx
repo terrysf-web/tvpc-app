@@ -89,7 +89,7 @@ export default function OfferingScreen() {
         </View>
 
         <Text style={styles.note}>
-          헌금 내역은 재정부 확인 후 반영됩니다. 문의: 재정부 (finance@tvpc.org)
+          헌금 내역은 재정부 확인 후 반영됩니다. 문의: 교회 사무실 925-227-0880
         </Text>
       </ScrollView>
     </View>
