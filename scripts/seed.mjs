@@ -79,9 +79,7 @@ const news = {
   'news-5': { category: 'notice', title: '새가족부 여름 환영 모임 안내', date: '2026-06-25', imageUrl: null },
 };
 
-const events = {
-  'event-1': { dateLabel: '05.22 금요일', title: '금요찬양예배', detail: '오후 8:00 · 본당', imageUrl: null },
-};
+const events = {}; // 실제 일정은 Firebase 콘솔에서 events 컬렉션에 추가
 
 const prayers = {
   'prayer-1': { category: 'family', answered: false, text: '아버지 수술이 다음 주로 잡혔습니다. 수술이 잘 되고 회복이 빠르도록, 가족 모두가 평안 가운데 기다릴 수 있도록 기도 부탁드립니다.', authorName: '김성실', createdAt: Date.now() - 7200000, prayCount: 12 },

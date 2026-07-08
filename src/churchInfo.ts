@@ -16,7 +16,7 @@ export const churchInfo = {
   /** 예배 시간 — 교회 공지 기준으로 수정하세요 */
   services: [
     { name: '주일예배 1부', time: '주일 오전 9:00', place: '본당 · 온라인 병행' },
-    { name: '주일예배 2부', time: '주일 오전 11:15', place: '본당 · 온라인 병행' },
+    { name: '주일예배 2부', time: '주일 오전 11:00', place: '본당 · 온라인 병행' },
     { name: '새벽기도회', time: '화–토 오전 6:00', place: '소예배실' },
     { name: '금요성령집회', time: '금요일 오후 8:00', place: '본당' },
   ],

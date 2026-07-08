@@ -154,15 +154,7 @@ export const sampleNews: NewsDoc[] = [
   },
 ];
 
-export const sampleEvents: EventDoc[] = [
-  {
-    id: 'event-1',
-    dateLabel: '05.22 금요일',
-    title: '금요찬양예배',
-    detail: '오후 8:00 · 본당',
-    imageUrl: null,
-  },
-];
+export const sampleEvents: EventDoc[] = [];
 
 export const samplePrayers: PrayerDoc[] = [
   {
