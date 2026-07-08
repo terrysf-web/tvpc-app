@@ -64,11 +64,11 @@ const verses = {
 };
 
 const sermons = {
-  'sermon-1': { title: '담장을 넘어 Over the Wall', subtitle: '창세기 시리즈 #5', preacher: '김요셉 담임목사', scripture: '창세기 49:22–26', date: '2026-06-28', service: '주일 1부 예배', duration: '38:45', series: '창세기 시리즈', youtubeId: null, imageUrl: null, featured: true },
-  'sermon-2': { title: '광야에서 만나는 하나님', subtitle: '창세기 시리즈 #4', preacher: '김요셉 담임목사', scripture: '창세기 16:7–14', date: '2026-06-21', service: '주일 1부 예배', duration: '41:12', series: '창세기 시리즈', youtubeId: null, imageUrl: null },
-  'sermon-3': { title: '벧엘로 올라가자', subtitle: '창세기 시리즈 #3', preacher: '김요셉 담임목사', scripture: '창세기 35:1–7', date: '2026-06-14', service: '주일 1부 예배', duration: '36:03', series: '창세기 시리즈', youtubeId: null, imageUrl: null },
+  'sermon-1': { title: '담장을 넘어 Over the Wall', subtitle: '창세기 시리즈 #5', preacher: '허성영 담임목사', scripture: '창세기 49:22–26', date: '2026-06-28', service: '주일 1부 예배', duration: '38:45', series: '창세기 시리즈', youtubeId: null, imageUrl: null, featured: true },
+  'sermon-2': { title: '광야에서 만나는 하나님', subtitle: '창세기 시리즈 #4', preacher: '허성영 담임목사', scripture: '창세기 16:7–14', date: '2026-06-21', service: '주일 1부 예배', duration: '41:12', series: '창세기 시리즈', youtubeId: null, imageUrl: null },
+  'sermon-3': { title: '벧엘로 올라가자', subtitle: '창세기 시리즈 #3', preacher: '허성영 담임목사', scripture: '창세기 35:1–7', date: '2026-06-14', service: '주일 1부 예배', duration: '36:03', series: '창세기 시리즈', youtubeId: null, imageUrl: null },
   'sermon-4': { title: '두려워하지 말라', subtitle: '수요기도회 말씀', preacher: '박은혜 부목사', scripture: '이사야 41:10', date: '2026-06-10', service: '수요기도회', duration: '28:30', series: '이사야 묵상', youtubeId: null, imageUrl: null },
-  'sermon-5': { title: '기쁨의 회복', subtitle: '금요찬양예배 말씀', preacher: '김요셉 담임목사', scripture: '빌립보서 4:4–7', date: '2026-06-05', service: '금요찬양예배', duration: '32:18', series: '빌립보서 강해', youtubeId: null, imageUrl: null },
+  'sermon-5': { title: '기쁨의 회복', subtitle: '금요찬양예배 말씀', preacher: '허성영 담임목사', scripture: '빌립보서 4:4–7', date: '2026-06-05', service: '금요찬양예배', duration: '32:18', series: '빌립보서 강해', youtubeId: null, imageUrl: null },
 };
 
 const news = {

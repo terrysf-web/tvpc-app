@@ -23,7 +23,7 @@ export const churchInfo = {
   ],
 
   /** 교역자 — 교회 확인 후 업데이트하세요 */
-  staff: [{ role: '담임목사', name: '강충욱 목사' }],
+  staff: [{ role: '담임목사', name: '허성영 목사' }],
 
   newcomer: [
     '주일예배 후 새가족부에서 등록 안내를 도와드립니다.',
