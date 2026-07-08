@@ -21,6 +21,20 @@ if (!saRaw) {
 initializeApp({ credential: cert(JSON.parse(saRaw)) });
 const db = getFirestore();
 
+// 초기 시드 때 들어간 가짜 샘플 데이터 — 발견 시 삭제
+const LEGACY_SAMPLES = [
+  'events/event-1',
+  'news/news-1', 'news/news-2', 'news/news-3', 'news/news-4', 'news/news-5',
+  'prayers/prayer-1', 'prayers/prayer-2', 'prayers/prayer-3', 'prayers/prayer-4', 'prayers/prayer-5',
+];
+for (const path of LEGACY_SAMPLES) {
+  const ref = db.doc(path);
+  if ((await ref.get()).exists) {
+    await ref.delete();
+    console.log(`  – 샘플 삭제: ${path}`);
+  }
+}
+
 const COLLECTIONS = ['verses', 'news', 'events'];
 let total = 0;
 

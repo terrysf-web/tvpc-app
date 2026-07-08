@@ -116,93 +116,11 @@ export const sampleSermons: SermonDoc[] = [
   },
 ];
 
-export const sampleNews: NewsDoc[] = [
-  {
-    id: 'news-1',
-    category: 'notice',
-    title: '2026 하반기 제자훈련 수강생 모집',
-    date: '2026-07-03',
-    imageUrl: null,
-  },
-  {
-    id: 'news-2',
-    category: 'event',
-    title: '전교인 여름 수련회 등록 안내 (8/14–16)',
-    date: '2026-07-01',
-    imageUrl: null,
-  },
-  {
-    id: 'news-3',
-    category: 'notice',
-    title: '7월 둘째 주 주보가 업로드되었습니다',
-    date: '2026-06-30',
-    imageUrl: null,
-  },
-  {
-    id: 'news-4',
-    category: 'event',
-    title: '금요찬양예배 — 찬양팀과 함께하는 밤',
-    date: '2026-06-27',
-    imageUrl: null,
-  },
-  {
-    id: 'news-5',
-    category: 'notice',
-    title: '새가족부 여름 환영 모임 안내',
-    date: '2026-06-25',
-    imageUrl: null,
-  },
-];
+export const sampleNews: NewsDoc[] = [];
 
 export const sampleEvents: EventDoc[] = [];
 
-export const samplePrayers: PrayerDoc[] = [
-  {
-    id: 'prayer-1',
-    category: 'family',
-    answered: false,
-    text: '아버지 수술이 다음 주로 잡혔습니다. 수술이 잘 되고 회복이 빠르도록, 가족 모두가 평안 가운데 기다릴 수 있도록 기도 부탁드립니다.',
-    authorName: '김성실',
-    createdAt: Date.now() - 1000 * 60 * 60 * 2,
-    prayCount: 12,
-  },
-  {
-    id: 'prayer-2',
-    category: 'work',
-    answered: false,
-    text: '이번 달 말 중요한 이직 면접이 있습니다. 하나님이 예비하신 자리라면 담대함을 주시고, 결과에 순종할 수 있는 마음을 주시도록 기도해 주세요.',
-    authorName: '이믿음',
-    createdAt: Date.now() - 1000 * 60 * 60 * 8,
-    prayCount: 7,
-  },
-  {
-    id: 'prayer-3',
-    category: 'health',
-    answered: false,
-    text: '어머니가 오랜 불면으로 힘들어하십니다. 몸과 마음이 쉼을 얻고 주님 주시는 평안으로 잠들 수 있도록 함께 기도해 주세요.',
-    authorName: '박소망',
-    createdAt: Date.now() - 1000 * 60 * 60 * 26,
-    prayCount: 15,
-  },
-  {
-    id: 'prayer-4',
-    category: 'answered',
-    answered: true,
-    text: '취업을 위해 기도 부탁드렸던 지체입니다. 지난주 최종 합격 소식을 받았습니다! 함께 기도해 주신 모든 분들께 감사드리며 하나님께 영광 돌립니다.',
-    authorName: '최은혜',
-    createdAt: Date.now() - 1000 * 60 * 60 * 72,
-    prayCount: 31,
-  },
-  {
-    id: 'prayer-5',
-    category: 'answered',
-    answered: true,
-    text: '동생의 건강 검진 결과가 걱정과 달리 깨끗하게 나왔습니다. 기도해 주신 성도님들 감사합니다. 하나님의 선하심을 찬양합니다.',
-    authorName: '정평안',
-    createdAt: Date.now() - 1000 * 60 * 60 * 120,
-    prayCount: 24,
-  },
-];
+export const samplePrayers: PrayerDoc[] = [];
 
 export const sampleOfferings: OfferingRecord[] = [
   { id: 'off-1', item: '주정헌금', date: '2026-06-28', amount: '$100' },

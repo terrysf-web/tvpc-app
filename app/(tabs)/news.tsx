@@ -35,6 +35,9 @@ export default function NewsScreen() {
       <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {filtered.length === 0 && (
+          <Text style={styles.empty}>등록된 소식이 아직 없습니다.</Text>
+        )}
         {filtered.map((n) => (
           <Pressable key={n.id} style={[styles.card, shadows.card]}>
             <View style={styles.textCol}>
@@ -64,6 +67,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: font.bold, fontSize: 17, color: colors.title },
   content: { padding: 16, gap: 12, paddingBottom: 28 },
+  empty: {
+    textAlign: 'center',
+    marginTop: 48,
+    fontFamily: font.regular,
+    fontSize: 13.5,
+    color: colors.faint,
+  },
 
   card: {
     flexDirection: 'row',
