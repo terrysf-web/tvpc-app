@@ -10,13 +10,18 @@ import { openExternal, sermonThumb, sermonVideoUrl } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import type { SermonDoc } from '../../src/types';
 
-type SermonTab = 'recent' | 'series' | 'topic';
+type SermonTab = 'recent' | 'topic' | 'podcast';
 
 const TABS: { key: SermonTab; label: string }[] = [
   { key: 'recent', label: '최근 설교' },
-  { key: 'series', label: '시리즈' },
   { key: 'topic', label: '말씀별' },
+  { key: 'podcast', label: '팟캐스트' },
 ];
+
+/** 카테고리 없으면 설교로 간주 (구버전 데이터·샘플 호환) */
+export function isSermon(s: SermonDoc): boolean {
+  return (s.category ?? 'sermon') === 'sermon';
+}
 
 function openSermon(s: SermonDoc) {
   // 개별 영상 ID가 있으면 해당 영상, 없으면 교회 유튜브 채널로
@@ -28,25 +33,33 @@ function fmtDate(d: string): string {
   return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+/** "시편 23:1–6" → "시편" */
+function scriptureBook(scripture: string): string {
+  const book = scripture.replace(/\s*\d.*$/, '').trim();
+  return book || '기타';
+}
+
 export default function SermonScreen() {
   const insets = useSafeAreaInsets();
-  const { sermons } = useSermons();
+  const { sermons: all } = useSermons();
   const [tab, setTab] = useState<SermonTab>('recent');
+
+  // 설교 탭·말씀별 탭에는 설교만, 팟캐스트는 별도. 찬양·기타 영상은 표시하지 않음
+  const sermons = all.filter(isSermon);
+  const podcasts = all.filter((s) => s.category === 'podcast');
 
   const featured = sermons.find((s) => s.featured) ?? sermons[0];
   const rest = sermons.filter((s) => s !== featured);
 
-  /** 시리즈/말씀별 탭 — 그룹 헤더로 묶어서 표시 */
+  /** 말씀별 탭 — 성경책별 그룹 */
   const grouped = useMemo(() => {
-    if (tab === 'recent') return null;
-    const keyOf = (s: SermonDoc) =>
-      tab === 'series' ? s.series : s.scripture.split(' ')[0] || '기타';
+    if (tab !== 'topic') return null;
     const map = new Map<string, SermonDoc[]>();
     for (const s of sermons) {
-      const k = keyOf(s);
+      const k = scriptureBook(s.scripture);
       map.set(k, [...(map.get(k) ?? []), s]);
     }
-    return [...map.entries()];
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
   }, [tab, sermons]);
 
   const listItem = (s: SermonDoc) => (
@@ -105,6 +118,9 @@ export default function SermonScreen() {
         )}
 
         {tab === 'recent' && rest.map(listItem)}
+        {tab === 'recent' && sermons.length === 0 && (
+          <Text style={styles.empty}>등록된 설교가 아직 없습니다.</Text>
+        )}
 
         {grouped?.map(([group, items]) => (
           <View key={group}>
@@ -112,6 +128,11 @@ export default function SermonScreen() {
             {items.map(listItem)}
           </View>
         ))}
+
+        {tab === 'podcast' && podcasts.map(listItem)}
+        {tab === 'podcast' && podcasts.length === 0 && (
+          <Text style={styles.empty}>등록된 말씀 팟캐스트가 아직 없습니다.</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -161,6 +182,13 @@ const styles = StyleSheet.create({
     ...textShadow,
   },
 
+  empty: {
+    textAlign: 'center',
+    marginTop: 48,
+    fontFamily: font.regular,
+    fontSize: 13.5,
+    color: colors.faint,
+  },
   groupTitle: {
     fontFamily: font.extraBold,
     fontSize: 14,

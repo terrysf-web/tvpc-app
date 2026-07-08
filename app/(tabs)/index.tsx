@@ -32,7 +32,9 @@ export default function HomeScreen() {
   const { events } = useEvents();
   const { sermons } = useSermons();
 
-  const featured = sermons.find((s) => s.featured) ?? sermons[0];
+  // 홈 최근 설교 카드에는 실제 설교만 (팟캐스트·찬양 영상 제외)
+  const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
+  const featured = onlySermons.find((s) => s.featured) ?? onlySermons[0];
   const nextEvent = events[0];
 
   const quickMenu = [

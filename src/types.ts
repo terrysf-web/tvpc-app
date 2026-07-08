@@ -15,8 +15,12 @@ export interface VerseDoc {
   imageUrl?: string | null;
 }
 
+export type SermonCategory = 'sermon' | 'podcast' | 'praise' | 'etc';
+
 export interface SermonDoc {
   id: string;
+  /** 자동 분류 — 없으면 'sermon'으로 간주 */
+  category?: SermonCategory;
   title: string;
   subtitle: string;
   preacher: string;

@@ -65,12 +65,51 @@ function parseFeed(xml) {
   return entries;
 }
 
+/**
+ * 영상 제목 파싱·분류.
+ * 채널 제목 관례:
+ *   "[07/05/2026] 주님은 언제나 선하시다 (시편 23:6)"  → 설교 (날짜·구절 분리)
+ *   "[말씀 팟캐스트] 선택"                              → 팟캐스트
+ *   "…찬양/워십/찬송가…"                                → 찬양
+ *   "…선교영상…"                                       → 기타
+ */
+function parseVideo(rawTitle, published) {
+  let title = rawTitle.trim();
+  let category = 'sermon';
+  let date = published.slice(0, 10);
+  let scripture = '';
+
+  if (/\[?\s*말씀\s*팟캐스트\s*\]?/.test(title)) {
+    category = 'podcast';
+    title = title.replace(/^\[?\s*말씀\s*팟캐스트\s*\]?\s*/, '').trim();
+  } else if (/찬양|워십|찬송가|특송|성가|hymn|worship|praise/i.test(title)) {
+    category = 'praise';
+  } else if (/선교영상|광고|안내영상|스케치|하이라이트/.test(title)) {
+    category = 'etc';
+  }
+
+  // 날짜 프리픽스 [MM/DD/YYYY]
+  const dm = title.match(/^\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]\s*/);
+  if (dm) {
+    date = `${dm[3]}-${dm[1].padStart(2, '0')}-${dm[2].padStart(2, '0')}`;
+    title = title.slice(dm[0].length).trim();
+  }
+
+  // 성경구절 접미 "(시편 23:6)" — 숫자가 포함된 괄호만
+  const sm = title.match(/\(([^()]*\d[^()]*)\)\s*$/);
+  if (sm) {
+    scripture = sm[1].trim();
+    title = title.slice(0, sm.index).trim();
+  }
+
+  return { title, category, date, scripture };
+}
+
 /** 제목 키워드로 예배 종류 분류 */
 function classify(title) {
   if (/금요|성령집회/.test(title)) return '금요성령집회';
   if (/수요/.test(title)) return '수요예배';
   if (/새벽/.test(title)) return '새벽기도회';
-  if (/찬양|특송|성가/.test(title)) return '찬양';
   return '주일예배';
 }
 
@@ -87,25 +126,29 @@ if (videos.length === 0) {
   process.exit(0);
 }
 
+const LABEL = { sermon: '설교', podcast: '팟캐스트', praise: '찬양', etc: '기타' };
+
 let wrote = 0;
 for (const v of videos) {
-  const service = classify(v.title);
+  const p = parseVideo(v.title, v.published);
+  const service = p.category === 'sermon' ? classify(v.title) : LABEL[p.category];
   await db.doc(`sermons/yt-${v.id}`).set(
     {
-      title: v.title,
+      category: p.category,
+      title: p.title,
       subtitle: service,
-      preacher: PREACHER_DEFAULT,
-      scripture: '',
-      date: v.published.slice(0, 10),
+      preacher: p.category === 'sermon' || p.category === 'podcast' ? PREACHER_DEFAULT : '',
+      scripture: p.scripture,
+      date: p.date,
       service,
       duration: '',
-      series: service,
+      series: p.scripture ? p.scripture.replace(/\s*\d.*$/, '') : service,
       youtubeId: v.id,
       imageUrl: null,
     },
     { merge: true },
   );
-  console.log(`  ✓ ${v.published.slice(0, 10)}  ${v.title}`);
+  console.log(`  ✓ [${LABEL[p.category]}] ${p.date}  ${p.title}${p.scripture ? ` (${p.scripture})` : ''}`);
   wrote++;
 }
 
