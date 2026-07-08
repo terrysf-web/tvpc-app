@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useSermons } from '../../src/data/hooks';
-import { openExternal, sermonThumb, sermonVideoUrl } from '../../src/links';
+import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import type { SermonDoc } from '../../src/types';
 
@@ -23,10 +23,7 @@ export function isSermon(s: SermonDoc): boolean {
   return (s.category ?? 'sermon') === 'sermon';
 }
 
-function openSermon(s: SermonDoc) {
-  // 개별 영상 ID가 있으면 해당 영상, 없으면 교회 유튜브 채널로
-  openExternal(sermonVideoUrl(s));
-}
+
 
 function fmtDate(d: string): string {
   const dt = new Date(d + 'T00:00:00');
@@ -63,7 +60,7 @@ export default function SermonScreen() {
   }, [tab, sermons]);
 
   const listItem = (s: SermonDoc) => (
-    <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => openSermon(s)}>
+    <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => playSermon(s)}>
       <PhotoSlot uri={sermonThumb(s)} tone="deep" style={styles.thumb}>
         {s.duration ? (
           <View style={styles.thumbBadge}>
@@ -97,7 +94,7 @@ export default function SermonScreen() {
           <View style={[styles.featuredWrap, shadows.imageCard]}>
             <PhotoSlot uri={sermonThumb(featured)} tone="deep" style={styles.featured}>
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
-              <Pressable style={styles.playBtn} onPress={() => openSermon(featured)} hitSlop={8}>
+              <Pressable style={styles.playBtn} onPress={() => playSermon(featured)} hitSlop={8}>
                 <Play size={22} color={colors.primary} fill={colors.primary} strokeWidth={0} />
               </Pressable>
               {featured.duration ? (

@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import type { SermonDoc } from './types';
@@ -14,6 +15,21 @@ export function openExternal(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer');
   } else {
     WebBrowser.openBrowserAsync(url).catch(() => {});
+  }
+}
+
+/**
+ * 설교 영상 재생 — youtubeId가 있으면 앱 내 재생 화면(/watch)으로 이동
+ * (외부 탭이 남지 않음). 없으면 교회 채널로.
+ */
+export function playSermon(s: SermonDoc) {
+  if (s.youtubeId) {
+    router.push({
+      pathname: '/watch',
+      params: { v: s.youtubeId, t: s.title },
+    });
+  } else {
+    openExternal(YOUTUBE_CHANNEL_URL);
   }
 }
 

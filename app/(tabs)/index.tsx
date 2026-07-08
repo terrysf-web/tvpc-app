@@ -8,7 +8,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useUser } from '../../src/data/user';
-import { sermonThumb } from '../../src/links';
+import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
 function greeting(): string {
@@ -164,7 +164,7 @@ export default function HomeScreen() {
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               <Pressable
                 style={styles.playBtn}
-                onPress={() => router.push('/sermon')}
+                onPress={() => playSermon(featured)}
                 hitSlop={8}
               >
                 <Play size={20} color={colors.primary} fill={colors.primary} strokeWidth={0} />
