@@ -52,6 +52,7 @@ jobs:
 
       - name: Deploy Firestore rules
         if: env.skip != 'true'
+        continue-on-error: true  # 서비스 계정 권한 부족 시 실패해도 호스팅 배포는 유지
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
