@@ -8,7 +8,8 @@
  * 로컬 실행:
  *   FIREBASE_SERVICE_ACCOUNT="$(cat serviceAccount.json)" node scripts/sync-sermons.mjs
  */
-import admin from 'firebase-admin';
+import { cert, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const CHANNEL_HANDLE = process.env.CHANNEL_HANDLE || '@tri-valley';
 const MAX_VIDEOS = Number(process.env.MAX_VIDEOS || 15);
@@ -21,8 +22,8 @@ if (!saRaw) {
 }
 const serviceAccount = JSON.parse(saRaw);
 
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
+initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore();
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
