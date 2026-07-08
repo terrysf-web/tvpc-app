@@ -53,19 +53,21 @@ export default function SermonScreen() {
   const listItem = (s: SermonDoc) => (
     <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => openSermon(s)}>
       <PhotoSlot uri={sermonThumb(s)} tone="deep" style={styles.thumb}>
-        <View style={styles.thumbBadge}>
-          <Text style={styles.thumbBadgeText}>{s.duration}</Text>
-        </View>
+        {s.duration ? (
+          <View style={styles.thumbBadge}>
+            <Text style={styles.thumbBadgeText}>{s.duration}</Text>
+          </View>
+        ) : null}
       </PhotoSlot>
       <View style={{ flex: 1 }}>
-        <Text style={styles.itemTitle} numberOfLines={1}>
+        <Text style={styles.itemTitle} numberOfLines={2}>
           {s.title}
         </Text>
         <Text style={styles.itemMeta} numberOfLines={1}>
-          {s.scripture} · {fmtDate(s.date)}
+          {[s.scripture, fmtDate(s.date)].filter(Boolean).join(' · ')}
         </Text>
         <Text style={styles.itemMeta2} numberOfLines={1}>
-          {s.service} · {s.preacher}
+          {[s.service, s.preacher].filter(Boolean).join(' · ')}
         </Text>
       </View>
     </Pressable>
@@ -86,13 +88,17 @@ export default function SermonScreen() {
               <Pressable style={styles.playBtn} onPress={() => openSermon(featured)} hitSlop={8}>
                 <Play size={22} color={colors.primary} fill={colors.primary} strokeWidth={0} />
               </Pressable>
-              <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>{featured.duration}</Text>
-              </View>
+              {featured.duration ? (
+                <View style={styles.durationBadge}>
+                  <Text style={styles.durationText}>{featured.duration}</Text>
+                </View>
+              ) : null}
               <View style={styles.featuredBottom}>
-                <Text style={styles.featuredTitle}>{featured.title}</Text>
+                <Text style={styles.featuredTitle} numberOfLines={2}>
+                  {featured.title}
+                </Text>
                 <Text style={styles.featuredMeta}>
-                  {featured.subtitle} · {featured.preacher}
+                  {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
                 </Text>
               </View>
             </PhotoSlot>

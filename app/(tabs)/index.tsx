@@ -168,9 +168,11 @@ export default function HomeScreen() {
                 <Play size={20} color={colors.primary} fill={colors.primary} strokeWidth={0} />
               </Pressable>
               <View style={styles.sermonBottom}>
-                <Text style={styles.sermonTitle}>{featured.title}</Text>
+                <Text style={styles.sermonTitle} numberOfLines={2}>
+                  {featured.title}
+                </Text>
                 <Text style={styles.sermonMeta}>
-                  {featured.subtitle} · {featured.preacher}
+                  {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
                 </Text>
               </View>
             </PhotoSlot>

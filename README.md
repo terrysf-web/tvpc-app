@@ -81,6 +81,16 @@ npm run deploy:rules                      # Firestore 보안 규칙 배포
 
 콘텐츠 관리는 Firebase 콘솔에서 문서를 직접 추가/수정하면 앱에 실시간 반영됩니다(onSnapshot 구독).
 
+### 설교 자동 동기화 (유튜브 → 앱)
+
+`.github/workflows/sync-sermons.yml`이 매일 유튜브 채널(@tri-valley)의 새 영상을
+읽어 `sermons` 컬렉션에 자동 등록합니다 (썸네일·재생 링크 자동, API 키 불필요).
+
+활성화(1회): Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → **새 비공개 키 생성** →
+받은 JSON 전체를 GitHub 레포 Settings → Secrets → Actions에
+`FIREBASE_SERVICE_ACCOUNT` 이름으로 등록. 이후 Actions 탭에서 "Run workflow"로
+즉시 실행해 확인할 수 있습니다. 첫 동기화 성공 시 샘플 설교(sermon-1..5)는 자동 삭제됩니다.
+
 ### 월 고정비를 0으로 유지하는 설계 (핸드오프 문서 권장사항)
 
 - 설교 영상은 **YouTube**에 두고 `youtubeId`만 저장 → 스토리지/대역폭 비용 없음
