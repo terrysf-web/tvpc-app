@@ -133,13 +133,74 @@ console.log('[소식] RSS 소스 탐색:');
 // 주의: pleasantonkorean.com(옛 도메인)은 스팸 사이트로 넘어가 절대 사용 금지
 // 참고: /xe/ 게시판은 현재 서버 오류(PHP 미실행)로 응답 불가 — 복구되면 다시 시도됨
 const newsSources = [
-  'https://tvpc.church/wp/feed/',
-  'https://tvpc.church/wp/?feed=rss2',
   'https://tvpc.church/xe/index.php?mid=Bulletin&act=rss',
-  'https://tvpc.church/xe/Bulletin/rss',
 ];
+
+/** 워드프레스 목록 페이지(주보 등) HTML 파싱 — <article> 블록별 제목 링크 + 날짜 */
+function parseWpList(html, origin) {
+  const items = [];
+  const seen = new Set();
+  for (const block of html.split(/<article[\s>]/).slice(1)) {
+    // 제목 링크: h1~h3 .entry-title 안의 앵커 우선, 없으면 텍스트 있는 첫 앵커
+    let a =
+      block.match(/<h\d[^>]*class="[^"]*title[^"]*"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/) ||
+      block.match(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?[가-힣A-Za-z0-9][\s\S]*?)<\/a>/);
+    if (!a) continue;
+    let href = a[1];
+    if (href.startsWith('/')) href = origin + href;
+    if (!href.startsWith('http')) continue;
+    const title = unescape(a[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    if (title.length < 3 || seen.has(href)) continue;
+    seen.add(href);
+    const dm =
+      block.match(/datetime="(\d{4})-(\d{2})-(\d{2})/) ||
+      block.match(/(\d{4})[.\-\/년\s]+(\d{1,2})[.\-\/월\s]+(\d{1,2})/);
+    const date = dm ? new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3])) : null;
+    items.push({ title, link: href, date });
+  }
+  return items;
+}
 let newsItems = [];
-for (const url of newsSources) {
+
+// 1순위: 주보/공지 페이지(워드프레스) HTML
+for (const url of [
+  'https://tvpc.church/wp/ko/anouncement/',
+  'https://tvpc.church/wp/ko/announcement/',
+]) {
+  const html = await tryFetch(url);
+  if (!html) continue;
+  const items = parseWpList(html, 'https://tvpc.church');
+  if (items.length) {
+    newsItems = items;
+    console.log(`  → ${url} 에서 ${items.length}건 파싱 성공`);
+    break;
+  }
+  const arts = (html.match(/<article[\s>]/g) || []).length;
+  console.log(`  → 게시글을 찾지 못함 (article ${arts}개). 앞부분: ${html.slice(0, 300).replace(/\s+/g, ' ')}`);
+}
+
+// 2순위: 워드프레스 REST API
+if (newsItems.length === 0) {
+  const body = await tryFetch(
+    'https://tvpc.church/wp/wp-json/wp/v2/posts?per_page=12&_fields=date,link,title',
+  );
+  if (body) {
+    try {
+      const posts = JSON.parse(body);
+      newsItems = posts.map((p) => ({
+        title: unescape((p.title?.rendered ?? '').replace(/<[^>]+>/g, ' ')).trim(),
+        link: p.link,
+        date: p.date ? new Date(p.date) : null,
+      })).filter((p) => p.title);
+      if (newsItems.length) console.log(`  → WP REST API에서 ${newsItems.length}건 파싱 성공`);
+    } catch {
+      console.log(`  → REST 응답이 JSON 아님. 앞부분: ${body.slice(0, 150).replace(/\s+/g, ' ')}`);
+    }
+  }
+}
+
+// 3순위: XE 게시판 RSS (복구 시 자동 재개)
+if (newsItems.length === 0) for (const url of newsSources) {
   const body = await tryFetch(url);
   if (!body) continue;
   const items = parseRss(body);
@@ -148,7 +209,7 @@ for (const url of newsSources) {
     console.log(`  → ${url} 에서 ${items.length}건 파싱 성공`);
     break;
   }
-  console.log(`  → 응답은 있으나 RSS item 없음. 앞부분: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
+  console.log(`  → 응답은 있으나 RSS item 없음`);
 }
 
 // RSS가 없으면 게시판 목록 HTML을 직접 파싱
