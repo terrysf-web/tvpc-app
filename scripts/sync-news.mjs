@@ -79,7 +79,8 @@ function parseXeBoard(html, origin) {
   for (const row of html.split(/<tr[\s>]/).slice(1)) {
     const a = row.match(/<a\s+href="([^"]*(?:Bulletin\/\d+|document_srl=\d+)[^"]*)"[^>]*>([\s\S]*?)<\/a>/);
     if (!a) continue;
-    const href = a[1].startsWith('http') ? a[1] : origin + (a[1].startsWith('/') ? '' : '/') + a[1];
+    const raw = unescape(a[1]);
+    const href = raw.startsWith('http') ? raw : origin + (raw.startsWith('/') ? '' : '/') + raw;
     const title = unescape(a[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
     if (title.length < 2 || seen.has(href)) continue;
     seen.add(href);
@@ -148,7 +149,7 @@ function parseWpList(html, origin) {
       block.match(/<h\d[^>]*class="[^"]*title[^"]*"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/) ||
       block.match(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?[가-힣A-Za-z0-9][\s\S]*?)<\/a>/);
     if (!a) continue;
-    let href = a[1];
+    let href = unescape(a[1]);
     if (href.startsWith('/')) href = origin + href;
     if (!href.startsWith('http')) continue;
     const title = unescape(a[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
