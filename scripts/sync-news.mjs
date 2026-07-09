@@ -52,6 +52,8 @@ const unescape = (s) =>
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#0?39;/g, "'")
+    .replace(/&#0?38;/g, '&')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/&nbsp;/g, ' ')
     .trim();
 
@@ -226,6 +228,15 @@ if (newsItems.length === 0) {
     }
     const rows = (html.match(/<tr[\s>]/g) || []).length;
     console.log(`  → 게시글을 찾지 못함 (tr ${rows}개). 앞부분: ${html.slice(0, 300).replace(/\s+/g, ' ')}`);
+  }
+}
+
+// 엔티티가 깨진 링크(&#038;)로 저장된 옛 문서 정리
+const badNews = await db.collection('news').get();
+for (const snap of badNews.docs) {
+  if (snap.id.startsWith('web-') && String(snap.get('url') ?? '').includes('#038;')) {
+    await snap.ref.delete();
+    console.log(`  – 깨진 링크 문서 삭제: ${snap.get('title')}`);
   }
 }
 
