@@ -70,6 +70,24 @@ function parseRss(xml) {
   return items;
 }
 
+/** XE 게시판 목록 HTML 파싱 — 행(tr) 단위로 제목 링크 + 날짜 추출 */
+function parseXeBoard(html, origin) {
+  const items = [];
+  const seen = new Set();
+  for (const row of html.split(/<tr[\s>]/).slice(1)) {
+    const a = row.match(/<a\s+href="([^"]*(?:Bulletin\/\d+|document_srl=\d+)[^"]*)"[^>]*>([\s\S]*?)<\/a>/);
+    if (!a) continue;
+    const href = a[1].startsWith('http') ? a[1] : origin + (a[1].startsWith('/') ? '' : '/') + a[1];
+    const title = unescape(a[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    if (title.length < 2 || seen.has(href)) continue;
+    seen.add(href);
+    const dm = row.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+    const date = dm ? new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3])) : null;
+    items.push({ title, link: href, date });
+  }
+  return items;
+}
+
 /** iCal VEVENT 파싱 (줄바꿈 접기 해제 포함) */
 function parseIcal(ics) {
   const unfolded = ics.replace(/\r?\n[ \t]/g, '');
@@ -112,11 +130,11 @@ const hash = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
 
 // ── 1. 소식 (XE 게시판 RSS) ────────────────────────────────────
 console.log('[소식] RSS 소스 탐색:');
+// 주의: pleasantonkorean.com(옛 도메인)은 스팸 사이트로 넘어가 절대 사용 금지
 const newsSources = [
-  'https://tvpc.church/xe/index.php?module=rss&mid=Bulletin',
-  'https://tvpc.church/xe/?module=rss&mid=Bulletin',
-  'https://tvpc.church/xe/rss?mid=Bulletin',
-  'https://pleasantonkorean.com/xe/index.php?module=rss&mid=Bulletin',
+  'https://tvpc.church/xe/index.php?mid=Bulletin&act=rss',
+  'https://tvpc.church/xe/?mid=Bulletin&act=rss',
+  'https://tvpc.church/xe/Bulletin/rss',
 ];
 let newsItems = [];
 for (const url of newsSources) {
@@ -129,6 +147,23 @@ for (const url of newsSources) {
     break;
   }
   console.log(`  → 응답은 있으나 RSS item 없음. 앞부분: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
+}
+
+// RSS가 없으면 게시판 목록 HTML을 직접 파싱
+if (newsItems.length === 0) {
+  console.log('[소식] RSS 실패 — 게시판 HTML 파싱 시도:');
+  for (const url of ['https://tvpc.church/xe/Bulletin', 'https://tvpc.church/xe/?mid=Bulletin']) {
+    const html = await tryFetch(url);
+    if (!html) continue;
+    const items = parseXeBoard(html, 'https://tvpc.church');
+    if (items.length) {
+      newsItems = items;
+      console.log(`  → ${url} 에서 ${items.length}건 파싱 성공`);
+      break;
+    }
+    const rows = (html.match(/<tr[\s>]/g) || []).length;
+    console.log(`  → 게시글을 찾지 못함 (tr ${rows}개). 앞부분: ${html.slice(0, 300).replace(/\s+/g, ' ')}`);
+  }
 }
 
 let newsWrote = 0;
