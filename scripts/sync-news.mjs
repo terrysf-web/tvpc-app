@@ -232,6 +232,10 @@ if (newsItems.length === 0) {
 let newsWrote = 0;
 for (const it of newsItems.slice(0, MAX_NEWS)) {
   const date = it.date && !isNaN(it.date) ? ymd(it.date) : ymd(new Date());
+  // 주보 글 제목이 날짜뿐이면 알아보기 쉽게 "주보" 접두어
+  if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일$/.test(it.title)) {
+    it.title = `주보 · ${it.title}`;
+  }
   await db.doc(`news/web-${hash(it.link || it.title)}`).set(
     {
       title: it.title,
