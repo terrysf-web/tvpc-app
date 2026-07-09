@@ -246,7 +246,7 @@ for (const it of newsItems.slice(0, MAX_NEWS)) {
     },
     { merge: true },
   );
-  console.log(`  ✓ ${date}  ${it.title}`);
+  console.log(`  ✓ ${date}  ${it.title}\n      링크: ${it.link}`);
   newsWrote++;
 }
 
