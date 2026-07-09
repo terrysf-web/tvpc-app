@@ -1,0 +1,35 @@
+# 관리자(교역자) 계정 등록 — Actions 탭에서 "Run workflow"로 이메일·비밀번호 입력해 실행.
+# 선행 조건:
+#   - FIREBASE_SERVICE_ACCOUNT 시크릿 등록 (설교 동기화와 공용)
+#   - Firebase 콘솔 → Authentication → 로그인 방법 → "이메일/비밀번호" 사용 설정
+name: Make admin account
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: '관리자 이메일'
+        required: true
+      password:
+        description: '비밀번호 (6자 이상, 등록 후 변경 권장)'
+        required: true
+
+jobs:
+  make-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+
+      - name: Create admin
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_PASSWORD: ${{ inputs.password }}
+        run: node scripts/make-admin.mjs
