@@ -5,6 +5,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
 import { useNews } from '../../src/data/hooks';
+import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 
 type NewsTab = 'all' | 'notice' | 'event';
@@ -39,7 +40,11 @@ export default function NewsScreen() {
           <Text style={styles.empty}>등록된 소식이 아직 없습니다.</Text>
         )}
         {filtered.map((n) => (
-          <Pressable key={n.id} style={[styles.card, shadows.card]}>
+          <Pressable
+            key={n.id}
+            style={[styles.card, shadows.card]}
+            onPress={() => n.url && openExternal(n.url)}
+          >
             <View style={styles.textCol}>
               <Tag
                 label={n.category === 'notice' ? '공지' : '행사'}

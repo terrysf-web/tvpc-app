@@ -44,6 +44,8 @@ export interface NewsDoc {
   /** YYYY-MM-DD */
   date: string;
   imageUrl?: string | null;
+  /** 홈페이지 원문 링크 (홈페이지 동기화 소식) */
+  url?: string | null;
 }
 
 export interface EventDoc {
