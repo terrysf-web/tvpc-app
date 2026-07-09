@@ -131,9 +131,11 @@ const hash = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
 // ── 1. 소식 (XE 게시판 RSS) ────────────────────────────────────
 console.log('[소식] RSS 소스 탐색:');
 // 주의: pleasantonkorean.com(옛 도메인)은 스팸 사이트로 넘어가 절대 사용 금지
+// 참고: /xe/ 게시판은 현재 서버 오류(PHP 미실행)로 응답 불가 — 복구되면 다시 시도됨
 const newsSources = [
+  'https://tvpc.church/wp/feed/',
+  'https://tvpc.church/wp/?feed=rss2',
   'https://tvpc.church/xe/index.php?mid=Bulletin&act=rss',
-  'https://tvpc.church/xe/?mid=Bulletin&act=rss',
   'https://tvpc.church/xe/Bulletin/rss',
 ];
 let newsItems = [];
