@@ -1,0 +1,19 @@
+# 교회 웹사이트에서 옛 도메인(pleasantonkorean.com, 현재 스팸 사이트) 잔존 링크 스캔.
+# Actions 탭에서 수동 실행 — 결과는 실행 로그에 출력됨.
+name: Scan old domain on church website
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Scan
+        run: node scripts/scan-old-domain.mjs
