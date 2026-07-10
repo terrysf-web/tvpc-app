@@ -272,43 +272,60 @@ if (BACKFILL) {
     existing.add(snap.id);
   }
   const fresh = all.filter((v) => !existing.has(`yt-${v.id}`));
-  console.log(`신규 ${fresh.length}개 — 업로드 날짜 조회 중…`);
+  console.log(`신규 ${fresh.length}개 — 업로드 날짜 확인 중…`);
 
-  // 날짜는 20개씩 묶어서 조회
+  // 날짜 출처 우선순위: 제목 [MM/DD/YYYY] → RSS 피드(최근 15개) → 시청 페이지 HTML.
+  // 개별 영상 yt-dlp 조회는 봇 확인("Sign in to confirm…")에 막혀 쓰지 않는다.
+  const rssDates = new Map();
+  try {
+    const xml = await fetchText(
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
+    );
+    for (const e of parseFeed(xml)) rssDates.set(e.id, e.published.slice(0, 10));
+  } catch {
+    /* RSS 실패해도 다른 출처로 진행 */
+  }
+
+  const titleDate = (t) => {
+    const m = t.match(/\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]/);
+    return m ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : null;
+  };
+
   const dates = new Map();
-  for (let i = 0; i < fresh.length; i += 20) {
-    const chunk = fresh.slice(i, i + 20);
-    try {
-      const out = ytdlp([
-        '--skip-download',
-        '--ignore-errors',
-        '--print', '%(id)s\t%(upload_date)s',
-        ...chunk.map((v) => `https://www.youtube.com/watch?v=${v.id}`),
-      ]);
-      for (const line of out.split('\n')) {
-        const [id, d] = line.split('\t');
-        if (id && /^\d{8}$/.test(d || '')) {
-          dates.set(id, `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
-        }
-      }
-    } catch (e) {
-      // 일부 실패해도 stdout은 살아있는 경우가 많음
-      const out = String(e.stdout || '');
-      for (const line of out.split('\n')) {
-        const [id, d] = line.split('\t');
-        if (id && /^\d{8}$/.test(d || '')) {
-          dates.set(id, `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
-        }
+  let fromHtml = 0;
+  for (const v of fresh) {
+    const d = titleDate(v.title) || rssDates.get(v.id) || (await fetchUploadDate(v.id));
+    if (d) {
+      dates.set(v.id, d);
+      if (!titleDate(v.title) && !rssDates.has(v.id)) fromHtml += 1;
+    }
+  }
+  console.log(
+    `  날짜 확보 ${dates.size}/${fresh.length} (제목·RSS·페이지 ${fromHtml}건 포함)`,
+  );
+
+  // 남은 영상은 목록 순서(최신순)를 이용해 이웃 영상 날짜로 보간 — 정렬 유지 목적
+  let interpolated = 0;
+  let lastKnown = null;
+  const firstKnown = fresh.map((v) => dates.get(v.id)).find(Boolean) || null;
+  for (const v of fresh) {
+    if (dates.has(v.id)) {
+      lastKnown = dates.get(v.id);
+    } else {
+      const guess = lastKnown || firstKnown;
+      if (guess) {
+        dates.set(v.id, guess);
+        interpolated += 1;
       }
     }
-    console.log(`  …날짜 조회 ${Math.min(i + 20, fresh.length)}/${fresh.length}`);
   }
+  if (interpolated > 0) console.log(`  날짜 미상 ${interpolated}개는 이웃 영상 날짜로 보간`);
 
   videos = fresh
     .filter((v) => dates.has(v.id))
     .map((v) => ({ id: v.id, title: v.title, published: dates.get(v.id) }));
   const missed = fresh.length - videos.length;
-  if (missed > 0) console.log(`  ! 날짜 조회 실패 ${missed}개 건너뜀`);
+  if (missed > 0) console.log(`  ! 날짜를 정할 수 없는 ${missed}개 건너뜀`);
 } else {
   const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
   videos = parseFeed(xml)
