@@ -64,6 +64,15 @@ export default function CalendarScreen() {
     .filter(([d]) => d.startsWith(monthPrefix) && (!selected || d === selected))
     .sort(([a], [b]) => (a < b ? -1 : 1));
 
+  // 이번 달에 일정이 없으면 다가오는 일정 전체를 대신 보여준다 (빈 화면 방지)
+  const upcomingAll = [...byDate.entries()]
+    .filter(([d]) => d >= todayKey)
+    .sort(([a], [b]) => (a < b ? -1 : 1));
+  const showUpcoming = !selected && monthEvents.length === 0 && upcomingAll.length > 0;
+  const rows = showUpcoming ? upcomingAll : monthEvents;
+  const nextDate = upcomingAll[0]?.[0];
+  const nextInOtherMonth = !!nextDate && !nextDate.startsWith(monthPrefix);
+
   const move = (delta: number) => {
     const next = new Date(y, m + delta, 1);
     setCursor({ y: next.getFullYear(), m: next.getMonth() });
@@ -147,16 +156,38 @@ export default function CalendarScreen() {
               );
             })}
           </View>
+
+          {/* 이 달에 일정이 없으면 다음 일정 있는 달로 바로 이동 */}
+          {monthEvents.length === 0 && !selected && nextInOtherMonth && (
+            <Pressable
+              style={styles.jumpBtn}
+              onPress={() =>
+                setCursor({
+                  y: Number(nextDate.slice(0, 4)),
+                  m: Number(nextDate.slice(5, 7)) - 1,
+                })
+              }
+            >
+              <Text style={styles.jumpBtnText}>
+                다음 일정 {Number(nextDate.slice(5, 7))}월 {Number(nextDate.slice(8))}일 — 보러
+                가기 ›
+              </Text>
+            </Pressable>
+          )}
         </View>
 
-        {/* 해당 월(또는 선택한 날짜) 일정 목록 */}
+        {/* 해당 월(또는 선택한 날짜) 일정 목록 · 이 달에 없으면 다가오는 일정 전체 */}
         <Text style={styles.listTitle}>
-          {selected ? `${Number(selected.slice(8))}일 일정` : `${m + 1}월 일정`}
+          {selected
+            ? `${Number(selected.slice(8))}일 일정`
+            : showUpcoming
+              ? '다가오는 일정'
+              : `${m + 1}월 일정`}
         </Text>
-        {monthEvents.length === 0 && (
+        {rows.length === 0 && (
           <Text style={styles.empty}>등록된 일정이 없습니다.</Text>
         )}
-        {monthEvents.map(([d, list]) =>
+        {rows.map(([d, list]) =>
           list.map((e) => (
             <Pressable
               key={e.id}
@@ -166,7 +197,9 @@ export default function CalendarScreen() {
               <View style={styles.dateChip}>
                 <Text style={styles.dateChipDay}>{Number(d.slice(8))}</Text>
                 <Text style={styles.dateChipDow}>
-                  {KDAYS[new Date(d + 'T00:00:00').getDay()]}
+                  {showUpcoming
+                    ? `${Number(d.slice(5, 7))}월`
+                    : KDAYS[new Date(d + 'T00:00:00').getDay()]}
                 </Text>
               </View>
               <View style={styles.eventCol}>
@@ -234,6 +267,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   todayChip: { backgroundColor: colors.tagBlueBg },
+  jumpBtn: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: colors.tagBlueBg,
+  },
+  jumpBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
   selChip: { backgroundColor: colors.primary },
   dayText: { fontFamily: font.regular, fontSize: 13.5, color: colors.title },
   dayTextStrong: { fontFamily: font.bold },
