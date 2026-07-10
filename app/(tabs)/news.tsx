@@ -6,7 +6,6 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
 import { useNews } from '../../src/data/hooks';
-import { churchInfo } from '../../src/churchInfo';
 import { useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
@@ -39,12 +38,7 @@ export default function NewsScreen() {
         <Pressable
           style={[styles.calBtn, { top: Math.max(insets.top, 20) + 5 }]}
           hitSlop={8}
-          onPress={() =>
-            router.push({
-              pathname: '/browser',
-              params: { url: churchInfo.pages.calendar, t: '교회 달력' },
-            })
-          }
+          onPress={() => router.push('/calendar')}
         >
           <CalendarDays size={21} color={colors.title} strokeWidth={1.8} />
         </Pressable>

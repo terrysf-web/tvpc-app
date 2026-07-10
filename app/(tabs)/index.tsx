@@ -8,7 +8,6 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useUser } from '../../src/data/user';
-import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
@@ -139,15 +138,7 @@ export default function HomeScreen() {
         <FadeInUp delay={120}>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>다가오는 일정</Text>
-            <Pressable
-              hitSlop={8}
-              onPress={() =>
-                router.push({
-                  pathname: '/browser',
-                  params: { url: churchInfo.pages.calendar, t: '교회 달력' },
-                })
-              }
-            >
+            <Pressable hitSlop={8} onPress={() => router.push('/calendar')}>
               <Text style={styles.sectionLink}>전체 달력 ›</Text>
             </Pressable>
           </View>

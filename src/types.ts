@@ -58,6 +58,8 @@ export interface EventDoc {
   imageUrl?: string | null;
   /** 홈페이지 행사 상세 링크 */
   url?: string | null;
+  /** YYYY-MM-DD — 홈페이지 동기화 일정의 실제 날짜 (달력 표시용) */
+  sortKey?: string;
 }
 
 export type PrayerCategory = 'family' | 'health' | 'work' | 'etc' | 'answered';
