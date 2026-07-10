@@ -5,6 +5,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
 import { useNews } from '../../src/data/hooks';
+import { useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -22,6 +23,7 @@ function fmtDate(d: string): string {
 }
 
 export default function NewsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { news } = useNews();
   const [tab, setTab] = useState<NewsTab>('all');
@@ -43,7 +45,14 @@ export default function NewsScreen() {
           <Pressable
             key={n.id}
             style={[styles.card, shadows.card]}
-            onPress={() => n.url && openExternal(n.url)}
+            onPress={() => {
+              if (!n.url) return;
+              if (n.url.includes('tvpc.church')) {
+                router.push({ pathname: '/browser', params: { url: n.url, t: n.title } });
+              } else {
+                openExternal(n.url);
+              }
+            }}
           >
             <View style={styles.textCol}>
               <Tag
