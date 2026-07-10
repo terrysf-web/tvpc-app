@@ -132,6 +132,35 @@ const isEventLike = (t) =>
 
 const hash = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
 
+/** 글 페이지의 대표 이미지(og:image) — 카드 썸네일용. 실패해도 무시 */
+const ogImageCache = new Map();
+async function fetchOgImage(url) {
+  if (!url || !url.includes('tvpc.church')) return null;
+  if (ogImageCache.has(url)) return ogImageCache.get(url);
+  let img = null;
+  try {
+    const res = await fetch(url, {
+      headers: { 'user-agent': UA, 'accept-language': 'ko,en' },
+      redirect: 'follow',
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const m =
+        html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/) ||
+        html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/);
+      if (m) {
+        img = unescape(m[1]);
+        if (img.startsWith('/')) img = 'https://tvpc.church' + img;
+        if (!/^https?:\/\//.test(img)) img = null;
+      }
+    }
+  } catch {
+    /* 썸네일은 없어도 됨 */
+  }
+  ogImageCache.set(url, img);
+  return img;
+}
+
 // ── 1. 소식 (XE 게시판 RSS) ────────────────────────────────────
 console.log('[소식] RSS 소스 탐색:');
 // 주의: pleasantonkorean.com(옛 도메인)은 스팸 사이트로 넘어가 절대 사용 금지
@@ -249,17 +278,18 @@ for (const it of newsItems.slice(0, MAX_NEWS)) {
   if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일$/.test(it.title)) {
     it.title = `주보 · ${it.title}`;
   }
+  const imageUrl = await fetchOgImage(it.link);
   await db.doc(`news/web-${hash(it.link || it.title)}`).set(
     {
       title: it.title,
       category: isEventLike(it.title) ? 'event' : 'notice',
       date,
       url: it.link || null,
-      imageUrl: null,
+      imageUrl,
     },
     { merge: true },
   );
-  console.log(`  ✓ ${date}  ${it.title}\n      링크: ${it.link}`);
+  console.log(`  ✓ ${date}  ${it.title}${imageUrl ? ' [썸네일]' : ''}\n      링크: ${it.link}`);
   newsWrote++;
 }
 
@@ -291,12 +321,13 @@ const upcoming = calEvents
 let eventsWrote = 0;
 for (const e of upcoming) {
   const d = e.start;
+  const imageUrl = await fetchOgImage(e.url);
   await db.doc(`events/web-${hash(e.uid)}`).set(
     {
       dateLabel: `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${KDAYS[d.getDay()]}`,
       title: e.summary,
       detail: [e.allDay ? null : timeLabel(d), e.location || null].filter(Boolean).join(' · '),
-      imageUrl: null,
+      imageUrl,
       url: e.url,
       sortKey: ymd(d),
     },
@@ -309,11 +340,11 @@ for (const e of upcoming) {
       category: 'event',
       date: ymd(d),
       url: e.url || 'https://tvpc.church/wp/events/',
-      imageUrl: null,
+      imageUrl,
     },
     { merge: true },
   );
-  console.log(`  ✓ ${ymd(d)}  ${e.summary}${e.url ? `\n      링크: ${e.url}` : ''}`);
+  console.log(`  ✓ ${ymd(d)}  ${e.summary}${imageUrl ? ' [썸네일]' : ''}${e.url ? `\n      링크: ${e.url}` : ''}`);
   eventsWrote++;
 }
 

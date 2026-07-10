@@ -1,3 +1,4 @@
+import { CalendarDays, FileText, Megaphone } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,7 +65,19 @@ export default function NewsScreen() {
               </Text>
               <Text style={styles.date}>{fmtDate(n.date)}</Text>
             </View>
-            <PhotoSlot uri={n.imageUrl} style={styles.thumb} />
+            <PhotoSlot uri={n.imageUrl} style={styles.thumb}>
+              {!n.imageUrl && (
+                <View style={styles.thumbIcon}>
+                  {n.title.startsWith('주보') ? (
+                    <FileText size={26} color={colors.muted} strokeWidth={1.6} />
+                  ) : n.category === 'notice' ? (
+                    <Megaphone size={26} color={colors.muted} strokeWidth={1.6} />
+                  ) : (
+                    <CalendarDays size={26} color={colors.muted} strokeWidth={1.6} />
+                  )}
+                </View>
+              )}
+            </PhotoSlot>
           </Pressable>
         ))}
       </ScrollView>
@@ -101,4 +114,13 @@ const styles = StyleSheet.create({
   title: { fontFamily: font.bold, fontSize: 14.5, lineHeight: 21, color: colors.title },
   date: { fontFamily: font.regular, fontSize: 12, color: colors.faint },
   thumb: { width: 74, height: 74, borderRadius: 12 },
+  thumbIcon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
