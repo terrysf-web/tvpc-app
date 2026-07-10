@@ -27,7 +27,9 @@ const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 const MAX_NEWS = Number(process.env.MAX_NEWS || 12);
-const MAX_EVENTS = Number(process.env.MAX_EVENTS || 8);
+const MAX_EVENTS = Number(process.env.MAX_EVENTS || 40);
+/** 소식 탭 "행사" 카드로 함께 노출할 일정 수 (반복 모임까지 다 올리면 소식이 넘침) */
+const MAX_EVENT_NEWS = Number(process.env.MAX_EVENT_NEWS || 6);
 
 async function tryFetch(url) {
   try {
@@ -91,10 +93,62 @@ function parseXeBoard(html, origin) {
   return items;
 }
 
-/** iCal VEVENT 파싱 (줄바꿈 접기 해제 포함) */
+/** iCal 날짜 문자열 → { date, allDay } (시간 없으면 정오) */
+function icalDate(s) {
+  const m = (s || '').match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/);
+  if (!m) return null;
+  const [, y, mo, da, hh, mi] = m;
+  return {
+    date: new Date(Number(y), Number(mo) - 1, Number(da), Number(hh ?? 12), Number(mi ?? 0)),
+    allDay: !hh,
+  };
+}
+
+const ICAL_DOW = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+/**
+ * 반복 일정(RRULE) 전개 — WEEKLY/MONTHLY/YEARLY를 오늘~horizon 사이
+ * 발생일로 펼친다 (교회 달력의 매주 모임·월례회 대응, 근사 구현).
+ */
+function expandRrule(rule, first, exdates, horizon) {
+  const freq = rule.match(/FREQ=(\w+)/)?.[1];
+  if (!freq || freq === 'DAILY') return [first];
+  const interval = Number(rule.match(/INTERVAL=(\d+)/)?.[1] || 1);
+  const until = icalDate(rule.match(/UNTIL=([\dTZ]+)/)?.[1])?.date;
+  const byday = (rule.match(/BYDAY=([^;]+)/)?.[1] || '')
+    .split(',')
+    .map((d) => ICAL_DOW[d.slice(-2)])
+    .filter((n) => n !== undefined);
+  const days = byday.length ? byday : [first.getDay()];
+
+  const out = [];
+  const startScan = new Date(Math.max(first.getTime(), Date.now() - 86400e3));
+  const end = until && until < horizon ? until : horizon;
+  const weekMs = 7 * 86400e3;
+  for (let t = startScan.getTime(); t <= end.getTime() && out.length < 40; t += 86400e3) {
+    const d = new Date(t);
+    d.setHours(first.getHours(), first.getMinutes(), 0, 0);
+    let hit = false;
+    if (freq === 'WEEKLY') {
+      const weeks = Math.floor((t - first.getTime()) / weekMs);
+      hit = days.includes(d.getDay()) && weeks % interval === 0;
+    } else if (freq === 'MONTHLY') {
+      const months =
+        (d.getFullYear() - first.getFullYear()) * 12 + d.getMonth() - first.getMonth();
+      hit = d.getDate() === first.getDate() && months % interval === 0;
+    } else if (freq === 'YEARLY') {
+      hit = d.getDate() === first.getDate() && d.getMonth() === first.getMonth();
+    }
+    if (hit && !exdates.has(ymd(d))) out.push(d);
+  }
+  return out;
+}
+
+/** iCal VEVENT 파싱 (줄바꿈 접기 해제 + 반복 일정 전개) */
 function parseIcal(ics) {
   const unfolded = ics.replace(/\r?\n[ \t]/g, '');
   const events = [];
+  const horizon = new Date(Date.now() + 120 * 86400e3);
   const re = /BEGIN:VEVENT([\s\S]*?)END:VEVENT/g;
   let m;
   while ((m = re.exec(unfolded))) {
@@ -106,14 +160,47 @@ function parseIcal(ics) {
     const uid = get('UID') || summary + dt;
     const url = get('URL') || null;
     if (!dt || !summary) continue;
-    // DTSTART: 20260714T200000 / 20260714 (하루 종일)
-    const dm = dt.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/);
-    if (!dm) continue;
-    const [, y, mo, da, hh, mi] = dm;
-    const start = new Date(Number(y), Number(mo) - 1, Number(da), Number(hh ?? 12), Number(mi ?? 0));
-    events.push({ uid, summary, location, start, allDay: !hh, url });
+    const parsed = icalDate(dt);
+    if (!parsed) continue;
+
+    const exdates = new Set();
+    for (const ex of b.match(/^EXDATE[^:\n]*:(.*)$/gm) || []) {
+      for (const v of ex.split(':')[1].split(',')) {
+        const e = icalDate(v);
+        if (e) exdates.add(ymd(e.date));
+      }
+    }
+    const rrule = get('RRULE');
+    const starts = rrule ? expandRrule(rrule, parsed.date, exdates, horizon) : [parsed.date];
+    for (const start of starts) {
+      events.push({
+        uid: `${uid}@${ymd(start)}`,
+        summary,
+        location,
+        start,
+        allDay: parsed.allDay,
+        url,
+      });
+    }
   }
   return events;
+}
+
+/** 달력 페이지에서 ICS 구독 링크 자동 발견 (구독 버튼·구글 캘린더 embed) */
+function findIcsLinks(html) {
+  const out = new Set();
+  let m;
+  const re =
+    /["'](webcal:\/\/[^"']+|https?:\/\/[^"']+?(?:\.ics[^"']*|[?&](?:ical|outlook-ical)=1[^"']*))["']/gi;
+  while ((m = re.exec(html))) {
+    out.add(unescape(m[1]).replace(/^webcal:\/\//, 'https://'));
+  }
+  const g = /calendar\.google\.com\/calendar\/(?:embed|u\/\d+\/embed)\?[^"']*?src=([^&"']+)/gi;
+  while ((m = g.exec(html))) {
+    const id = encodeURIComponent(decodeURIComponent(m[1]));
+    out.add(`https://calendar.google.com/calendar/ical/${id}/public/basic.ics`);
+  }
+  return [...out];
 }
 
 const KDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
@@ -293,22 +380,41 @@ for (const it of newsItems.slice(0, MAX_NEWS)) {
   newsWrote++;
 }
 
-// ── 2. 일정 (워드프레스 The Events Calendar) ───────────────────
-console.log('[일정] iCal/RSS 소스 탐색:');
-const icalSources = [
+// ── 2. 일정 ────────────────────────────────────────────────────
+// 달력 페이지(/wp/ko/calendar/)의 "달력 구독" 링크가 전체 일정 피드 —
+// 페이지에서 ICS 주소를 자동 발견하고, 알려진 소스와 함께 전부 병합한다.
+console.log('[일정] 달력 구독(ICS) 주소 탐색:');
+const icalSources = new Set([
   'https://tvpc.church/wp/events/?ical=1',
   'https://tvpc.church/wp/?post_type=tribe_events&ical=1',
-];
-let calEvents = [];
+]);
+for (const page of ['https://tvpc.church/wp/ko/calendar/', 'https://tvpc.church/wp/calendar/']) {
+  const html = await tryFetch(page);
+  if (!html) continue;
+  const found = findIcsLinks(html);
+  console.log(`  → 구독 링크 ${found.length}개 발견${found.length ? ': ' + found.join(' , ') : ''}`);
+  for (const u of found) icalSources.add(u);
+  if (found.length) break;
+}
+
+console.log('[일정] iCal 소스 수집:');
+const calEvents = [];
+const seenUids = new Set();
 for (const url of icalSources) {
   const body = await tryFetch(url);
   if (!body) continue;
-  if (body.includes('BEGIN:VCALENDAR')) {
-    calEvents = parseIcal(body);
-    console.log(`  → ${url} 에서 ${calEvents.length}건 파싱`);
-    break;
+  if (!body.includes('BEGIN:VCALENDAR')) {
+    console.log(`  → iCal 형식 아님. 앞부분: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
+    continue;
   }
-  console.log(`  → iCal 형식 아님. 앞부분: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
+  let added = 0;
+  for (const e of parseIcal(body)) {
+    if (seenUids.has(e.uid)) continue;
+    seenUids.add(e.uid);
+    calEvents.push(e);
+    added++;
+  }
+  console.log(`  → ${url} 에서 ${added}건 병합`);
 }
 
 const now = new Date();
@@ -319,8 +425,10 @@ const upcoming = calEvents
   .slice(0, MAX_EVENTS);
 
 let eventsWrote = 0;
+const writtenEventIds = new Set();
 for (const e of upcoming) {
   const d = e.start;
+  writtenEventIds.add(`web-${hash(e.uid)}`);
   const imageUrl = await fetchOgImage(e.url);
   await db.doc(`events/web-${hash(e.uid)}`).set(
     {
@@ -333,29 +441,43 @@ for (const e of upcoming) {
     },
     { merge: true },
   );
-  // 소식 탭 "행사" 카테고리에도 카드로 표시
-  await db.doc(`news/web-ev-${hash(e.uid)}`).set(
-    {
-      title: e.summary,
-      category: 'event',
-      date: ymd(d),
-      url: e.url || 'https://tvpc.church/wp/events/',
-      imageUrl,
-    },
-    { merge: true },
-  );
+  // 소식 탭 "행사" 카테고리에도 카드로 표시 (가까운 일정 일부만)
+  if (eventsWrote < MAX_EVENT_NEWS) {
+    writtenEventIds.add(`web-ev-${hash(e.uid)}`);
+    await db.doc(`news/web-ev-${hash(e.uid)}`).set(
+      {
+        title: e.summary,
+        category: 'event',
+        date: ymd(d),
+        url: e.url || 'https://tvpc.church/wp/ko/calendar/',
+        imageUrl,
+      },
+      { merge: true },
+    );
+  }
   console.log(`  ✓ ${ymd(d)}  ${e.summary}${imageUrl ? ' [썸네일]' : ''}${e.url ? `\n      링크: ${e.url}` : ''}`);
   eventsWrote++;
 }
 
-// 지나간 web- 일정 정리
-const oldDocs = await db.collection('events').get();
-for (const snap of oldDocs.docs) {
-  if (!snap.id.startsWith('web-')) continue;
-  const sk = snap.get('sortKey');
-  if (sk && sk < ymd(now)) {
-    await snap.ref.delete();
-    console.log(`  – 지난 일정 삭제: ${snap.get('title')}`);
+// web- 일정 정리 — 지나갔거나 이번 동기화 결과에 없는 문서 삭제
+// (홈페이지 피드가 원본이므로 매번 새로 쓰고, 옛 형식·취소된 일정을 남기지 않는다)
+if (eventsWrote > 0) {
+  const oldDocs = await db.collection('events').get();
+  for (const snap of oldDocs.docs) {
+    if (!snap.id.startsWith('web-')) continue;
+    if (!writtenEventIds.has(snap.id)) {
+      await snap.ref.delete();
+      console.log(`  – 옛/지난 일정 삭제: ${snap.get('title')}`);
+    }
+  }
+  // 소식 탭의 행사 카드도 같은 기준으로 정리
+  const oldEvNews = await db.collection('news').get();
+  for (const snap of oldEvNews.docs) {
+    if (!snap.id.startsWith('web-ev-')) continue;
+    if (!writtenEventIds.has(snap.id)) {
+      await snap.ref.delete();
+      console.log(`  – 옛 행사 카드 삭제: ${snap.get('title')}`);
+    }
   }
 }
 
