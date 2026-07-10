@@ -75,24 +75,16 @@ function extractInitialData(html) {
 
 async function fetchAllUploads(channelId) {
   const listId = 'UU' + channelId.slice(2);
+  // 페이지는 API 키 획득용으로만 사용 (목록은 내부 browse API로 조회)
   const html = await fetchText(`https://www.youtube.com/playlist?list=${listId}&hl=ko`);
-  console.log(
-    `  페이지 ${html.length}B, playlistVideoRenderer ${(html.match(/playlistVideoRenderer/g) || []).length}회 등장`,
-  );
-  const raw = extractInitialData(html);
   const km = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
-  if (!raw) {
-    console.log(`  ! ytInitialData 없음. 페이지 앞부분: ${html.slice(0, 300).replace(/\s+/g, ' ')}`);
-    throw new Error('재생목록 파싱 실패 (ytInitialData 없음)');
-  }
-  console.log(`  ytInitialData ${raw.length}B 추출`);
-  const dm = [null, raw];
+  const apiKey = km ? km[1] : 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+  console.log(`  API 키 ${km ? '추출' : '기본값 사용'}`);
 
   const videos = [];
   const seen = new Set();
   let continuation = null;
 
-  // 구조가 어떻게 바뀌어도 찾도록 전체 트리를 재귀 순회
   const walk = (node) => {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) {
@@ -116,23 +108,35 @@ async function fetchAllUploads(channelId) {
     for (const k in node) walk(node[k]);
   };
 
-  walk(JSON.parse(dm[1]));
-  console.log(`  첫 페이지에서 ${videos.length}개 발견`);
-
-  let guard = 0;
-  while (continuation && km && guard++ < 60) {
-    const token = continuation;
-    continuation = null;
-    const res = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${km[1]}`, {
+  const browse = async (body) => {
+    const res = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${apiKey}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'user-agent': UA },
       body: JSON.stringify({
-        context: { client: { clientName: 'WEB', clientVersion: '2.20240401.00.00', hl: 'ko' } },
-        continuation: token,
+        context: {
+          client: { clientName: 'WEB', clientVersion: '2.20240401.00.00', hl: 'ko', gl: 'US' },
+        },
+        ...body,
       }),
     });
-    if (!res.ok) break;
-    walk(await res.json());
+    if (!res.ok) {
+      console.log(`  ! browse API HTTP ${res.status}`);
+      return null;
+    }
+    return res.json();
+  };
+
+  const first = await browse({ browseId: `VL${listId}` });
+  if (first) walk(first);
+  console.log(`  첫 페이지에서 ${videos.length}개 발견`);
+
+  let guard = 0;
+  while (continuation && guard++ < 80) {
+    const token = continuation;
+    continuation = null;
+    const j = await browse({ continuation: token });
+    if (!j) break;
+    walk(j);
     console.log(`  …목록 로딩 중 (${videos.length}개)`);
   }
   return videos;
