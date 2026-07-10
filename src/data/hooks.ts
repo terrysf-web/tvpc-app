@@ -82,7 +82,8 @@ export function useTodayVerse(): { verse: VerseDoc; loading: boolean } {
 }
 
 export function useSermons(): { sermons: SermonDoc[]; loading: boolean } {
-  const { data, loading } = useCollection<SermonDoc>('sermons', sampleSermons, 'date');
+  // 팟캐스트 아카이브까지 표시할 수 있게 넉넉히 (설교+팟캐스트+찬양 통합 목록)
+  const { data, loading } = useCollection<SermonDoc>('sermons', sampleSermons, 'date', 'desc', 200);
   return { sermons: data, loading };
 }
 

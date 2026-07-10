@@ -44,6 +44,77 @@ async function resolveChannelId(handle) {
   return m[1];
 }
 
+/**
+ * 채널 전체 업로드 목록 (백필용) — 업로드 재생목록 페이지의 ytInitialData를
+ * 파싱하고, continuation 토큰으로 끝까지 페이지를 넘긴다. API 키 불필요.
+ */
+async function fetchAllUploads(channelId) {
+  const listId = 'UU' + channelId.slice(2);
+  const html = await fetchText(`https://www.youtube.com/playlist?list=${listId}&hl=ko`);
+  const dm = html.match(/ytInitialData\s*=\s*({[\s\S]+?});\s*<\/script>/);
+  const km = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
+  if (!dm) throw new Error('재생목록 파싱 실패 (ytInitialData 없음)');
+
+  const videos = [];
+  let continuation = null;
+  const collect = (items) => {
+    for (const it of items || []) {
+      const v = it.playlistVideoRenderer;
+      if (v?.videoId) {
+        videos.push({
+          id: v.videoId,
+          title: (v.title?.runs || []).map((r) => r.text).join(''),
+          seconds: Number(v.lengthSeconds || 0),
+        });
+      }
+      const c = it.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+      if (c) continuation = c;
+    }
+  };
+
+  const data = JSON.parse(dm[1]);
+  for (const t of data.contents?.twoColumnBrowseResultsRenderer?.tabs || []) {
+    for (const sec of t.tabRenderer?.content?.sectionListRenderer?.contents || []) {
+      const items = sec.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
+      if (items) collect(items);
+    }
+  }
+
+  while (continuation && km) {
+    const token = continuation;
+    continuation = null;
+    const res = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${km[1]}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': UA },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240401.00.00', hl: 'ko' } },
+        continuation: token,
+      }),
+    });
+    if (!res.ok) break;
+    const j = await res.json();
+    for (const a of j.onResponseReceivedActions || []) {
+      collect(a.appendContinuationItemsAction?.continuationItems);
+    }
+    console.log(`  …목록 로딩 중 (${videos.length}개)`);
+  }
+  return videos;
+}
+
+/** 영상 업로드 날짜 — 시청 페이지에서 추출 */
+async function fetchUploadDate(id) {
+  try {
+    const html = await fetchText(`https://www.youtube.com/watch?v=${id}&hl=ko`);
+    const m =
+      html.match(/"uploadDate":"(\d{4}-\d{2}-\d{2})/) ||
+      html.match(/itemprop="datePublished" content="(\d{4}-\d{2}-\d{2})/) ||
+      html.match(/"publishDate":"(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 /** RSS 피드 파싱 — 의존성 없이 정규식으로 entry 추출 */
 function parseFeed(xml) {
   const entries = [];
@@ -113,13 +184,41 @@ function classify(title) {
   return '주일예배';
 }
 
-const channelId = await resolveChannelId(CHANNEL_HANDLE);
-console.log(`채널 ID: ${channelId}`);
+const BACKFILL = process.env.BACKFILL === 'true';
 
-const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-const videos = parseFeed(xml)
-  .filter((v) => !/#?shorts/i.test(v.title))
-  .slice(0, MAX_VIDEOS);
+const channelId = await resolveChannelId(CHANNEL_HANDLE);
+console.log(`채널 ID: ${channelId}${BACKFILL ? ' (전체 백필 모드)' : ''}`);
+
+let videos;
+if (BACKFILL) {
+  // 채널 전체 업로드 — 이미 저장된 영상은 건너뛰고, 새 영상만 날짜를 조회
+  const all = (await fetchAllUploads(channelId)).filter(
+    (v) => !/#?shorts/i.test(v.title) && (v.seconds === 0 || v.seconds >= 60),
+  );
+  console.log(`전체 업로드 ${all.length}개 (쇼츠 제외)`);
+  const existing = new Set();
+  for (const snap of (await db.collection('sermons').select().get()).docs) {
+    existing.add(snap.id);
+  }
+  const fresh = all.filter((v) => !existing.has(`yt-${v.id}`));
+  console.log(`신규 ${fresh.length}개 — 업로드 날짜 조회 중…`);
+  videos = [];
+  for (let i = 0; i < fresh.length; i++) {
+    const v = fresh[i];
+    const date = await fetchUploadDate(v.id);
+    if (!date) {
+      console.log(`  ! 날짜 조회 실패, 건너뜀: ${v.title}`);
+      continue;
+    }
+    videos.push({ id: v.id, title: v.title, published: date });
+    if ((i + 1) % 25 === 0) console.log(`  …날짜 조회 ${i + 1}/${fresh.length}`);
+  }
+} else {
+  const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+  videos = parseFeed(xml)
+    .filter((v) => !/#?shorts/i.test(v.title))
+    .slice(0, MAX_VIDEOS);
+}
 
 if (videos.length === 0) {
   console.log('가져올 영상이 없습니다.');
