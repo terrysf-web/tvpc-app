@@ -1,0 +1,27 @@
+# 웹페이지 구조 진단 (개발용) — 동기화 파서 개발 시 실제 마크업 확인
+name: Probe web page
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: '조사할 URL'
+        required: true
+      pattern:
+        description: '주변을 출력할 정규식 패턴'
+        required: false
+        default: ''
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe
+        env:
+          PROBE_URL: ${{ inputs.url }}
+          PROBE_PATTERN: ${{ inputs.pattern }}
+        run: node scripts/probe.mjs
