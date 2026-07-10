@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from 'expo-router';
-import { Clock, Globe, MapPin, MonitorPlay, Phone } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { BookOpen, Clock, ClipboardPen, Globe, MapPin, MonitorPlay, Phone, Users } from 'lucide-react-native';
 import React from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +42,7 @@ function ActionRow({
 }
 
 export default function InfoScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { page } = useLocalSearchParams<{ page: string }>();
   const key = (
@@ -54,6 +55,8 @@ export default function InfoScreen() {
   const openSite = () => openExternal(churchInfo.website);
   const openYoutube = () => openExternal(churchInfo.youtube);
   const openMap = () => Linking.openURL(mapsUrl).catch(() => {});
+  const openInApp = (pageUrl: string, title: string) =>
+    router.push({ pathname: '/browser', params: { url: pageUrl, t: title } });
 
   return (
     <View style={styles.screen}>
@@ -69,6 +72,12 @@ export default function InfoScreen() {
               <Text style={styles.churchNameEn}>{churchInfo.nameEn}</Text>
               <Text style={styles.paragraph}>{churchInfo.intro}</Text>
             </View>
+            <ActionRow
+              icon={<BookOpen size={20} color={colors.primary} strokeWidth={1.9} />}
+              label="교회 소개 전체 보기"
+              sub="비전 · 연혁 · 섬기는 사람들"
+              onPress={() => openInApp(churchInfo.pages.about, '교회 소개')}
+            />
             <ActionRow
               icon={<Globe size={20} color={colors.primary} strokeWidth={1.9} />}
               label="교회 홈페이지"
@@ -99,6 +108,12 @@ export default function InfoScreen() {
                 </View>
               ))}
             </View>
+            <ActionRow
+              icon={<Users size={20} color={colors.primary} strokeWidth={1.9} />}
+              label="교역자 소개 전체 보기"
+              sub="사진과 소개 — 교회 홈페이지"
+              onPress={() => openInApp(churchInfo.pages.staff, '교역자 소개')}
+            />
             <Text style={styles.note}>
               교역자 정보는 교회 사무실({churchInfo.phone})을 통해 확인·업데이트됩니다.
             </Text>
@@ -119,6 +134,13 @@ export default function InfoScreen() {
                 </View>
               ))}
             </View>
+            <Pressable
+              style={styles.ctaBtn}
+              onPress={() => openInApp(churchInfo.pages.newcomers, '새가족 안내')}
+            >
+              <ClipboardPen size={18} color="#FFFFFF" strokeWidth={1.9} />
+              <Text style={styles.ctaText}>새가족 안내 · 온라인 등록하기</Text>
+            </Pressable>
             <ActionRow
               icon={<Phone size={20} color={colors.tagGreenText} strokeWidth={1.9} />}
               label="새가족 문의 전화"
@@ -287,6 +309,16 @@ const styles = StyleSheet.create({
     color: colors.title,
   },
 
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 15,
+  },
+  ctaText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
   note: {
     fontFamily: font.regular,
     fontSize: 12,
