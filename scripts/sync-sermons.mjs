@@ -209,7 +209,7 @@ function parseVideo(rawTitle, published) {
   if (/\[?\s*말씀\s*팟캐스트\s*\]?/.test(title)) {
     category = 'podcast';
     title = title.replace(/^\[?\s*말씀\s*팟캐스트\s*\]?\s*/, '').trim();
-  } else if (/찬양|워십|찬송가|특송|성가|hymn|worship|praise/i.test(title)) {
+  } else if (/찬양|워십|찬송가|특송|성가|연주|반주|soloist|instrumental|hymn|worship|praise/i.test(title)) {
     category = 'praise';
   } else if (/선교영상|광고|안내영상|스케치|하이라이트/.test(title)) {
     category = 'etc';
@@ -267,11 +267,12 @@ if (BACKFILL) {
     .filter((v) => v.id && !/#?shorts/i.test(v.title) && (v.seconds === 0 || v.seconds >= 60));
   console.log(`전체 업로드 ${all.length}개 (쇼츠 제외)`);
 
-  const existing = new Set();
-  for (const snap of (await db.collection('sermons').select().get()).docs) {
-    existing.add(snap.id);
+  // 기존 문서의 날짜는 보존 (RSS로 받은 정확한 날짜를 보간값으로 덮지 않기 위해)
+  const existingDates = new Map();
+  for (const snap of (await db.collection('sermons').select('date').get()).docs) {
+    existingDates.set(snap.id, snap.get('date') || null);
   }
-  const fresh = all.filter((v) => !existing.has(`yt-${v.id}`));
+  const fresh = all.filter((v) => !existingDates.has(`yt-${v.id}`));
   console.log(`신규 ${fresh.length}개 — 업로드 날짜 확인 중…`);
 
   // 날짜 출처 우선순위: 제목 [MM/DD/YYYY] → RSS 피드(최근 15개) → 시청 페이지 HTML.
@@ -321,10 +322,15 @@ if (BACKFILL) {
   }
   if (interpolated > 0) console.log(`  날짜 미상 ${interpolated}개는 이웃 영상 날짜로 보간`);
 
-  videos = fresh
-    .filter((v) => dates.has(v.id))
-    .map((v) => ({ id: v.id, title: v.title, published: dates.get(v.id) }));
-  const missed = fresh.length - videos.length;
+  // 기존 문서도 다시 써서 제목·분류 개선이 전체에 반영되게 한다 (날짜는 기존 값 우선)
+  videos = all
+    .map((v) => ({
+      id: v.id,
+      title: v.title,
+      published: existingDates.get(`yt-${v.id}`) || dates.get(v.id) || null,
+    }))
+    .filter((v) => v.published);
+  const missed = all.length - videos.length;
   if (missed > 0) console.log(`  ! 날짜를 정할 수 없는 ${missed}개 건너뜀`);
 } else {
   const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
