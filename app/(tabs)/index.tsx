@@ -137,7 +137,13 @@ export default function HomeScreen() {
       {nextEvent && (
         <FadeInUp delay={120}>
           <Text style={styles.sectionTitle}>다가오는 일정</Text>
-          <View style={[styles.eventWrap, shadows.imageCard]}>
+          <Pressable
+            style={[styles.eventWrap, shadows.imageCard]}
+            onPress={() =>
+              nextEvent.url &&
+              router.push({ pathname: '/browser', params: { url: nextEvent.url, t: nextEvent.title } })
+            }
+          >
             <PhotoSlot uri={nextEvent.imageUrl} tone="deep" style={styles.eventCard}>
               <LinearGradient
                 colors={['rgba(12,28,54,0.72)', 'rgba(12,28,54,0.10)']}
@@ -151,7 +157,7 @@ export default function HomeScreen() {
                 <Text style={styles.eventDetail}>{nextEvent.detail}</Text>
               </View>
             </PhotoSlot>
-          </View>
+          </Pressable>
         </FadeInUp>
       )}
 

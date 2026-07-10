@@ -104,13 +104,14 @@ function parseIcal(ics) {
     const summary = unescape((get('SUMMARY') || '').replace(/\\,/g, ',').replace(/\\n/g, ' '));
     const location = unescape((get('LOCATION') || '').replace(/\\,/g, ',')).split(',')[0];
     const uid = get('UID') || summary + dt;
+    const url = get('URL') || null;
     if (!dt || !summary) continue;
     // DTSTART: 20260714T200000 / 20260714 (하루 종일)
     const dm = dt.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/);
     if (!dm) continue;
     const [, y, mo, da, hh, mi] = dm;
     const start = new Date(Number(y), Number(mo) - 1, Number(da), Number(hh ?? 12), Number(mi ?? 0));
-    events.push({ uid, summary, location, start, allDay: !hh });
+    events.push({ uid, summary, location, start, allDay: !hh, url });
   }
   return events;
 }
@@ -296,11 +297,23 @@ for (const e of upcoming) {
       title: e.summary,
       detail: [e.allDay ? null : timeLabel(d), e.location || null].filter(Boolean).join(' · '),
       imageUrl: null,
+      url: e.url,
       sortKey: ymd(d),
     },
     { merge: true },
   );
-  console.log(`  ✓ ${ymd(d)}  ${e.summary}`);
+  // 소식 탭 "행사" 카테고리에도 카드로 표시
+  await db.doc(`news/web-ev-${hash(e.uid)}`).set(
+    {
+      title: e.summary,
+      category: 'event',
+      date: ymd(d),
+      url: e.url || 'https://tvpc.church/wp/events/',
+      imageUrl: null,
+    },
+    { merge: true },
+  );
+  console.log(`  ✓ ${ymd(d)}  ${e.summary}${e.url ? `\n      링크: ${e.url}` : ''}`);
   eventsWrote++;
 }
 

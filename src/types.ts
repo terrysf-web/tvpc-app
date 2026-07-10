@@ -56,6 +56,8 @@ export interface EventDoc {
   /** 예: "오후 8:00 · 본당" */
   detail: string;
   imageUrl?: string | null;
+  /** 홈페이지 행사 상세 링크 */
+  url?: string | null;
 }
 
 export type PrayerCategory = 'family' | 'health' | 'work' | 'etc' | 'answered';
