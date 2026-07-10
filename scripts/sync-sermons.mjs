@@ -128,7 +128,21 @@ async function fetchAllUploads(channelId) {
 
   const first = await browse({ browseId: `VL${listId}` });
   if (first) walk(first);
-  console.log(`  첫 페이지에서 ${videos.length}개 발견`);
+  console.log(`  재생목록 browse: ${videos.length}개 발견`);
+  if (first && videos.length === 0) {
+    console.log(`  ! 응답 최상위 키: ${Object.keys(first).join(', ')}`);
+    console.log(`  ! 응답 앞부분: ${JSON.stringify(first).slice(0, 500)}`);
+  }
+
+  // 대안: 채널 "동영상" 탭 browse (params = Videos 탭 식별자)
+  if (videos.length === 0) {
+    const vt = await browse({ browseId: channelId, params: 'EgZ2aWRlb3PyBgQKAjoA' });
+    if (vt) walk(vt);
+    console.log(`  동영상 탭 browse: ${videos.length}개 발견`);
+    if (vt && videos.length === 0) {
+      console.log(`  ! 응답 앞부분: ${JSON.stringify(vt).slice(0, 500)}`);
+    }
+  }
 
   let guard = 0;
   while (continuation && guard++ < 80) {
