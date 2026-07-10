@@ -8,6 +8,7 @@
  * 로컬 실행:
  *   FIREBASE_SERVICE_ACCOUNT="$(cat serviceAccount.json)" node scripts/sync-sermons.mjs
  */
+import { execFileSync } from 'node:child_process';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -246,28 +247,68 @@ console.log(`채널 ID: ${channelId}${BACKFILL ? ' (전체 백필 모드)' : ''}
 
 let videos;
 if (BACKFILL) {
-  // 채널 전체 업로드 — 이미 저장된 영상은 건너뛰고, 새 영상만 날짜를 조회
-  const all = (await fetchAllUploads(channelId)).filter(
-    (v) => !/#?shorts/i.test(v.title) && (v.seconds === 0 || v.seconds >= 60),
-  );
+  // yt-dlp로 채널 전체 영상 목록 (유튜브 구조 변화에 가장 견고)
+  const ytdlp = (args) =>
+    execFileSync('yt-dlp', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+
+  console.log('yt-dlp로 채널 전체 목록 조회 중…');
+  const flat = ytdlp([
+    '--flat-playlist',
+    '--print', '%(id)s\t%(title)s\t%(duration)s',
+    `https://www.youtube.com/channel/${channelId}/videos`,
+  ]);
+  const all = flat
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [id, title, duration] = line.split('\t');
+      return { id, title: title || '', seconds: Number(duration) || 0 };
+    })
+    .filter((v) => v.id && !/#?shorts/i.test(v.title) && (v.seconds === 0 || v.seconds >= 60));
   console.log(`전체 업로드 ${all.length}개 (쇼츠 제외)`);
+
   const existing = new Set();
   for (const snap of (await db.collection('sermons').select().get()).docs) {
     existing.add(snap.id);
   }
   const fresh = all.filter((v) => !existing.has(`yt-${v.id}`));
   console.log(`신규 ${fresh.length}개 — 업로드 날짜 조회 중…`);
-  videos = [];
-  for (let i = 0; i < fresh.length; i++) {
-    const v = fresh[i];
-    const date = await fetchUploadDate(v.id);
-    if (!date) {
-      console.log(`  ! 날짜 조회 실패, 건너뜀: ${v.title}`);
-      continue;
+
+  // 날짜는 20개씩 묶어서 조회
+  const dates = new Map();
+  for (let i = 0; i < fresh.length; i += 20) {
+    const chunk = fresh.slice(i, i + 20);
+    try {
+      const out = ytdlp([
+        '--skip-download',
+        '--ignore-errors',
+        '--print', '%(id)s\t%(upload_date)s',
+        ...chunk.map((v) => `https://www.youtube.com/watch?v=${v.id}`),
+      ]);
+      for (const line of out.split('\n')) {
+        const [id, d] = line.split('\t');
+        if (id && /^\d{8}$/.test(d || '')) {
+          dates.set(id, `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+        }
+      }
+    } catch (e) {
+      // 일부 실패해도 stdout은 살아있는 경우가 많음
+      const out = String(e.stdout || '');
+      for (const line of out.split('\n')) {
+        const [id, d] = line.split('\t');
+        if (id && /^\d{8}$/.test(d || '')) {
+          dates.set(id, `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+        }
+      }
     }
-    videos.push({ id: v.id, title: v.title, published: date });
-    if ((i + 1) % 25 === 0) console.log(`  …날짜 조회 ${i + 1}/${fresh.length}`);
+    console.log(`  …날짜 조회 ${Math.min(i + 20, fresh.length)}/${fresh.length}`);
   }
+
+  videos = fresh
+    .filter((v) => dates.has(v.id))
+    .map((v) => ({ id: v.id, title: v.title, published: dates.get(v.id) }));
+  const missed = fresh.length - videos.length;
+  if (missed > 0) console.log(`  ! 날짜 조회 실패 ${missed}개 건너뜀`);
 } else {
   const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
   videos = parseFeed(xml)

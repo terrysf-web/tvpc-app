@@ -41,6 +41,11 @@ jobs:
         if: env.skip != 'true'
         run: npm install --no-save firebase-admin
 
+      # 백필 모드에서 채널 전체 영상 목록 조회에 사용 (RSS는 최근 15개만 제공)
+      - name: Install yt-dlp
+        if: env.skip != 'true' && inputs.backfill == 'true'
+        run: pip install --quiet yt-dlp
+
       - name: Sync sermons
         if: env.skip != 'true'
         env:
