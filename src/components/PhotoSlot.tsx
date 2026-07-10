@@ -17,14 +17,10 @@ interface Props {
 
 /**
  * 프로토타입의 <image-slot> 대응 — 실제 앱에서는 CMS/스토리지 URL 이미지를 표시하고,
- * URL이 없거나 로딩 중이면 스켈레톤(그라데이션)을 보여준다.
+ * URL이 없거나 로딩 중이면 그라데이션 배경을 보여준다.
+ * deep 톤은 단색 대신 빛 번짐·링 장식을 얹은 레이어드 배경.
  */
 export function PhotoSlot({ uri, style, tone = 'light', children }: Props) {
-  const gradient =
-    tone === 'deep'
-      ? (['#2A6BB5', '#163F73'] as const)
-      : (['#E9EDF2', '#DDE3EA'] as const);
-
   return (
     <View style={[styles.base, style]}>
       {uri ? (
@@ -35,9 +31,43 @@ export function PhotoSlot({ uri, style, tone = 'light', children }: Props) {
           transition={200}
           placeholder={null}
         />
+      ) : tone === 'deep' ? (
+        <>
+          {/* 깊은 남색 사선 그라데이션 */}
+          <LinearGradient
+            colors={['#3573C4', '#1D4E8E', '#0E2850']}
+            locations={[0, 0.52, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {/* 오른쪽 위 은은한 빛 번짐 */}
+          <LinearGradient
+            colors={['rgba(173,209,247,0.55)', 'rgba(173,209,247,0.0)']}
+            start={{ x: 0.2, y: 0.1 }}
+            end={{ x: 0.9, y: 0.95 }}
+            style={styles.bloomLg}
+          />
+          <LinearGradient
+            colors={['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.0)']}
+            start={{ x: 0.3, y: 0.2 }}
+            end={{ x: 0.85, y: 0.9 }}
+            style={styles.bloomSm}
+          />
+          {/* 왼쪽 아래 따뜻한 새벽빛 */}
+          <LinearGradient
+            colors={['rgba(255,193,111,0.28)', 'rgba(255,193,111,0.0)']}
+            start={{ x: 0.25, y: 0.25 }}
+            end={{ x: 0.9, y: 0.9 }}
+            style={styles.bloomWarm}
+          />
+          {/* 가는 링 장식 */}
+          <View style={styles.ringLg} />
+          <View style={styles.ringSm} />
+        </>
       ) : (
         <LinearGradient
-          colors={gradient}
+          colors={['#E9EDF2', '#DDE3EA']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -52,5 +82,49 @@ const styles = StyleSheet.create({
   base: {
     overflow: 'hidden',
     backgroundColor: '#E9EDF2',
+  },
+  bloomLg: {
+    position: 'absolute',
+    top: -80,
+    right: -70,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
+  bloomSm: {
+    position: 'absolute',
+    top: -20,
+    right: 10,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+  },
+  bloomWarm: {
+    position: 'absolute',
+    bottom: -70,
+    left: -60,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+  },
+  ringLg: {
+    position: 'absolute',
+    top: -46,
+    right: 34,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  ringSm: {
+    position: 'absolute',
+    bottom: -34,
+    left: 26,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255,255,255,0.10)',
   },
 });
