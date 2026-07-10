@@ -6,6 +6,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
 import { useNews } from '../../src/data/hooks';
+import { churchInfo } from '../../src/churchInfo';
 import { useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
@@ -35,6 +36,18 @@ export default function NewsScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
         <Text style={styles.headerTitle}>소식</Text>
+        <Pressable
+          style={[styles.calBtn, { top: Math.max(insets.top, 20) + 5 }]}
+          hitSlop={8}
+          onPress={() =>
+            router.push({
+              pathname: '/browser',
+              params: { url: churchInfo.pages.calendar, t: '교회 달력' },
+            })
+          }
+        >
+          <CalendarDays size={21} color={colors.title} strokeWidth={1.8} />
+        </Pressable>
       </View>
       <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
 
@@ -93,6 +106,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerTitle: { fontFamily: font.bold, fontSize: 17, color: colors.title },
+  calBtn: { position: 'absolute', right: 18 },
   content: { padding: 16, gap: 12, paddingBottom: 28 },
   empty: {
     textAlign: 'center',

@@ -8,6 +8,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useUser } from '../../src/data/user';
+import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
@@ -136,7 +137,20 @@ export default function HomeScreen() {
       {/* 4. 다가오는 일정 */}
       {nextEvent && (
         <FadeInUp delay={120}>
-          <Text style={styles.sectionTitle}>다가오는 일정</Text>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>다가오는 일정</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() =>
+                router.push({
+                  pathname: '/browser',
+                  params: { url: churchInfo.pages.calendar, t: '교회 달력' },
+                })
+              }
+            >
+              <Text style={styles.sectionLink}>전체 달력 ›</Text>
+            </Pressable>
+          </View>
           <Pressable
             style={[styles.eventWrap, shadows.imageCard]}
             onPress={() =>
@@ -273,6 +287,12 @@ const styles = StyleSheet.create({
     color: colors.title,
     marginBottom: 12,
   },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
   quickRow: { flexDirection: 'row', gap: 11, marginBottom: 22 },
   quickCard: {
     flex: 1,

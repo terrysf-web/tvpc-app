@@ -15,6 +15,7 @@ export const churchInfo = {
     about: 'https://tvpc.church/wp/ko/about-us/',
     staff: 'https://tvpc.church/wp/ko/staff/',
     newcomers: 'https://tvpc.church/wp/ko/newcomers/',
+    calendar: 'https://tvpc.church/wp/ko/calendar/',
   },
 
   intro:
