@@ -56,31 +56,38 @@ async function fetchAllUploads(channelId) {
   if (!dm) throw new Error('재생목록 파싱 실패 (ytInitialData 없음)');
 
   const videos = [];
+  const seen = new Set();
   let continuation = null;
-  const collect = (items) => {
-    for (const it of items || []) {
-      const v = it.playlistVideoRenderer;
-      if (v?.videoId) {
-        videos.push({
-          id: v.videoId,
-          title: (v.title?.runs || []).map((r) => r.text).join(''),
-          seconds: Number(v.lengthSeconds || 0),
-        });
-      }
-      const c = it.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
-      if (c) continuation = c;
+
+  // 구조가 어떻게 바뀌어도 찾도록 전체 트리를 재귀 순회
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const x of node) walk(x);
+      return;
     }
+    const v = node.playlistVideoRenderer || node.videoRenderer || node.gridVideoRenderer;
+    if (v?.videoId && !seen.has(v.videoId)) {
+      seen.add(v.videoId);
+      videos.push({
+        id: v.videoId,
+        title:
+          (v.title?.runs || []).map((r) => r.text).join('') || v.title?.simpleText || '',
+        seconds: Number(v.lengthSeconds || 0),
+      });
+    }
+    const tok =
+      node.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ||
+      node.nextContinuationData?.continuation;
+    if (tok) continuation = tok;
+    for (const k in node) walk(node[k]);
   };
 
-  const data = JSON.parse(dm[1]);
-  for (const t of data.contents?.twoColumnBrowseResultsRenderer?.tabs || []) {
-    for (const sec of t.tabRenderer?.content?.sectionListRenderer?.contents || []) {
-      const items = sec.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
-      if (items) collect(items);
-    }
-  }
+  walk(JSON.parse(dm[1]));
+  console.log(`  첫 페이지에서 ${videos.length}개 발견`);
 
-  while (continuation && km) {
+  let guard = 0;
+  while (continuation && km && guard++ < 60) {
     const token = continuation;
     continuation = null;
     const res = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${km[1]}`, {
@@ -92,10 +99,7 @@ async function fetchAllUploads(channelId) {
       }),
     });
     if (!res.ok) break;
-    const j = await res.json();
-    for (const a of j.onResponseReceivedActions || []) {
-      collect(a.appendContinuationItemsAction?.continuationItems);
-    }
+    walk(await res.json());
     console.log(`  …목록 로딩 중 (${videos.length}개)`);
   }
   return videos;
