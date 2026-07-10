@@ -36,6 +36,10 @@ export default function HomeScreen() {
   const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
   const featured = onlySermons.find((s) => s.featured) ?? onlySermons[0];
   const nextEvent = events[0];
+  // 같은 날 일정은 카드에 모두 표시
+  const nextDayEvents = nextEvent
+    ? events.filter((e) => e.dateLabel === nextEvent.dateLabel)
+    : [];
 
   const quickMenu = [
     {
@@ -144,10 +148,17 @@ export default function HomeScreen() {
           </View>
           <Pressable
             style={[styles.eventWrap, shadows.imageCard]}
-            onPress={() =>
-              nextEvent.url &&
-              router.push({ pathname: '/browser', params: { url: nextEvent.url, t: nextEvent.title } })
-            }
+            onPress={() => {
+              // 일정이 하나이고 상세 링크가 있으면 바로 열고, 여러 개면 달력으로
+              if (nextDayEvents.length === 1 && nextEvent.url) {
+                router.push({
+                  pathname: '/browser',
+                  params: { url: nextEvent.url, t: nextEvent.title },
+                });
+              } else {
+                router.push('/calendar');
+              }
+            }}
           >
             <PhotoSlot uri={nextEvent.imageUrl} tone="deep" style={styles.eventCard}>
               <LinearGradient
@@ -158,8 +169,12 @@ export default function HomeScreen() {
               />
               <View style={styles.eventTextCol}>
                 <Text style={styles.eventDate}>{nextEvent.dateLabel}</Text>
-                <Text style={styles.eventTitle}>{nextEvent.title}</Text>
-                <Text style={styles.eventDetail}>{nextEvent.detail}</Text>
+                {nextDayEvents.map((e) => (
+                  <View key={e.id} style={styles.eventRow}>
+                    <Text style={styles.eventTitle}>{e.title}</Text>
+                    {!!e.detail && <Text style={styles.eventDetail}>{e.detail}</Text>}
+                  </View>
+                ))}
               </View>
             </PhotoSlot>
           </Pressable>
@@ -303,8 +318,9 @@ const styles = StyleSheet.create({
   quickLabel: { fontFamily: font.medium, fontSize: 12, color: colors.body },
 
   eventWrap: { borderRadius: 18, marginBottom: 22 },
-  eventCard: { borderRadius: 18, height: 100, justifyContent: 'center' },
-  eventTextCol: { paddingHorizontal: 18, gap: 2 },
+  eventCard: { borderRadius: 18, minHeight: 100, justifyContent: 'center' },
+  eventTextCol: { paddingHorizontal: 18, paddingVertical: 16, gap: 2 },
+  eventRow: { marginTop: 5 },
   eventDate: { fontFamily: font.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)', ...textShadow },
   eventTitle: { fontFamily: font.extraBold, fontSize: 16.5, color: '#FFFFFF', ...textShadow },
   eventDetail: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.85)', ...textShadow },
