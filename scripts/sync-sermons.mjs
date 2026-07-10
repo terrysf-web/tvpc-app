@@ -48,12 +48,45 @@ async function resolveChannelId(handle) {
  * 채널 전체 업로드 목록 (백필용) — 업로드 재생목록 페이지의 ytInitialData를
  * 파싱하고, continuation 토큰으로 끝까지 페이지를 넘긴다. API 키 불필요.
  */
+/** HTML에서 ytInitialData JSON을 중괄호 짝 맞춰 정확히 추출 */
+function extractInitialData(html) {
+  const idx = html.indexOf('ytInitialData');
+  if (idx < 0) return null;
+  const start = html.indexOf('{', idx);
+  if (start < 0) return null;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) return html.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 async function fetchAllUploads(channelId) {
   const listId = 'UU' + channelId.slice(2);
   const html = await fetchText(`https://www.youtube.com/playlist?list=${listId}&hl=ko`);
-  const dm = html.match(/ytInitialData\s*=\s*({[\s\S]+?});\s*<\/script>/);
+  console.log(
+    `  페이지 ${html.length}B, playlistVideoRenderer ${(html.match(/playlistVideoRenderer/g) || []).length}회 등장`,
+  );
+  const raw = extractInitialData(html);
   const km = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
-  if (!dm) throw new Error('재생목록 파싱 실패 (ytInitialData 없음)');
+  if (!raw) {
+    console.log(`  ! ytInitialData 없음. 페이지 앞부분: ${html.slice(0, 300).replace(/\s+/g, ' ')}`);
+    throw new Error('재생목록 파싱 실패 (ytInitialData 없음)');
+  }
+  console.log(`  ytInitialData ${raw.length}B 추출`);
+  const dm = [null, raw];
 
   const videos = [];
   const seen = new Set();
