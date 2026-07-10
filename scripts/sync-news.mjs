@@ -186,6 +186,52 @@ function parseIcal(ics) {
   return events;
 }
 
+/**
+ * 달력 페이지(Simple Calendar 플러그인) 그리드 파싱 — 날짜별 <ul class="events">
+ * 블록에서 일정 제목·설명을 추출한다. 구글 캘린더 공개 ICS가 막혀 있어
+ * 서버 렌더링된 이 그리드가 전체 일정의 소스다.
+ */
+function parseCalendarGrid(html) {
+  const events = [];
+  const re = /<ul class="events" aria-labelledby="[^"]*?(\d{8})">([\s\S]*?)<\/ul>/g;
+  let m;
+  while ((m = re.exec(html))) {
+    const [, d8, block] = m;
+    const start = new Date(
+      Number(d8.slice(0, 4)),
+      Number(d8.slice(4, 6)) - 1,
+      Number(d8.slice(6, 8)),
+      12,
+      0,
+    );
+    for (const li of block.split(/<li[\s>]/).slice(1)) {
+      const t = li.match(/<span class="title[^"]*"[^>]*>([\s\S]*?)<\/span>/);
+      if (!t) continue;
+      const summary = unescape(t[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+      if (!summary) continue;
+      const desc = li.match(/<div class="eventdesc">([\s\S]*?)<\/div>/);
+      const detail = desc
+        ? unescape(desc[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+        : '';
+      const tm = li.match(/class="event-time[^"]*"[^>]*>([^<]+)</);
+      if (tm) {
+        const hm = tm[1].match(/(\d{1,2}):(\d{2})/);
+        if (hm) start.setHours(Number(hm[1]) + (/오후|PM/i.test(tm[1]) && Number(hm[1]) < 12 ? 12 : 0), Number(hm[2]));
+      }
+      events.push({
+        uid: `grid-${d8}-${summary}`,
+        summary,
+        location: '',
+        start: new Date(start),
+        allDay: !tm,
+        url: null,
+        detail,
+      });
+    }
+  }
+  return events;
+}
+
 /** 달력 페이지에서 ICS 구독 링크 자동 발견 (구독 버튼·구글 캘린더 embed) */
 function findIcsLinks(html) {
   const out = new Set();
@@ -383,7 +429,19 @@ for (const it of newsItems.slice(0, MAX_NEWS)) {
 // ── 2. 일정 ────────────────────────────────────────────────────
 // 달력 페이지(/wp/ko/calendar/)의 "달력 구독" 링크가 전체 일정 피드 —
 // 페이지에서 ICS 주소를 자동 발견하고, 알려진 소스와 함께 전부 병합한다.
-console.log('[일정] 달력 구독(ICS) 주소 탐색:');
+console.log('[일정] 달력 페이지 수집:');
+const calEvents = [];
+// 같은 일정이 여러 소스에 있을 수 있어 날짜+제목으로 중복 제거
+const seenKeys = new Set();
+const addEvent = (e) => {
+  const key = `${ymd(e.start)}|${e.summary}`;
+  if (seenKeys.has(key)) return false;
+  seenKeys.add(key);
+  calEvents.push(e);
+  return true;
+};
+
+// 1순위: 달력 페이지 그리드 (구글 캘린더가 서버 렌더링됨 — 전체 일정)
 const icalSources = new Set([
   'https://tvpc.church/wp/events/?ical=1',
   'https://tvpc.church/wp/?post_type=tribe_events&ical=1',
@@ -391,15 +449,16 @@ const icalSources = new Set([
 for (const page of ['https://tvpc.church/wp/ko/calendar/', 'https://tvpc.church/wp/calendar/']) {
   const html = await tryFetch(page);
   if (!html) continue;
-  const found = findIcsLinks(html);
-  console.log(`  → 구독 링크 ${found.length}개 발견${found.length ? ': ' + found.join(' , ') : ''}`);
-  for (const u of found) icalSources.add(u);
-  if (found.length) break;
+  const gridEvents = parseCalendarGrid(html);
+  let added = 0;
+  for (const e of gridEvents) if (addEvent(e)) added++;
+  console.log(`  → 달력 그리드에서 ${added}건 파싱`);
+  for (const u of findIcsLinks(html)) icalSources.add(u);
+  if (added > 0) break;
 }
 
+// 2순위: iCal 피드(행사 포스트·구독 링크) 병합
 console.log('[일정] iCal 소스 수집:');
-const calEvents = [];
-const seenUids = new Set();
 for (const url of icalSources) {
   const body = await tryFetch(url);
   if (!body) continue;
@@ -408,12 +467,7 @@ for (const url of icalSources) {
     continue;
   }
   let added = 0;
-  for (const e of parseIcal(body)) {
-    if (seenUids.has(e.uid)) continue;
-    seenUids.add(e.uid);
-    calEvents.push(e);
-    added++;
-  }
+  for (const e of parseIcal(body)) if (addEvent(e)) added++;
   console.log(`  → ${url} 에서 ${added}건 병합`);
 }
 
@@ -434,7 +488,9 @@ for (const e of upcoming) {
     {
       dateLabel: `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${KDAYS[d.getDay()]}`,
       title: e.summary,
-      detail: [e.allDay ? null : timeLabel(d), e.location || null].filter(Boolean).join(' · '),
+      detail: [e.allDay ? null : timeLabel(d), e.location || null, e.detail || null]
+        .filter(Boolean)
+        .join(' · '),
       imageUrl,
       url: e.url,
       sortKey: ymd(d),
