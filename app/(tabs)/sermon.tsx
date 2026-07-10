@@ -56,7 +56,12 @@ export default function SermonScreen() {
       const k = scriptureBook(s.scripture);
       map.set(k, [...(map.get(k) ?? []), s]);
     }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+    return [...map.entries()].sort((a, b) => {
+      // 성경구절이 없는 "기타" 그룹은 항상 맨 아래
+      if (a[0] === '기타') return 1;
+      if (b[0] === '기타') return -1;
+      return a[0].localeCompare(b[0], 'ko');
+    });
   }, [tab, sermons]);
 
   const listItem = (s: SermonDoc) => (
