@@ -5,7 +5,7 @@ name: Sync news from church website
 on:
   schedule:
     # 매일 08:10 태평양 시간(PT) 무렵 — 15:10 UTC
-    - cron: '10 15 * * *'
+    - cron: '30 */6 * * *'
   workflow_dispatch:
 
 jobs:

@@ -9,8 +9,8 @@ name: Sync sermons from YouTube
 
 on:
   schedule:
-    # 매일 08:00 태평양 시간(PT) 무렵 — 15:00 UTC
-    - cron: '0 15 * * *'
+    # 2시간마다 — 새 설교·팟캐스트가 올라오면 늦어도 2시간 안에 앱에 반영
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       backfill:
