@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AddressSearch } from '../src/components/AddressSearch';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { formatPhone, useMember } from '../src/data/member';
 import { useUser } from '../src/data/user';
@@ -139,9 +140,17 @@ export default function MyPageScreen() {
       setEditing(false);
     }, '저장됐습니다.');
 
-  // 주소 4칸: 도로명 / 시티 / 주 / 집코드
+  // 주소 4칸: 도로명 / 시티 / 주 / 집코드 (+ 자동 검색)
   const addressFields = (
     <>
+      <AddressSearch
+        onSelect={(a) => {
+          setAddress(a.address);
+          setCity(a.city);
+          setStateCode(a.state);
+          setZip(a.zip);
+        }}
+      />
       <Field label="주소 (Street)" value={address} onChange={setAddress} placeholder="5925 W. Las Positas Blvd" />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1.6 }}>
