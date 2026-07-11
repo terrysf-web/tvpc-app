@@ -8,7 +8,8 @@ import { ensureAnonymousAuth, getAuthOrNull, getDb } from './firebase';
  * FCM 웹 푸시 공개 키(VAPID) — Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징
  * → 웹 푸시 인증서에서 발급. 비어 있으면 알림 UI가 표시되지 않는다.
  */
-export const VAPID_KEY = '';
+export const VAPID_KEY =
+  'BGG5Pv_FMPZ58eN27fOxJeP-1UsCHYuEx3We8l1m02Kuai-ddWgDOn2WHOx3AFGRKbatytpcir0hoennQUIetlE';
 
 export const pushConfigured = VAPID_KEY.length > 0;
 
