@@ -68,7 +68,8 @@ export function usePushNotifications() {
         serviceWorkerRegistration: reg,
       });
       if (!token) throw new Error('알림 토큰을 발급받지 못했습니다.');
-      await ensureAnonymousAuth();
+      const uid = await ensureAnonymousAuth();
+      if (!uid) throw new Error('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       await setDoc(doc(db, 'pushTokens', token), {
         createdAt: Date.now(),
         ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 150) : '',

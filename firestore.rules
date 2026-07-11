@@ -40,10 +40,11 @@ service cloud.firestore {
     }
 
     match /pushTokens/{token} {
-      // 알림 토큰 등록·해제 — 익명 로그인 사용자. 목록 읽기는 서버(발송 스크립트)만
+      // 알림 토큰 등록·해제 — 익명 로그인 사용자.
+      // 같은 기기가 다시 켜면 기존 문서 덮어쓰기(update)가 되므로 함께 허용.
+      // 목록 읽기는 서버(발송 스크립트)만.
       allow read: if false;
-      allow create, delete: if request.auth != null;
-      allow update: if false;
+      allow create, update, delete: if request.auth != null;
     }
 
     match /prayers/{id} {
