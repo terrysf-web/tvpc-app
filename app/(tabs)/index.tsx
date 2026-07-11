@@ -8,6 +8,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useUser } from '../../src/data/user';
+import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
@@ -40,6 +41,13 @@ export default function HomeScreen() {
   const nextDayEvents = nextEvent
     ? events.filter((e) => e.dateLabel === nextEvent.dateLabel)
     : [];
+
+  // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
+  const isSunday = new Date().getDay() === 0;
+  const sundayTimes = churchInfo.services
+    .filter((s) => s.name.startsWith('주일예배'))
+    .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
+    .join(' · ');
 
   const quickMenu = [
     {
@@ -92,7 +100,9 @@ export default function HomeScreen() {
               <Sun size={20} color={colors.sun} strokeWidth={2} />
             </View>
             <Text style={styles.greetingSub}>
-              오늘도 주님의 은혜가{'\n'}함께하는 하루 되세요
+              {isSunday
+                ? '복된 주일입니다\n예배로 함께 나아가요'
+                : '오늘도 주님의 은혜가\n함께하는 하루 되세요'}
             </Text>
           </View>
           <Pressable style={styles.bellBtn} onPress={() => router.push('/news')} hitSlop={6}>
@@ -102,25 +112,55 @@ export default function HomeScreen() {
         </View>
       </FadeInUp>
 
-      {/* 2. 오늘의 말씀 히어로 */}
+      {/* 2. 히어로 — 주중엔 오늘의 말씀, 주일엔 주일예배 안내 */}
       <FadeInUp delay={40}>
         <View style={[styles.heroWrap, shadows.hero]}>
-          <PhotoSlot uri={verse.imageUrl} tone="deep" style={styles.hero}>
-            <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>오늘의 말씀</Text>
+          {isSunday ? (
+            <PhotoSlot uri={null} tone="deep" style={styles.hero}>
+              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroBadge}>
+                  <Text style={styles.heroBadgeText}>주일예배</Text>
+                </View>
+                <Text style={styles.heroDate}>{todayLabel()}</Text>
               </View>
-              <Text style={styles.heroDate}>{todayLabel()}</Text>
-            </View>
-            <View style={styles.heroBottom}>
-              <Text style={styles.heroRef}>{verse.reference}</Text>
-              <Text style={styles.heroVerse}>{verse.heroText}</Text>
-              <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
-                <Text style={styles.heroBtnText}>말씀 보기</Text>
-              </Pressable>
-            </View>
-          </PhotoSlot>
+              <View style={styles.heroBottom}>
+                <Text style={styles.heroRef}>{churchInfo.nameKo}</Text>
+                <Text style={styles.heroVerse}>
+                  오늘은 주일입니다{'\n'}예배로 함께 나아가요
+                </Text>
+                <Text style={styles.sundayTimes}>{sundayTimes} · 본당</Text>
+                <View style={styles.heroBtnRow}>
+                  <Pressable style={styles.heroBtn} onPress={() => router.push('/sermon')}>
+                    <Text style={styles.heroBtnText}>설교 영상</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.heroBtn, styles.heroBtnGhost]}
+                    onPress={() => router.push('/news')}
+                  >
+                    <Text style={[styles.heroBtnText, styles.heroBtnGhostText]}>주보 보기</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </PhotoSlot>
+          ) : (
+            <PhotoSlot uri={verse.imageUrl} tone="deep" style={styles.hero}>
+              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroBadge}>
+                  <Text style={styles.heroBadgeText}>오늘의 말씀</Text>
+                </View>
+                <Text style={styles.heroDate}>{todayLabel()}</Text>
+              </View>
+              <View style={styles.heroBottom}>
+                <Text style={styles.heroRef}>{verse.reference}</Text>
+                <Text style={styles.heroVerse}>{verse.heroText}</Text>
+                <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
+                  <Text style={styles.heroBtnText}>말씀 보기</Text>
+                </Pressable>
+              </View>
+            </PhotoSlot>
+          )}
         </View>
       </FadeInUp>
 
@@ -286,6 +326,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   heroBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
+  heroBtnRow: { flexDirection: 'row', gap: 9 },
+  heroBtnGhost: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
+  },
+  heroBtnGhostText: { color: '#FFFFFF' },
+  sundayTimes: {
+    fontFamily: font.medium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 14,
+    ...textShadow,
+  },
 
   sectionTitle: {
     fontFamily: font.extraBold,
