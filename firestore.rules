@@ -13,6 +13,13 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
     }
 
+    // 승인된 교인 — 주소록·헌금 내역·기도요청 이용 가능
+    function isApprovedMember() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status == 'approved';
+    }
+
     match /admins/{email} {
       // 본인 여부 확인용 읽기만 허용, 쓰기는 콘솔에서만
       allow read: if request.auth != null && request.auth.token.email == email;
@@ -39,6 +46,33 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /members/{uid} {
+      // 읽기: 본인·관리자·승인 교인(주소록 열람)
+      allow read: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid)
+        || isApprovedMember();
+      // 가입 신청: 본인 문서를 pending 상태로만 생성
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 40;
+      // 수정: 관리자(승인 포함) 또는 본인(연락처 정보만, 승인 상태 변경 불가)
+      allow update: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['name', 'phone', 'address']));
+      allow delete: if isAdmin();
+    }
+
+    match /offeringRecords/{id} {
+      // 본인 헌금 내역만 열람, 등록·수정은 관리자(재정 담당)만
+      allow read: if isAdmin()
+        || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
     match /pushTokens/{token} {
       // 알림 토큰 등록·해제 — 익명 로그인 사용자.
       // 같은 기기가 다시 켜면 기존 문서 덮어쓰기(update)가 되므로 함께 허용.
@@ -48,10 +82,11 @@ service cloud.firestore {
     }
 
     match /prayers/{id} {
-      allow read: if true;
+      // 기도요청은 승인된 교인 전용
+      allow read: if isAdmin() || isApprovedMember();
 
-      // 작성: 익명 로그인 사용자, 필드 형식 검증 + 본문 1000자 제한
-      allow create: if request.auth != null
+      // 작성: 승인된 교인, 필드 형식 검증 + 본문 1000자 제한
+      allow create: if isApprovedMember()
         && request.resource.data.keys().hasAll(['category', 'answered', 'text', 'authorName', 'createdAt', 'prayCount'])
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
@@ -62,7 +97,7 @@ service cloud.firestore {
 
       // 수정: "함께 기도" 카운트(±1)만 허용 (관리자는 전체 수정 가능)
       allow update: if isAdmin()
-        || (request.auth != null
+        || (isApprovedMember()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayCount'])
             && (request.resource.data.prayCount - resource.data.prayCount == 1
                 || request.resource.data.prayCount - resource.data.prayCount == -1)

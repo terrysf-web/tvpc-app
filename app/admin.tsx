@@ -15,20 +15,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { SegmentTabs } from '../src/components/SegmentTabs';
 import {
+  addOfferingRecord,
+  approveMember,
   parsePassage,
+  rejectMember,
   saveEvent,
   saveNews,
   saveVerse,
   useAdminAuth,
+  usePendingMembers,
 } from '../src/data/admin';
 import { colors, font, shadows } from '../src/theme';
 
-type AdminTab = 'verse' | 'news' | 'event';
+type AdminTab = 'verse' | 'news' | 'event' | 'members' | 'offering';
 
 const TABS: { key: AdminTab; label: string }[] = [
-  { key: 'verse', label: '오늘의 말씀' },
+  { key: 'verse', label: '말씀' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
+  { key: 'members', label: '교인' },
+  { key: 'offering', label: '헌금' },
 ];
 
 function today(): string {
@@ -95,6 +101,13 @@ export default function AdminScreen() {
   const [eDateLabel, setEDateLabel] = useState('');
   const [eTitle, setETitle] = useState('');
   const [eDetail, setEDetail] = useState('');
+
+  // 교인 승인 / 헌금 입력
+  const pending = usePendingMembers(isAdmin);
+  const [oEmail, setOEmail] = useState('');
+  const [oItem, setOItem] = useState('');
+  const [oDate, setODate] = useState(today());
+  const [oAmount, setOAmount] = useState('');
 
   const doLogin = async () => {
     setLoginErr(null);
@@ -315,6 +328,73 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {tab === 'members' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>가입 승인 대기 ({pending.length})</Text>
+            {pending.length === 0 && (
+              <Text style={styles.emptyText}>대기 중인 가입 신청이 없습니다.</Text>
+            )}
+            {pending.map((m) => (
+              <View key={m.id} style={styles.pendingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingName}>{m.name}</Text>
+                  <Text style={styles.pendingMeta}>
+                    {[m.email, m.phone].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Pressable
+                  style={styles.approveBtn}
+                  onPress={() => submit(() => approveMember(m.id), `${m.name}님을 승인했습니다.`)}
+                >
+                  <Text style={styles.approveBtnText}>승인</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.rejectBtn}
+                  onPress={() => submit(() => rejectMember(m.id), '신청을 거절했습니다.')}
+                >
+                  <Text style={styles.rejectBtnText}>거절</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Text style={styles.hintText}>
+              승인된 교인은 주소록·기도요청·내 헌금 내역을 이용할 수 있습니다.
+            </Text>
+          </View>
+        )}
+
+        {tab === 'offering' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>헌금 내역 등록</Text>
+            <Field label="교인 이메일" value={oEmail} onChange={setOEmail} placeholder="member@example.com" />
+            <Field label="항목" value={oItem} onChange={setOItem} placeholder="예: 십일조" />
+            <Field label="날짜 (YYYY-MM-DD)" value={oDate} onChange={setODate} placeholder={today()} />
+            <Field label="금액" value={oAmount} onChange={setOAmount} placeholder="예: $200" />
+            <Pressable
+              style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+              onPress={() =>
+                submit(async () => {
+                  if (!oEmail.trim() || !oItem.trim() || !oAmount.trim())
+                    throw new Error('이메일·항목·금액을 입력해 주세요.');
+                  await addOfferingRecord({
+                    email: oEmail,
+                    item: oItem,
+                    date: oDate,
+                    amount: oAmount,
+                  });
+                  setOItem('');
+                  setOAmount('');
+                }, '헌금 내역이 등록됐습니다. 본인만 볼 수 있습니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '내역 등록'}</Text>
+            </Pressable>
+            <Text style={styles.hintText}>
+              해당 이메일로 가입·승인된 교인의 "내 헌금 내역"에만 표시됩니다.
+            </Text>
+          </View>
+        )}
+
         {tab === 'event' && (
           <View style={[styles.card, shadows.card]}>
             <Field label="날짜 표시" value={eDateLabel} onChange={setEDateLabel} placeholder="예: 07.20 주일" />
@@ -385,6 +465,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   primaryBtnText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
+
+  blockTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title, marginBottom: 12 },
+  emptyText: { fontFamily: font.regular, fontSize: 13, color: colors.faint, marginBottom: 8 },
+  hintText: { marginTop: 12, fontFamily: font.regular, fontSize: 11.5, lineHeight: 17, color: colors.faint },
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider2,
+  },
+  pendingName: { fontFamily: font.bold, fontSize: 14, color: colors.title },
+  pendingMeta: { marginTop: 2, fontFamily: font.regular, fontSize: 11.5, color: colors.muted },
+  approveBtn: { backgroundColor: colors.primary, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
+  approveBtnText: { fontFamily: font.bold, fontSize: 12.5, color: '#FFFFFF' },
+  rejectBtn: { backgroundColor: colors.tagGrayBg, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
+  rejectBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.muted },
 
   msg: { marginBottom: 12, fontFamily: font.medium, fontSize: 13.5 },
   msgOk: { color: colors.tagGreenText },

@@ -1,6 +1,19 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { adminSignIn, adminSignOut, getDb, watchUser } from '../firebase';
+import type { MemberDoc } from './member';
 import type { EventDoc, NewsDoc, VerseDoc } from '../types';
 
 /**
@@ -66,6 +79,60 @@ export async function saveNews(n: Omit<NewsDoc, 'id'>): Promise<void> {
 export async function saveEvent(e: Omit<EventDoc, 'id'>): Promise<void> {
   const id = `e-${Date.now()}`;
   await setDoc(doc(requireDb(), 'events', id), e);
+}
+
+/** 가입 신청(승인 대기) 교인 목록 — 관리자 전용 */
+export function usePendingMembers(enabled: boolean) {
+  const [rows, setRows] = useState<MemberDoc[]>([]);
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !enabled) return;
+    const q = query(collection(db, 'members'), where('status', '==', 'pending'));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ ...(d.data() as Omit<MemberDoc, 'id'>), id: d.id }));
+        list.sort((a, b) => a.createdAt - b.createdAt);
+        setRows(list);
+      },
+      () => setRows([]),
+    );
+  }, [enabled]);
+  return rows;
+}
+
+/** 교인 가입 승인 */
+export async function approveMember(uid: string): Promise<void> {
+  await updateDoc(doc(requireDb(), 'members', uid), { status: 'approved' });
+}
+
+/** 교인 가입 거절 — 신청 문서 삭제 (다시 신청 가능) */
+export async function rejectMember(uid: string): Promise<void> {
+  await deleteDoc(doc(requireDb(), 'members', uid));
+}
+
+/** 헌금 내역 등록 — 교인 이메일로 대상을 찾아 본인만 볼 수 있게 저장 */
+export async function addOfferingRecord(input: {
+  email: string;
+  item: string;
+  date: string;
+  amount: string;
+}): Promise<string> {
+  const db = requireDb();
+  const snap = await getDocs(
+    query(collection(db, 'members'), where('email', '==', input.email.trim().toLowerCase())),
+  );
+  if (snap.empty) throw new Error('해당 이메일로 가입한 교인이 없습니다.');
+  const memberDoc = snap.docs[0];
+  await addDoc(collection(db, 'offeringRecords'), {
+    uid: memberDoc.id,
+    email: input.email.trim().toLowerCase(),
+    item: input.item.trim(),
+    date: input.date.trim(),
+    amount: input.amount.trim(),
+    createdAt: Date.now(),
+  });
+  return (memberDoc.data() as { name?: string }).name ?? input.email;
 }
 
 /**

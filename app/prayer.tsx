@@ -1,6 +1,8 @@
-import { Heart, Plus, X } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Heart, Lock, Plus, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,8 +18,10 @@ import { OverlayHeader } from '../src/components/OverlayHeader';
 import { SegmentTabs } from '../src/components/SegmentTabs';
 import { Tag, TagTone } from '../src/components/Tag';
 import { timeAgo, usePrayers } from '../src/data/hooks';
+import { useMember } from '../src/data/member';
 import { prayerCategoryLabel } from '../src/data/sample';
 import { useUser } from '../src/data/user';
+import { firebaseEnabled } from '../src/firebase';
 import { colors, font, shadows } from '../src/theme';
 import type { PrayerCategory } from '../src/types';
 
@@ -39,7 +43,9 @@ const CATEGORY_TONE: Record<string, TagTone> = {
 const WRITE_CATEGORIES: PrayerCategory[] = ['family', 'health', 'work', 'etc', 'answered'];
 
 export default function PrayerScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { state: memberState } = useMember();
   const { user } = useUser();
   const { prayers, liked, toggleLike, addPrayer } = usePrayers();
   const [tab, setTab] = useState<PrayerTab>('req');
@@ -63,6 +69,35 @@ export default function PrayerScreen() {
       setSubmitting(false);
     }
   };
+
+  // 기도요청은 교인 전용 (데모 모드에서는 열람 가능)
+  if (firebaseEnabled && memberState !== 'approved') {
+    return (
+      <View style={styles.screen}>
+        <OverlayHeader title="기도요청" />
+        {memberState === 'loading' ? (
+          <ActivityIndicator style={{ marginTop: 48 }} color={colors.primary} />
+        ) : (
+          <View style={[styles.lockCard, shadows.card]}>
+            <View style={styles.lockChip}>
+              <Lock size={24} color={colors.primary} strokeWidth={1.9} />
+            </View>
+            <Text style={styles.lockTitle}>교인 전용 메뉴입니다</Text>
+            <Text style={styles.lockSub}>
+              {memberState === 'pending'
+                ? '가입 승인이 완료되면 함께 기도할 수 있습니다.\n관리자 승인을 기다려 주세요.'
+                : '기도요청은 승인된 교인만 이용할 수 있습니다.\n마이페이지에서 로그인 또는 가입 신청해 주세요.'}
+            </Text>
+            {memberState === 'none' && (
+              <Pressable style={styles.lockBtn} onPress={() => router.push('/mypage')}>
+                <Text style={styles.lockBtnText}>로그인 · 가입 신청</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -166,6 +201,39 @@ export default function PrayerScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
+  lockCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    alignItems: 'center',
+    padding: 26,
+    margin: 16,
+  },
+  lockChip: {
+    width: 54,
+    height: 54,
+    borderRadius: 17,
+    backgroundColor: colors.tagBlueBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  lockTitle: { fontFamily: font.extraBold, fontSize: 16.5, color: colors.title },
+  lockSub: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontFamily: font.regular,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.muted,
+  },
+  lockBtn: {
+    marginTop: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 11,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+  },
+  lockBtnText: { fontFamily: font.bold, fontSize: 13.5, color: '#FFFFFF' },
   content: { padding: 16, gap: 12 },
 
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 16 },

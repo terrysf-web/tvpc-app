@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import {
   BellRing,
+  BookUser,
   Building2,
   ChevronRight,
   Clock,
@@ -29,6 +30,7 @@ import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
+  { key: 'directory', label: '교회 주소록 (교인 전용)', icon: BookUser },
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'staff', label: '교역자 소개', icon: Users },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
@@ -45,6 +47,10 @@ export default function MoreScreen() {
   const push = usePushNotifications();
 
   const onMenu = (key: (typeof MENU)[number]['key']) => {
+    if (key === 'directory') {
+      router.push('/directory');
+      return;
+    }
     if (key === 'share') {
       Share.share({
         message:
