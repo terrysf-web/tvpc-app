@@ -35,7 +35,7 @@ export default function DirectoryScreen() {
     : rows;
 
   let body: React.ReactNode;
-  if (!firebaseEnabled || state === 'none' || state === 'pending') {
+  if (!firebaseEnabled || state === 'none' || state === 'noProfile' || state === 'pending') {
     body = (
       <View style={[styles.lockCard, shadows.card]}>
         <View style={styles.lockChip}>
@@ -47,9 +47,11 @@ export default function DirectoryScreen() {
             ? '가입 승인이 완료되면 주소록을 볼 수 있습니다.\n관리자 승인을 기다려 주세요.'
             : '교회 주소록은 승인된 교인만 볼 수 있습니다.\n마이페이지에서 로그인 또는 가입 신청해 주세요.'}
         </Text>
-        {state === 'none' && (
+        {(state === 'none' || state === 'noProfile') && (
           <Pressable style={styles.lockBtn} onPress={() => router.push('/mypage')}>
-            <Text style={styles.lockBtnText}>로그인 · 가입 신청</Text>
+            <Text style={styles.lockBtnText}>
+              {state === 'noProfile' ? '교인 정보 등록하기' : '로그인 · 가입 신청'}
+            </Text>
           </Pressable>
         )}
       </View>

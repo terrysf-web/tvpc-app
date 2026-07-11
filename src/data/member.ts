@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import {
   collection,
   doc,
@@ -32,6 +32,7 @@ export interface MemberDoc {
 export type MemberState =
   | 'loading' // 확인 중
   | 'none' // 로그인 안 함(또는 익명)
+  | 'noProfile' // 계정 로그인은 됐지만 교인 정보 미등록 (기존 관리자 계정 등)
   | 'pending' // 가입 신청, 승인 대기
   | 'approved'; // 승인된 교인
 
@@ -43,6 +44,7 @@ export type MemberState =
 export function useMember() {
   const [state, setState] = useState<MemberState>(firebaseEnabled ? 'loading' : 'none');
   const [member, setMember] = useState<MemberDoc | null>(null);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseEnabled) return;
@@ -53,9 +55,11 @@ export function useMember() {
       // 익명 세션(일반 열람용)은 로그인으로 치지 않는다
       if (!user || user.isAnonymous || !user.email) {
         setMember(null);
+        setAuthEmail(null);
         setState('none');
         return;
       }
+      setAuthEmail(user.email);
       const db = getDb();
       if (!db) {
         setState('none');
@@ -65,8 +69,9 @@ export function useMember() {
         doc(db, 'members', user.uid),
         (snap) => {
           if (!snap.exists()) {
+            // 계정은 있지만 교인 정보가 없음 → 정보 등록 유도
             setMember(null);
-            setState('none');
+            setState('noProfile');
             return;
           }
           const m = { ...(snap.data() as Omit<MemberDoc, 'id'>), id: snap.id };
@@ -104,6 +109,32 @@ export function useMember() {
     [],
   );
 
+  /** 이미 계정이 있는 사용자(기존 관리자 등)의 교인 정보 등록 */
+  const createProfile = useCallback(
+    async (input: { name: string; phone: string; address: string }) => {
+      const auth = getAuthOrNull();
+      const db = getDb();
+      const user = auth?.currentUser;
+      if (!db || !user || !user.email) throw new Error('로그인이 필요합니다.');
+      await setDoc(doc(db, 'members', user.uid), {
+        name: input.name.trim(),
+        email: user.email.toLowerCase(),
+        phone: input.phone.trim(),
+        address: input.address.trim(),
+        status: 'pending',
+        createdAt: Date.now(),
+      });
+    },
+    [],
+  );
+
+  /** 비밀번호 재설정 메일 발송 */
+  const resetPassword = useCallback(async (email: string) => {
+    const auth = getAuthOrNull();
+    if (!auth) throw new Error('Firebase가 설정되지 않았습니다.');
+    await sendPasswordResetEmail(auth, email.trim());
+  }, []);
+
   const signIn = useCallback(async (email: string, password: string) => {
     await adminSignIn(email, password); // 이메일/비밀번호 로그인 (교인·교역자 공용)
   }, []);
@@ -121,7 +152,7 @@ export function useMember() {
     [member],
   );
 
-  return { state, member, signUp, signIn, signOut, updateProfile };
+  return { state, member, authEmail, signUp, signIn, signOut, updateProfile, createProfile, resetPassword };
 }
 
 /** 교회 주소록 — 승인된 교인 목록 (승인 교인만 읽을 수 있음) */

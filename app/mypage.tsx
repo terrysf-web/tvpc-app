@@ -66,7 +66,8 @@ export default function MyPageScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { updateUser } = useUser();
-  const { state, member, signUp, signIn, signOut, updateProfile } = useMember();
+  const { state, member, authEmail, signUp, signIn, signOut, updateProfile, createProfile, resetPassword } =
+    useMember();
 
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [busy, setBusy] = useState(false);
@@ -106,6 +107,16 @@ export default function MyPageScreen() {
   };
 
   const doLogin = () => run(() => signIn(email, pw));
+  const doReset = () =>
+    run(async () => {
+      if (!email.trim()) throw new Error('비밀번호를 재설정할 이메일을 먼저 입력해 주세요.');
+      await resetPassword(email);
+    }, '비밀번호 재설정 메일을 보냈습니다. 메일함을 확인해 주세요.');
+  const doCreateProfile = () =>
+    run(async () => {
+      if (!name.trim()) throw new Error('이름을 입력해 주세요.');
+      await createProfile({ name, phone, address });
+    });
   const doSignup = () =>
     run(async () => {
       if (!name.trim()) throw new Error('이름을 입력해 주세요.');
@@ -173,6 +184,32 @@ export default function MyPageScreen() {
           <Text style={styles.primaryBtnText}>
             {busy ? '처리 중…' : mode === 'login' ? '로그인' : '가입 신청'}
           </Text>
+        </Pressable>
+        {mode === 'login' && (
+          <Pressable style={styles.resetLink} onPress={doReset} disabled={busy}>
+            <Text style={styles.resetLinkText}>비밀번호를 잊으셨나요? 재설정 메일 받기</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  } else if (state === 'noProfile') {
+    // 계정은 있는데(기존 관리자 등) 교인 정보가 아직 없음 → 정보 등록
+    body = (
+      <View style={[styles.card, shadows.card]}>
+        <Text style={styles.introText}>
+          {authEmail} 계정으로 로그인됐습니다.{'\n'}
+          교인 명부 등록을 위해 정보를 입력해 주세요. 관리자 승인 후 주소록·헌금 내역·기도요청을
+          이용할 수 있습니다.
+        </Text>
+        <Field label="이름" value={name} onChange={setName} placeholder="홍길동" />
+        <Field label="전화번호" value={phone} onChange={setPhone} placeholder="925-000-0000" keyboard="phone-pad" />
+        <Field label="주소 (선택)" value={address} onChange={setAddress} placeholder="Pleasanton, CA" />
+        {msg ? <Text style={[styles.msg, msg.startsWith('✓') ? styles.msgOk : styles.msgErr]}>{msg}</Text> : null}
+        <Pressable style={[styles.primaryBtn, busy && { opacity: 0.6 }]} onPress={doCreateProfile} disabled={busy}>
+          <Text style={styles.primaryBtnText}>{busy ? '처리 중…' : '교인 정보 등록'}</Text>
+        </Pressable>
+        <Pressable style={styles.resetLink} onPress={() => run(signOut)}>
+          <Text style={styles.resetLinkText}>로그아웃</Text>
         </Pressable>
       </View>
     );
@@ -316,6 +353,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   primaryBtnText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
+  resetLink: { alignSelf: 'center', marginTop: 14, padding: 4 },
+  resetLinkText: { fontFamily: font.medium, fontSize: 12.5, color: colors.primary },
   ghostBtn: {
     marginTop: 16,
     borderRadius: 11,

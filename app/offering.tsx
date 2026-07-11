@@ -91,9 +91,11 @@ export default function OfferingScreen() {
                 ? '가입 승인이 완료되면 내 헌금 내역을 볼 수 있습니다.'
                 : '교인 로그인 후 내 헌금 내역을 볼 수 있습니다.'}
             </Text>
-            {memberState === 'none' && (
+            {(memberState === 'none' || memberState === 'noProfile') && (
               <Pressable style={styles.lockBtn} onPress={() => router.push('/mypage')}>
-                <Text style={styles.lockBtnText}>로그인</Text>
+                <Text style={styles.lockBtnText}>
+                  {memberState === 'noProfile' ? '교인 정보 등록' : '로그인'}
+                </Text>
               </Pressable>
             )}
           </View>

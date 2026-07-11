@@ -88,9 +88,11 @@ export default function PrayerScreen() {
                 ? '가입 승인이 완료되면 함께 기도할 수 있습니다.\n관리자 승인을 기다려 주세요.'
                 : '기도요청은 승인된 교인만 이용할 수 있습니다.\n마이페이지에서 로그인 또는 가입 신청해 주세요.'}
             </Text>
-            {memberState === 'none' && (
+            {(memberState === 'none' || memberState === 'noProfile') && (
               <Pressable style={styles.lockBtn} onPress={() => router.push('/mypage')}>
-                <Text style={styles.lockBtnText}>로그인 · 가입 신청</Text>
+                <Text style={styles.lockBtnText}>
+                  {memberState === 'noProfile' ? '교인 정보 등록하기' : '로그인 · 가입 신청'}
+                </Text>
               </Pressable>
             )}
           </View>
