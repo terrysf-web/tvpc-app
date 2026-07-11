@@ -50,12 +50,12 @@ jobs:
           projectId: tvpc-40043
           channelId: live
 
+      # firebase-tools는 배포 전 serviceusage API 점검에서 403이 나므로
+      # Rules API를 직접 호출하는 스크립트로 배포한다
       - name: Deploy Firestore rules
         if: env.skip != 'true'
-        continue-on-error: true  # 서비스 계정 권한 부족 시 실패해도 호스팅 배포는 유지
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/sa.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
-          npx firebase-tools deploy --only firestore:rules --project tvpc-40043
+          npm install --no-save google-auth-library
+          node scripts/deploy-rules.mjs
