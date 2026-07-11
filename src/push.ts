@@ -68,10 +68,16 @@ export function usePushNotifications() {
         serviceWorkerRegistration: reg,
       });
       if (!token) throw new Error('알림 토큰을 발급받지 못했습니다.');
-      const uid = await ensureAnonymousAuth();
-      if (!uid) throw new Error('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      // 로그인된 사용자(교인·관리자)면 그 세션을 쓰고, 아니면 익명 세션 보장
+      const currentEmail = getAuthOrNull()?.currentUser?.email ?? null;
+      if (!currentEmail) {
+        const uid = await ensureAnonymousAuth();
+        if (!uid) throw new Error('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
       await setDoc(doc(db, 'pushTokens', token), {
         createdAt: Date.now(),
+        // 관리자 알림(가입 신청 등) 대상 식별용
+        email: currentEmail ? currentEmail.toLowerCase() : null,
         ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 150) : '',
       });
       localStorage.setItem(SAVED_KEY, token);

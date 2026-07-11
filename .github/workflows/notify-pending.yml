@@ -1,0 +1,38 @@
+# 가입 승인 대기 알림 — 새 가입 신청이 있으면 관리자 기기로 푸시.
+# 관리자 계정으로 앱에 로그인하고 "말씀 알림"을 켠 기기가 대상이다.
+name: Notify pending members
+
+on:
+  schedule:
+    # 매시간 정각
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install firebase-admin
+        if: env.skip != 'true'
+        run: npm install --no-save firebase-admin
+
+      - name: Notify admins
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/notify-pending-members.mjs
