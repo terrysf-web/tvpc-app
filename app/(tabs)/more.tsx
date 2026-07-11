@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import {
+  BellRing,
   Building2,
   ChevronRight,
   Clock,
@@ -12,9 +13,19 @@ import {
   Users,
 } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/data/user';
+import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
@@ -31,6 +42,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
+  const push = usePushNotifications();
 
   const onMenu = (key: (typeof MENU)[number]['key']) => {
     if (key === 'share') {
@@ -88,6 +100,30 @@ export default function MoreScreen() {
           <Text style={styles.gridSub}>어디서나 간편하게</Text>
         </Pressable>
       </View>
+
+      {/* 데일리브레드 알림 */}
+      {push.supported && (
+        <View style={[styles.pushCard, shadows.card]}>
+          <View style={[styles.gridChip, { backgroundColor: colors.tagOrangeBg, marginBottom: 0 }]}>
+            <BellRing size={20} color={colors.tagOrangeText} strokeWidth={1.9} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.gridLabel}>말씀 알림</Text>
+            <Text style={styles.gridSub}>매일 아침 오늘의 말씀을 알려드려요</Text>
+            {push.error ? <Text style={styles.pushError}>{push.error}</Text> : null}
+          </View>
+          {push.busy ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Switch
+              value={push.enabled}
+              onValueChange={push.toggle}
+              trackColor={{ false: colors.faint2, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          )}
+        </View>
+      )}
 
       {/* 리스트 메뉴 */}
       <View style={[styles.menuCard, shadows.card]}>
@@ -163,6 +199,17 @@ const styles = StyleSheet.create({
   },
   gridLabel: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
   gridSub: { fontFamily: font.regular, fontSize: 12, color: colors.muted },
+
+  pushCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+  },
+  pushError: { marginTop: 4, fontFamily: font.regular, fontSize: 11.5, color: colors.heartActive },
 
   menuCard: {
     backgroundColor: colors.card,
