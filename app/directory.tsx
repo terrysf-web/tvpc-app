@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { useDirectory, useMember } from '../src/data/member';
+import { fullAddress, useDirectory, useMember } from '../src/data/member';
 import { firebaseEnabled } from '../src/firebase';
 import { openExternal } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
@@ -80,10 +80,10 @@ export default function DirectoryScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{m.name}</Text>
               {m.phone ? <Text style={styles.meta}>{m.phone}</Text> : null}
-              {m.address ? (
+              {fullAddress(m) ? (
                 <View style={styles.addrRow}>
                   <MapPin size={11} color={colors.faint} strokeWidth={1.9} />
-                  <Text style={styles.meta}>{m.address}</Text>
+                  <Text style={styles.meta}>{fullAddress(m)}</Text>
                 </View>
               ) : null}
             </View>

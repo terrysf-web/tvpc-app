@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { useMember } from '../src/data/member';
+import { formatPhone, useMember } from '../src/data/member';
 import { useUser } from '../src/data/user';
 import { firebaseEnabled } from '../src/firebase';
 import { colors, font, shadows } from '../src/theme';
@@ -76,6 +76,9 @@ export default function MyPageScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [stateCode, setStateCode] = useState('');
+  const [zip, setZip] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [editing, setEditing] = useState(false);
@@ -115,19 +118,55 @@ export default function MyPageScreen() {
   const doCreateProfile = () =>
     run(async () => {
       if (!name.trim()) throw new Error('이름을 입력해 주세요.');
-      await createProfile({ name, phone, address });
+      await createProfile({ name, phone, address, city, state: stateCode, zip });
     });
   const doSignup = () =>
     run(async () => {
       if (!name.trim()) throw new Error('이름을 입력해 주세요.');
       if (!email.trim() || !pw) throw new Error('이메일과 비밀번호를 입력해 주세요.');
-      await signUp({ name, phone, address, email, password: pw });
+      await signUp({ name, phone, address, city, state: stateCode, zip, email, password: pw });
     });
   const saveProfile = () =>
     run(async () => {
-      await updateProfile({ name: name.trim(), phone: phone.trim(), address: address.trim() });
+      await updateProfile({
+        name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        state: stateCode.trim().toUpperCase(),
+        zip: zip.trim(),
+      });
       setEditing(false);
     }, '저장됐습니다.');
+
+  // 주소 4칸: 도로명 / 시티 / 주 / 집코드
+  const addressFields = (
+    <>
+      <Field label="주소 (Street)" value={address} onChange={setAddress} placeholder="5925 W. Las Positas Blvd" />
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1.6 }}>
+          <Field label="시티" value={city} onChange={setCity} placeholder="Pleasanton" />
+        </View>
+        <View style={{ flex: 0.7 }}>
+          <Field
+            label="주"
+            value={stateCode}
+            onChange={(t) => setStateCode(t.toUpperCase().slice(0, 2))}
+            placeholder="CA"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Field
+            label="집코드"
+            value={zip}
+            onChange={(t) => setZip(t.replace(/\D/g, '').slice(0, 5))}
+            placeholder="94588"
+            keyboard="phone-pad"
+          />
+        </View>
+      </View>
+    </>
+  );
 
   const MENU = [
     { key: 'directory', label: '교회 주소록', icon: BookUser, onPress: () => router.push('/directory') },
@@ -169,8 +208,14 @@ export default function MyPageScreen() {
         {mode === 'signup' && (
           <>
             <Field label="이름" value={name} onChange={setName} placeholder="홍길동" />
-            <Field label="전화번호" value={phone} onChange={setPhone} placeholder="925-000-0000" keyboard="phone-pad" />
-            <Field label="주소 (선택)" value={address} onChange={setAddress} placeholder="Pleasanton, CA" />
+            <Field
+              label="전화번호"
+              value={phone}
+              onChange={(t) => setPhone(formatPhone(t))}
+              placeholder="925-000-0000"
+              keyboard="phone-pad"
+            />
+            {addressFields}
           </>
         )}
         <Field label="이메일" value={email} onChange={setEmail} placeholder="me@example.com" keyboard="email-address" />
@@ -202,8 +247,14 @@ export default function MyPageScreen() {
           이용할 수 있습니다.
         </Text>
         <Field label="이름" value={name} onChange={setName} placeholder="홍길동" />
-        <Field label="전화번호" value={phone} onChange={setPhone} placeholder="925-000-0000" keyboard="phone-pad" />
-        <Field label="주소 (선택)" value={address} onChange={setAddress} placeholder="Pleasanton, CA" />
+        <Field
+          label="전화번호"
+          value={phone}
+          onChange={(t) => setPhone(formatPhone(t))}
+          placeholder="925-000-0000"
+          keyboard="phone-pad"
+        />
+        {addressFields}
         {msg ? <Text style={[styles.msg, msg.startsWith('✓') ? styles.msgOk : styles.msgErr]}>{msg}</Text> : null}
         <Pressable style={[styles.primaryBtn, busy && { opacity: 0.6 }]} onPress={doCreateProfile} disabled={busy}>
           <Text style={styles.primaryBtnText}>{busy ? '처리 중…' : '교인 정보 등록'}</Text>
@@ -245,6 +296,9 @@ export default function MyPageScreen() {
               setName(member?.name ?? '');
               setPhone(member?.phone ?? '');
               setAddress(member?.address ?? '');
+              setCity(member?.city ?? '');
+              setStateCode(member?.state ?? '');
+              setZip(member?.zip ?? '');
               setEditing(!editing);
               setMsg(null);
             }}
@@ -256,8 +310,13 @@ export default function MyPageScreen() {
         {editing && (
           <View style={[styles.card, shadows.card]}>
             <Field label="이름" value={name} onChange={setName} />
-            <Field label="전화번호" value={phone} onChange={setPhone} keyboard="phone-pad" />
-            <Field label="주소" value={address} onChange={setAddress} />
+            <Field
+              label="전화번호"
+              value={phone}
+              onChange={(t) => setPhone(formatPhone(t))}
+              keyboard="phone-pad"
+            />
+            {addressFields}
             {msg ? <Text style={[styles.msg, msg.startsWith('✓') ? styles.msgOk : styles.msgErr]}>{msg}</Text> : null}
             <Pressable style={[styles.primaryBtn, busy && { opacity: 0.6 }]} onPress={saveProfile} disabled={busy}>
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '저장'}</Text>

@@ -62,7 +62,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (request.auth != null && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'phone', 'address']));
+                 .hasOnly(['name', 'phone', 'address', 'city', 'state', 'zip']));
       allow delete: if isAdmin();
     }
 
