@@ -83,7 +83,12 @@ function parseXeBoard(html, origin) {
     if (!a) continue;
     const raw = unescape(a[1]);
     const href = raw.startsWith('http') ? raw : origin + (raw.startsWith('/') ? '' : '/') + raw;
-    const title = unescape(a[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    const title = unescape(a[2].replace(/<[^>]+>/g, ' '))
+      .replace(/\s+/g, ' ')
+      .trim()
+      // 게시판 "New"/"Hot" 배지가 제목 텍스트에 딸려 들어오는 것 제거
+      .replace(/^(?:new|hot)\s+/i, '')
+      .replace(/\s+(?:new|hot)$/i, '');
     if (title.length < 2 || seen.has(href)) continue;
     seen.add(href);
     const dm = row.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
@@ -315,7 +320,12 @@ function parseWpList(html, origin) {
     let href = unescape(a[1]);
     if (href.startsWith('/')) href = origin + href;
     if (!href.startsWith('http')) continue;
-    const title = unescape(a[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    const title = unescape(a[2].replace(/<[^>]+>/g, ' '))
+      .replace(/\s+/g, ' ')
+      .trim()
+      // 게시판 "New"/"Hot" 배지가 제목 텍스트에 딸려 들어오는 것 제거
+      .replace(/^(?:new|hot)\s+/i, '')
+      .replace(/\s+(?:new|hot)$/i, '');
     if (title.length < 3 || seen.has(href)) continue;
     seen.add(href);
     const dm =
