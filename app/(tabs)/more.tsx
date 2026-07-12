@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronRight,
   Clock,
+  RefreshCw,
   HandCoins,
   HeartHandshake,
   MapPin,
@@ -38,6 +39,7 @@ const MENU = [
   { key: 'direction', label: '오시는 길', icon: MapPin },
   { key: 'contact', label: '문의하기', icon: MessageCircle },
   { key: 'share', label: '앱 공유하기', icon: Share2 },
+  { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;
 
 export default function MoreScreen() {
@@ -47,6 +49,11 @@ export default function MoreScreen() {
   const push = usePushNotifications();
 
   const onMenu = (key: (typeof MENU)[number]['key']) => {
+    if (key === 'refresh') {
+      // 홈 화면 앱(PWA)에는 새로고침 버튼이 없어 여기서 최신 버전을 다시 불러온다
+      if (typeof window !== 'undefined') window.location.reload();
+      return;
+    }
     if (key === 'directory') {
       router.push('/directory');
       return;
