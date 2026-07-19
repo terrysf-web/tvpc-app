@@ -4,8 +4,10 @@ name: Sync news from church website
 
 on:
   schedule:
-    # 매일 08:10 태평양 시간(PT) 무렵 — 15:10 UTC
+    # 평시 6시간마다
     - cron: '30 */6 * * *'
+    # 주일 아침(태평양 시간 5:30–13:30 무렵)에는 매시간 — 주보가 올라오는 대로 반영
+    - cron: '30 13-20 * * 0'
   workflow_dispatch:
 
 jobs:
