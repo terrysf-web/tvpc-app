@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, BookOpen, FileText, HeartHandshake, Megaphone, Play, Sun } from 'lucide-react-native';
+import { Bell, BookOpen, FileText, Megaphone, Play, Sun, UserRound } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -79,11 +79,11 @@ export default function HomeScreen() {
       onPress: () => router.push('/word'),
     },
     {
-      key: 'prayer',
-      label: '오늘의 기도',
-      icon: <HeartHandshake size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
+      key: 'newcomer',
+      label: '새가족 안내',
+      icon: <UserRound size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
       chipBg: colors.tagGreenBg,
-      onPress: () => router.push('/prayer'),
+      onPress: () => router.push('/info/newcomer'),
     },
     {
       key: 'news',
