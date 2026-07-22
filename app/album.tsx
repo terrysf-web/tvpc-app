@@ -22,6 +22,8 @@ interface AlbumPage {
   image: string;
   w: number;
   h: number;
+  /** 명부 줄일 때의 소속 셀 */
+  cell?: string;
 }
 
 /**
@@ -34,6 +36,8 @@ export default function AlbumScreen() {
   const { width } = useWindowDimensions();
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [pages, setPages] = useState<(AlbumPage | null)[]>([]);
+  const [rowCount, setRowCount] = useState(0);
+  const [rows, setRows] = useState<(AlbumPage | null)[]>([]);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -49,13 +53,16 @@ export default function AlbumScreen() {
         const meta = await getDoc(doc(db, 'albums', 'current'));
         if (cancelled) return;
         const n = Number(meta.get('pageCount') ?? 0);
-        if (!meta.exists || !n) {
+        const rn = Number(meta.get('rowCount') ?? 0);
+        if (!meta.exists || (!n && !rn)) {
           setFailed(true);
           return;
         }
         setPageCount(n);
         setPages(Array(n).fill(null));
-        // 페이지를 순서대로 이어서 로드 — 첫 장부터 바로 보인다
+        setRowCount(rn);
+        setRows(Array(rn).fill(null));
+        // 소개 페이지 → 명부 줄 순서대로 이어서 로드 (첫 장부터 바로 보인다)
         for (let i = 0; i < n && !cancelled; i++) {
           const snap = await getDoc(doc(db, 'albums', 'current', 'pages', String(i).padStart(3, '0')));
           if (cancelled) return;
@@ -64,6 +71,23 @@ export default function AlbumScreen() {
             setPages((prev) => {
               const next = [...prev];
               next[i] = { image, w: Number(snap.get('w') ?? 3), h: Number(snap.get('h') ?? 4) };
+              return next;
+            });
+          }
+        }
+        for (let i = 0; i < rn && !cancelled; i++) {
+          const snap = await getDoc(doc(db, 'albums', 'current', 'rows', String(i).padStart(4, '0')));
+          if (cancelled) return;
+          const image = String(snap.get('image') ?? '');
+          if (image) {
+            setRows((prev) => {
+              const next = [...prev];
+              next[i] = {
+                image,
+                w: Number(snap.get('w') ?? 3),
+                h: Number(snap.get('h') ?? 1),
+                cell: String(snap.get('cell') ?? ''),
+              };
               return next;
             });
           }
@@ -105,7 +129,7 @@ export default function AlbumScreen() {
           showsVerticalScrollIndicator={false}
         >
           {pages.map((p, i) => (
-            <View key={i} style={[styles.pageWrap, shadows.card]}>
+            <View key={`p${i}`} style={[styles.pageWrap, shadows.card]}>
               {p ? (
                 <Image
                   source={{ uri: p.image }}
@@ -122,6 +146,36 @@ export default function AlbumScreen() {
               </Text>
             </View>
           ))}
+
+          {/* 명부 — 셀 제목 아래 멤버 줄들 */}
+          {rows.map((r, i) => {
+            const prev = i > 0 ? rows[i - 1] : null;
+            const showHeader = r && (!prev || prev.cell !== r.cell);
+            return (
+              <React.Fragment key={`r${i}`}>
+                {showHeader && (
+                  <View style={styles.cellHeader}>
+                    <Text style={styles.cellHeaderText}>{(r?.cell ?? '').toUpperCase()}</Text>
+                  </View>
+                )}
+                {r ? (
+                  <View style={[styles.rowWrap, shadows.card]}>
+                    <Image
+                      source={{ uri: r.image }}
+                      style={{ width: pageWidth, height: pageWidth * (r.h / r.w), borderRadius: 10 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ) : (
+                  i < rowCount && (
+                    <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 0.32 }]}>
+                      <ActivityIndicator color={colors.faint} />
+                    </View>
+                  )
+                )}
+              </React.Fragment>
+            );
+          })}
           <Pressable style={styles.webLink} onPress={openPdf}>
             <Text style={styles.webLinkText}>원본 PDF 열기 ›</Text>
           </Pressable>
@@ -156,6 +210,17 @@ const styles = StyleSheet.create({
   },
   webLink: { padding: 10 },
   webLinkText: { fontFamily: font.medium, fontSize: 13, color: colors.primary },
+
+  cellHeader: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  cellHeaderText: { fontFamily: font.extraBold, fontSize: 15, color: '#FFFFFF', letterSpacing: 0.5 },
+  rowWrap: { backgroundColor: colors.card, borderRadius: 12, overflow: 'hidden' },
 
   card: {
     width: '100%',
