@@ -298,15 +298,21 @@ async function syncDawnVerses() {
 
   console.log('[말씀] 새벽예배 본문 등록:');
   let wrote = 0;
+  const usedDates = new Set();
   for (const day of days) {
-    // 같은 열(column)의 본문 찾기 — 표 열 위치가 가장 가까운 토큰
+    // 같은 열(column)의 본문 찾기 — 표 열 위치가 가장 가까운 토큰.
+    // 한 본문은 한 요일에만 쓴다(금요집회 열의 중복 "금(n일)"이 옆 열을 뺏지 않도록).
     let best = null;
     for (const p of passages) {
+      if (p.used) continue;
       const dist = Math.abs(p.col - day.col);
       if (dist <= 14 && (!best || dist < Math.abs(best.col - day.col))) best = p;
     }
     if (!best) continue;
+    best.used = true;
     const vDate = domToDate(day.dom);
+    if (vDate && usedDates.has(vDate)) continue;
+    if (vDate) usedDates.add(vDate);
     const bookName = findBook(best.book);
     if (!vDate || !bookName) {
       console.log(`  – ${day.dom}일 ${best.book} ${best.chapter}장: ${!vDate ? '날짜 계산 불가' : '책 이름 인식 불가'}`);
