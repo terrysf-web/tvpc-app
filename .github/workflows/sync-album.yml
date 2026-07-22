@@ -31,9 +31,9 @@ jobs:
             echo "skip=true" >> "$GITHUB_ENV"
           fi
 
-      - name: Install poppler
+      - name: Install poppler & tesseract
         if: env.skip != 'true'
-        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils tesseract-ocr tesseract-ocr-kor
 
       - name: Install deps
         if: env.skip != 'true'
