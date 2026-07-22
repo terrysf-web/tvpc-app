@@ -74,7 +74,7 @@ function SermonNoteCard({ date }: { date: string }) {
 
 /**
  * 주보 뷰어 — 관리자가 올린 페이지 이미지를 전화기 화면 폭에 맞춰 한 장씩 보여준다.
- * 인쇄물 QR 코드(happytvpc.web.app/bulletin)로 누구나 열 수 있는 공개 화면.
+ * 인쇄물 QR 코드(app.tvpc.church/bulletin)로 누구나 열 수 있는 공개 화면.
  * 아직 이미지 주보가 없으면 홈페이지 주보 게시글로 안내한다.
  */
 /** 이 기기에 해당 날짜 메모가 저장돼 있는지 */

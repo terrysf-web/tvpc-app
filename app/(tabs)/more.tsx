@@ -61,7 +61,7 @@ export default function MoreScreen() {
     if (key === 'share') {
       Share.share({
         message:
-          '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요.\nhttps://happytvpc.web.app',
+          '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요.\nhttps://app.tvpc.church',
       }).catch(() => {});
       return;
     }

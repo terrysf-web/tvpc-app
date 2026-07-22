@@ -46,7 +46,7 @@ if (tokenDocs.length > 0) {
     notification: { title, body },
     webpush: {
       notification: { icon: '/icon-192.png', tag: 'pending-members' },
-      fcmOptions: { link: 'https://happytvpc.web.app' },
+      fcmOptions: { link: 'https://app.tvpc.church' },
     },
   });
   let sent = 0;

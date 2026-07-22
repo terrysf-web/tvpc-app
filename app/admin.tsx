@@ -402,7 +402,7 @@ export default function AdminScreen() {
             )}
             <Text style={styles.hintText}>
               접는 주보(가로 2장)는 자동으로 반쪽 4면이 되고, 읽는 순서(1→2→3→4면)로
-              정렬됩니다. 등록하면 누구나 앱 "주보 보기"(happytvpc.web.app/bulletin)에서
+              정렬됩니다. 등록하면 누구나 앱 "주보 보기"(app.tvpc.church/bulletin)에서
               볼 수 있습니다 — QR 코드 인쇄용 주소도 이 주소입니다. 업로드는 컴퓨터
               브라우저에서 해주세요.
             </Text>
