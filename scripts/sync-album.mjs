@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 9;
+const CONVERTER_VERSION = 10;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -52,9 +52,11 @@ if (
 
 const dir = mkdtempSync(join(tmpdir(), 'album-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
-// 150dpi — 화면용으로 충분하면서 OCR(이름 인식)도 가능한 해상도
+// 화면용 150dpi + OCR용 300dpi(한글 인식 정확도) 두 벌 렌더링
 execFileSync('pdftoppm', ['-jpeg', '-r', '150', '-jpegopt', 'quality=82', join(dir, 'in.pdf'), join(dir, 'p')]);
+execFileSync('pdftoppm', ['-jpeg', '-r', '300', '-jpegopt', 'quality=85', join(dir, 'in.pdf'), join(dir, 'o')]);
 const files = readdirSync(dir).filter((f) => f.startsWith('p') && f.endsWith('.jpg')).sort();
+const ocrFiles = readdirSync(dir).filter((f) => f.startsWith('o') && f.endsWith('.jpg')).sort();
 console.log(`[변환] ${files.length}페이지 렌더링`);
 
 // 페이지 구조(XML) — 명부 페이지(Photo/Name/Cell 표)를 줄 단위로 자르기 위한 좌표
@@ -154,7 +156,17 @@ for (let i = 0; i < files.length; i++) {
   let nameX = null;
   let cellX = null;
   if (photos.length >= 2) {
-    words = ocrWords(pageFile);
+    // OCR은 300dpi 렌더링으로 — 좌표는 화면용(150dpi) 기준으로 환산
+    const ocrFile = join(dir, ocrFiles[i]);
+    const om = await sharp(readFileSync(ocrFile)).metadata();
+    const k = imgH / om.height;
+    words = ocrWords(ocrFile).map((w) => ({
+      ...w,
+      left: w.left * k,
+      top: w.top * k,
+      w: w.w * k,
+      h: w.h * k,
+    }));
     const hdr = (re) =>
       words.filter((w) => w.conf >= 30 && re.test(w.text)).sort((a, b) => a.top - b.top)[0];
     const hName = hdr(/^Name$/i);
