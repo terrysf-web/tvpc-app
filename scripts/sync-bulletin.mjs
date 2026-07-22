@@ -105,23 +105,44 @@ for (const m of listHtml.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)
   anchors.push({ href, text });
 }
 
+// 진단용: 흥미로운 링크(첨부/게시글/날짜 포함)만 추려 출력
+function dumpInteresting(list, html) {
+  const inter = list.filter((a) =>
+    /\.pdf|download|attach|kboard|uid=|mod=document|action=|\d{8}|20\d{2}[-./년]/i.test(
+      `${a.href} ${a.text}`,
+    ),
+  );
+  console.error(`  발견한 관련 링크 ${inter.length}건:`);
+  for (const a of inter.slice(0, 80)) console.error(`    - "${a.text}" → ${a.href}`);
+  const pdfish = html.match(/[^"'\s>]{0,140}\.pdf[^"'\s<]{0,60}/gi) ?? [];
+  console.error(`  HTML 안 ".pdf" 흔적 ${pdfish.length}건:`);
+  for (const p of pdfish.slice(0, 10)) console.error(`    · ${p}`);
+}
+
 // PDF 직링크가 목록에 바로 있으면 그것부터, 없으면 최신 게시글로 들어가서 찾는다.
-const pdfLike = (h) => /\.pdf(\?|$)/i.test(h) || /download|attach|file/i.test(h);
+const abs = (h) => (h.startsWith('http') ? h : ORIGIN + (h.startsWith('/') ? h : `/${h}`));
+const listUrl = `${ORIGIN}/wp/jubo/`;
 let pdfUrl = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
-let pdfLabel = '';
+let pdfLabel = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
 
 if (!pdfUrl) {
-  const post = anchors.find(
-    (a) =>
-      (a.href.includes('uid=') || a.href.includes('mod=document') || /jubo/i.test(a.href)) &&
-      (/\d{4}/.test(a.text) || /주보/.test(a.text)),
-  );
+  // 게시글 후보: 본문 목록의 글 링크(메뉴 제외) — uid/문서 파라미터나 날짜가 있는 것
+  const post = anchors.find((a) => {
+    const href = abs(a.href);
+    if (href === listUrl || href === `${listUrl}#` || a.href.startsWith('#')) return false;
+    if (/uid=\d+|mod=document|document_srl|wr_id=/.test(a.href)) return true;
+    return (
+      /jubo/i.test(href) &&
+      /(20\d{2}[-./년\s]*\d{1,2}[-./월\s]*\d{1,2}|\d{8}|주보)/.test(a.text) &&
+      a.text !== '주보팀'
+    );
+  });
   if (!post) {
-    console.error('  ✗ 주보 게시글 링크를 찾지 못했습니다. 발견한 링크 일부:');
-    for (const a of anchors.slice(0, 30)) console.error(`    - "${a.text}" → ${a.href}`);
+    console.error('  ✗ 주보 게시글 링크를 찾지 못했습니다.');
+    dumpInteresting(anchors, listHtml);
     process.exit(1);
   }
-  const postUrl = post.href.startsWith('http') ? post.href : ORIGIN + post.href;
+  const postUrl = abs(post.href);
   pdfLabel = post.text;
   console.log(`  → 최신 게시글: "${post.text}" ${postUrl}`);
   const postHtml = await (await jfetch(postUrl)).text();
@@ -134,16 +155,27 @@ if (!pdfUrl) {
   }
   const cand =
     postAnchors.find((a) => /\.pdf(\?|$)/i.test(a.href)) ??
-    postAnchors.find((a) => pdfLike(a.href) && /pdf|주보|\d{8}/i.test(a.text + a.href));
+    postAnchors.find(
+      (a) =>
+        /download|attach|kboard_file|action=file/i.test(a.href) &&
+        /pdf|주보|\d{8}|20\d{2}/i.test(`${a.text} ${a.href}`),
+    ) ??
+    // 본문에 링크 대신 <embed>/<iframe>으로 넣는 경우
+    (() => {
+      const m =
+        postHtml.match(/<(?:embed|iframe|object)[^>]+(?:src|data)="([^"]+\.pdf[^"]*)"/i) ??
+        postHtml.match(/(?:src|data|href)="([^"]+\.pdf[^"]*)"/i);
+      return m ? { href: unescapeHtml(m[1]), text: '' } : null;
+    })();
   if (!cand) {
-    console.error('  ✗ 게시글에서 PDF 링크를 찾지 못했습니다. 발견한 링크 일부:');
-    for (const a of postAnchors.slice(0, 30)) console.error(`    - "${a.text}" → ${a.href}`);
+    console.error('  ✗ 게시글에서 PDF 링크를 찾지 못했습니다.');
+    dumpInteresting(postAnchors, postHtml);
     process.exit(1);
   }
   pdfUrl = cand.href;
   if (!pdfLabel) pdfLabel = cand.text;
 }
-if (!pdfUrl.startsWith('http')) pdfUrl = ORIGIN + pdfUrl;
+pdfUrl = abs(pdfUrl);
 console.log(`  → PDF: ${pdfUrl}`);
 
 // ── 3. PDF 다운로드 ────────────────────────────────────────────
