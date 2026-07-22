@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 5;
+const CONVERTER_VERSION = 6;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -101,6 +101,20 @@ function ocrWords(file) {
   return words;
 }
 
+// OCR로 읽은 셀 이름 정규화 — 0/O 혼동, Cell 오인식(6611-07 등), 잡음 제거
+function normCell(raw) {
+  let s = String(raw).split(',')[0].trim();
+  s = s.split(/\s+/)[0] ?? ''; // 두 그룹이 붙은 경우 첫 그룹만 (예: "늘푸른 Cell-02")
+  s = s.replace(/[.,;:|：]+$/g, '').trim();
+  if (!s) return '기타';
+  const tail = s.match(/(\d{1,2})$/);
+  if (/^[c6][e6][l1i|][l1i|]/i.test(s) && tail) return `Cell-${tail[1].padStart(2, '0')}`;
+  const m = s.replace(/[oO](?=\d)/g, '0').match(/^Cell[-–—]?\s*0*(\d{1,2})$/i);
+  if (m) return `Cell-${m[1].padStart(2, '0')}`;
+  if (/^[A-Za-z가-힣]{2,}/.test(s)) return s;
+  return '기타';
+}
+
 const MAX_BYTES = 675_000; // base64 후 Firestore 1MB 한도 아래
 async function encode(img) {
   for (const q of [78, 65, 52, 40]) {
@@ -118,7 +132,10 @@ for (const coll of ['albums/current/pages', 'albums/current/rows']) {
 
 let introCount = 0;
 let total = 0;
-const rows = []; // {cell, buf, w, h, pageOrder}
+const rows = []; // {cell, names, buf, w, h}
+// 머리글 OCR이 빠진 명부 페이지를 위해 직전 페이지의 열 위치를 기억
+let lastNameX = null;
+let lastCellX = null;
 
 for (let i = 0; i < files.length; i++) {
   const px = pagesXml.find((p) => p.n === i + 1);
@@ -140,6 +157,12 @@ for (let i = 0; i < files.length; i++) {
     if (hName && hCell && hPhoto) {
       nameX = hName.left;
       cellX = hCell.left;
+      lastNameX = nameX;
+      lastCellX = cellX;
+    } else if (lastNameX !== null && photos.length >= 3) {
+      // 머리글 인식 실패 — 직전 명부 페이지의 열 위치 재사용
+      nameX = lastNameX;
+      cellX = lastCellX;
     }
   }
 
@@ -173,7 +196,7 @@ for (let i = 0; i < files.length; i++) {
       .map((w) => w.text)
       .join(' ')
       .trim();
-    const cell = (cellText.split(',')[0] || '').replace(/[.,;:]+$/, '').trim() || '기타';
+    const cell = normCell(cellText);
     // 이름 열의 OCR 단어들 — 이름 검색용
     const names = words
       .filter((w) => inRow(w) && w.left >= nameX - 20 && w.left < cellX - 20)
