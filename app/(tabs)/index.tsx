@@ -36,10 +36,28 @@ export default function HomeScreen() {
   // 홈 최근 설교 카드에는 실제 설교만 (팟캐스트·찬양 영상 제외)
   const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
   const featured = onlySermons.find((s) => s.featured) ?? onlySermons[0];
-  const nextEvent = events[0];
+  // 다가오는 일정 — 달력 표시용으로 보관하는 지난 일정은 건너뛴다
+  const eventKey = (e: (typeof events)[number]): string => {
+    if (e.sortKey && /^\d{4}-\d{2}-\d{2}$/.test(e.sortKey)) return e.sortKey;
+    const m = e.dateLabel.match(/(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/);
+    if (!m) return '9999-99-99';
+    const nowD = new Date();
+    let yy = nowD.getFullYear();
+    const cand = new Date(yy, Number(m[1]) - 1, Number(m[2]));
+    if (cand.getTime() < nowD.getTime() - 180 * 86400e3) yy += 1;
+    return `${yy}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`;
+  };
+  const todayKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const futureEvents = events
+    .filter((e) => eventKey(e) >= todayKey)
+    .sort((a, b) => (eventKey(a) < eventKey(b) ? -1 : 1));
+  const nextEvent = futureEvents[0];
   // 같은 날 일정은 카드에 모두 표시
   const nextDayEvents = nextEvent
-    ? events.filter((e) => e.dateLabel === nextEvent.dateLabel)
+    ? futureEvents.filter((e) => e.dateLabel === nextEvent.dateLabel)
     : [];
 
   // 최신 주보 — 교인·관리자는 앱 안 이미지 주보, 그 외는 홈페이지 게시글로 (뷰어에서 분기)

@@ -27,7 +27,7 @@ const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 const MAX_NEWS = Number(process.env.MAX_NEWS || 12);
-const MAX_EVENTS = Number(process.env.MAX_EVENTS || 40);
+const MAX_EVENTS = Number(process.env.MAX_EVENTS || 120);
 /** 소식 탭 "행사" 카드로 함께 노출할 일정 수 (반복 모임까지 다 올리면 소식이 넘침) */
 const MAX_EVENT_NEWS = Number(process.env.MAX_EVENT_NEWS || 6);
 
@@ -483,8 +483,11 @@ for (const url of icalSources) {
 
 const now = new Date();
 now.setHours(0, 0, 0, 0);
+// 지난 두 달치도 보관 — 앱 달력이 웹사이트 달력과 똑같이 보이도록
+const pastLimit = new Date(now);
+pastLimit.setDate(pastLimit.getDate() - 62);
 const upcoming = calEvents
-  .filter((e) => e.start >= now)
+  .filter((e) => e.start >= pastLimit)
   .sort((a, b) => a.start - b.start)
   .slice(0, MAX_EVENTS);
 
