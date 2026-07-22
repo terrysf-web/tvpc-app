@@ -177,13 +177,26 @@ if (!pdfUrl) {
         postHtml.match(/<(?:embed|iframe|object)[^>]+(?:src|data)="([^"]+\.pdf[^"]*)"/i) ??
         postHtml.match(/(?:src|data|href)="([^"]+\.pdf[^"]*)"/i);
       return m ? { href: unescapeHtml(m[1]), text: '' } : null;
+    })() ??
+    // KBoard 다운로드 버튼 — URL이 onclick/data 속성 안에 있는 경우: HTML 전체에서 탐색
+    (() => {
+      const m = postHtml.match(
+        /[^"'\s<>()]*(?:action=kboard_file_download|kboard-file-download)[^"'\s<>()]*/,
+      );
+      return m ? { href: unescapeHtml(m[0]), text: '' } : null;
     })();
   if (!cand) {
     console.error('  ✗ 게시글에서 PDF 링크를 찾지 못했습니다.');
     dumpInteresting(postAnchors, postHtml);
+    // ".pdf" 주변 마크업을 보여 구조 파악
+    const idx = postHtml.search(/\.pdf/i);
+    if (idx >= 0) {
+      console.error('  ".pdf" 주변 마크업:');
+      console.error('  ' + postHtml.slice(Math.max(0, idx - 700), idx + 300).replace(/\s+/g, ' '));
+    }
     process.exit(1);
   }
-  pdfUrl = cand.href;
+  pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
   if (!pdfLabel) pdfLabel = cand.text;
 }
 pdfUrl = abs(pdfUrl);
