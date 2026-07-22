@@ -347,9 +347,9 @@ async function syncDawnVerses() {
       passageTitle: `${ref} (새벽예배 본문)`,
       passage: verses.map((t, i) => ({ verse: i + 1, text: t })),
       meditation:
-        `오늘 새벽예배 본문은 ${ref}입니다.\n\n` +
+        `오늘 새벽예배 본문은 ${ref}(전체 ${verses.length}절)입니다.\n\n` +
         `"${q1}" (1절)\n\n` +
-        `${verses.length}절의 말씀을 천천히 읽어 내려가며, 오늘 나에게 주시는 한 구절을 찾아보세요. ` +
+        `본문을 처음부터 끝까지 천천히 읽어 내려가며, 오늘 나에게 주시는 한 구절을 찾아보세요. ` +
         `마음에 머무는 구절이 있다면 그 앞에 잠시 멈추어 보세요. ` +
         `그 한 구절이 오늘 하나님께서 나에게 건네시는 말씀입니다.`,
       application: [
