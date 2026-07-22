@@ -1,7 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Speech from 'expo-speech';
-import { Bookmark, Volume2 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import { Bookmark } from 'lucide-react-native';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
@@ -27,43 +26,7 @@ export default function WordScreen() {
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
   const scale = FONT_SCALES[scaleStep];
-
-  useEffect(
-    () => () => {
-      Speech.stop();
-    },
-    [],
-  );
-
-  const speechText = () => {
-    switch (tab) {
-      case 'text':
-        return `${verse.passageTitle}. ` + verse.passage.map((p) => p.text).join('. ');
-      case 'med':
-        return verse.meditation;
-      case 'app':
-        return verse.application.join('. ');
-      case 'pray':
-        return verse.prayer;
-    }
-  };
-
-  const toggleSpeech = async () => {
-    if (speaking) {
-      Speech.stop();
-      setSpeaking(false);
-      return;
-    }
-    setSpeaking(true);
-    Speech.speak(speechText(), {
-      language: 'ko-KR',
-      onDone: () => setSpeaking(false),
-      onStopped: () => setSpeaking(false),
-      onError: () => setSpeaking(false),
-    });
-  };
 
   return (
     <View style={styles.screen}>
@@ -134,10 +97,6 @@ export default function WordScreen() {
 
       {/* 하단 액션 바 */}
       <View style={[styles.actionBar, { paddingBottom: 10 }]}>
-        <Pressable style={styles.actionBtn} onPress={toggleSpeech}>
-          <Volume2 size={20} color={colors.primary} strokeWidth={1.9} />
-          <Text style={styles.actionLabelPrimary}>{speaking ? '중지' : '듣기'}</Text>
-        </Pressable>
         <Pressable
           style={styles.actionBtn}
           onPress={() => setScaleStep((s) => (s + 1) % FONT_SCALES.length)}
@@ -215,6 +174,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
-  actionLabelPrimary: { fontFamily: font.bold, fontSize: 14, color: colors.primary },
   fontSizeGlyph: { fontFamily: font.bold, color: colors.body },
 });
