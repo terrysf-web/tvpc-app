@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 11;
+const CONVERTER_VERSION = 12;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -240,9 +240,9 @@ for (let i = 0; i < files.length; i++) {
       .trim();
     // 글자가 전혀 없는 줄(장식 이미지로 생긴 가짜 줄)은 버린다
     if (!/[가-힣A-Za-z]/.test(`${names} ${cellText}`)) continue;
-    // 열 위치가 어긋나 셀을 못 찾았으면, 줄 안에서 셀 패턴을 직접 찾는다
+    // 셀을 못 찾았으면 두 해상도 OCR 단어 전체에서 셀 패턴을 직접 찾는다
     if (cell === '기타') {
-      const cand = words
+      const cand = [...words, ...words300]
         .filter(
           (w) =>
             inRow(w) &&
