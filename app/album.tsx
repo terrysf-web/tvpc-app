@@ -346,9 +346,10 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     fontFamily: font.regular,
-    fontSize: 13.5,
+    // iOS 자동 확대 방지 — 입력창 글자는 16 이상
+    fontSize: 16,
     color: colors.body,
   },
   loadingNote: {
