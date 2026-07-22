@@ -77,6 +77,12 @@ const SearchBox = React.memo(function SearchBox({
         onChangeText={onChangeText}
         placeholder="이름 검색"
         placeholderTextColor={colors.faint}
+        // iOS 연락처 자동완성(AutoFill)이 끼어들면 한글 조합이 끊긴다
+        autoComplete="off"
+        autoCorrect={false}
+        spellCheck={false}
+        textContentType="none"
+        importantForAutofill="no"
       />
     </View>
   );
@@ -248,45 +254,49 @@ export default function AlbumScreen() {
       ) : pageCount === null ? (
         <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
       ) : (
+        <>
+          {/* 셀 선택 + 이름 검색 — 스크롤 목록 밖 고정 영역.
+              목록 안에 두면 검색 결과로 내용이 바뀔 때 입력창 포커스가
+              순간 끊겨 한글 조합이 낱글자로 풀어진다 */}
+          {index.length > 0 && (
+            <View style={styles.filterWrap}>
+              <View style={styles.filterBar}>
+                <Pressable style={styles.dropBtn} onPress={() => setDropOpen((o) => !o)}>
+                  <Text style={styles.dropBtnText}>{cellFilter ?? '전체 셀'}</Text>
+                  <ChevronDown size={16} color={colors.primary} strokeWidth={2} />
+                </Pressable>
+                <SearchBox onChangeText={onQueryChange} />
+              </View>
+              {dropOpen && (
+                <View style={[styles.dropList, shadows.card]}>
+                  {['전체 셀', ...cells].map((c) => (
+                    <Pressable
+                      key={c}
+                      style={styles.dropItem}
+                      onPress={() => {
+                        setCellFilter(c === '전체 셀' ? null : c);
+                        setDropOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropItemText,
+                          (cellFilter ?? '전체 셀') === c && styles.dropItemActive,
+                        ]}
+                      >
+                        {c}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         <ScrollView
           contentContainerStyle={[styles.pages, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 셀 선택 + 이름 검색 */}
-          {index.length > 0 && (
-            <View style={styles.filterBar}>
-              <Pressable style={styles.dropBtn} onPress={() => setDropOpen((o) => !o)}>
-                <Text style={styles.dropBtnText}>{cellFilter ?? '전체 셀'}</Text>
-                <ChevronDown size={16} color={colors.primary} strokeWidth={2} />
-              </Pressable>
-              <SearchBox onChangeText={onQueryChange} />
-            </View>
-          )}
-          {dropOpen && (
-            <View style={[styles.dropList, shadows.card]}>
-              {['전체 셀', ...cells].map((c) => (
-                <Pressable
-                  key={c}
-                  style={styles.dropItem}
-                  onPress={() => {
-                    setCellFilter(c === '전체 셀' ? null : c);
-                    setDropOpen(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.dropItemText,
-                      (cellFilter ?? '전체 셀') === c && styles.dropItemActive,
-                    ]}
-                  >
-                    {c}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-
           {!filtering &&
             pages.map((p, i) => (
               <View key={`p${i}`} style={[styles.pageWrap, shadows.card]}>
@@ -342,6 +352,7 @@ export default function AlbumScreen() {
             <Text style={styles.webLinkText}>원본 PDF 열기 ›</Text>
           </Pressable>
         </ScrollView>
+        </>
       )}
     </View>
   );
@@ -373,6 +384,7 @@ const styles = StyleSheet.create({
   webLink: { padding: 10 },
   webLinkText: { fontFamily: font.medium, fontSize: 13, color: colors.primary },
 
+  filterWrap: { paddingHorizontal: 12, paddingTop: 12, gap: 10 },
   filterBar: { alignSelf: 'stretch', flexDirection: 'row', gap: 9 },
   dropBtn: {
     flexDirection: 'row',

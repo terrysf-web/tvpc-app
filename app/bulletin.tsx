@@ -68,6 +68,12 @@ function SermonNoteCard({ date }: { date: string }) {
         multiline
         placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
         placeholderTextColor={colors.faint}
+        // iOS 자동완성·자동수정이 끼어들면 한글 조합이 끊긴다
+        autoComplete="off"
+        autoCorrect={false}
+        spellCheck={false}
+        textContentType="none"
+        importantForAutofill="no"
       />
       <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
     </View>
