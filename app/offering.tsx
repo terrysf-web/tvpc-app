@@ -1,27 +1,29 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { HandCoins, Landmark, Lock, ReceiptText } from 'lucide-react-native';
-import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Check, Copy, Lock } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { useMember, useMyOfferings } from '../src/data/member';
 import { sampleOfferings } from '../src/data/sample';
 import { firebaseEnabled } from '../src/firebase';
-import { openExternal } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 
 /**
- * 실제 결제는 앱 밖 링크로 처리 (심사·PG 수수료 부담 최소화 — 핸드오프 문서 권장사항).
- * 교회의 온라인 헌금 페이지(Tithe.ly, 교회 홈페이지, 은행 링크 등) URL로 교체하세요.
+ * 온라인 헌금 — 교회는 Zelle(은행 앱 송금)로 받는다.
+ * Zelle는 외부 결제 링크가 없으므로, 받는 이메일을 원터치로 복사해
+ * 은행 앱에 붙여넣는 흐름으로 안내한다 (홈페이지 온라인 헌금 안내와 동일).
  */
-const GIVING_URL: string | null = null;
+const ZELLE_EMAIL = 'tvpc5925@gmail.com';
 
-const SHORTCUTS = [
-  { key: 'guide', label: '헌금 안내', icon: HandCoins },
-  { key: 'account', label: '계좌 안내', icon: Landmark },
-  { key: 'history', label: '헌금 내역', icon: ReceiptText },
-] as const;
+const OFFERING_TYPES = ['십일조(Tithe)', '주일(Sunday)', '감사(Thanksgiving)', '선교(Mission)'];
+
+const STEPS = [
+  '사용하시는 은행 앱에서 Zelle 송금을 엽니다.',
+  `받는 사람에 ${ZELLE_EMAIL} 을 붙여넣습니다.`,
+  '메모에 이름(또는 가정 번호)과 헌금 종류를 적고 보냅니다.',
+];
 
 export default function OfferingScreen() {
   const router = useRouter();
@@ -33,15 +35,13 @@ export default function OfferingScreen() {
   // 데모 모드에서는 샘플, 실서비스에서는 본인 내역만 (교인 전용)
   const records = firebaseEnabled ? myOfferings : sampleOfferings;
 
-  const give = () => {
-    if (GIVING_URL) {
-      openExternal(GIVING_URL);
-    } else {
-      Alert.alert(
-        '온라인 헌금',
-        '교회 온라인 헌금 링크가 아직 연결되지 않았습니다.\n관리자 설정(app/offering.tsx의 GIVING_URL) 후 이용할 수 있습니다.',
-      );
+  const [copied, setCopied] = useState(false);
+  const copyEmail = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(ZELLE_EMAIL).catch(() => {});
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
@@ -59,26 +59,56 @@ export default function OfferingScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.hero}
           >
-            <Text style={styles.heroLabel}>온라인 헌금</Text>
+            <Text style={styles.heroLabel}>온라인 헌금 · Zelle</Text>
             <Text style={styles.heroText}>
               언제 어디서나{'\n'}마음을 담아 드리는 예배
             </Text>
-            <Pressable style={styles.heroBtn} onPress={give}>
-              <Text style={styles.heroBtnText}>헌금하기</Text>
+            <Pressable style={styles.heroBtn} onPress={copyEmail}>
+              {copied ? (
+                <Check size={16} color={colors.primary} strokeWidth={2.2} />
+              ) : (
+                <Copy size={16} color={colors.primary} strokeWidth={2} />
+              )}
+              <Text style={styles.heroBtnText}>
+                {copied ? '복사됐습니다' : 'Zelle 이메일 복사'}
+              </Text>
             </Pressable>
           </LinearGradient>
         </View>
 
-        {/* 3열 바로가기 */}
-        <View style={styles.shortcutRow}>
-          {SHORTCUTS.map((s) => (
-            <Pressable key={s.key} style={[styles.shortcut, shadows.card]}>
-              <View style={styles.shortcutChip}>
-                <s.icon size={20} color={colors.primary} strokeWidth={1.9} />
+        {/* Zelle 안내 */}
+        <Text style={styles.sectionTitle}>Zelle로 헌금하는 방법</Text>
+        <View style={[styles.zelleCard, shadows.card]}>
+          <Pressable style={styles.zelleEmailRow} onPress={copyEmail}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.zelleEmailLabel}>받는 곳 (Zelle)</Text>
+              <Text style={styles.zelleEmail}>{ZELLE_EMAIL}</Text>
+            </View>
+            {copied ? (
+              <Check size={19} color={colors.tagGreenText} strokeWidth={2.2} />
+            ) : (
+              <Copy size={19} color={colors.primary} strokeWidth={1.9} />
+            )}
+          </Pressable>
+          {STEPS.map((t, i) => (
+            <View key={i} style={styles.stepRow}>
+              <View style={styles.stepNum}>
+                <Text style={styles.stepNumText}>{i + 1}</Text>
               </View>
-              <Text style={styles.shortcutLabel}>{s.label}</Text>
-            </Pressable>
+              <Text style={styles.stepText}>{t}</Text>
+            </View>
           ))}
+          <View style={styles.typeRow}>
+            {OFFERING_TYPES.map((t) => (
+              <View key={t} style={styles.typeChip}>
+                <Text style={styles.typeChipText}>{t}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.zelleHint}>
+            메모 예: "홍길동 십일조" 또는 "23번 감사". 가정에 배정된 번호를 모르시면{' '}
+            {ZELLE_EMAIL} 로 문의해 주세요.
+          </Text>
         </View>
 
         {/* 내 헌금 내역 — 승인된 교인 전용 */}
@@ -145,31 +175,61 @@ const styles = StyleSheet.create({
   heroBtn: {
     marginTop: 18,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     backgroundColor: '#FFFFFF',
     borderRadius: 11,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 11,
   },
   heroBtnText: { fontFamily: font.bold, fontSize: 14, color: colors.primary },
 
-  shortcutRow: { flexDirection: 'row', gap: 11, marginBottom: 22 },
-  shortcut: {
-    flex: 1,
+  zelleCard: {
     backgroundColor: colors.card,
-    borderRadius: 15,
-    paddingVertical: 14,
-    alignItems: 'center',
-    gap: 8,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 22,
   },
-  shortcutChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  zelleEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     backgroundColor: colors.tagBlueBg,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  zelleEmailLabel: { fontFamily: font.medium, fontSize: 11.5, color: colors.muted },
+  zelleEmail: { marginTop: 2, fontFamily: font.extraBold, fontSize: 15.5, color: colors.primary },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+  stepNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 1,
   },
-  shortcutLabel: { fontFamily: font.medium, fontSize: 12, color: colors.body },
+  stepNumText: { fontFamily: font.bold, fontSize: 11.5, color: '#FFFFFF' },
+  stepText: {
+    flex: 1,
+    fontFamily: font.regular,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: colors.body,
+  },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 4, marginBottom: 10 },
+  typeChip: {
+    backgroundColor: colors.tagGrayBg,
+    borderRadius: 13,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  typeChipText: { fontFamily: font.medium, fontSize: 12, color: colors.muted },
+  zelleHint: { fontFamily: font.regular, fontSize: 11.5, lineHeight: 17, color: colors.faint },
 
   sectionTitle: {
     fontFamily: font.extraBold,
