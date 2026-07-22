@@ -151,7 +151,11 @@ export default function HomeScreen() {
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               <View style={styles.heroTopRow}>
                 <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>오늘의 말씀</Text>
+                  <Text style={styles.heroBadgeText}>
+                    {verse.passageTitle?.includes('새벽예배')
+                      ? '오늘의 말씀 · 새벽예배'
+                      : '오늘의 말씀'}
+                  </Text>
                 </View>
                 <Text style={styles.heroDate}>{todayLabel()}</Text>
               </View>
