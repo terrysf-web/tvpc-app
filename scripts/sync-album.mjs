@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 6;
+const CONVERTER_VERSION = 7;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -180,15 +180,29 @@ for (let i = 0; i < files.length; i++) {
     continue;
   }
 
-  // 명부 페이지 — 사진(XML 좌표) 위치가 곧 줄(행)의 기준
+  // 명부 페이지 — 줄 경계는 "이전 사진 아래 ~ 다음 사진 위"의 중간 지점.
+  // 셀·이름 글자가 사진보다 약간 위에 인쇄돼도 자기 줄에 포함되게 한다.
   const scaleY = imgH / px.h;
+  const tops = photos.map((p) => Math.round(p.top * scaleY));
+  const bottoms = photos.map((p) => Math.round((p.top + p.h) * scaleY));
+  const hCellW = words.filter((w) => /^Cell$/i.test(w.text)).sort((a, b) => a.top - b.top)[0];
+  const headerBottom = hCellW && hCellW.top < tops[0] ? hCellW.top + hCellW.h : 0;
+  const starts = [];
+  const ends = [];
   for (let r = 0; r < photos.length; r++) {
-    const startPx = Math.max(0, Math.round((photos[r].top - 6) * scaleY));
-    const endPx =
+    starts[r] =
+      r === 0
+        ? Math.max(0, headerBottom + 4, tops[0] - 46)
+        : Math.round((bottoms[r - 1] + tops[r]) / 2);
+    ends[r] =
       r + 1 < photos.length
-        ? Math.round((photos[r + 1].top - 6) * scaleY)
-        : Math.min(imgH, Math.round((photos[r].top + photos[r].h + 14) * scaleY));
-    const inRow = (w) => w.top >= startPx && w.top < endPx;
+        ? Math.round((bottoms[r] + tops[r + 1]) / 2)
+        : Math.min(imgH, bottoms[r] + 24);
+  }
+  for (let r = 0; r < photos.length; r++) {
+    const startPx = starts[r];
+    const endPx = ends[r];
+    const inRow = (w) => w.top >= startPx && w.top < endPx && !/^(Photo|Name|Cell)$/.test(w.text);
     // 셀 열의 OCR 단어들 → 셀 이름 (쉼표 앞 첫 항목)
     const cellText = words
       .filter((w) => inRow(w) && w.left >= cellX - 20)
