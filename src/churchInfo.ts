@@ -15,6 +15,8 @@ export const churchInfo = {
     about: 'https://tvpc.church/wp/ko/about-us/',
     staff: 'https://tvpc.church/wp/ko/staff/',
     newcomers: 'https://tvpc.church/wp/ko/newcomers/',
+    /** 새가족 온라인 등록 폼 (홈페이지 "새가족 등록 하기" 버튼과 동일) */
+    newcomerForm: 'https://forms.gle/JJbrt6LSNXgEuf627',
     calendar: 'https://tvpc.church/wp/ko/calendar/',
   },
 

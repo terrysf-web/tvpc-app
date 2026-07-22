@@ -134,12 +134,16 @@ export default function InfoScreen() {
                 </View>
               ))}
             </View>
+            <Pressable style={styles.ctaBtn} onPress={() => openExternal(churchInfo.pages.newcomerForm)}>
+              <ClipboardPen size={18} color="#FFFFFF" strokeWidth={1.9} />
+              <Text style={styles.ctaText}>새가족 등록하기</Text>
+            </Pressable>
             <Pressable
-              style={styles.ctaBtn}
+              style={styles.ctaBtnGhost}
               onPress={() => openInApp(churchInfo.pages.newcomers, '새가족 안내')}
             >
-              <ClipboardPen size={18} color="#FFFFFF" strokeWidth={1.9} />
-              <Text style={styles.ctaText}>새가족 안내 · 온라인 등록하기</Text>
+              <BookOpen size={18} color={colors.primary} strokeWidth={1.9} />
+              <Text style={styles.ctaGhostText}>새가족 안내 보기</Text>
             </Pressable>
             <ActionRow
               icon={<Phone size={20} color={colors.tagGreenText} strokeWidth={1.9} />}
@@ -319,6 +323,18 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   ctaText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
+  ctaBtnGhost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  ctaGhostText: { fontFamily: font.bold, fontSize: 15, color: colors.primary },
   note: {
     fontFamily: font.regular,
     fontSize: 12,
