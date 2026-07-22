@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { FileText } from 'lucide-react-native';
-import React from 'react';
+import { FileText, PenLine } from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -21,6 +22,54 @@ import { colors, font, shadows } from '../src/theme';
 function fmtKo(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   return `${y}년 ${m}월 ${d}일`;
+}
+
+/**
+ * 설교 메모 — 주보의 괄호 채우기·나눔 질문 답을 전화기에 적어두는 카드.
+ * 내용은 이 기기(localStorage)에만 저장되고 서버로 가지 않는다.
+ */
+function SermonNoteCard({ date }: { date: string }) {
+  const key = `bulletinNote:${date}`;
+  const [text, setText] = useState('');
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    setText(window.localStorage.getItem(key) ?? '');
+  }, [key]);
+
+  const onChange = (t: string) => {
+    setText(t);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, t);
+        setSavedAt(Date.now());
+      }
+    }, 500);
+  };
+
+  return (
+    <View style={[styles.noteCard, shadows.card]}>
+      <View style={styles.noteHead}>
+        <View style={styles.noteChip}>
+          <PenLine size={16} color={colors.primary} strokeWidth={2} />
+        </View>
+        <Text style={styles.noteTitle}>설교 메모</Text>
+        {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
+      </View>
+      <TextInput
+        style={styles.noteInput}
+        value={text}
+        onChangeText={onChange}
+        multiline
+        placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
+        placeholderTextColor={colors.faint}
+      />
+      <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
+    </View>
+  );
 }
 
 /**
@@ -58,16 +107,22 @@ export default function BulletinScreen() {
           showsVerticalScrollIndicator={false}
         >
           {bulletin.pages.map((p, i) => (
-            <View key={i} style={[styles.pageWrap, shadows.card]}>
-              <Image
-                source={{ uri: p.image }}
-                style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
-                resizeMode="contain"
-              />
-              <Text style={styles.pageNum}>
-                {i + 1} / {bulletin.pages.length}
-              </Text>
-            </View>
+            <React.Fragment key={i}>
+              <View style={[styles.pageWrap, shadows.card]}>
+                <Image
+                  source={{ uri: p.image }}
+                  style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
+                  resizeMode="contain"
+                />
+                <Text style={styles.pageNum}>
+                  {i + 1} / {bulletin.pages.length}
+                </Text>
+              </View>
+              {/* 설교 메모는 괄호 채우기가 있는 3면 바로 아래에 */}
+              {i === Math.min(2, bulletin.pages.length - 1) && (
+                <SermonNoteCard date={bulletin.date} />
+              )}
+            </React.Fragment>
           ))}
           {webBulletin?.url ? (
             <Pressable style={styles.webLink} onPress={openWeb}>
@@ -156,4 +211,35 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   primaryBtnText: { fontFamily: font.bold, fontSize: 14.5, color: '#FFFFFF' },
+
+  noteCard: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 16,
+  },
+  noteHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  noteChip: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: colors.tagBlueBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteTitle: { flex: 1, fontFamily: font.extraBold, fontSize: 14.5, color: colors.title },
+  noteSaved: { fontFamily: font.medium, fontSize: 11.5, color: colors.tagGreenText },
+  noteInput: {
+    minHeight: 130,
+    textAlignVertical: 'top',
+    borderRadius: 12,
+    backgroundColor: colors.screenBg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: font.regular,
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.body,
+  },
+  noteHint: { marginTop: 8, fontFamily: font.regular, fontSize: 11.5, color: colors.faint },
 });
