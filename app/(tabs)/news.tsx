@@ -13,9 +13,9 @@ import { colors, font, shadows } from '../../src/theme';
 type NewsTab = 'all' | 'notice' | 'event';
 
 const TABS: { key: NewsTab; label: string }[] = [
-  { key: 'all', label: '전체' },
   { key: 'notice', label: '공지' },
   { key: 'event', label: '행사' },
+  { key: 'all', label: '전체' },
 ];
 
 function fmtDate(d: string): string {
@@ -27,7 +27,7 @@ export default function NewsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { news } = useNews();
-  const [tab, setTab] = useState<NewsTab>('all');
+  const [tab, setTab] = useState<NewsTab>('notice');
 
   const filtered = tab === 'all' ? news : news.filter((n) => n.category === tab);
 
