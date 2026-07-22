@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { useLatestBulletin } from '../src/data/bulletin';
+import { useBulletin, useBulletinDates } from '../src/data/bulletin';
 import { useNews } from '../src/data/hooks';
 import { firebaseEnabled } from '../src/firebase';
 import { colors, font, shadows } from '../src/theme';
@@ -77,11 +77,29 @@ function SermonNoteCard({ date }: { date: string }) {
  * 인쇄물 QR 코드(happytvpc.web.app/bulletin)로 누구나 열 수 있는 공개 화면.
  * 아직 이미지 주보가 없으면 홈페이지 주보 게시글로 안내한다.
  */
+/** 이 기기에 해당 날짜 메모가 저장돼 있는지 */
+function hasNote(date: string): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    !!window.localStorage &&
+    !!window.localStorage.getItem(`bulletinNote:${date}`)
+  );
+}
+
+function chipLabel(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return y === new Date().getFullYear() ? `${m}월 ${d}일` : `${y}. ${m}. ${d}.`;
+}
+
 export default function BulletinScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { bulletin, loading } = useLatestBulletin(firebaseEnabled);
+  const { dates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
+  const [selected, setSelected] = useState<string | null>(null);
+  const current = selected ?? dates[0] ?? null;
+  const { bulletin, loading: pagesLoading } = useBulletin(current);
+  const loading = datesLoading || pagesLoading;
   const { news } = useNews();
 
   // 홈페이지의 주보 게시글(이미지 주보가 없을 때의 대안)
@@ -98,7 +116,29 @@ export default function BulletinScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title={bulletin ? `주보 · ${fmtKo(bulletin.date)}` : '주보'} />
+      <OverlayHeader title={current ? `주보 · ${fmtKo(current)}` : '주보'} />
+      {/* 지난 주보 날짜 선택 — 날짜별 메모(●)도 함께 열린다 */}
+      {dates.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.dateBar}
+          contentContainerStyle={styles.dateBarContent}
+        >
+          {dates.map((d) => (
+            <Pressable
+              key={d}
+              style={[styles.dateChip, d === current && styles.dateChipActive]}
+              onPress={() => setSelected(d)}
+            >
+              <Text style={[styles.dateChipText, d === current && styles.dateChipTextActive]}>
+                {chipLabel(d)}
+                {hasNote(d) ? ' ●' : ''}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
       ) : bulletin ? (
@@ -175,6 +215,18 @@ const styles = StyleSheet.create({
   },
   webLink: { padding: 10 },
   webLinkText: { fontFamily: font.medium, fontSize: 13, color: colors.primary },
+
+  dateBar: { flexGrow: 0, backgroundColor: colors.card },
+  dateBarContent: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  dateChip: {
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: colors.screenBg,
+  },
+  dateChipActive: { backgroundColor: colors.primary },
+  dateChipText: { fontFamily: font.medium, fontSize: 13, color: colors.muted },
+  dateChipTextActive: { color: '#FFFFFF', fontFamily: font.bold },
 
   card: {
     width: '100%',

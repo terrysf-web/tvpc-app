@@ -134,15 +134,9 @@ export async function saveBulletin(date: string, pages: BulletinPage[]): Promise
   });
 }
 
-/**
- * 최신 주보 구독 — 승인 교인/관리자만 읽을 수 있으므로 enabled로 제어.
- * 권한 오류 등 실패 시 null (화면에서 홈페이지 링크로 안내).
- */
-export function useLatestBulletin(enabled: boolean): {
-  bulletin: Bulletin | null;
-  loading: boolean;
-} {
-  const [bulletin, setBulletin] = useState<Bulletin | null>(null);
+/** 저장된 주보 날짜 목록(최신순) — 지난 주보 열람용 */
+export function useBulletinDates(enabled: boolean): { dates: string[]; loading: boolean } {
+  const [dates, setDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -155,19 +149,12 @@ export function useLatestBulletin(enabled: boolean): {
     (async () => {
       try {
         await ensureAnonymousAuth();
-        const snap = await getDocs(query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(1)));
-        if (cancelled || snap.empty) return;
-        const date = snap.docs[0].id;
-        const pagesSnap = await getDocs(query(collection(db, 'bulletins', date, 'pages'), orderBy('order')));
-        if (cancelled) return;
-        const pages = pagesSnap.docs.map((d) => ({
-          image: String(d.get('image') ?? ''),
-          w: Number(d.get('w') ?? 3),
-          h: Number(d.get('h') ?? 4),
-        }));
-        if (pages.length) setBulletin({ date, pages });
+        const snap = await getDocs(
+          query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(26)),
+        );
+        if (!cancelled) setDates(snap.docs.map((d) => d.id));
       } catch {
-        // 권한 없음/오프라인 — 뷰어가 홈페이지 링크로 안내
+        // 오프라인 등 — 빈 목록이면 화면에서 홈페이지 링크로 안내
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -176,6 +163,49 @@ export function useLatestBulletin(enabled: boolean): {
       cancelled = true;
     };
   }, [enabled]);
+
+  return { dates, loading };
+}
+
+/** 선택한 날짜의 주보 페이지 — 날짜가 바뀔 때마다 그 주만 불러온다 */
+export function useBulletin(date: string | null): {
+  bulletin: Bulletin | null;
+  loading: boolean;
+} {
+  const [bulletin, setBulletin] = useState<Bulletin | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !date) {
+      setBulletin(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const pagesSnap = await getDocs(
+          query(collection(db, 'bulletins', date, 'pages'), orderBy('order')),
+        );
+        if (cancelled) return;
+        const pages = pagesSnap.docs.map((d) => ({
+          image: String(d.get('image') ?? ''),
+          w: Number(d.get('w') ?? 3),
+          h: Number(d.get('h') ?? 4),
+        }));
+        setBulletin(pages.length ? { date, pages } : null);
+      } catch {
+        if (!cancelled) setBulletin(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
 
   return { bulletin, loading };
 }
