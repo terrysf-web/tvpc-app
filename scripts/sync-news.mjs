@@ -488,12 +488,56 @@ const upcoming = calEvents
   .sort((a, b) => a.start - b.start)
   .slice(0, MAX_EVENTS);
 
+// ── 행사 페이지(The Events Calendar) 매칭 ─────────────────────
+// 홈페이지 /wp/events/ 의 행사에는 포스터와 개별 페이지가 있다.
+// 공개 REST에서 제목으로 매칭해 일정·행사 카드에 링크와 포스터를 붙인다.
+const tribeMap = new Map();
+const normTitle = (s) =>
+  String(s).replace(/\([^)]*\)/g, '').replace(/[\s·.\-]/g, '').toLowerCase();
+{
+  const from = new Date(now);
+  from.setDate(from.getDate() - 60);
+  const body = await tryFetch(
+    `https://tvpc.church/wp/wp-json/tribe/events/v1/events?per_page=50&start_date=${ymd(from)}`,
+  );
+  if (body) {
+    try {
+      for (const ev of JSON.parse(body).events ?? []) {
+        const title = unescape(String(ev.title ?? '').replace(/<[^>]+>/g, '')).trim();
+        if (!title) continue;
+        const entry = {
+          url: ev.url || null,
+          image: (ev.image && (ev.image.sizes?.large?.url || ev.image.url)) || null,
+        };
+        tribeMap.set(normTitle(title), entry);
+        // 괄호 별칭도 색인 — "여름 성경 학교 (VBS)" ↔ 달력의 "VBS"
+        for (const m of title.matchAll(/\(([^)]+)\)/g)) {
+          const alias = normTitle(m[1]);
+          if (alias && !tribeMap.has(alias)) tribeMap.set(alias, entry);
+        }
+      }
+      console.log(`[행사] 행사 페이지(REST)에서 ${tribeMap.size}건 — 포스터·링크 매칭 준비`);
+    } catch {
+      console.log('[행사] REST 응답이 JSON이 아님 — 매칭 생략');
+    }
+  }
+}
+const tribeFor = (summary) => {
+  const key = normTitle(summary);
+  if (!key) return null;
+  if (tribeMap.has(key)) return tribeMap.get(key);
+  for (const [k, v] of tribeMap) if (k.includes(key) || key.includes(k)) return v;
+  return null;
+};
+
 let eventsWrote = 0;
 const writtenEventIds = new Set();
 for (const e of upcoming) {
   const d = e.start;
   writtenEventIds.add(`web-${hash(e.uid)}`);
-  const imageUrl = await fetchOgImage(e.url);
+  const tribe = tribeFor(e.summary);
+  const url = e.url || tribe?.url || null;
+  const imageUrl = tribe?.image ?? (await fetchOgImage(url));
   await db.doc(`events/web-${hash(e.uid)}`).set(
     {
       dateLabel: `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${KDAYS[d.getDay()]}`,
@@ -502,7 +546,7 @@ for (const e of upcoming) {
         .filter(Boolean)
         .join(' · '),
       imageUrl,
-      url: e.url,
+      url,
       sortKey: ymd(d),
     },
     { merge: true },
@@ -515,13 +559,13 @@ for (const e of upcoming) {
         title: e.summary,
         category: 'event',
         date: ymd(d),
-        url: e.url || 'https://tvpc.church/wp/ko/calendar/',
+        url: url || 'https://tvpc.church/wp/ko/calendar/',
         imageUrl,
       },
       { merge: true },
     );
   }
-  console.log(`  ✓ ${ymd(d)}  ${e.summary}${imageUrl ? ' [썸네일]' : ''}${e.url ? `\n      링크: ${e.url}` : ''}`);
+  console.log(`  ✓ ${ymd(d)}  ${e.summary}${imageUrl ? ' [포스터]' : ''}${url ? `\n      링크: ${url}` : ''}`);
   eventsWrote++;
 }
 
