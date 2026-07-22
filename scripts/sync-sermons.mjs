@@ -232,6 +232,130 @@ function parseVideo(rawTitle, published) {
   return { title, category, date, scripture };
 }
 
+/* ---------------- 교회 홈페이지(/wp/sermons/) 정식 설교 정보 ---------------- */
+
+const WEB_SERMONS_URL = process.env.WEB_SERMONS_URL || 'https://tvpc.church/wp/sermons/';
+const WEB_SERMON_PAGES = Number(process.env.WEB_SERMON_PAGES || 3);
+
+function decodeEntities(s) {
+  return (s || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+}
+
+/**
+ * Advanced Sermons 아카이브 HTML에서 설교 카드 파싱.
+ * 카드 구조: <li class='sermon-archive-single'> 안에
+ *   썸네일 링크(개별 설교 URL) · preached-date("2026년 7월 19일") ·
+ *   sermon-title h2 · "Speaker: <a>허성영</a>" ·
+ *   본문 구절(<p><p>사도행전 11:19-30</p></p> 뒤 "Sermon Grid View Scripture" 주석)
+ */
+function parseSermonArchive(html) {
+  const items = [];
+  for (const part of html.split(/<li class=['"]sermon-archive-single['"]/).slice(1)) {
+    const end = part.indexOf('</li>');
+    const block = end >= 0 ? part.slice(0, end) : part;
+    const url = block.match(/href="(https?:\/\/[^"?#]+\/sermons\/[^"?#]+)"/)?.[1];
+    const image = block.match(/<img[^>]+src="([^"]+)"/)?.[1] ?? null;
+    const dm = block.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+    const date = dm
+      ? `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}`
+      : null;
+    const title = decodeEntities(
+      block
+        .match(/<h2>\s*<a[^>]*>([\s\S]*?)<\/a>\s*<\/h2>/)?.[1]
+        ?.replace(/<[^>]+>/g, ''),
+    );
+    const speaker = decodeEntities(block.match(/Speaker:\s*<a[^>]*>([^<]+)<\/a>/)?.[1]);
+    const scripture = decodeEntities(
+      (
+        block.match(/<p>\s*<p>([\s\S]*?)<\/p>/)?.[1] ??
+        block.match(/>([^<>]{2,60})<\/p>\s*<\/p>[\s\S]{0,80}?Sermon Grid View Scripture/)?.[1] ??
+        ''
+      ).replace(/<[^>]+>/g, ''),
+    );
+    if (url && date && title) items.push({ url, date, title, speaker, scripture, image });
+  }
+  return items;
+}
+
+/**
+ * 홈페이지 설교 정보를 Firestore에 병합.
+ * 같은 날짜의 유튜브 설교 문서(주일예배 우선)에 제목·본문·설교자·이미지를
+ * 정식 값으로 보강하고, 영상이 없는 설교는 web-{날짜} 문서로 만든다.
+ * (유튜브 파싱 값을 항상 웹사이트 값으로 덮도록 유튜브 동기화 뒤에 실행)
+ */
+async function syncWebSermons() {
+  const webItems = [];
+  const seenUrls = new Set();
+  for (let p = 1; p <= WEB_SERMON_PAGES; p++) {
+    const url =
+      p === 1 ? WEB_SERMONS_URL : `${WEB_SERMONS_URL.replace(/\/+$/, '')}/page/${p}/`;
+    let html;
+    try {
+      html = await fetchText(url);
+    } catch {
+      break; // 다음 페이지 없음
+    }
+    const items = parseSermonArchive(html).filter((i) => !seenUrls.has(i.url));
+    if (items.length === 0) break;
+    for (const i of items) seenUrls.add(i.url);
+    webItems.push(...items);
+  }
+  console.log(`홈페이지 설교 ${webItems.length}건 파싱 (${WEB_SERMONS_URL})`);
+
+  for (const w of webItems) {
+    const preacher = w.speaker
+      ? PREACHER_DEFAULT.includes(w.speaker)
+        ? PREACHER_DEFAULT
+        : w.speaker
+      : PREACHER_DEFAULT;
+    const info = {
+      title: w.title,
+      scripture: w.scripture || '',
+      preacher,
+      date: w.date,
+      series: w.scripture ? w.scripture.replace(/\s*\d.*$/, '').trim() : '주일예배',
+      imageUrl: w.image || null,
+      sermonUrl: w.url,
+    };
+
+    const snap = await db.collection('sermons').where('date', '==', w.date).get();
+    const sameDay = snap.docs.filter(
+      (d) => (d.get('category') ?? 'sermon') === 'sermon' && d.id !== `web-${w.date}`,
+    );
+    const sunday = sameDay.filter((d) => d.get('service') === '주일예배');
+    const targets = sunday.length > 0 ? sunday : sameDay;
+
+    if (targets.length > 0) {
+      for (const d of targets) await d.ref.set(info, { merge: true });
+      // 예전에 웹 전용으로 만든 문서가 있으면 중복 제거
+      const webRef = db.doc(`sermons/web-${w.date}`);
+      if ((await webRef.get()).exists) await webRef.delete();
+      console.log(`  ✓ ${w.date}  ${w.title} (${w.scripture || '본문 없음'}) — ${targets.length}개 영상 문서 보강`);
+    } else {
+      await db.doc(`sermons/web-${w.date}`).set(
+        {
+          category: 'sermon',
+          subtitle: '주일예배',
+          service: '주일예배',
+          duration: '',
+          youtubeId: null,
+          ...info,
+        },
+        { merge: true },
+      );
+      console.log(`  + ${w.date}  ${w.title} (${w.scripture || '본문 없음'}) — 신규(웹 전용)`);
+    }
+  }
+}
+
 /** 제목 키워드로 예배 종류 분류 */
 function classify(title) {
   if (/금요|성령집회/.test(title)) return '금요성령집회';
@@ -339,10 +463,7 @@ if (BACKFILL) {
     .slice(0, MAX_VIDEOS);
 }
 
-if (videos.length === 0) {
-  console.log('가져올 영상이 없습니다.');
-  process.exit(0);
-}
+if (videos.length === 0) console.log('가져올 영상이 없습니다.');
 
 const LABEL = { sermon: '설교', podcast: '팟캐스트', praise: '찬양', etc: '기타' };
 
@@ -379,6 +500,13 @@ if (wrote > 0) {
       console.log(`  – 샘플 삭제: sermon-${i}`);
     }
   }
+}
+
+// 홈페이지 정식 설교 정보(제목·본문·설교자·이미지)로 보강 — 항상 마지막에 실행
+try {
+  await syncWebSermons();
+} catch (e) {
+  console.log(`! 홈페이지 설교 동기화 실패 (영상 동기화는 완료): ${e.message}`);
 }
 
 console.log(`완료: ${wrote}개 영상 동기화`);
