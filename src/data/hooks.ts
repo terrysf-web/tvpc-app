@@ -110,7 +110,8 @@ export function useNews(): { news: NewsDoc[]; loading: boolean } {
 }
 
 export function useEvents(): { events: EventDoc[]; loading: boolean } {
-  const { data, loading } = useCollection<EventDoc>('events', sampleEvents, 'dateLabel', 'asc');
+  // dateLabel(문자)이 아닌 실제 날짜(sortKey)순 — "01.01"이 "08.30"보다 앞서는 문제 방지
+  const { data, loading } = useCollection<EventDoc>('events', sampleEvents, 'sortKey', 'asc', 200);
   return { events: data, loading };
 }
 

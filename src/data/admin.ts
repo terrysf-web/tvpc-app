@@ -78,7 +78,21 @@ export async function saveNews(n: Omit<NewsDoc, 'id'>): Promise<void> {
 /** 일정 저장 */
 export async function saveEvent(e: Omit<EventDoc, 'id'>): Promise<void> {
   const id = `e-${Date.now()}`;
-  await setDoc(doc(requireDb(), 'events', id), e);
+  // 목록·달력이 sortKey(YYYY-MM-DD)순으로 조회하므로 날짜 표시에서 유도해 저장
+  let sortKey = e.sortKey;
+  if (!sortKey) {
+    const m = e.dateLabel.match(/(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/);
+    const now = new Date();
+    if (m) {
+      let y = now.getFullYear();
+      const cand = new Date(y, Number(m[1]) - 1, Number(m[2]));
+      if (cand.getTime() < now.getTime() - 180 * 86400e3) y += 1;
+      sortKey = `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`;
+    } else {
+      sortKey = now.toLocaleDateString('en-CA');
+    }
+  }
+  await setDoc(doc(requireDb(), 'events', id), { ...e, sortKey });
 }
 
 /** 가입 신청(승인 대기) 교인 목록 — 관리자 전용 */
