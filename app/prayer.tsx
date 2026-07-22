@@ -1,8 +1,6 @@
-import { useRouter } from 'expo-router';
-import { Heart, Lock, Plus, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { Heart, Plus, X } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,10 +16,8 @@ import { OverlayHeader } from '../src/components/OverlayHeader';
 import { SegmentTabs } from '../src/components/SegmentTabs';
 import { Tag, TagTone } from '../src/components/Tag';
 import { timeAgo, usePrayers } from '../src/data/hooks';
-import { useMember } from '../src/data/member';
 import { prayerCategoryLabel } from '../src/data/sample';
 import { useUser } from '../src/data/user';
-import { firebaseEnabled } from '../src/firebase';
 import { colors, font, shadows } from '../src/theme';
 import type { PrayerCategory } from '../src/types';
 
@@ -43,16 +39,20 @@ const CATEGORY_TONE: Record<string, TagTone> = {
 const WRITE_CATEGORIES: PrayerCategory[] = ['family', 'health', 'work', 'etc', 'answered'];
 
 export default function PrayerScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state: memberState } = useMember();
-  const { user } = useUser();
+  const { user, updateUser } = useUser();
   const { prayers, liked, toggleLike, addPrayer } = usePrayers();
   const [tab, setTab] = useState<PrayerTab>('req');
   const [writing, setWriting] = useState(false);
   const [text, setText] = useState('');
+  const [authorName, setAuthorName] = useState('');
   const [category, setCategory] = useState<PrayerCategory>('family');
   const [submitting, setSubmitting] = useState(false);
+
+  // 이전에 입력한 이름 미리 채우기 (초기 샘플 기본값은 제외)
+  useEffect(() => {
+    if (user.name && user.name !== 'Terry') setAuthorName(user.name);
+  }, [user.name]);
 
   const list = prayers.filter((p) => (tab === 'ans' ? p.answered : !p.answered));
 
@@ -61,7 +61,9 @@ export default function PrayerScreen() {
     if (!body || submitting) return;
     setSubmitting(true);
     try {
-      await addPrayer({ category, text: body, authorName: user.name });
+      const name = authorName.trim().slice(0, 40) || '성도';
+      await addPrayer({ category, text: body, authorName: name });
+      if (authorName.trim()) updateUser({ name: authorName.trim() });
       setText('');
       setWriting(false);
       setTab(category === 'answered' ? 'ans' : 'req');
@@ -69,37 +71,6 @@ export default function PrayerScreen() {
       setSubmitting(false);
     }
   };
-
-  // 기도요청은 교인 전용 (데모 모드에서는 열람 가능)
-  if (firebaseEnabled && memberState !== 'approved') {
-    return (
-      <View style={styles.screen}>
-        <OverlayHeader title="기도요청" />
-        {memberState === 'loading' ? (
-          <ActivityIndicator style={{ marginTop: 48 }} color={colors.primary} />
-        ) : (
-          <View style={[styles.lockCard, shadows.card]}>
-            <View style={styles.lockChip}>
-              <Lock size={24} color={colors.primary} strokeWidth={1.9} />
-            </View>
-            <Text style={styles.lockTitle}>교인 전용 메뉴입니다</Text>
-            <Text style={styles.lockSub}>
-              {memberState === 'pending'
-                ? '가입 승인이 완료되면 함께 기도할 수 있습니다.\n관리자 승인을 기다려 주세요.'
-                : '기도요청은 승인된 교인만 이용할 수 있습니다.\n마이페이지에서 로그인 또는 가입 신청해 주세요.'}
-            </Text>
-            {(memberState === 'none' || memberState === 'noProfile') && (
-              <Pressable style={styles.lockBtn} onPress={() => router.push('/mypage')}>
-                <Text style={styles.lockBtnText}>
-                  {memberState === 'noProfile' ? '교인 정보 등록하기' : '로그인 · 가입 신청'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-      </View>
-    );
-  }
 
   return (
     <View style={styles.screen}>
@@ -180,6 +151,14 @@ export default function PrayerScreen() {
               ))}
             </View>
             <TextInput
+              style={styles.nameInput}
+              placeholder="이름 (비워두면 '성도'로 표시)"
+              placeholderTextColor={colors.faint}
+              value={authorName}
+              onChangeText={setAuthorName}
+              maxLength={40}
+            />
+            <TextInput
               style={styles.input}
               multiline
               placeholder="함께 기도하고 싶은 내용을 나눠주세요"
@@ -203,39 +182,6 @@ export default function PrayerScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
-  lockCard: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    alignItems: 'center',
-    padding: 26,
-    margin: 16,
-  },
-  lockChip: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
-    backgroundColor: colors.tagBlueBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  lockTitle: { fontFamily: font.extraBold, fontSize: 16.5, color: colors.title },
-  lockSub: {
-    marginTop: 8,
-    textAlign: 'center',
-    fontFamily: font.regular,
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-  lockBtn: {
-    marginTop: 16,
-    backgroundColor: colors.primary,
-    borderRadius: 11,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-  },
-  lockBtnText: { fontFamily: font.bold, fontSize: 13.5, color: '#FFFFFF' },
   content: { padding: 16, gap: 12 },
 
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 16 },
@@ -292,15 +238,26 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary },
   chipText: { fontFamily: font.medium, fontSize: 13, color: colors.muted },
   chipTextActive: { color: '#FFFFFF', fontFamily: font.bold },
-  input: {
+  nameInput: {
     marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: colors.screenBg,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontFamily: font.regular,
+    fontSize: 16,
+    color: colors.body,
+  },
+  input: {
+    marginTop: 10,
     minHeight: 110,
     borderRadius: 14,
     backgroundColor: colors.screenBg,
     padding: 14,
     fontFamily: font.regular,
-    fontSize: 14,
-    lineHeight: 21,
+    // iOS 사파리는 16px 미만 입력창에서 화면을 확대하므로 16 유지
+    fontSize: 16,
+    lineHeight: 23,
     color: colors.body,
     textAlignVertical: 'top',
   },

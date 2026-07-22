@@ -7,7 +7,6 @@ import {
   Clock,
   RefreshCw,
   HandCoins,
-  HeartHandshake,
   MapPin,
   MessageCircle,
   Share2,
@@ -27,12 +26,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
-import { useUser } from '../../src/data/user';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
-  { key: 'album', label: '교회 앨범', icon: BookUser },
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'staff', label: '교역자 소개', icon: Users },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
@@ -46,18 +43,12 @@ const MENU = [
 export default function MoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useUser();
   const push = usePushNotifications();
 
   const onMenu = (key: (typeof MENU)[number]['key']) => {
     if (key === 'refresh') {
       // 홈 화면 앱(PWA)에는 새로고침 버튼이 없어 여기서 최신 버전을 다시 불러온다
       if (typeof window !== 'undefined') window.location.reload();
-      return;
-    }
-    if (key === 'album') {
-      // 미리 변환해 둔 페이지 이미지 뷰어 — 큰 PDF보다 훨씬 빠르게 열린다
-      router.push('/album');
       return;
     }
     if (key === 'share') {
@@ -86,26 +77,14 @@ export default function MoreScreen() {
     >
       <Text style={styles.screenTitle}>더보기</Text>
 
-      {/* 프로필 카드 */}
-      <Pressable style={[styles.profileCard, shadows.card]} onPress={() => router.push('/mypage')}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user.name.slice(0, 1)}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.profileName}>{user.name}</Text>
-          <Text style={styles.profileLink}>마이페이지 보기</Text>
-        </View>
-        <ChevronRight size={20} color={colors.faint} strokeWidth={1.9} />
-      </Pressable>
-
-      {/* 2열 그리드 — 기도요청 / 온라인 헌금 */}
+      {/* 2열 그리드 — 교회 앨범 / 온라인 헌금 */}
       <View style={styles.gridRow}>
-        <Pressable style={[styles.gridCard, shadows.card]} onPress={() => router.push('/prayer')}>
+        <Pressable style={[styles.gridCard, shadows.card]} onPress={() => router.push('/album')}>
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
-            <HeartHandshake size={22} color={colors.tagGreenText} strokeWidth={1.9} />
+            <BookUser size={22} color={colors.tagGreenText} strokeWidth={1.9} />
           </View>
-          <Text style={styles.gridLabel}>기도요청</Text>
-          <Text style={styles.gridSub}>함께 기도해요</Text>
+          <Text style={styles.gridLabel}>교회 앨범</Text>
+          <Text style={styles.gridSub}>사진으로 보는 교우들</Text>
         </Pressable>
         <Pressable style={[styles.gridCard, shadows.card]} onPress={() => router.push('/offering')}>
           <View style={[styles.gridChip, { backgroundColor: colors.tagBlueBg }]}>
@@ -174,27 +153,6 @@ const styles = StyleSheet.create({
     color: colors.title,
     marginBottom: 16,
   },
-
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.tagBlueBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontFamily: font.extraBold, fontSize: 20, color: colors.primary },
-  profileName: { fontFamily: font.extraBold, fontSize: 16.5, color: colors.title },
-  profileLink: { marginTop: 3, fontFamily: font.medium, fontSize: 12.5, color: colors.primary },
 
   gridRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
   gridCard: {

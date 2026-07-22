@@ -1,13 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Check, Copy, Lock } from 'lucide-react-native';
+import { Check, Copy } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { useMember, useMyOfferings } from '../src/data/member';
-import { sampleOfferings } from '../src/data/sample';
-import { firebaseEnabled } from '../src/firebase';
 import { colors, font, shadows } from '../src/theme';
 
 /**
@@ -26,15 +22,7 @@ const STEPS = [
 ];
 
 export default function OfferingScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state: memberState, member } = useMember();
-  const { rows: myOfferings } = useMyOfferings(
-    memberState === 'approved' ? (member?.id ?? null) : null,
-  );
-  // 데모 모드에서는 샘플, 실서비스에서는 본인 내역만 (교인 전용)
-  const records = firebaseEnabled ? myOfferings : sampleOfferings;
-
   const [copied, setCopied] = useState(false);
   const copyEmail = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -111,47 +99,8 @@ export default function OfferingScreen() {
           </Text>
         </View>
 
-        {/* 내 헌금 내역 — 승인된 교인 전용 */}
-        <Text style={styles.sectionTitle}>내 헌금 내역</Text>
-        {firebaseEnabled && memberState !== 'approved' ? (
-          <View style={[styles.lockCard, shadows.card]}>
-            <Lock size={20} color={colors.primary} strokeWidth={1.9} />
-            <Text style={styles.lockText}>
-              {memberState === 'pending'
-                ? '가입 승인이 완료되면 내 헌금 내역을 볼 수 있습니다.'
-                : '교인 로그인 후 내 헌금 내역을 볼 수 있습니다.'}
-            </Text>
-            {(memberState === 'none' || memberState === 'noProfile') && (
-              <Pressable style={styles.lockBtn} onPress={() => router.push('/mypage')}>
-                <Text style={styles.lockBtnText}>
-                  {memberState === 'noProfile' ? '교인 정보 등록' : '로그인'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        ) : records.length === 0 ? (
-          <View style={[styles.historyCard, shadows.card]}>
-            <Text style={styles.emptyText}>아직 등록된 헌금 내역이 없습니다.</Text>
-          </View>
-        ) : (
-          <View style={[styles.historyCard, shadows.card]}>
-            {records.map((o, i) => (
-              <View
-                key={o.id}
-                style={[styles.historyRow, i < records.length - 1 && styles.historyDivider]}
-              >
-                <View>
-                  <Text style={styles.historyItem}>{o.item}</Text>
-                  <Text style={styles.historyDate}>{o.date.replaceAll('-', '.')}</Text>
-                </View>
-                <Text style={styles.historyAmount}>{o.amount}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
         <Text style={styles.note}>
-          헌금 내역은 재정부 확인 후 반영됩니다. 문의: 교회 사무실 925-227-0880
+          헌금 관련 문의: 교회 사무실 925-227-0880
         </Text>
       </ScrollView>
     </View>
@@ -237,46 +186,6 @@ const styles = StyleSheet.create({
     color: colors.title,
     marginBottom: 12,
   },
-  historyCard: { backgroundColor: colors.card, borderRadius: 16, paddingHorizontal: 16 },
-  emptyText: {
-    paddingVertical: 18,
-    textAlign: 'center',
-    fontFamily: font.regular,
-    fontSize: 13,
-    color: colors.faint,
-  },
-  lockCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    alignItems: 'center',
-    padding: 20,
-    gap: 10,
-  },
-  lockText: {
-    textAlign: 'center',
-    fontFamily: font.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.muted,
-  },
-  lockBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-  },
-  lockBtnText: { fontFamily: font.bold, fontSize: 13, color: '#FFFFFF' },
-  historyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  historyDivider: { borderBottomWidth: 1, borderBottomColor: colors.divider2 },
-  historyItem: { fontFamily: font.bold, fontSize: 14, color: colors.title },
-  historyDate: { marginTop: 2, fontFamily: font.regular, fontSize: 12, color: colors.faint },
-  historyAmount: { fontFamily: font.extraBold, fontSize: 15, color: colors.primary },
-
   note: {
     marginTop: 14,
     fontFamily: font.regular,

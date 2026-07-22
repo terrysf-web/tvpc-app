@@ -36,7 +36,6 @@ export default function RootLayout() {
       {/* 오버레이 화면 — 열리면 하단 탭이 숨고 뒤로가기로 복귀 */}
       <Stack.Screen name="prayer" />
       <Stack.Screen name="offering" />
-      <Stack.Screen name="mypage" />
     </Stack>
   );
 

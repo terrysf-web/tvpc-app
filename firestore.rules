@@ -105,11 +105,12 @@ service cloud.firestore {
     }
 
     match /prayers/{id} {
-      // 기도요청은 승인된 교인 전용
-      allow read: if isAdmin() || isApprovedMember();
+      // 기도요청 — 앱 사용자는 익명 인증으로 자동 로그인되므로
+      // 별도 교인 로그인 없이 이용 (로그인은 관리자만 사용하는 정책)
+      allow read: if request.auth != null;
 
-      // 작성: 승인된 교인, 필드 형식 검증 + 본문 1000자 제한
-      allow create: if isApprovedMember()
+      // 작성: 익명 인증 사용자, 필드 형식 검증 + 본문 1000자 제한
+      allow create: if request.auth != null
         && request.resource.data.keys().hasAll(['category', 'answered', 'text', 'authorName', 'createdAt', 'prayCount'])
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
@@ -120,7 +121,7 @@ service cloud.firestore {
 
       // 수정: "함께 기도" 카운트(±1)만 허용 (관리자는 전체 수정 가능)
       allow update: if isAdmin()
-        || (isApprovedMember()
+        || (request.auth != null
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['prayCount'])
             && (request.resource.data.prayCount - resource.data.prayCount == 1
                 || request.resource.data.prayCount - resource.data.prayCount == -1)
