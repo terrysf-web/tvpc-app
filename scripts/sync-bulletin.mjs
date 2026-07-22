@@ -126,17 +126,26 @@ let pdfUrl = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
 let pdfLabel = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
 
 if (!pdfUrl) {
-  // 게시글 후보: 본문 목록의 글 링크(메뉴 제외) — uid/문서 파라미터나 날짜가 있는 것
-  const post = anchors.find((a) => {
-    const href = abs(a.href);
-    if (href === listUrl || href === `${listUrl}#` || a.href.startsWith('#')) return false;
-    if (/uid=\d+|mod=document|document_srl|wr_id=/.test(a.href)) return true;
-    return (
-      /jubo/i.test(href) &&
-      /(20\d{2}[-./년\s]*\d{1,2}[-./월\s]*\d{1,2}|\d{8}|주보)/.test(a.text) &&
-      a.text !== '주보팀'
+  // 게시글 후보: KBoard 글 링크(?mod=document&uid=) 중 "M/D/YYYY 주보" 제목의 최신 날짜.
+  const dated = [];
+  for (const a of anchors) {
+    if (!/uid=\d+/.test(a.href) || /mod=(editor|remove)/.test(a.href)) continue;
+    const m =
+      a.text.match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/) ??
+      a.text.match(/(20\d{2})[-.년\s]*(\d{1,2})[-.월\s]*(\d{1,2})/);
+    if (!m || !/주보/.test(a.text)) continue;
+    const [y, mo, d] = m[1].length === 4 ? [m[1], m[2], m[3]] : [m[3], m[1], m[2]];
+    dated.push({ ...a, key: `${y}${mo.padStart(2, '0')}${d.padStart(2, '0')}` });
+  }
+  dated.sort((x, y) => y.key.localeCompare(x.key));
+  const post =
+    dated[0] ??
+    anchors.find(
+      (a) =>
+        /uid=\d+|mod=document/.test(a.href) &&
+        !/mod=(editor|remove)/.test(a.href) &&
+        /주보/.test(a.text),
     );
-  });
   if (!post) {
     console.error('  ✗ 주보 게시글 링크를 찾지 못했습니다.');
     dumpInteresting(anchors, listHtml);
@@ -155,9 +164,11 @@ if (!pdfUrl) {
   }
   const cand =
     postAnchors.find((a) => /\.pdf(\?|$)/i.test(a.href)) ??
+    // KBoard 첨부파일 다운로드 링크 (파일명이 표시 텍스트에 옴)
+    postAnchors.find((a) => /kboard_file_download|kboard-file-download/i.test(a.href)) ??
     postAnchors.find(
       (a) =>
-        /download|attach|kboard_file|action=file/i.test(a.href) &&
+        /download|attach|action=file/i.test(a.href) &&
         /pdf|주보|\d{8}|20\d{2}/i.test(`${a.text} ${a.href}`),
     ) ??
     // 본문에 링크 대신 <embed>/<iframe>으로 넣는 경우
@@ -190,13 +201,11 @@ console.log(`  ✓ 다운로드 ${Math.round(pdfBuf.length / 1024)}KB`);
 // 날짜: 링크/제목/파일명에서 YYYYMMDD 우선, 없으면 다가오는 주일(LA 기준)
 function bulletinDate() {
   const hay = `${pdfUrl} ${pdfLabel}`;
-  const m =
-    hay.match(/(20\d{2})[-._/]?(\d{2})[-._/]?(\d{2})/) ??
-    hay.match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-  if (m) {
-    const [y, mo, d] = [m[1], m[2].padStart(2, '0'), m[3].padStart(2, '0')];
-    return `${y}-${mo}-${d}`;
-  }
+  let m = hay.match(/(20\d{2})[-._/]?(\d{2})[-._/]?(\d{2})/) ?? hay.match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  // 게시글 제목의 M/D/YYYY (예: 7/19/2026 주보)
+  m = hay.match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/);
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
   const la = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
   la.setDate(la.getDate() + ((7 - la.getDay()) % 7));
   return `${la.getFullYear()}-${String(la.getMonth() + 1).padStart(2, '0')}-${String(la.getDate()).padStart(2, '0')}`;
