@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
-import { useEvents, useNews, useSermons, useTodayVerse } from '../../src/data/hooks';
+import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useUser } from '../../src/data/user';
 import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
@@ -32,7 +32,6 @@ export default function HomeScreen() {
   const { verse } = useTodayVerse();
   const { events } = useEvents();
   const { sermons } = useSermons();
-  const { news } = useNews();
 
   // 홈 최근 설교 카드에는 실제 설교만 (팟캐스트·찬양 영상 제외)
   const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
@@ -43,15 +42,8 @@ export default function HomeScreen() {
     ? events.filter((e) => e.dateLabel === nextEvent.dateLabel)
     : [];
 
-  // 최신 주보 — 있으면 "주보 보기"가 목록 대신 주보 본문을 바로 연다
-  const bulletin = news.find((n) => n.title.startsWith('주보') && n.url);
-  const openBulletin = () => {
-    if (bulletin?.url) {
-      router.push({ pathname: '/browser', params: { url: bulletin.url, t: bulletin.title } });
-    } else {
-      router.push('/news');
-    }
-  };
+  // 최신 주보 — 교인·관리자는 앱 안 이미지 주보, 그 외는 홈페이지 게시글로 (뷰어에서 분기)
+  const openBulletin = () => router.push('/bulletin');
 
   // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
   const isSunday = new Date().getDay() === 0;

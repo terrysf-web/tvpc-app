@@ -46,6 +46,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /bulletins/{date} {
+      // 이미지 주보 — 인쇄물 QR 코드로 누구나 열람, 등록은 관리자만
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /pages/{page} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
     match /members/{uid} {
       // 읽기: 본인·관리자·승인 교인(주소록 열람)
       allow read: if isAdmin()

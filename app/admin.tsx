@@ -2,6 +2,7 @@ import { LogOut } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,17 +26,30 @@ import {
   useAdminAuth,
   usePendingMembers,
 } from '../src/data/admin';
+import {
+  BulletinPage,
+  convertPdfToBulletinPages,
+  saveBulletin,
+} from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
 
-type AdminTab = 'verse' | 'news' | 'event' | 'members' | 'offering';
+type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'members' | 'offering';
 
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
+  { key: 'bulletin', label: '주보' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
   { key: 'members', label: '교인' },
   { key: 'offering', label: '헌금' },
 ];
+
+/** 다가오는 주일(오늘이 주일이면 오늘) — 주보 날짜 기본값 */
+function upcomingSunday(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -102,6 +116,11 @@ export default function AdminScreen() {
   const [eTitle, setETitle] = useState('');
   const [eDetail, setEDetail] = useState('');
 
+  // 주보 업로드
+  const [bDate, setBDate] = useState(upcomingSunday());
+  const [bPages, setBPages] = useState<BulletinPage[]>([]);
+  const [bStatus, setBStatus] = useState<string | null>(null);
+
   // 교인 승인 / 헌금 입력
   const pending = usePendingMembers(isAdmin);
   const [oEmail, setOEmail] = useState('');
@@ -150,6 +169,48 @@ export default function AdminScreen() {
         imageUrl: null,
       });
     }, `${vDate} 말씀이 등록됐습니다. 앱에 바로 반영됩니다.`);
+
+  const pickBulletinPdf = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      setMsg('주보 PDF 업로드는 컴퓨터 브라우저에서 해주세요.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBusy(true);
+      setMsg(null);
+      setBPages([]);
+      setBStatus('PDF 변환 중…');
+      try {
+        const pages = await convertPdfToBulletinPages(file, (d, t) =>
+          setBStatus(`PDF 변환 중… ${d}/${t}장`),
+        );
+        setBPages(pages);
+        setBStatus(`${pages.length}페이지 준비 완료 — 순서를 확인하고 등록을 누르세요.`);
+        // 파일명에서 날짜 추측 (예: 20260719.pdf)
+        const m = file.name.match(/(20\d{2})[-._]?(\d{2})[-._]?(\d{2})/);
+        if (m) setBDate(`${m[1]}-${m[2]}-${m[3]}`);
+      } catch (e) {
+        setBStatus(null);
+        setMsg(`변환 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      } finally {
+        setBusy(false);
+      }
+    };
+    input.click();
+  };
+
+  const saveBulletinForm = () =>
+    submit(async () => {
+      if (!bPages.length) throw new Error('먼저 PDF 파일을 선택해 주세요.');
+      await saveBulletin(bDate.trim(), bPages);
+      setBStatus(null);
+      setBPages([]);
+    }, `${bDate} 주보가 등록됐습니다. 앱 "주보 보기"에 바로 반영됩니다.`);
 
   const saveNewsForm = () =>
     submit(async () => {
@@ -293,6 +354,58 @@ export default function AdminScreen() {
             >
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '말씀 등록'}</Text>
             </Pressable>
+          </View>
+        )}
+
+        {tab === 'bulletin' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>주보 PDF 업로드</Text>
+            <Field
+              label="주보 날짜 (YYYY-MM-DD)"
+              value={bDate}
+              onChange={setBDate}
+              placeholder={upcomingSunday()}
+            />
+            <Pressable
+              style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
+              onPress={pickBulletinPdf}
+              disabled={busy}
+            >
+              <Text style={styles.secondaryBtnText}>
+                {busy && bStatus ? bStatus : 'PDF 파일 선택'}
+              </Text>
+            </Pressable>
+            {bStatus && !busy ? <Text style={styles.hintText}>{bStatus}</Text> : null}
+            {bPages.length > 0 && (
+              <View style={styles.bulletinPreviewRow}>
+                {bPages.map((p, i) => (
+                  <View key={i} style={styles.bulletinThumbWrap}>
+                    <Image
+                      source={{ uri: p.image }}
+                      style={{ width: 92, height: Math.round(92 * (p.h / p.w)), borderRadius: 6 }}
+                    />
+                    <Text style={styles.bulletinThumbNum}>{i + 1}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {bPages.length > 0 && (
+              <Pressable
+                style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+                onPress={saveBulletinForm}
+                disabled={busy}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {busy ? '저장 중…' : `주보 등록 (${bPages.length}페이지)`}
+                </Text>
+              </Pressable>
+            )}
+            <Text style={styles.hintText}>
+              접는 주보(가로 2장)는 자동으로 반쪽 4면이 되고, 읽는 순서(1→2→3→4면)로
+              정렬됩니다. 등록하면 누구나 앱 "주보 보기"(happytvpc.web.app/bulletin)에서
+              볼 수 있습니다 — QR 코드 인쇄용 주소도 이 주소입니다. 업로드는 컴퓨터
+              브라우저에서 해주세요.
+            </Text>
           </View>
         )}
 
@@ -465,6 +578,40 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   primaryBtnText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
+  secondaryBtn: {
+    marginTop: 4,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 13,
+  },
+  secondaryBtnText: { fontFamily: font.bold, fontSize: 14, color: colors.primary },
+  bulletinPreviewRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  bulletinThumbWrap: {
+    borderWidth: 1,
+    borderColor: colors.divider2,
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+  bulletinThumbNum: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    fontFamily: font.bold,
+    fontSize: 11,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(20,30,45,0.6)',
+    borderRadius: 7,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
 
   blockTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title, marginBottom: 12 },
   emptyText: { fontFamily: font.regular, fontSize: 13, color: colors.faint, marginBottom: 8 },
