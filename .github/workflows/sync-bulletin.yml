@@ -4,8 +4,10 @@ name: Sync bulletin PDF from church website
 
 on:
   schedule:
-    # 주일 아침(태평양 시간 5:45–13:45 무렵) 매시간 — 주보가 올라오는 대로 반영
-    - cron: '45 13-20 * * 0'
+    # 토요일 오후 5시(태평양)부터 주일 오후까지 매시간 — 주보가 올라오는 대로 반영.
+    # UTC 기준 일요일 00:45–20:45 = 태평양(PDT) 토 17:45 ~ 일 13:45
+    # (겨울 PST에는 한 시간 이른 토 16:45부터 시작 — 무해)
+    - cron: '45 0-20 * * 0'
   workflow_dispatch:
 
 jobs:
