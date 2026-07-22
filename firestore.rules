@@ -58,11 +58,12 @@ service cloud.firestore {
     }
 
     match /albums/{id} {
-      // 교회 앨범(사진 주소록) 페이지 이미지 — 주보 QR과 같은 공개 자료
+      // 교회 앨범(사진 주소록) — 주보 QR과 같은 공개 자료
       allow read: if true;
       allow write: if isAdmin();
 
-      match /pages/{page} {
+      // 하위 컬렉션 전체(pages·rows 등) 동일 규칙
+      match /{section}/{docId} {
         allow read: if true;
         allow write: if isAdmin();
       }
