@@ -9,6 +9,7 @@
  *   FIREBASE_SERVICE_ACCOUNT="$(cat serviceAccount.json)" node scripts/sync-sermons.mjs
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -287,8 +288,12 @@ function parseSermonArchive(html) {
 
 /**
  * 홈페이지 설교 정보를 Firestore에 병합.
- * 같은 날짜의 유튜브 설교 문서(주일예배 우선)에 제목·본문·설교자·이미지를
- * 정식 값으로 보강하고, 영상이 없는 설교는 web-{날짜} 문서로 만든다.
+ * 매칭은 ① 같은 날짜 → ② 제목 근사 일치(±10일) 순서.
+ * (홈페이지의 "설교 날짜"가 실제 주일이 아니라 게시일인 항목이 있어서
+ *  제목 매칭이 꼭 필요하다. 예: 화요일 날짜로 등록된 주일설교)
+ * 매칭된 유튜브 문서에는 제목·본문·설교자·이미지를 정식 값으로 덮고
+ * (날짜는 유튜브 제목의 실제 예배일 유지), 영상이 없는 설교만
+ * web-{날짜}-{해시} 문서로 만든다.
  * (유튜브 파싱 값을 항상 웹사이트 값으로 덮도록 유튜브 동기화 뒤에 실행)
  */
 async function syncWebSermons() {
@@ -309,6 +314,28 @@ async function syncWebSermons() {
     webItems.push(...items);
   }
   console.log(`홈페이지 설교 ${webItems.length}건 파싱 (${WEB_SERMONS_URL})`);
+  if (webItems.length === 0) return;
+
+  // 제목 비교용 정규화 — [부활절 연합예배] 같은 라벨·괄호·기호·공백 제거
+  const normTitle = (s) =>
+    (s || '')
+      .toLowerCase()
+      .replace(/\[[^\]]*\]/g, '')
+      .replace(/\([^)]*\)/g, '')
+      .replace(/[^0-9a-z가-힣]/g, '');
+  const dayDiff = (a, b) =>
+    Math.abs(new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000;
+
+  const snap = await db.collection('sermons').get();
+  const docs = snap.docs
+    .filter((d) => (d.get('category') ?? 'sermon') === 'sermon')
+    .map((d) => ({
+      ref: d.ref,
+      id: d.id,
+      title: d.get('title') || '',
+      date: d.get('date') || '',
+      service: d.get('service') || '',
+    }));
 
   for (const w of webItems) {
     const preacher = w.speaker
@@ -320,33 +347,52 @@ async function syncWebSermons() {
       title: w.title,
       scripture: w.scripture || '',
       preacher,
-      date: w.date,
       series: w.scripture ? w.scripture.replace(/\s*\d.*$/, '').trim() : '주일예배',
       imageUrl: w.image || null,
       sermonUrl: w.url,
     };
+    const nw = normTitle(w.title);
 
-    const snap = await db.collection('sermons').where('date', '==', w.date).get();
-    const sameDay = snap.docs.filter(
-      (d) => (d.get('category') ?? 'sermon') === 'sermon' && d.id !== `web-${w.date}`,
-    );
-    const sunday = sameDay.filter((d) => d.get('service') === '주일예배');
-    const targets = sunday.length > 0 ? sunday : sameDay;
+    // ① 같은 날짜의 영상 문서 (주일예배 우선) ② 제목 근사 일치(±10일)
+    const videoDocs = docs.filter((d) => !d.id.startsWith('web-'));
+    let targets = videoDocs.filter((d) => d.date === w.date);
+    if (targets.some((d) => d.service === '주일예배')) {
+      targets = targets.filter((d) => d.service === '주일예배');
+    }
+    if (targets.length === 0 && nw.length >= 4) {
+      targets = videoDocs.filter((d) => {
+        const nd = normTitle(d.title);
+        if (!nd || !w.date || !d.date) return false;
+        return (nd === nw || nd.includes(nw) || nw.includes(nd)) && dayDiff(d.date, w.date) <= 10;
+      });
+    }
 
     if (targets.length > 0) {
+      // 날짜는 유튜브 제목의 실제 예배일이 더 정확하므로 유지
       for (const d of targets) await d.ref.set(info, { merge: true });
-      // 예전에 웹 전용으로 만든 문서가 있으면 중복 제거
-      const webRef = db.doc(`sermons/web-${w.date}`);
-      if ((await webRef.get()).exists) await webRef.delete();
-      console.log(`  ✓ ${w.date}  ${w.title} (${w.scripture || '본문 없음'}) — ${targets.length}개 영상 문서 보강`);
+      // 같은 설교를 웹 전용 문서로 만들어 둔 게 있으면 중복 제거
+      for (const d of docs.filter(
+        (x) => x.id.startsWith('web-') && (x.date === w.date || normTitle(x.title) === nw),
+      )) {
+        await d.ref.delete().catch(() => {});
+      }
+      console.log(
+        `  ✓ ${w.date}  ${w.title} (${w.scripture || '본문 없음'}) — ${targets.length}개 영상 문서 보강`,
+      );
     } else {
-      await db.doc(`sermons/web-${w.date}`).set(
+      // 같은 날짜에 설교가 두 건일 수 있어(부활절·성금요일) URL 해시로 ID 구분
+      const id = `web-${w.date}-${createHash('md5').update(w.url).digest('hex').slice(0, 6)}`;
+      // 예전 형식(web-{날짜})으로 만든 문서는 새 ID로 대체
+      const legacy = db.doc(`sermons/web-${w.date}`);
+      if ((await legacy.get()).exists) await legacy.delete();
+      await db.doc(`sermons/${id}`).set(
         {
           category: 'sermon',
           subtitle: '주일예배',
           service: '주일예배',
           duration: '',
           youtubeId: null,
+          date: w.date,
           ...info,
         },
         { merge: true },
