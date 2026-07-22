@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 7;
+const CONVERTER_VERSION = 8;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -144,7 +144,12 @@ for (let i = 0; i < files.length; i++) {
   const { width: imgW, height: imgH } = await pageImg.metadata();
 
   // 명부 페이지 판별 — OCR로 표 머리글(Photo/Name/Cell) 확인
-  const photos = px ? imagesOf(px.body).sort((a, b) => a.top - b.top) : [];
+  // 작은 장식 이미지(구분선·로고)는 사진으로 치지 않는다
+  const photos = px
+    ? imagesOf(px.body)
+        .filter((p) => p.w > px.w * 0.08 && p.h > px.h * 0.05)
+        .sort((a, b) => a.top - b.top)
+    : [];
   let words = [];
   let nameX = null;
   let cellX = null;
@@ -210,7 +215,7 @@ for (let i = 0; i < files.length; i++) {
       .map((w) => w.text)
       .join(' ')
       .trim();
-    const cell = normCell(cellText);
+    let cell = normCell(cellText);
     // 이름 열의 OCR 단어들 — 이름 검색용
     const names = words
       .filter((w) => inRow(w) && w.left >= nameX - 20 && w.left < cellX - 20)
@@ -218,6 +223,20 @@ for (let i = 0; i < files.length; i++) {
       .map((w) => w.text)
       .join(' ')
       .trim();
+    // 글자가 전혀 없는 줄(장식 이미지로 생긴 가짜 줄)은 버린다
+    if (!/[가-힣A-Za-z]/.test(`${names} ${cellText}`)) continue;
+    // 열 위치가 어긋나 셀을 못 찾았으면, 줄 안에서 셀 패턴을 직접 찾는다
+    if (cell === '기타') {
+      const cand = words
+        .filter(
+          (w) =>
+            inRow(w) &&
+            w.left >= nameX &&
+            (/^[c6][e6][l1i|][l1i|]/i.test(w.text) || /^(CYA|EM|Pastor|늘푸른)/i.test(w.text)),
+        )
+        .sort((a, b) => b.left - a.left)[0];
+      if (cand) cell = normCell(cand.text);
+    }
     const cropH = endPx - startPx;
     if (cropH < 30) continue;
     const slice = sharp(
