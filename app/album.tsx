@@ -51,7 +51,12 @@ function fuzzyIncludes(hay: string, needle: string): boolean {
   return false;
 }
 
-/** OCR이 성·이름 순서를 뒤집는 경우가 있어 토큰 조합으로도 매칭 */
+/**
+ * OCR이 성·이름 순서를 뒤집는 경우가 있어 토큰 조합으로도 매칭.
+ * 근사 일치(1글자 오차)는 실제 연속된 OCR 문자열에만 허용한다 —
+ * 토큰 조합에까지 허용하면 짝지어 만든 인공 문자열("윤성"+"영")이
+ * 다른 이름("허성영")과 우연히 매칭되는 오탐이 생긴다.
+ */
 function matchNames(names: string, cell: string, q: string): boolean {
   const nq = norm(q);
   if (!nq) return true;
@@ -59,7 +64,7 @@ function matchNames(names: string, cell: string, q: string): boolean {
   const toks = names.split(/\s+/).map(norm).filter(Boolean);
   for (let i = 0; i < toks.length; i++) {
     for (let j = 0; j < toks.length; j++) {
-      if (i !== j && fuzzyIncludes(toks[i] + toks[j], nq)) return true;
+      if (i !== j && (toks[i] + toks[j]).includes(nq)) return true;
     }
   }
   return false;
