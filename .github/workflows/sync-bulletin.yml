@@ -1,0 +1,46 @@
+# 교회 홈페이지에 로그인해 최신 주보 PDF를 받아 앱용 페이지 이미지로 등록.
+# TVPC_WEB_USER / TVPC_WEB_PASS / FIREBASE_SERVICE_ACCOUNT 시크릿 필요.
+name: Sync bulletin PDF from church website
+
+on:
+  schedule:
+    # 주일 아침(태평양 시간 5:45–13:45 무렵) 매시간 — 주보가 올라오는 대로 반영
+    - cron: '45 13-20 * * 0'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secrets
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          WU: ${{ secrets.TVPC_WEB_USER }}
+          WP: ${{ secrets.TVPC_WEB_PASS }}
+        run: |
+          if [ -z "$SA" ] || [ -z "$WU" ] || [ -z "$WP" ]; then
+            echo "필요한 시크릿(FIREBASE_SERVICE_ACCOUNT, TVPC_WEB_USER, TVPC_WEB_PASS)이 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install poppler
+        if: env.skip != 'true'
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+
+      - name: Install deps
+        if: env.skip != 'true'
+        run: npm install --no-save firebase-admin sharp
+
+      - name: Sync bulletin
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
+          TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+        run: node scripts/sync-bulletin.mjs
