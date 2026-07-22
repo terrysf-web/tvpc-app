@@ -37,9 +37,15 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 }
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
+// 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
+const CONVERTER_VERSION = 3;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
-if (meta.exists && meta.get('pdfHash') === pdfHash) {
+if (
+  meta.exists &&
+  meta.get('pdfHash') === pdfHash &&
+  meta.get('converterVersion') === CONVERTER_VERSION
+) {
   console.log('완료: 앨범이 이미 최신입니다 (변경 없음).');
   process.exit(0);
 }
@@ -121,34 +127,43 @@ for (let i = 0; i < files.length; i++) {
 
   // 명부 페이지 — 사진 위치가 곧 줄(행)의 기준
   const cellHeader = texts.find((t) => t.s === 'Cell');
+  const nameHeader = texts.find((t) => t.s === 'Name');
   const photos = imagesOf(px.body).sort((a, b) => a.top - b.top);
   const scaleY = imgH / px.h;
   const bottomMost = Math.max(...texts.map((t) => t.top + t.h), ...photos.map((p) => p.top + p.h));
   for (let r = 0; r < photos.length; r++) {
     const startY = photos[r].top - 6;
     const endY = r + 1 < photos.length ? photos[r + 1].top - 6 : Math.min(bottomMost + 8, px.h);
+    const inRow = (t) => t.top >= startY && t.top < endY && t.s;
     // 이 줄의 Cell 값 (셀 열 위치의 텍스트)
     const label = texts
-      .filter(
-        (t) =>
-          cellHeader &&
-          t.left >= cellHeader.left - 6 &&
-          t.top >= startY &&
-          t.top < endY &&
-          t.s &&
-          t.s !== 'Cell',
-      )
+      .filter((t) => cellHeader && t.left >= cellHeader.left - 6 && inRow(t) && t.s !== 'Cell')
       .map((t) => t.s)
       .join(' ')
       .trim();
     const cell = (label.split(',')[0] || '').trim() || '기타';
+    // 이 줄의 이름들 (이름 열 위치의 텍스트) — 이름 검색용
+    const names = texts
+      .filter(
+        (t) =>
+          nameHeader &&
+          cellHeader &&
+          t.left >= nameHeader.left - 6 &&
+          t.left < cellHeader.left - 6 &&
+          inRow(t) &&
+          t.s !== 'Name',
+      )
+      .sort((a, b) => a.top - b.top)
+      .map((t) => t.s)
+      .join(' ')
+      .trim();
     const cropTop = Math.max(0, Math.round(startY * scaleY));
     const cropH = Math.min(imgH - cropTop, Math.round((endY - startY) * scaleY));
     if (cropH < 20) continue;
     const slice = sharp(await pageImg.clone().extract({ left: 0, top: cropTop, width: imgW, height: cropH }).toBuffer());
     const buf = await encode(slice);
     total += buf.length;
-    rows.push({ cell, cellFull: label || cell, buf, w: imgW, h: cropH });
+    rows.push({ cell, names, buf, w: imgW, h: cropH });
   }
   if ((i + 1) % 10 === 0) console.log(`  … ${i + 1}/${files.length}페이지 처리`);
 }
@@ -164,6 +179,7 @@ for (let i = 0; i < rows.length; i++) {
   await db.doc(`albums/current/rows/${String(i).padStart(4, '0')}`).set({
     order: i,
     cell: rows[i].cell,
+    names: rows[i].names,
     image: `data:image/jpeg;base64,${rows[i].buf.toString('base64')}`,
     w: rows[i].w,
     h: rows[i].h,
@@ -175,6 +191,7 @@ await db.doc('albums/current').set({
   rowCount: rows.length,
   cells: cellOrder,
   pdfHash,
+  converterVersion: CONVERTER_VERSION,
   sourceUrl: ALBUM_URL,
   updatedAt: FieldValue.serverTimestamp(),
 });
