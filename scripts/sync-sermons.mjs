@@ -335,7 +335,23 @@ async function syncWebSermons() {
       title: d.get('title') || '',
       date: d.get('date') || '',
       service: d.get('service') || '',
+      youtubeId: d.get('youtubeId') || null,
     }));
+
+  // 개별 설교 페이지의 유튜브 임베드(sermon-youtube-player iframe)에서 영상 ID 추출
+  const extractYoutubeId = async (url) => {
+    try {
+      const page = await fetchText(url);
+      return (
+        page.match(/youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/)?.[1] ??
+        page.match(/youtu\.be\/([\w-]{11})/)?.[1] ??
+        page.match(/youtube\.com\/watch\?v=([\w-]{11})/)?.[1] ??
+        null
+      );
+    } catch {
+      return null;
+    }
+  };
 
   for (const w of webItems) {
     const preacher = w.speaker
@@ -385,19 +401,35 @@ async function syncWebSermons() {
       // 예전 형식(web-{날짜})으로 만든 문서는 새 ID로 대체
       const legacy = db.doc(`sermons/web-${w.date}`);
       if ((await legacy.get()).exists) await legacy.delete();
+
+      // 개별 페이지에 임베드된 유튜브 영상 ID — 채널 목록에 없는 설교도
+      // 앱에서 직접 재생되게 한다 (이미 확보한 ID는 페이지 재요청 생략)
+      const youtubeId =
+        docs.find((x) => x.id === id)?.youtubeId ?? (await extractYoutubeId(w.url));
+
+      // 그 영상의 유튜브 문서가 이미 있으면 새로 만들지 않고 그쪽에 병합
+      const ytDoc = youtubeId ? docs.find((x) => x.id === `yt-${youtubeId}`) : null;
+      if (ytDoc) {
+        await ytDoc.ref.set({ ...info, date: w.date }, { merge: true });
+        console.log(`  ✓ ${w.date}  ${w.title} — 기존 영상 문서(yt-${youtubeId})에 병합`);
+        continue;
+      }
+
       await db.doc(`sermons/${id}`).set(
         {
           category: 'sermon',
           subtitle: '주일예배',
           service: '주일예배',
           duration: '',
-          youtubeId: null,
+          youtubeId,
           date: w.date,
           ...info,
         },
         { merge: true },
       );
-      console.log(`  + ${w.date}  ${w.title} (${w.scripture || '본문 없음'}) — 신규(웹 전용)`);
+      console.log(
+        `  + ${w.date}  ${w.title} (${w.scripture || '본문 없음'})${youtubeId ? ` — 영상 ${youtubeId}` : ' — 영상 없음'}`,
+      );
     }
   }
 }
