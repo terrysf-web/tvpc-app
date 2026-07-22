@@ -57,6 +57,17 @@ service cloud.firestore {
       }
     }
 
+    match /albums/{id} {
+      // 교회 앨범(사진 주소록) 페이지 이미지 — 주보 QR과 같은 공개 자료
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /pages/{page} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
     match /members/{uid} {
       // 읽기: 본인·관리자·승인 교인(주소록 열람)
       allow read: if isAdmin()

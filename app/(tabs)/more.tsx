@@ -32,7 +32,7 @@ import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
-  { key: 'album', label: '교회 앨범 · 주소록', icon: BookUser },
+  { key: 'album', label: '교회 앨범', icon: BookUser },
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'staff', label: '교역자 소개', icon: Users },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
@@ -56,8 +56,8 @@ export default function MoreScreen() {
       return;
     }
     if (key === 'album') {
-      // 주보 QR과 같은 앨범(사진 주소록) PDF — 로그인 없이 열람
-      router.push({ pathname: '/browser', params: { url: churchInfo.albumPdf, t: '교회 앨범' } });
+      // 미리 변환해 둔 페이지 이미지 뷰어 — 큰 PDF보다 훨씬 빠르게 열린다
+      router.push('/album');
       return;
     }
     if (key === 'share') {

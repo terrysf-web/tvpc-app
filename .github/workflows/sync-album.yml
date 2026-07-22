@@ -1,0 +1,47 @@
+# 교회 앨범(사진 주소록) PDF를 앱용 페이지 이미지로 변환해 등록.
+# 매주 확인해 앨범이 바뀌었을 때만 다시 변환한다.
+name: Sync church album PDF
+
+on:
+  schedule:
+    # 주일 아침(태평양 6:50 무렵) 주 1회 확인
+    - cron: '50 13 * * 0'
+  workflow_dispatch:
+    inputs:
+      album_url:
+        description: '앨범 PDF 주소 (비우면 기본값)'
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install poppler
+        if: env.skip != 'true'
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+
+      - name: Install deps
+        if: env.skip != 'true'
+        run: npm install --no-save firebase-admin sharp
+
+      - name: Sync album
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ALBUM_URL: ${{ inputs.album_url }}
+        run: node scripts/sync-album.mjs
