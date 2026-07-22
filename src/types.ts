@@ -32,6 +32,8 @@ export interface SermonDoc {
   series: string;
   youtubeId?: string | null;
   imageUrl?: string | null;
+  /** 교회 홈페이지 개별 설교 페이지 — 영상이 없을 때 대체 링크 */
+  sermonUrl?: string | null;
   featured?: boolean;
 }
 

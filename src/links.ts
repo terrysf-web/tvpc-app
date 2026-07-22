@@ -20,7 +20,8 @@ export function openExternal(url: string) {
 
 /**
  * 설교 영상 재생 — youtubeId가 있으면 앱 내 재생 화면(/watch)으로 이동
- * (외부 탭이 남지 않음). 없으면 교회 채널로.
+ * (외부 탭이 남지 않음). 영상이 없으면 홈페이지 개별 설교 페이지로,
+ * 그것도 없으면 교회 채널로.
  */
 export function playSermon(s: SermonDoc) {
   if (s.youtubeId) {
@@ -28,6 +29,8 @@ export function playSermon(s: SermonDoc) {
       pathname: '/watch',
       params: { v: s.youtubeId, t: s.title },
     });
+  } else if (s.sermonUrl) {
+    router.push({ pathname: '/browser', params: { url: s.sermonUrl, t: s.title } });
   } else {
     openExternal(YOUTUBE_CHANNEL_URL);
   }
