@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { ChevronDown, Images, Search } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
 import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../src/firebase';
@@ -23,17 +23,34 @@ interface AlbumPage {
   image: string;
   w: number;
   h: number;
-  /** 명부 줄일 때의 소속 셀 */
-  cell?: string;
-  /** 명부 줄의 이름들 (검색용) */
-  names?: string;
+}
+
+/** 명부 색인 항목 — 이름 검색은 이미지를 받기 전에도 이 색인으로 동작한다 */
+interface RowIndex {
+  cell: string;
+  names: string;
 }
 
 const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
+/** OCR이 성·이름 순서를 뒤집는 경우가 있어 토큰 조합으로도 매칭 */
+function matchNames(names: string, cell: string, q: string): boolean {
+  const nq = norm(q);
+  if (!nq) return true;
+  if (norm(`${names} ${cell}`).includes(nq)) return true;
+  const toks = names.split(/\s+/).map(norm).filter(Boolean);
+  for (let i = 0; i < toks.length; i++) {
+    for (let j = 0; j < toks.length; j++) {
+      if (i !== j && (toks[i] + toks[j]).includes(nq)) return true;
+    }
+  }
+  return false;
+}
+
 /**
- * 교회 앨범 뷰어 — 미리 변환해 둔 페이지 이미지를 첫 장부터 즉시 보여주고,
- * 나머지 장은 순서대로 이어서 불러온다 (큰 PDF를 직접 여는 것보다 훨씬 빠름).
+ * 교회 앨범 뷰어 — 소개 페이지와 셀별 명부.
+ * 색인(이름·셀)은 즉시 로드되어 검색·셀 선택이 바로 되고,
+ * 줄 이미지는 화면에 필요한 것부터 가져온다.
  */
 export default function AlbumScreen() {
   const router = useRouter();
@@ -41,13 +58,33 @@ export default function AlbumScreen() {
   const { width } = useWindowDimensions();
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [pages, setPages] = useState<(AlbumPage | null)[]>([]);
-  const [rowCount, setRowCount] = useState(0);
-  const [rows, setRows] = useState<(AlbumPage | null)[]>([]);
+  const [index, setIndex] = useState<RowIndex[]>([]);
+  const [cache, setCache] = useState<Record<number, AlbumPage>>({});
   const [failed, setFailed] = useState(false);
   const [cells, setCells] = useState<string[]>([]);
   const [cellFilter, setCellFilter] = useState<string | null>(null);
   const [dropOpen, setDropOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const dbRef = useRef<Firestore | null>(null);
+  const fetching = useRef<Set<number>>(new Set());
+
+  const fetchRow = async (i: number) => {
+    const db = dbRef.current;
+    if (!db || fetching.current.has(i)) return;
+    fetching.current.add(i);
+    try {
+      const snap = await getDoc(doc(db, 'albums', 'current', 'rows', String(i).padStart(4, '0')));
+      const image = String(snap.get('image') ?? '');
+      if (image) {
+        setCache((prev) => ({
+          ...prev,
+          [i]: { image, w: Number(snap.get('w') ?? 3), h: Number(snap.get('h') ?? 1) },
+        }));
+      }
+    } catch {
+      fetching.current.delete(i);
+    }
+  };
 
   useEffect(() => {
     const db = getDb();
@@ -55,6 +92,7 @@ export default function AlbumScreen() {
       setFailed(true);
       return;
     }
+    dbRef.current = db;
     let cancelled = false;
     (async () => {
       try {
@@ -62,17 +100,17 @@ export default function AlbumScreen() {
         const meta = await getDoc(doc(db, 'albums', 'current'));
         if (cancelled) return;
         const n = Number(meta.get('pageCount') ?? 0);
-        const rn = Number(meta.get('rowCount') ?? 0);
-        if (!meta.exists || (!n && !rn)) {
+        const idxRaw = (meta.get('index') as { c?: string; n?: string }[] | undefined) ?? [];
+        const idx = idxRaw.map((r) => ({ cell: String(r.c ?? '기타'), names: String(r.n ?? '') }));
+        if (!meta.exists || (!n && !idx.length)) {
           setFailed(true);
           return;
         }
         setPageCount(n);
         setPages(Array(n).fill(null));
-        setRowCount(rn);
-        setRows(Array(rn).fill(null));
+        setIndex(idx);
         setCells(((meta.get('cells') as string[] | undefined) ?? []).map(String));
-        // 소개 페이지 → 명부 줄 순서대로 이어서 로드 (첫 장부터 바로 보인다)
+        // 소개 페이지 → 명부 이미지 순서대로 배경 로드 (첫 장부터 바로 보인다)
         for (let i = 0; i < n && !cancelled; i++) {
           const snap = await getDoc(doc(db, 'albums', 'current', 'pages', String(i).padStart(3, '0')));
           if (cancelled) return;
@@ -85,23 +123,8 @@ export default function AlbumScreen() {
             });
           }
         }
-        for (let i = 0; i < rn && !cancelled; i++) {
-          const snap = await getDoc(doc(db, 'albums', 'current', 'rows', String(i).padStart(4, '0')));
-          if (cancelled) return;
-          const image = String(snap.get('image') ?? '');
-          if (image) {
-            setRows((prev) => {
-              const next = [...prev];
-              next[i] = {
-                image,
-                w: Number(snap.get('w') ?? 3),
-                h: Number(snap.get('h') ?? 1),
-                cell: String(snap.get('cell') ?? ''),
-                names: String(snap.get('names') ?? ''),
-              };
-              return next;
-            });
-          }
+        for (let i = 0; i < idx.length && !cancelled; i++) {
+          await fetchRow(i);
         }
       } catch {
         if (!cancelled) setFailed(true);
@@ -110,7 +133,30 @@ export default function AlbumScreen() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const filtering = !!cellFilter || !!query.trim();
+  const visible = useMemo(
+    () =>
+      index
+        .map((r, i) => ({ r, i }))
+        .filter(
+          ({ r }) =>
+            (!cellFilter || r.cell === cellFilter) &&
+            (!query.trim() || matchNames(r.names, r.cell, query)),
+        ),
+    [index, cellFilter, query],
+  );
+
+  // 검색·셀 선택 결과의 이미지를 우선 로드
+  useEffect(() => {
+    if (!filtering) return;
+    for (const { i } of visible.slice(0, 60)) {
+      if (!cache[i]) void fetchRow(i);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtering, visible]);
 
   const pageWidth = Math.min(width, 520) - 24;
   const openPdf = () =>
@@ -141,7 +187,7 @@ export default function AlbumScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* 셀 선택 + 이름 검색 */}
-          {rowCount > 0 && (
+          {index.length > 0 && (
             <View style={styles.filterBar}>
               <Pressable style={styles.dropBtn} onPress={() => setDropOpen((o) => !o)}>
                 <Text style={styles.dropBtnText}>{cellFilter ?? '전체 셀'}</Text>
@@ -183,79 +229,57 @@ export default function AlbumScreen() {
             </View>
           )}
 
-          {!cellFilter && !query && pages.map((p, i) => (
-            <View key={`p${i}`} style={[styles.pageWrap, shadows.card]}>
-              {p ? (
-                <Image
-                  source={{ uri: p.image }}
-                  style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 1.29 }]}>
-                  <ActivityIndicator color={colors.faint} />
-                </View>
-              )}
-              <Text style={styles.pageNum}>
-                {i + 1} / {pageCount}
-              </Text>
-            </View>
-          ))}
+          {!filtering &&
+            pages.map((p, i) => (
+              <View key={`p${i}`} style={[styles.pageWrap, shadows.card]}>
+                {p ? (
+                  <Image
+                    source={{ uri: p.image }}
+                    style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 1.29 }]}>
+                    <ActivityIndicator color={colors.faint} />
+                  </View>
+                )}
+                <Text style={styles.pageNum}>
+                  {i + 1} / {pageCount}
+                </Text>
+              </View>
+            ))}
 
-          {/* 명부 — 셀 제목 아래 멤버 줄들 (필터·검색 반영) */}
-          {(() => {
-            const filtering = !!cellFilter || !!query.trim();
-            const q = norm(query);
-            const visible = rows
-              .map((r, i) => ({ r, i }))
-              .filter(({ r }) => {
-                if (!r) return !filtering; // 필터 중에는 로딩 자리표시 생략
-                if (cellFilter && r.cell !== cellFilter) return false;
-                if (q && !norm(`${r.names ?? ''} ${r.cell ?? ''}`).includes(q)) return false;
-                return true;
-              });
-            const stillLoading = rows.some((r) => r === null);
+          {/* 명부 — 셀 제목 아래 멤버 줄들 */}
+          {filtering && visible.length === 0 && (
+            <Text style={styles.loadingNote}>검색 결과가 없습니다.</Text>
+          )}
+          {visible.map(({ r, i }, vi) => {
+            const prev = vi > 0 ? visible[vi - 1].r : null;
+            const showHeader = !prev || prev.cell !== r.cell;
+            const img = cache[i];
             return (
-              <>
-                {filtering && stillLoading && (
-                  <Text style={styles.loadingNote}>
-                    명부를 불러오는 중입니다… 결과가 더 나타날 수 있어요.
-                  </Text>
+              <React.Fragment key={`r${i}`}>
+                {showHeader && (
+                  <View style={styles.cellHeader}>
+                    <Text style={styles.cellHeaderText}>{r.cell.toUpperCase()}</Text>
+                  </View>
                 )}
-                {filtering && !stillLoading && visible.length === 0 && (
-                  <Text style={styles.loadingNote}>검색 결과가 없습니다.</Text>
+                {img ? (
+                  <View style={[styles.rowWrap, shadows.card]}>
+                    <Image
+                      source={{ uri: img.image }}
+                      style={{ width: pageWidth, height: pageWidth * (img.h / img.w), borderRadius: 10 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ) : (
+                  <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 0.32 }]}>
+                    <ActivityIndicator color={colors.faint} />
+                  </View>
                 )}
-                {visible.map(({ r, i }, vi) => {
-                  const prev = vi > 0 ? visible[vi - 1].r : null;
-                  const showHeader = r && (!prev || prev.cell !== r.cell);
-                  return (
-                    <React.Fragment key={`r${i}`}>
-                      {showHeader && (
-                        <View style={styles.cellHeader}>
-                          <Text style={styles.cellHeaderText}>{(r?.cell ?? '').toUpperCase()}</Text>
-                        </View>
-                      )}
-                      {r ? (
-                        <View style={[styles.rowWrap, shadows.card]}>
-                          <Image
-                            source={{ uri: r.image }}
-                            style={{ width: pageWidth, height: pageWidth * (r.h / r.w), borderRadius: 10 }}
-                            resizeMode="contain"
-                          />
-                        </View>
-                      ) : (
-                        i < rowCount && (
-                          <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 0.32 }]}>
-                            <ActivityIndicator color={colors.faint} />
-                          </View>
-                        )
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </>
+              </React.Fragment>
             );
-          })()}
+          })}
           <Pressable style={styles.webLink} onPress={openPdf}>
             <Text style={styles.webLinkText}>원본 PDF 열기 ›</Text>
           </Pressable>

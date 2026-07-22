@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 8;
+const CONVERTER_VERSION = 9;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -95,8 +95,8 @@ function ocrWords(file) {
     if (c.length < 12) continue;
     const conf = Number(c[10]);
     const text = (c[11] ?? '').trim();
-    if (!text || conf < 30) continue;
-    words.push({ left: Number(c[6]), top: Number(c[7]), w: Number(c[8]), h: Number(c[9]), text });
+    if (!text || conf < 10) continue;
+    words.push({ left: Number(c[6]), top: Number(c[7]), w: Number(c[8]), h: Number(c[9]), text, conf });
   }
   return words;
 }
@@ -155,7 +155,8 @@ for (let i = 0; i < files.length; i++) {
   let cellX = null;
   if (photos.length >= 2) {
     words = ocrWords(pageFile);
-    const hdr = (re) => words.filter((w) => re.test(w.text)).sort((a, b) => a.top - b.top)[0];
+    const hdr = (re) =>
+      words.filter((w) => w.conf >= 30 && re.test(w.text)).sort((a, b) => a.top - b.top)[0];
     const hName = hdr(/^Name$/i);
     const hCell = hdr(/^Cell$/i);
     const hPhoto = hdr(/^Photo$/i);
@@ -210,7 +211,7 @@ for (let i = 0; i < files.length; i++) {
     const inRow = (w) => w.top >= startPx && w.top < endPx && !/^(Photo|Name|Cell)$/.test(w.text);
     // 셀 열의 OCR 단어들 → 셀 이름 (쉼표 앞 첫 항목)
     const cellText = words
-      .filter((w) => inRow(w) && w.left >= cellX - 20)
+      .filter((w) => inRow(w) && w.conf >= 30 && w.left >= cellX - 20)
       .sort((a, b) => a.top - b.top || a.left - b.left)
       .map((w) => w.text)
       .join(' ')
@@ -218,7 +219,7 @@ for (let i = 0; i < files.length; i++) {
     let cell = normCell(cellText);
     // 이름 열의 OCR 단어들 — 이름 검색용
     const names = words
-      .filter((w) => inRow(w) && w.left >= nameX - 20 && w.left < cellX - 20)
+      .filter((w) => inRow(w) && w.conf >= 30 && w.left >= nameX - 20 && w.left < cellX - 20)
       .sort((a, b) => a.top - b.top || a.left - b.left)
       .map((w) => w.text)
       .join(' ')
@@ -271,6 +272,8 @@ await db.doc('albums/current').set({
   pageCount: introCount,
   rowCount: rows.length,
   cells: cellOrder,
+  // 가벼운 색인 — 뷰어가 이미지를 받기 전에도 전체 이름 검색이 되도록
+  index: rows.map((r) => ({ c: r.cell, n: r.names })),
   pdfHash,
   converterVersion: CONVERTER_VERSION,
   sourceUrl: ALBUM_URL,
