@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../firebase';
@@ -38,6 +39,8 @@ function useCollection<T extends { id: string }>(
   orderField: string,
   direction: 'asc' | 'desc' = 'desc',
   max = 50,
+  /** orderField ≤ 이 값인 문서만 (미래 날짜로 미리 등록된 문서 제외용) */
+  upTo?: string,
 ): { data: T[]; loading: boolean; live: boolean } {
   const [data, setData] = useState<T[]>(fallback);
   const [loading, setLoading] = useState(firebaseEnabled);
@@ -50,7 +53,12 @@ function useCollection<T extends { id: string }>(
     let unsub: (() => void) | undefined;
     ensureAnonymousAuth().then(() => {
       if (cancelled) return;
-      const q = query(collection(db, name), orderBy(orderField, direction), limit(max));
+      const q = query(
+        collection(db, name),
+        ...(upTo != null ? [where(orderField, '<=', upTo)] : []),
+        orderBy(orderField, direction),
+        limit(max),
+      );
       unsub = onSnapshot(
         q,
         (snap) => {
@@ -70,14 +78,23 @@ function useCollection<T extends { id: string }>(
       cancelled = true;
       unsub?.();
     };
-  }, [name, orderField, direction, max]);
+  }, [name, orderField, direction, max, upTo]);
 
   return { data, loading, live };
 }
 
 /** 오늘의 말씀 — verses 컬렉션에서 가장 최근 문서 1개 */
 export function useTodayVerse(): { verse: VerseDoc; loading: boolean } {
-  const { data, loading } = useCollection<VerseDoc>('verses', [sampleVerse], 'date', 'desc', 1);
+  // 새벽예배 본문이 한 주치 미리 등록되므로, 오늘 이하 날짜 중 최신 문서를 쓴다
+  const today = new Date().toLocaleDateString('en-CA');
+  const { data, loading } = useCollection<VerseDoc>(
+    'verses',
+    [sampleVerse],
+    'date',
+    'desc',
+    1,
+    today,
+  );
   return { verse: data[0] ?? sampleVerse, loading };
 }
 

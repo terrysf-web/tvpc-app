@@ -225,6 +225,126 @@ function bulletinDate() {
 }
 const date = bulletinDate();
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
+const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
+writeFileSync(join(dir, 'in.pdf'), pdfBuf);
+
+// ── 3.5 주보의 새벽예배 본문표 → 매일 말씀(verses/{날짜}) 자동 등록 ──
+// 주보에 "화(21일) 수(22일) …" / "이사야 34장 이사야 35장 …" 두 줄이 있어
+// 각 요일의 본문을 개역한글 본문과 함께 등록한다. 목사님이 직접 올린 날은 건너뜀.
+try {
+  await syncDawnVerses();
+} catch (e) {
+  console.log(`  ! 새벽예배 본문 등록 실패(주보 등록은 계속): ${e.message}`);
+}
+
+async function syncDawnVerses() {
+  execFileSync('pdftotext', ['-layout', join(dir, 'in.pdf'), join(dir, 'out.txt')]);
+  const text = readFileSync(join(dir, 'out.txt'), 'utf8');
+  const lines = text.split('\n');
+
+  // 요일 토큰 줄 찾기 — "화(21일) 수(22일) …" (3개 이상)
+  let dayLine = -1;
+  let days = [];
+  for (let i = 0; i < lines.length; i++) {
+    const found = [...lines[i].matchAll(/([월화수목금토일])\((\d{1,2})일\)/g)].map((m) => ({
+      dom: Number(m[2]),
+      col: m.index + m[0].length / 2,
+    }));
+    if (found.length >= 3) {
+      dayLine = i;
+      days = found;
+      break;
+    }
+  }
+  if (dayLine < 0) {
+    console.log('  → 새벽예배 요일표를 찾지 못해 매일 말씀 등록을 건너뜁니다.');
+    return;
+  }
+
+  // 요일 줄 아래 3줄 안에서 "이사야 34장" 형태의 본문 토큰 수집
+  const passages = [];
+  for (let i = dayLine + 1; i <= Math.min(dayLine + 3, lines.length - 1); i++) {
+    for (const m of lines[i].matchAll(/([가-힣]+)\s*(\d{1,3})장/g)) {
+      passages.push({ book: m[1], chapter: Number(m[2]), col: m.index + m[0].length / 2 });
+    }
+    if (passages.length) break;
+  }
+  if (!passages.length) {
+    console.log('  → 새벽예배 본문을 찾지 못해 매일 말씀 등록을 건너뜁니다.');
+    return;
+  }
+
+  // 개역한글 본문 로드 (책이름 → 장별 절 배열)
+  const { gunzipSync } = await import('node:zlib');
+  const scriptDir = new URL('.', import.meta.url).pathname;
+  const bible = JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'krv.json.gz'))).toString());
+  // 숫자·한글 표기 차이(요한1서↔요한일서 등) 허용
+  const norm = (s) =>
+    s.replace(/\s/g, '').replace(/1서/, '일서').replace(/2서/, '이서').replace(/3서/, '삼서');
+  const findBook = (name) =>
+    bible[name] ? name : (Object.keys(bible).find((k) => norm(k) === norm(name)) ?? null);
+
+  // 주보 날짜(주일) 다음 1~7일 중 일(日)이 맞는 날짜로 환산
+  const [by, bm, bd] = date.split('-').map(Number);
+  const sunday = new Date(Date.UTC(by, bm - 1, bd));
+  const domToDate = (dom) => {
+    for (let add = 1; add <= 7; add++) {
+      const d = new Date(sunday);
+      d.setUTCDate(d.getUTCDate() + add);
+      if (d.getUTCDate() === dom) return d.toISOString().slice(0, 10);
+    }
+    return null;
+  };
+
+  console.log('[말씀] 새벽예배 본문 등록:');
+  let wrote = 0;
+  for (const day of days) {
+    // 같은 열(column)의 본문 찾기 — 표 열 위치가 가장 가까운 토큰
+    let best = null;
+    for (const p of passages) {
+      const dist = Math.abs(p.col - day.col);
+      if (dist <= 14 && (!best || dist < Math.abs(best.col - day.col))) best = p;
+    }
+    if (!best) continue;
+    const vDate = domToDate(day.dom);
+    const bookName = findBook(best.book);
+    if (!vDate || !bookName) {
+      console.log(`  – ${day.dom}일 ${best.book} ${best.chapter}장: ${!vDate ? '날짜 계산 불가' : '책 이름 인식 불가'}`);
+      continue;
+    }
+    const chapters = bible[bookName];
+    if (best.chapter < 1 || best.chapter > chapters.length) {
+      console.log(`  – ${bookName} ${best.chapter}장: 장 범위 밖`);
+      continue;
+    }
+
+    // 목사님이 직접 올린 말씀(source 없음)은 덮어쓰지 않는다
+    const ref = `${bookName} ${best.chapter}장`;
+    const docRef = db.doc(`verses/${vDate}`);
+    const cur = await docRef.get();
+    if (cur.exists && cur.get('source') !== 'auto') {
+      console.log(`  – ${vDate} ${ref}: 직접 등록된 말씀이 있어 유지`);
+      continue;
+    }
+    const verses = chapters[best.chapter - 1];
+    const hero = verses[0].length > 90 ? `${verses[0].slice(0, 90)}…` : verses[0];
+    await docRef.set({
+      date: vDate,
+      reference: ref,
+      heroText: hero,
+      passageTitle: `${ref} (새벽예배 본문)`,
+      passage: verses.map((t, i) => ({ verse: i + 1, text: t })),
+      meditation: '',
+      application: [],
+      prayer: '',
+      imageUrl: null,
+      source: 'auto',
+    });
+    console.log(`  ✓ ${vDate}  ${ref} (${verses.length}절)`);
+    wrote++;
+  }
+  console.log(`  → 매일 말씀 ${wrote}건 등록`);
+}
 
 const existing = await db.doc(`bulletins/${date}`).get();
 if (existing.exists && existing.get('pdfHash') === pdfHash) {
@@ -233,8 +353,6 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
 }
 
 // ── 4. PDF → 반쪽 페이지 JPEG ──────────────────────────────────
-const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
-writeFileSync(join(dir, 'in.pdf'), pdfBuf);
 execFileSync('pdftoppm', ['-jpeg', '-r', '200', '-jpegopt', 'quality=90', join(dir, 'in.pdf'), join(dir, 'sheet')]);
 const sheetFiles = readdirSync(dir).filter((f) => f.startsWith('sheet')).sort();
 console.log(`[변환] ${sheetFiles.length}장 렌더링`);
