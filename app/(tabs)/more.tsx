@@ -26,12 +26,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { churchInfo } from '../../src/churchInfo';
 import { useUser } from '../../src/data/user';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
-  { key: 'directory', label: '교회 주소록 (교인 전용)', icon: BookUser },
+  { key: 'album', label: '교회 앨범 · 주소록', icon: BookUser },
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'staff', label: '교역자 소개', icon: Users },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
@@ -54,8 +55,9 @@ export default function MoreScreen() {
       if (typeof window !== 'undefined') window.location.reload();
       return;
     }
-    if (key === 'directory') {
-      router.push('/directory');
+    if (key === 'album') {
+      // 주보 QR과 같은 앨범(사진 주소록) PDF — 로그인 없이 열람
+      router.push({ pathname: '/browser', params: { url: churchInfo.albumPdf, t: '교회 앨범' } });
       return;
     }
     if (key === 'share') {
