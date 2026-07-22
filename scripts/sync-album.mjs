@@ -82,6 +82,21 @@ const imagesOf = (body) =>
     h: Number(m[4]),
   }));
 
+// 구조 진단 — 표 인식이 안 될 때 원인 파악용
+console.log(`[구조] XML 페이지 ${pagesXml.length}개`);
+for (const probe of [9, 10, 11]) {
+  const p = pagesXml.find((x) => x.n === probe + 1);
+  if (!p) {
+    console.log(`  p${probe + 1}: XML 없음`);
+    continue;
+  }
+  const ts = textsOf(p.body);
+  const is = imagesOf(p.body);
+  console.log(
+    `  p${probe + 1}: 텍스트 ${ts.length}개, 이미지 ${is.length}개, 샘플: ${JSON.stringify(ts.slice(0, 8).map((t) => t.s))}`,
+  );
+}
+
 const MAX_BYTES = 675_000; // base64 후 Firestore 1MB 한도 아래
 async function encode(img) {
   for (const q of [78, 65, 52, 40]) {
