@@ -162,10 +162,10 @@ for (let i = 0; i < files.length; i++) {
     const k = imgH / om.height;
     words = ocrWords(ocrFile).map((w) => ({
       ...w,
-      left: w.left * k,
-      top: w.top * k,
-      w: w.w * k,
-      h: w.h * k,
+      left: Math.round(w.left * k),
+      top: Math.round(w.top * k),
+      w: Math.round(w.w * k),
+      h: Math.round(w.h * k),
     }));
     const hdr = (re) =>
       words.filter((w) => w.conf >= 30 && re.test(w.text)).sort((a, b) => a.top - b.top)[0];
