@@ -530,9 +530,23 @@ const tribeFor = (summary) => {
   return null;
 };
 
+// 같은 행사 중복 제거 — 소스 달력에 같은 행사가 두 이름("여름 성경 학교
+// (VBS)"와 "VBS")으로 있거나, 여러 날짜에 걸친 행사가 날마다 등장한다.
+// 행사 페이지가 같으면 같은 행사로 보고, 같은 날에는 긴 제목 하나만 남긴다.
+const dedupeKeyOf = (e) => tribeFor(e.summary)?.url ?? normTitle(e.summary);
+const byDay = new Map();
+for (const e of upcoming) {
+  const k = `${ymd(e.start)}|${dedupeKeyOf(e)}`;
+  const cur = byDay.get(k);
+  if (!cur || e.summary.length > cur.summary.length) byDay.set(k, e);
+}
+const deduped = [...byDay.values()].sort((a, b) => a.start - b.start);
+
 let eventsWrote = 0;
 const writtenEventIds = new Set();
-for (const e of upcoming) {
+// 소식 탭 행사 카드는 행사당 1장(첫날)만
+const newsCardKeys = new Set();
+for (const e of deduped) {
   const d = e.start;
   writtenEventIds.add(`web-${hash(e.uid)}`);
   const tribe = tribeFor(e.summary);
@@ -551,8 +565,10 @@ for (const e of upcoming) {
     },
     { merge: true },
   );
-  // 소식 탭 "행사" 카테고리에도 카드로 표시 (가까운 일정 일부만)
-  if (eventsWrote < MAX_EVENT_NEWS) {
+  // 소식 탭 "행사" 카테고리에도 카드로 표시 — 행사당 1장(첫날), 가까운 것부터
+  const cardKey = dedupeKeyOf(e);
+  if (newsCardKeys.size < MAX_EVENT_NEWS && !newsCardKeys.has(cardKey)) {
+    newsCardKeys.add(cardKey);
     writtenEventIds.add(`web-ev-${hash(e.uid)}`);
     await db.doc(`news/web-ev-${hash(e.uid)}`).set(
       {
