@@ -334,15 +334,34 @@ async function syncDawnVerses() {
     }
     const verses = chapters[best.chapter - 1];
     const hero = verses[0].length > 90 ? `${verses[0].slice(0, 90)}…` : verses[0];
+    // 본문 구절을 인용해 묵상·적용·기도 가이드를 자연스럽게 구성
+    const clip = (s, n = 60) =>
+      s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s;
+    const q1 = clip(verses[0]);
+    const midIdx = Math.min(verses.length - 1, Math.floor(verses.length / 2));
+    const qMid = clip(verses[midIdx]);
     await docRef.set({
       date: vDate,
       reference: ref,
       heroText: hero,
       passageTitle: `${ref} (새벽예배 본문)`,
       passage: verses.map((t, i) => ({ verse: i + 1, text: t })),
-      meditation: '',
-      application: [],
-      prayer: '',
+      meditation:
+        `오늘 새벽예배 본문은 ${ref}입니다.\n\n` +
+        `"${q1}" (1절)\n\n` +
+        `${verses.length}절의 말씀을 천천히 읽어 내려가며, 오늘 나에게 주시는 한 구절을 찾아보세요. ` +
+        `마음에 머무는 구절이 있다면 그 앞에 잠시 멈추어 보세요. ` +
+        `그 한 구절이 오늘 하나님께서 나에게 건네시는 말씀입니다.`,
+      application: [
+        `1절 "${q1}" — 이 말씀을 오늘의 첫 마음으로 삼아 보세요.`,
+        `${midIdx + 1}절 "${qMid}" — 지금 나의 형편에서 이 말씀이 갖는 의미를 생각해 보세요.`,
+        '본문에서 받은 은혜 한 가지를 오늘 만나는 한 사람과 나누어 보세요.',
+      ],
+      prayer:
+        `말씀으로 하루를 열게 하시니 감사합니다. ` +
+        `${ref}의 말씀, 특히 "${q1}"라는 말씀을 마음에 새깁니다. ` +
+        `이 말씀이 오늘 저의 생각과 걸음을 인도하게 하시고, 읽는 것에서 그치지 않고 ` +
+        `삶의 자리에서 열매 맺게 하옵소서. 예수님의 이름으로 기도합니다. 아멘.`,
       imageUrl: null,
       source: 'auto',
     });

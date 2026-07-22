@@ -107,11 +107,14 @@ export default function WordScreen() {
         {tab === 'med' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
             {verse.meditation ||
-              '오늘은 새벽예배 본문입니다. 본문을 천천히 읽으며 마음에 닿는 구절을 붙들고 각자 묵상해 보세요.'}
+              '본문을 천천히 읽으며 마음에 머무는 구절을 찾아보세요. 그 구절 앞에 잠시 멈추어, 오늘 나에게 주시는 말씀으로 받아 묵상해 보세요.'}
           </Text>
         )}
         {tab === 'app' &&
-          (verse.application.length ? verse.application : ['오늘 본문에서 받은 은혜를 삶의 한 가지 실천으로 옮겨 보세요.']).map((a, i) => (
+          (verse.application.length
+            ? verse.application
+            : ['본문에서 받은 은혜를 오늘 삶에서 실천할 한 가지로 정해 보세요.']
+          ).map((a, i) => (
             <View key={i} style={styles.bulletRow}>
               <View style={styles.bulletDot} />
               <Text
@@ -124,7 +127,7 @@ export default function WordScreen() {
         {tab === 'pray' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
             {verse.prayer ||
-              '말씀을 주신 하나님께 감사드리며, 오늘 읽은 본문이 삶 속에서 열매 맺게 해 달라고 기도해 보세요.'}
+              '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
           </Text>
         )}
       </ScrollView>
