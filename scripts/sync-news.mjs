@@ -506,8 +506,11 @@ const normTitle = (s) =>
         const title = unescape(String(ev.title ?? '').replace(/<[^>]+>/g, '')).trim();
         if (!title) continue;
         const entry = {
+          title,
           url: ev.url || null,
           image: (ev.image && (ev.image.sizes?.large?.url || ev.image.url)) || null,
+          start: String(ev.start_date ?? '').slice(0, 10),
+          end: String(ev.end_date ?? ev.start_date ?? '').slice(0, 10),
         };
         tribeMap.set(normTitle(title), entry);
         // 괄호 별칭도 색인 — "여름 성경 학교 (VBS)" ↔ 달력의 "VBS"
@@ -544,8 +547,6 @@ const deduped = [...byDay.values()].sort((a, b) => a.start - b.start);
 
 let eventsWrote = 0;
 const writtenEventIds = new Set();
-// 소식 탭 행사 카드는 행사당 1장(첫날)만
-const newsCardKeys = new Set();
 for (const e of deduped) {
   const d = e.start;
   writtenEventIds.add(`web-${hash(e.uid)}`);
@@ -565,24 +566,34 @@ for (const e of deduped) {
     },
     { merge: true },
   );
-  // 소식 탭 "행사" 카테고리에도 카드로 표시 — 행사당 1장(첫날), 가까운 것부터
-  const cardKey = dedupeKeyOf(e);
-  if (newsCardKeys.size < MAX_EVENT_NEWS && !newsCardKeys.has(cardKey)) {
-    newsCardKeys.add(cardKey);
-    writtenEventIds.add(`web-ev-${hash(e.uid)}`);
-    await db.doc(`news/web-ev-${hash(e.uid)}`).set(
+  console.log(`  ✓ ${ymd(d)}  ${e.summary}${imageUrl ? ' [포스터]' : ''}${url ? `\n      링크: ${url}` : ''}`);
+  eventsWrote++;
+}
+
+// ── 소식 탭 "행사" 카드 — 홈페이지 행사 페이지(/wp/events/)의 행사만 ──
+// 정기 일정(금요예배 등)은 달력에만 두고, 포스터가 있는 공식 행사만 카드로.
+{
+  const todayY = ymd(now);
+  const seenUrls = new Set();
+  const upcomingTribe = [...tribeMap.values()]
+    .filter((t) => t.url && (t.end || t.start) >= todayY && !seenUrls.has(t.url) && seenUrls.add(t.url))
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .slice(0, MAX_EVENT_NEWS);
+  for (const t of upcomingTribe) {
+    const id = `web-ev-${hash(t.url)}`;
+    writtenEventIds.add(id);
+    await db.doc(`news/${id}`).set(
       {
-        title: e.summary,
+        title: t.title,
         category: 'event',
-        date: ymd(d),
-        url: url || 'https://tvpc.church/wp/ko/calendar/',
-        imageUrl,
+        date: t.start,
+        url: t.url,
+        imageUrl: t.image ?? null,
       },
       { merge: true },
     );
+    console.log(`  ✓ 행사 카드: ${t.start}  ${t.title}`);
   }
-  console.log(`  ✓ ${ymd(d)}  ${e.summary}${imageUrl ? ' [포스터]' : ''}${url ? `\n      링크: ${url}` : ''}`);
-  eventsWrote++;
 }
 
 // web- 일정 정리 — 지나갔거나 이번 동기화 결과에 없는 문서 삭제
