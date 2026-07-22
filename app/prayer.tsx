@@ -77,7 +77,13 @@ export default function PrayerScreen() {
       <OverlayHeader
         title="기도요청"
         right={
-          <Pressable onPress={() => setWriting(true)} hitSlop={8}>
+          <Pressable
+            onPress={() => {
+              setText('');
+              setWriting(true);
+            }}
+            hitSlop={8}
+          >
             <Plus size={24} color={colors.primary} strokeWidth={2} />
           </Pressable>
         }
@@ -154,7 +160,7 @@ export default function PrayerScreen() {
               style={styles.nameInput}
               placeholder="이름 (비워두면 '성도'로 표시)"
               placeholderTextColor={colors.faint}
-              value={authorName}
+              defaultValue={authorName}
               onChangeText={setAuthorName}
               maxLength={40}
             />
@@ -163,7 +169,6 @@ export default function PrayerScreen() {
               multiline
               placeholder="함께 기도하고 싶은 내용을 나눠주세요"
               placeholderTextColor={colors.faint}
-              value={text}
               onChangeText={setText}
             />
             <Pressable

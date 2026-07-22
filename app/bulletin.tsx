@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { FileText, PenLine } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -30,17 +30,17 @@ function fmtKo(date: string): string {
  */
 function SermonNoteCard({ date }: { date: string }) {
   const key = `bulletinNote:${date}`;
-  const [text, setText] = useState('');
+  // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리며
+  // 조합이 끊기므로, 입력창은 비제어(defaultValue)로 두고 저장만 디바운스한다.
+  const [initial] = useState(() =>
+    typeof window !== 'undefined' && window.localStorage
+      ? (window.localStorage.getItem(key) ?? '')
+      : '',
+  );
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    setText(window.localStorage.getItem(key) ?? '');
-  }, [key]);
-
   const onChange = (t: string) => {
-    setText(t);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -61,7 +61,7 @@ function SermonNoteCard({ date }: { date: string }) {
       </View>
       <TextInput
         style={styles.noteInput}
-        value={text}
+        defaultValue={initial}
         onChangeText={onChange}
         multiline
         placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
@@ -158,9 +158,10 @@ export default function BulletinScreen() {
                   {i + 1} / {bulletin.pages.length}
                 </Text>
               </View>
-              {/* 설교 메모는 괄호 채우기가 있는 3면 바로 아래에 */}
+              {/* 설교 메모는 괄호 채우기가 있는 3면 바로 아래에.
+                  key로 날짜가 바뀌면 새로 만들어 그 날짜의 저장 메모를 불러온다 */}
               {i === Math.min(2, bulletin.pages.length - 1) && (
-                <SermonNoteCard date={bulletin.date} />
+                <SermonNoteCard key={bulletin.date} date={bulletin.date} />
               )}
             </React.Fragment>
           ))}
@@ -289,8 +290,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: font.regular,
-    fontSize: 14,
-    lineHeight: 22,
+    // iOS 사파리는 16px 미만 입력창에서 화면을 확대하므로 16 유지
+    fontSize: 16,
+    lineHeight: 24,
     color: colors.body,
   },
   noteHint: { marginTop: 8, fontFamily: font.regular, fontSize: 11.5, color: colors.faint },

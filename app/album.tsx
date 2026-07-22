@@ -88,8 +88,16 @@ export default function AlbumScreen() {
   const [cellFilter, setCellFilter] = useState<string | null>(null);
   const [dropOpen, setDropOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const queryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dbRef = useRef<Firestore | null>(null);
   const fetching = useRef<Set<number>>(new Set());
+
+  // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리므로
+  // 입력창은 비제어로 두고, 필터는 입력이 잠시 멈춘 뒤(250ms) 적용한다.
+  const onQueryChange = (t: string) => {
+    if (queryTimer.current) clearTimeout(queryTimer.current);
+    queryTimer.current = setTimeout(() => setQuery(t), 250);
+  };
 
   const fetchRow = async (i: number) => {
     const db = dbRef.current;
@@ -220,8 +228,8 @@ export default function AlbumScreen() {
                 <Search size={16} color={colors.faint} strokeWidth={2} />
                 <TextInput
                   style={styles.searchInput}
-                  value={query}
-                  onChangeText={setQuery}
+                  defaultValue=""
+                  onChangeText={onQueryChange}
                   placeholder="이름 검색"
                   placeholderTextColor={colors.faint}
                 />
