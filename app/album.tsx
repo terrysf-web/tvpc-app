@@ -59,6 +59,30 @@ function matchNames(names: string, cell: string, q: string): boolean {
 }
 
 /**
+ * 이름 검색창 — 부모(무거운 이미지 목록)가 다시 그려질 때 입력창까지
+ * 다시 그려지면 iOS에서 한글 조합 중 커서가 좌우로 튄다.
+ * memo로 격리해 입력창 DOM은 절대 재렌더되지 않게 한다.
+ */
+const SearchBox = React.memo(function SearchBox({
+  onChangeText,
+}: {
+  onChangeText: (t: string) => void;
+}) {
+  return (
+    <View style={styles.searchBox}>
+      <Search size={16} color={colors.faint} strokeWidth={2} />
+      <TextInput
+        style={styles.searchInput}
+        defaultValue=""
+        onChangeText={onChangeText}
+        placeholder="이름 검색"
+        placeholderTextColor={colors.faint}
+      />
+    </View>
+  );
+});
+
+/**
  * 교회 앨범 뷰어 — 소개 페이지와 셀별 명부.
  * 색인(이름·셀)은 즉시 로드되어 검색·셀 선택이 바로 되고,
  * 줄 이미지는 화면에 필요한 것부터 가져온다.
@@ -81,11 +105,12 @@ export default function AlbumScreen() {
   const fetching = useRef<Set<number>>(new Set());
 
   // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리므로
-  // 입력창은 비제어로 두고, 필터는 입력이 잠시 멈춘 뒤(250ms) 적용한다.
-  const onQueryChange = (t: string) => {
+  // 입력창은 비제어로 두고, 필터는 입력이 잠시 멈춘 뒤(300ms) 적용한다.
+  // useCallback으로 참조를 고정해 SearchBox(memo)가 재렌더되지 않게 한다.
+  const onQueryChange = React.useCallback((t: string) => {
     if (queryTimer.current) clearTimeout(queryTimer.current);
-    queryTimer.current = setTimeout(() => setQuery(t), 250);
-  };
+    queryTimer.current = setTimeout(() => setQuery(t), 300);
+  }, []);
 
   const fetchRow = async (i: number) => {
     const db = dbRef.current;
@@ -142,9 +167,32 @@ export default function AlbumScreen() {
             });
           }
         }
+        // 명부 이미지 배경 로드는 10장씩 묶어 반영 — 한 장마다 화면 전체를
+        // 다시 그리면 입력 중 커서가 흔들리고 스크롤이 버벅인다
+        let batch: Record<number, AlbumPage> = {};
+        const flush = () => {
+          if (Object.keys(batch).length === 0) return;
+          const b = batch;
+          batch = {};
+          setCache((prev) => ({ ...prev, ...b }));
+        };
         for (let i = 0; i < idx.length && !cancelled; i++) {
-          await fetchRow(i);
+          if (fetching.current.has(i)) continue;
+          fetching.current.add(i);
+          try {
+            const snap = await getDoc(
+              doc(db, 'albums', 'current', 'rows', String(i).padStart(4, '0')),
+            );
+            const image = String(snap.get('image') ?? '');
+            if (image) {
+              batch[i] = { image, w: Number(snap.get('w') ?? 3), h: Number(snap.get('h') ?? 1) };
+            }
+          } catch {
+            fetching.current.delete(i);
+          }
+          if (Object.keys(batch).length >= 10) flush();
         }
+        if (!cancelled) flush();
       } catch {
         if (!cancelled) setFailed(true);
       }
@@ -212,16 +260,7 @@ export default function AlbumScreen() {
                 <Text style={styles.dropBtnText}>{cellFilter ?? '전체 셀'}</Text>
                 <ChevronDown size={16} color={colors.primary} strokeWidth={2} />
               </Pressable>
-              <View style={styles.searchBox}>
-                <Search size={16} color={colors.faint} strokeWidth={2} />
-                <TextInput
-                  style={styles.searchInput}
-                  defaultValue=""
-                  onChangeText={onQueryChange}
-                  placeholder="이름 검색"
-                  placeholderTextColor={colors.faint}
-                />
-              </View>
+              <SearchBox onChangeText={onQueryChange} />
             </View>
           )}
           {dropOpen && (

@@ -1,5 +1,5 @@
 import { Heart, Plus, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -44,27 +44,31 @@ export default function PrayerScreen() {
   const { prayers, liked, toggleLike, addPrayer } = usePrayers();
   const [tab, setTab] = useState<PrayerTab>('req');
   const [writing, setWriting] = useState(false);
-  const [text, setText] = useState('');
-  const [authorName, setAuthorName] = useState('');
+  // 입력값은 ref에만 담는다 — 키 입력마다 state를 바꾸면 화면 전체가
+  // 재렌더되어 한글 조합 중 커서가 흔들린다. 버튼 활성화 여부만 state로.
+  const textRef = useRef('');
+  const nameRef = useRef('');
+  const [hasText, setHasText] = useState(false);
   const [category, setCategory] = useState<PrayerCategory>('family');
   const [submitting, setSubmitting] = useState(false);
 
   // 이전에 입력한 이름 미리 채우기 (초기 샘플 기본값은 제외)
   useEffect(() => {
-    if (user.name && user.name !== 'Terry') setAuthorName(user.name);
+    if (user.name && user.name !== 'Terry' && !nameRef.current) nameRef.current = user.name;
   }, [user.name]);
 
   const list = prayers.filter((p) => (tab === 'ans' ? p.answered : !p.answered));
 
   const submit = async () => {
-    const body = text.trim();
+    const body = textRef.current.trim();
     if (!body || submitting) return;
     setSubmitting(true);
     try {
-      const name = authorName.trim().slice(0, 40) || '성도';
+      const name = nameRef.current.trim().slice(0, 40) || '성도';
       await addPrayer({ category, text: body, authorName: name });
-      if (authorName.trim()) updateUser({ name: authorName.trim() });
-      setText('');
+      if (nameRef.current.trim()) updateUser({ name: nameRef.current.trim() });
+      textRef.current = '';
+      setHasText(false);
       setWriting(false);
       setTab(category === 'answered' ? 'ans' : 'req');
     } finally {
@@ -79,7 +83,8 @@ export default function PrayerScreen() {
         right={
           <Pressable
             onPress={() => {
-              setText('');
+              textRef.current = '';
+              setHasText(false);
               setWriting(true);
             }}
             hitSlop={8}
@@ -160,8 +165,10 @@ export default function PrayerScreen() {
               style={styles.nameInput}
               placeholder="이름 (비워두면 '성도'로 표시)"
               placeholderTextColor={colors.faint}
-              defaultValue={authorName}
-              onChangeText={setAuthorName}
+              defaultValue={nameRef.current}
+              onChangeText={(t) => {
+                nameRef.current = t;
+              }}
               maxLength={40}
             />
             <TextInput
@@ -169,12 +176,16 @@ export default function PrayerScreen() {
               multiline
               placeholder="함께 기도하고 싶은 내용을 나눠주세요"
               placeholderTextColor={colors.faint}
-              onChangeText={setText}
+              onChangeText={(t) => {
+                textRef.current = t;
+                // 같은 값이면 React가 재렌더를 건너뛰므로 커서가 흔들리지 않는다
+                setHasText(!!t.trim());
+              }}
             />
             <Pressable
-              style={[styles.submitBtn, (!text.trim() || submitting) && { opacity: 0.5 }]}
+              style={[styles.submitBtn, (!hasText || submitting) && { opacity: 0.5 }]}
               onPress={submit}
-              disabled={!text.trim() || submitting}
+              disabled={!hasText || submitting}
             >
               <Text style={styles.submitText}>{submitting ? '올리는 중…' : '기도요청 올리기'}</Text>
             </Pressable>

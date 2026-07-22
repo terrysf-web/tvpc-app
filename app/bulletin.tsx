@@ -45,7 +45,9 @@ function SermonNoteCard({ date }: { date: string }) {
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, t);
-        setSavedAt(Date.now());
+        // 저장할 때마다 상태를 바꾸면 입력 중 카드가 재렌더되어 커서가
+        // 흔들리므로, "자동 저장됨" 표시는 처음 한 번만 켠다
+        setSavedAt((s) => s ?? Date.now());
       }
     }, 500);
   };
