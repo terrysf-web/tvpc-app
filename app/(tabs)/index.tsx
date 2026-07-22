@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
-import { useUser } from '../../src/data/user';
 import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
@@ -28,7 +27,6 @@ function todayLabel(): string {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useUser();
   const { verse } = useTodayVerse();
   const { events } = useEvents();
   const { sermons } = useSermons();
@@ -115,9 +113,7 @@ export default function HomeScreen() {
         <View style={styles.greetingRow}>
           <View style={{ flex: 1 }}>
             <View style={styles.greetingTitleRow}>
-              <Text style={styles.greetingTitle}>
-                {greeting()}, {user.name}님
-              </Text>
+              <Text style={styles.greetingTitle}>{greeting()}</Text>
               <Sun size={20} color={colors.sun} strokeWidth={2} />
             </View>
             <Text style={styles.greetingSub}>
