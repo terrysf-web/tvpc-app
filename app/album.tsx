@@ -33,38 +33,26 @@ interface RowIndex {
 
 const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
-/** OCR 오독을 감안해 3글자 이상 검색어는 한 글자 차이까지 일치로 본다 */
-function fuzzyIncludes(hay: string, needle: string): boolean {
-  if (hay.includes(needle)) return true;
-  if (needle.length < 3) return false;
-  for (let i = 0; i + needle.length <= hay.length; i++) {
-    let miss = 0;
-    let ok = true;
-    for (let j = 0; j < needle.length; j++) {
-      if (hay[i + j] !== needle[j] && ++miss > 1) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok) return true;
-  }
-  return false;
-}
-
 /**
- * OCR이 성·이름 순서를 뒤집는 경우가 있어 토큰 조합으로도 매칭.
- * 근사 일치(1글자 오차)는 실제 연속된 OCR 문자열에만 허용한다 —
- * 토큰 조합에까지 허용하면 짝지어 만든 인공 문자열("윤성"+"영")이
- * 다른 이름("허성영")과 우연히 매칭되는 오탐이 생긴다.
+ * 이름 검색 — 두 글자부터, 검색어 전체가 정확히 일치해야 매칭.
+ * (1글자 오차 허용은 '이현수'가 '이진수'에 걸리는 식의 오탐이 많아 제거)
+ * OCR이 이름을 '영 허 성'처럼 쪼개거나 순서를 뒤집는 경우가 있어
+ * 토큰 2~3개를 이어붙인 조합으로도 정확 일치를 확인한다.
  */
 function matchNames(names: string, cell: string, q: string): boolean {
   const nq = norm(q);
-  if (!nq) return true;
-  if (fuzzyIncludes(norm(`${names} ${cell}`), nq)) return true;
+  if (nq.length < 2) return true; // 한 글자는 검색하지 않음
+  if (norm(`${names} ${cell}`).includes(nq)) return true;
   const toks = names.split(/\s+/).map(norm).filter(Boolean);
-  for (let i = 0; i < toks.length; i++) {
-    for (let j = 0; j < toks.length; j++) {
-      if (i !== j && (toks[i] + toks[j]).includes(nq)) return true;
+  const n = toks.length;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      if ((toks[i] + toks[j]).includes(nq)) return true;
+      for (let k = 0; k < n; k++) {
+        if (k === i || k === j) continue;
+        if ((toks[i] + toks[j] + toks[k]).includes(nq)) return true;
+      }
     }
   }
   return false;
@@ -167,15 +155,15 @@ export default function AlbumScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filtering = !!cellFilter || !!query.trim();
+  // 검색은 두 글자부터 동작 (한 글자는 무시하고 소개 페이지 유지)
+  const filtering = !!cellFilter || norm(query).length >= 2;
   const visible = useMemo(
     () =>
       index
         .map((r, i) => ({ r, i }))
         .filter(
           ({ r }) =>
-            (!cellFilter || r.cell === cellFilter) &&
-            (!query.trim() || matchNames(r.names, r.cell, query)),
+            (!cellFilter || r.cell === cellFilter) && matchNames(r.names, r.cell, query),
         ),
     [index, cellFilter, query],
   );
