@@ -5,17 +5,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
-import { useNews } from '../../src/data/hooks';
+import { useEvents, useNews } from '../../src/data/hooks';
 import { useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 
-type NewsTab = 'all' | 'notice' | 'event';
+type NewsTab = 'notice' | 'event' | 'schedule';
 
 const TABS: { key: NewsTab; label: string }[] = [
   { key: 'notice', label: '공지' },
   { key: 'event', label: '행사' },
-  { key: 'all', label: '전체' },
+  { key: 'schedule', label: '일정' },
 ];
 
 function fmtDate(d: string): string {
@@ -27,9 +27,15 @@ export default function NewsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { news } = useNews();
+  const { events } = useEvents();
   const [tab, setTab] = useState<NewsTab>('notice');
 
-  const filtered = tab === 'all' ? news : news.filter((n) => n.category === tab);
+  const filtered = news.filter((n) => n.category === (tab === 'event' ? 'event' : 'notice'));
+
+  // 일정 탭 — 교회 달력 전체(행사 페이지에 있는 행사는 행사 탭에 있으므로 제외)
+  const schedule = events
+    .filter((e) => !(e.url && e.url.includes('/event/')))
+    .sort((a, b) => ((a.sortKey ?? a.dateLabel) < (b.sortKey ?? b.dateLabel) ? -1 : 1));
 
   return (
     <View style={styles.screen}>
@@ -46,47 +52,78 @@ export default function NewsScreen() {
       <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {filtered.length === 0 && (
-          <Text style={styles.empty}>등록된 소식이 아직 없습니다.</Text>
-        )}
-        {filtered.map((n) => (
-          <Pressable
-            key={n.id}
-            style={[styles.card, shadows.card]}
-            onPress={() => {
-              if (!n.url) return;
-              if (n.url.includes('tvpc.church')) {
-                router.push({ pathname: '/browser', params: { url: n.url, t: n.title } });
-              } else {
-                openExternal(n.url);
-              }
-            }}
-          >
-            <View style={styles.textCol}>
-              <Tag
-                label={n.category === 'notice' ? '공지' : '행사'}
-                tone={n.category === 'notice' ? 'blue' : 'orange'}
-              />
-              <Text style={styles.title} numberOfLines={2}>
-                {n.title}
-              </Text>
-              <Text style={styles.date}>{fmtDate(n.date)}</Text>
+        {tab === 'schedule' ? (
+          schedule.length === 0 ? (
+            <Text style={styles.empty}>다가오는 일정이 아직 없습니다.</Text>
+          ) : (
+            <View style={[styles.scheduleCard, shadows.card]}>
+              {schedule.map((e, i) => (
+                <Pressable
+                  key={e.id}
+                  style={[styles.scheduleRow, i < schedule.length - 1 && styles.scheduleDivider]}
+                  onPress={() => router.push('/calendar')}
+                >
+                  <View style={styles.scheduleDateChip}>
+                    <Text style={styles.scheduleDateText}>
+                      {e.dateLabel.split(' ')[0]}
+                    </Text>
+                    <Text style={styles.scheduleDaySub}>
+                      {(e.dateLabel.split(' ')[1] ?? '').slice(0, 1)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.scheduleTitle}>{e.title}</Text>
+                    {e.detail ? <Text style={styles.scheduleDetail}>{e.detail}</Text> : null}
+                  </View>
+                </Pressable>
+              ))}
             </View>
-            <PhotoSlot uri={n.imageUrl} style={styles.thumb}>
-              {!n.imageUrl && (
-                <View style={styles.thumbIcon}>
-                  {n.title.startsWith('주보') ? (
-                    <FileText size={26} color={colors.muted} strokeWidth={1.6} />
-                  ) : n.category === 'notice' ? (
-                    <Megaphone size={26} color={colors.muted} strokeWidth={1.6} />
-                  ) : (
-                    <CalendarDays size={26} color={colors.muted} strokeWidth={1.6} />
-                  )}
+          )
+        ) : (
+          <>
+            {filtered.length === 0 && (
+              <Text style={styles.empty}>등록된 소식이 아직 없습니다.</Text>
+            )}
+            {filtered.map((n) => (
+              <Pressable
+                key={n.id}
+                style={[styles.card, shadows.card]}
+                onPress={() => {
+                  if (!n.url) return;
+                  if (n.url.includes('tvpc.church')) {
+                    router.push({ pathname: '/browser', params: { url: n.url, t: n.title } });
+                  } else {
+                    openExternal(n.url);
+                  }
+                }}
+              >
+                <View style={styles.textCol}>
+                  <Tag
+                    label={n.category === 'notice' ? '공지' : '행사'}
+                    tone={n.category === 'notice' ? 'blue' : 'orange'}
+                  />
+                  <Text style={styles.title} numberOfLines={2}>
+                    {n.title}
+                  </Text>
+                  <Text style={styles.date}>{fmtDate(n.date)}</Text>
                 </View>
-              )}
-            </PhotoSlot>
-          </Pressable>
-        ))}
+                <PhotoSlot uri={n.imageUrl} style={styles.thumb}>
+                  {!n.imageUrl && (
+                    <View style={styles.thumbIcon}>
+                      {n.title.startsWith('주보') ? (
+                        <FileText size={26} color={colors.muted} strokeWidth={1.6} />
+                      ) : n.category === 'notice' ? (
+                        <Megaphone size={26} color={colors.muted} strokeWidth={1.6} />
+                      ) : (
+                        <CalendarDays size={26} color={colors.muted} strokeWidth={1.6} />
+                      )}
+                    </View>
+                  )}
+                </PhotoSlot>
+              </Pressable>
+            ))}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -131,4 +168,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  scheduleCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 13,
+  },
+  scheduleDivider: { borderBottomWidth: 1, borderBottomColor: colors.divider2 },
+  scheduleDateChip: {
+    width: 54,
+    borderRadius: 11,
+    backgroundColor: colors.tagBlueBg,
+    alignItems: 'center',
+    paddingVertical: 7,
+  },
+  scheduleDateText: { fontFamily: font.extraBold, fontSize: 13, color: colors.primary },
+  scheduleDaySub: { marginTop: 1, fontFamily: font.medium, fontSize: 11, color: colors.muted },
+  scheduleTitle: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
+  scheduleDetail: { marginTop: 2, fontFamily: font.regular, fontSize: 12, color: colors.muted },
 });
