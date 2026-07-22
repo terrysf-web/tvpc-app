@@ -210,7 +210,8 @@ function parseCalendarGrid(html) {
       0,
     );
     for (const li of block.split(/<li[\s>]/).slice(1)) {
-      const t = li.match(/<span class="title[^"]*"[^>]*>([\s\S]*?)<\/span>/);
+      // class 속성이 뒤에 오는 경우도 잡는다 — <span tabindex="0" ... class="title confirmed">
+      const t = li.match(/<span[^>]*class="title[^"]*"[^>]*>([\s\S]*?)<\/span>/);
       if (!t) continue;
       const summary = unescape(t[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
       if (!summary) continue;
@@ -483,11 +484,9 @@ for (const url of icalSources) {
 
 const now = new Date();
 now.setHours(0, 0, 0, 0);
-// 지난 두 달치도 보관 — 앱 달력이 웹사이트 달력과 똑같이 보이도록
-const pastLimit = new Date(now);
-pastLimit.setDate(pastLimit.getDate() - 62);
+// 오늘 이후 일정만 — 지난 일정은 목록·달력에 남기지 않는다
 const upcoming = calEvents
-  .filter((e) => e.start >= pastLimit)
+  .filter((e) => e.start >= now)
   .sort((a, b) => a.start - b.start)
   .slice(0, MAX_EVENTS);
 
