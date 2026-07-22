@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -61,20 +62,49 @@ function SermonNoteCard({ date }: { date: string }) {
         <Text style={styles.noteTitle}>설교 메모</Text>
         {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
       </View>
-      <TextInput
-        style={styles.noteInput}
-        defaultValue={initial}
-        onChangeText={onChange}
-        multiline
-        placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
-        placeholderTextColor={colors.faint}
-        // iOS 자동완성·자동수정이 끼어들면 한글 조합이 끊긴다
-        autoComplete="off"
-        autoCorrect={false}
-        spellCheck={false}
-        textContentType="none"
-        importantForAutofill="no"
-      />
+      {Platform.OS === 'web' ? (
+        // 한글 조합(IME) 중 커서가 튀지 않도록 react-native-web TextInput 대신
+        // 순수 <textarea> 사용 + 시스템 글꼴 고정 (조합 중 글자 폭 변화 방지)
+        React.createElement('textarea', {
+          defaultValue: initial,
+          placeholder: '괄호 채우기와 은혜받은 말씀을 적어보세요.',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          autoCapitalize: 'off',
+          spellCheck: false,
+          onInput: (e: { target: { value: string } }) => onChange(e.target.value),
+          style: {
+            minHeight: 130,
+            width: '100%',
+            boxSizing: 'border-box',
+            border: 'none',
+            outline: 'none',
+            resize: 'vertical',
+            borderRadius: 12,
+            background: colors.screenBg,
+            padding: '12px 14px',
+            fontSize: 16,
+            lineHeight: '24px',
+            color: colors.body,
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+            WebkitUserSelect: 'text',
+            userSelect: 'text',
+          },
+        } as object)
+      ) : (
+        <TextInput
+          style={styles.noteInput}
+          defaultValue={initial}
+          onChangeText={onChange}
+          multiline
+          placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
+          placeholderTextColor={colors.faint}
+          autoComplete="off"
+          autoCorrect={false}
+          spellCheck={false}
+        />
+      )}
       <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
     </View>
   );

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -59,31 +60,58 @@ function matchNames(names: string, cell: string, q: string): boolean {
 }
 
 /**
- * 이름 검색창 — 부모(무거운 이미지 목록)가 다시 그려질 때 입력창까지
- * 다시 그려지면 iOS에서 한글 조합 중 커서가 좌우로 튄다.
- * memo로 격리해 입력창 DOM은 절대 재렌더되지 않게 한다.
+ * 이름 검색창 — 한글 조합(IME) 중 커서가 왼쪽으로 튀었다 돌아오는 문제를
+ * 없애기 위해 웹에서는 react-native-web TextInput 대신 순수 <input>을 쓴다.
+ * 프레임워크가 입력 이벤트에 개입하지 않고, 글꼴도 시스템 글꼴로 고정해
+ * 조합 중 글자 폭이 바뀌지 않게 한다. memo로 재렌더에서도 격리.
  */
 const SearchBox = React.memo(function SearchBox({
   onChangeText,
 }: {
   onChangeText: (t: string) => void;
 }) {
+  const webInput =
+    Platform.OS === 'web'
+      ? React.createElement('input', {
+          type: 'text',
+          placeholder: '이름 검색',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          autoCapitalize: 'off',
+          spellCheck: false,
+          'aria-label': '이름 검색',
+          onInput: (e: { target: { value: string } }) => onChangeText(e.target.value),
+          style: {
+            flex: 1,
+            minWidth: 0,
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            padding: '10px 0',
+            fontSize: 16,
+            color: colors.body,
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+            WebkitUserSelect: 'text',
+            userSelect: 'text',
+          },
+        } as object)
+      : null;
   return (
     <View style={styles.searchBox}>
       <Search size={16} color={colors.faint} strokeWidth={2} />
-      <TextInput
-        style={styles.searchInput}
-        defaultValue=""
-        onChangeText={onChangeText}
-        placeholder="이름 검색"
-        placeholderTextColor={colors.faint}
-        // iOS 연락처 자동완성(AutoFill)이 끼어들면 한글 조합이 끊긴다
-        autoComplete="off"
-        autoCorrect={false}
-        spellCheck={false}
-        textContentType="none"
-        importantForAutofill="no"
-      />
+      {webInput ?? (
+        <TextInput
+          style={styles.searchInput}
+          defaultValue=""
+          onChangeText={onChangeText}
+          placeholder="이름 검색"
+          placeholderTextColor={colors.faint}
+          autoComplete="off"
+          autoCorrect={false}
+          spellCheck={false}
+        />
+      )}
     </View>
   );
 });
