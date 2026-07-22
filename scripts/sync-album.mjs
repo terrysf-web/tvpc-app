@@ -38,7 +38,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 10;
+const CONVERTER_VERSION = 11;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -155,12 +155,14 @@ for (let i = 0; i < files.length; i++) {
   let words = [];
   let nameX = null;
   let cellX = null;
+  let words300 = [];
   if (photos.length >= 2) {
-    // OCR은 300dpi 렌더링으로 — 좌표는 화면용(150dpi) 기준으로 환산
+    // 셀·머리글은 150dpi(검증된 결과), 이름은 300dpi(한글 정확도) — 이중 OCR
+    words = ocrWords(pageFile);
     const ocrFile = join(dir, ocrFiles[i]);
     const om = await sharp(readFileSync(ocrFile)).metadata();
     const k = imgH / om.height;
-    words = ocrWords(ocrFile).map((w) => ({
+    words300 = ocrWords(ocrFile).map((w) => ({
       ...w,
       left: Math.round(w.left * k),
       top: Math.round(w.top * k),
@@ -229,8 +231,8 @@ for (let i = 0; i < files.length; i++) {
       .join(' ')
       .trim();
     let cell = normCell(cellText);
-    // 이름 열의 OCR 단어들 — 이름 검색용
-    const names = words
+    // 이름 열 — 300dpi OCR(한글 정확도)로 검색용 이름 추출
+    const names = words300
       .filter((w) => inRow(w) && w.conf >= 30 && w.left >= nameX - 20 && w.left < cellX - 20)
       .sort((a, b) => a.top - b.top || a.left - b.left)
       .map((w) => w.text)
