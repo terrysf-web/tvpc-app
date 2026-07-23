@@ -89,7 +89,7 @@ export const VerseNoteCard = React.forwardRef<
           spellCheck: false,
           onInput: (e: { target: { value: string } }) => onChange(e.target.value),
           style: {
-            minHeight: 150,
+            minHeight: 260,
             width: '100%',
             boxSizing: 'border-box',
             border: 'none',
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   noteTitle: { fontFamily: font.bold, fontSize: 14.5, color: colors.title, flex: 1 },
   noteSaved: { fontFamily: font.medium, fontSize: 11.5, color: colors.tagGreenText },
   noteInput: {
-    minHeight: 150,
+    minHeight: 260,
     borderRadius: 12,
     backgroundColor: colors.screenBg,
     paddingHorizontal: 14,
