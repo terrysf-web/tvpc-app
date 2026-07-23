@@ -74,7 +74,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 16;
+const CONVERTER_VERSION = 17;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -317,6 +317,17 @@ const CELL_FIX = { CVA: 'CYA', CY4: 'CYA', Em: 'EM' };
     if (CELL_FIX[r.cell]) r.cell = CELL_FIX[r.cell];
     if (!KNOWN_CELL.test(r.cell)) r.cell = prevCell ?? '기타';
     prevCell = r.cell;
+  }
+}
+
+// OCR이 완전히 잘못 읽는 이름 보정 — 검색 색인에 올바른 이름을 덧붙인다
+// (사진 인쇄 품질 탓에 tesseract가 원천적으로 못 읽는 몇몇 이름)
+const NAME_ALIASES = [
+  ['미럼', '최희범'],
+];
+for (const r of rows) {
+  for (const [wrong, right] of NAME_ALIASES) {
+    if (r.names.includes(wrong) && !r.names.includes(right)) r.names += ` ${right}`;
   }
 }
 
