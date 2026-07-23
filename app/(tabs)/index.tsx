@@ -60,7 +60,7 @@ function todayLabel(): string {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { verse } = useTodayVerse();
+  const { verse, ready: verseReady } = useTodayVerse();
   const { events } = useEvents();
   const { sermons } = useSermons();
 
@@ -112,10 +112,15 @@ export default function HomeScreen() {
   // 시간대별 기본 배경 (새벽·저녁·밤은 어두운 그림 → 흰 글씨)
   const bg = useVerseBg();
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
-  const sundayBg = useSundayBg();
-  const sb = sundayBg ?? bg;
+  const sunday = useSundayBg();
+  const sb = sunday.bg ?? bg;
   // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
   const isSunday = new Date().getDay() === 0;
+  // 어떤 내용·배경이 정답인지 확정되기 전에는 히어로를 그리지 않는다 —
+  // 옛 구절이나 기본 그림이 번쩍였다가 바뀌면 혼란스럽기 때문.
+  const heroReady = isSunday
+    ? sunday.ready && (sunday.bg != null || bg.ready)
+    : verseReady && (verse.imageUrl ? true : bg.ready);
   const sundayTimes = churchInfo.services
     .filter((s) => s.name.startsWith('주일예배'))
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
@@ -196,7 +201,10 @@ export default function HomeScreen() {
       {/* 2. 히어로 — 주중엔 오늘의 말씀, 주일엔 주일예배 안내 */}
       <FadeInUp delay={40}>
         <View style={[styles.heroWrap, shadows.hero]}>
-          {isSunday ? (
+          {!heroReady ? (
+            // 로딩 중 — 은은한 중립 배경만 (샘플 구절·기본 그림 번쩍임 방지)
+            <LinearGradient colors={['#E9F1FA', '#D9E6F5']} style={styles.hero} />
+          ) : isSunday ? (
             // 주일예배 안내도 시간대별 배경을 쓴다 (아침 예배 시간엔 아침 그림)
             <PhotoSlot uri={sb.uri} tone="deep" style={styles.hero}>
               <View style={styles.heroTopRow}>

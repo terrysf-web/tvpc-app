@@ -51,6 +51,8 @@ function readCacheSync<T>(name: string): T[] | null {
 /**
  * Firestore 컬렉션 구독 훅.
  * Firebase 미설정(데모 모드)이거나 구독 실패 시 기기 캐시 → 번들 샘플 순으로 쓴다.
+ * ready가 false인 동안은 아직 번들 샘플일 수 있으므로, 화면에서는
+ * 샘플이 번쩍이지 않게 로딩 표시를 보여주는 것이 좋다.
  */
 function useCollection<T extends { id: string }>(
   name: string,
@@ -60,10 +62,13 @@ function useCollection<T extends { id: string }>(
   max = 50,
   /** orderField ≤ 이 값인 문서만 (미래 날짜로 미리 등록된 문서 제외용) */
   upTo?: string,
-): { data: T[]; loading: boolean; live: boolean } {
-  const [data, setData] = useState<T[]>(() => readCacheSync<T>(name) ?? fallback);
+): { data: T[]; loading: boolean; live: boolean; ready: boolean } {
+  const [initialCache] = useState<T[] | null>(() => readCacheSync<T>(name));
+  const [data, setData] = useState<T[]>(initialCache ?? fallback);
   const [loading, setLoading] = useState(firebaseEnabled);
   const [live, setLive] = useState(false);
+  // 확정된 데이터(기기 캐시 또는 서버 응답)를 갖고 있는지
+  const [hydrated, setHydrated] = useState(initialCache != null);
   const liveRef = useRef(false);
 
   // 네이티브(AsyncStorage는 비동기)용 캐시 복원 — 서버 데이터가 먼저 오면 건너뜀
@@ -73,7 +78,10 @@ function useCollection<T extends { id: string }>(
       .then((raw) => {
         if (stale || liveRef.current || !raw) return;
         const parsed = JSON.parse(raw) as T[];
-        if (Array.isArray(parsed) && parsed.length > 0) setData(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setData(parsed);
+          setHydrated(true);
+        }
       })
       .catch(() => {});
     return () => {
@@ -106,6 +114,7 @@ function useCollection<T extends { id: string }>(
             setLive(true);
             AsyncStorage.setItem(CACHE_PREFIX + name, JSON.stringify(docs)).catch(() => {});
           }
+          setHydrated(true);
           setLoading(false);
         },
         (err) => {
@@ -120,14 +129,15 @@ function useCollection<T extends { id: string }>(
     };
   }, [name, orderField, direction, max, upTo]);
 
-  return { data, loading, live };
+  // ready: 캐시/서버 데이터가 있거나, 조회가 끝나(실패 포함) 더 기다릴 게 없는 상태
+  return { data, loading, live, ready: hydrated || !loading };
 }
 
 /** 오늘의 말씀 — verses 컬렉션에서 가장 최근 문서 1개 */
-export function useTodayVerse(): { verse: VerseDoc; loading: boolean } {
+export function useTodayVerse(): { verse: VerseDoc; loading: boolean; ready: boolean } {
   // 새벽예배 본문이 한 주치 미리 등록되므로, 오늘 이하 날짜 중 최신 문서를 쓴다
   const today = new Date().toLocaleDateString('en-CA');
-  const { data, loading } = useCollection<VerseDoc>(
+  const { data, loading, ready } = useCollection<VerseDoc>(
     'verses',
     [sampleVerse],
     'date',
@@ -135,7 +145,7 @@ export function useTodayVerse(): { verse: VerseDoc; loading: boolean } {
     1,
     today,
   );
-  return { verse: data[0] ?? sampleVerse, loading };
+  return { verse: data[0] ?? sampleVerse, loading, ready };
 }
 
 export function useSermons(): { sermons: SermonDoc[]; loading: boolean } {

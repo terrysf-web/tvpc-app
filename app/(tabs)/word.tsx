@@ -23,12 +23,24 @@ const FONT_SCALES = [1, 1.15, 1.3];
 
 export default function WordScreen() {
   const insets = useSafeAreaInsets();
-  const { verse } = useTodayVerse();
+  const { verse, ready } = useTodayVerse();
   const bg = useVerseBg();
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
   const scale = FONT_SCALES[scaleStep];
+
+  // 확정된 말씀·배경이 오기 전에는 샘플 구절이 번쩍이지 않게 로딩 화면만
+  if (!ready || (!verse.imageUrl && !bg.ready)) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
+          <Text style={styles.headerTitle}>오늘의 말씀</Text>
+        </View>
+        <LinearGradient colors={['#E9F1FA', '#D9E6F5']} style={styles.hero} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>

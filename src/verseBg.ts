@@ -36,15 +36,22 @@ const cache: Partial<Record<BgSlot, string | null>> = {};
 const DEVICE_BG_KEY = 'tvpc.verseBgLast';
 const DEVICE_SUNDAY_KEY = 'tvpc.sundayBgLast';
 
-function readDeviceBg(slot: BgSlot): string | null {
+/**
+ * undefined = 아직 모름(저장된 정보 없음) → 확정 전까지 아무 그림도 단정하지 말 것
+ * null      = '관리자 업로드 없음'이 확인돼 저장됨 → 내장 기본 그림이 정답
+ * string    = 마지막으로 받은 업로드 그림
+ */
+function readDeviceBg(slot: BgSlot): string | null | undefined {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
+    if (typeof window === 'undefined' || !window.localStorage) return undefined;
     const raw = window.localStorage.getItem(DEVICE_BG_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as { slot?: string; img?: string };
-    return p.slot === slot && p.img ? p.img : null;
+    if (!raw) return undefined;
+    const p = JSON.parse(raw) as { slot?: string; img?: string; none?: boolean };
+    if (p.slot !== slot) return undefined;
+    if (p.none) return null;
+    return p.img || undefined;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -52,31 +59,40 @@ function writeDeviceBg(slot: BgSlot, img: string | null) {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
     if (img) window.localStorage.setItem(DEVICE_BG_KEY, JSON.stringify({ slot, img }));
-    else window.localStorage.removeItem(DEVICE_BG_KEY);
+    else window.localStorage.setItem(DEVICE_BG_KEY, JSON.stringify({ slot, none: true }));
   } catch {
     /* 저장 공간 부족 등은 무시 — 다음에 다시 서버에서 받는다 */
   }
 }
 
-export function useVerseBg(): { uri: string; dark: boolean } {
+/**
+ * ready가 false인 동안은 어떤 배경이 정답인지 아직 모르는 상태다.
+ * 화면에서는 그동안 중립 로딩 배경을 보여줘, 기본 그림이 번쩍했다가
+ * 업로드 그림으로 바뀌는 혼란을 없앤다.
+ */
+export function useVerseBg(): { uri: string; dark: boolean; ready: boolean } {
   const slot = currentSlot();
   const fallback = `/verse-bg-${slot}.jpg`;
   const cached = cache[slot];
-  const [uri, setUri] = useState<string>(() =>
-    cached !== undefined ? (cached ?? fallback) : (readDeviceBg(slot) ?? fallback),
-  );
+  const [state, setState] = useState<{ uri: string; ready: boolean }>(() => {
+    if (cached !== undefined) return { uri: cached ?? fallback, ready: true };
+    const dev = readDeviceBg(slot);
+    if (dev !== undefined) return { uri: dev ?? fallback, ready: true };
+    return { uri: fallback, ready: false };
+  });
 
   useEffect(() => {
     let on = true;
     (async () => {
       if (cache[slot] !== undefined) {
-        if (on) setUri(cache[slot] ?? fallback);
+        if (on) setState({ uri: cache[slot] ?? fallback, ready: true });
         return;
       }
       try {
         const db = getDb();
         if (!db) {
           cache[slot] = null;
+          if (on) setState({ uri: fallback, ready: true });
           return;
         }
         await ensureAnonymousAuth();
@@ -84,10 +100,11 @@ export function useVerseBg(): { uri: string; dark: boolean } {
         const img = snap.exists() ? String(snap.get('image') ?? '') : '';
         cache[slot] = img || null;
         writeDeviceBg(slot, img || null);
-        if (on) setUri(img || fallback);
+        if (on) setState({ uri: img || fallback, ready: true });
       } catch {
-        // 서버 실패 시 세션 캐시만 비워두고, 화면은 기기 저장분을 유지한다
+        // 서버 실패 — 기기 저장분이 있으면 유지, 없으면 기본 그림으로 확정
         cache[slot] = null;
+        if (on) setState((s) => ({ ...s, ready: true }));
       }
     })();
     return () => {
@@ -96,7 +113,7 @@ export function useVerseBg(): { uri: string; dark: boolean } {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot]);
 
-  return { uri, dark: DARK_SLOTS.includes(slot) };
+  return { uri: state.uri, dark: DARK_SLOTS.includes(slot), ready: state.ready };
 }
 
 /* ---------------- 관리자용: 그림 한 장 → 5종 변환·저장 ---------------- */
@@ -299,44 +316,55 @@ export async function regradeVerseBg(onStatus?: (msg: string) => void): Promise<
 
 const sundayCache: { v?: { uri: string; dark: boolean } | null } = {};
 
-function readDeviceSunday(): { uri: string; dark: boolean } | null {
+/** undefined = 아직 모름, null = '주일 배경 없음' 확인됨, 값 = 마지막 배경 */
+function readDeviceSunday(): { uri: string; dark: boolean } | null | undefined {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
+    if (typeof window === 'undefined' || !window.localStorage) return undefined;
     const raw = window.localStorage.getItem(DEVICE_SUNDAY_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as { uri?: string; dark?: boolean };
-    return p.uri ? { uri: p.uri, dark: !!p.dark } : null;
+    if (!raw) return undefined;
+    const p = JSON.parse(raw) as { uri?: string; dark?: boolean; none?: boolean };
+    if (p.none) return null;
+    return p.uri ? { uri: p.uri, dark: !!p.dark } : undefined;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
 function writeDeviceSunday(v: { uri: string; dark: boolean } | null) {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    if (v) window.localStorage.setItem(DEVICE_SUNDAY_KEY, JSON.stringify(v));
-    else window.localStorage.removeItem(DEVICE_SUNDAY_KEY);
+    window.localStorage.setItem(DEVICE_SUNDAY_KEY, JSON.stringify(v ?? { none: true }));
   } catch {
     /* 저장 실패는 무시 */
   }
 }
 
-/** 주일예배 카드 전용 배경 — 등록돼 있으면 반환, 없으면 null */
-export function useSundayBg(): { uri: string; dark: boolean } | null {
-  const [v, setV] = useState<{ uri: string; dark: boolean } | null>(() =>
-    sundayCache.v !== undefined ? sundayCache.v : readDeviceSunday(),
-  );
+/**
+ * 주일예배 카드 전용 배경 — 등록돼 있으면 bg에 반환, 없으면 null.
+ * ready가 false면 아직 모르는 상태이므로 화면은 로딩 표시를 유지할 것.
+ */
+export function useSundayBg(): { bg: { uri: string; dark: boolean } | null; ready: boolean } {
+  const [state, setState] = useState<{
+    bg: { uri: string; dark: boolean } | null;
+    ready: boolean;
+  }>(() => {
+    if (sundayCache.v !== undefined) return { bg: sundayCache.v, ready: true };
+    const dev = readDeviceSunday();
+    if (dev !== undefined) return { bg: dev, ready: true };
+    return { bg: null, ready: false };
+  });
   useEffect(() => {
     let on = true;
     (async () => {
       if (sundayCache.v !== undefined) {
-        if (on) setV(sundayCache.v);
+        if (on) setState({ bg: sundayCache.v, ready: true });
         return;
       }
       try {
         const db = getDb();
         if (!db) {
           sundayCache.v = null;
+          if (on) setState({ bg: null, ready: true });
           return;
         }
         await ensureAnonymousAuth();
@@ -344,17 +372,18 @@ export function useSundayBg(): { uri: string; dark: boolean } | null {
         const img = snap.exists() ? String(snap.get('image') ?? '') : '';
         sundayCache.v = img ? { uri: img, dark: !!snap.get('dark') } : null;
         writeDeviceSunday(sundayCache.v);
-        if (on) setV(sundayCache.v);
+        if (on) setState({ bg: sundayCache.v, ready: true });
       } catch {
-        // 서버 실패 시 화면은 기기 저장분을 유지한다
+        // 서버 실패 — 기기 저장분이 있으면 유지, 없으면 '없음'으로 확정
         sundayCache.v = null;
+        if (on) setState((s) => ({ ...s, ready: true }));
       }
     })();
     return () => {
       on = false;
     };
   }, []);
-  return v;
+  return state;
 }
 
 /**
@@ -415,6 +444,6 @@ export async function resetVerseBg(): Promise<void> {
   for (const slot of BG_SLOTS) {
     await deleteDoc(doc(db, 'verseBg', slot)).catch(() => {});
     cache[slot] = null;
-    writeDeviceBg(slot, null);
   }
+  writeDeviceBg(currentSlot(), null);
 }
