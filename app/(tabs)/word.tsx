@@ -47,16 +47,19 @@ export default function WordScreen() {
           />
         ) : null}
         <View style={styles.heroBottom}>
-          <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
-            {verse.passageTitle}
-          </Text>
-          <Text style={[styles.heroDate, !verse.imageUrl && !bg.dark && styles.heroDateDark]}>
-            {new Date(verse.date + 'T00:00:00').toLocaleDateString('ko-KR', {
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            })}
-          </Text>
+          {/* 밝은 배경에서는 반투명 흰 패널을 깔아 제목이 그림에 묻히지 않게 */}
+          <View style={!verse.imageUrl && !bg.dark ? styles.heroPanel : undefined}>
+            <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
+              {verse.passageTitle}
+            </Text>
+            <Text style={[styles.heroDate, !verse.imageUrl && !bg.dark && styles.heroDateDark]}>
+              {new Date(verse.date + 'T00:00:00').toLocaleDateString('ko-KR', {
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long',
+              })}
+            </Text>
+          </View>
         </View>
       </PhotoSlot>
 
@@ -142,9 +145,16 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     ...textShadow,
   },
-  // 밝은 기본 배경용 — 진한 남색 글씨
+  // 밝은 기본 배경용 — 진한 남색 글씨 (반투명 흰 패널 위)
   heroRefDark: { color: '#122B4F', textShadowColor: 'transparent', textShadowRadius: 0 },
   heroDateDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
+  heroPanel: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.78)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
 
   body: { flex: 1 },
   bodyContent: { padding: 16, paddingBottom: 28 },

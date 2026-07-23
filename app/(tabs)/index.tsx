@@ -453,22 +453,34 @@ const styles = StyleSheet.create({
   heroBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
   heroBtnRow: { flexDirection: 'row', gap: 9 },
 
-  // 밝은 기본 배경용 — 진한 남색 글씨로 또렷하게
+  // 밝은 기본 배경용 — 진한 남색 글씨 + 흰 광택(그림 위에서도 또렷하게)
   heroBadgeDark: { backgroundColor: 'rgba(18,50,91,0.75)' },
-  heroDateDark: { color: '#17406E' },
+  heroDateDark: {
+    color: '#17406E',
+    textShadowColor: 'rgba(255,255,255,0.9)',
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 0 },
+  },
   heroRefDark: {
     color: '#1D5C9E',
-    textShadowColor: 'transparent',
-    textShadowRadius: 0,
+    textShadowColor: 'rgba(255,255,255,0.9)',
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 0 },
   },
   heroVerseDark: {
     color: '#122B4F',
-    textShadowColor: 'transparent',
-    textShadowRadius: 0,
+    textShadowColor: 'rgba(255,255,255,0.9)',
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 0 },
   },
   heroBtnDark: { backgroundColor: colors.primary },
   heroBtnTextDark: { color: '#FFFFFF' },
-  sundayTimesDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
+  sundayTimesDark: {
+    color: '#17406E',
+    textShadowColor: 'rgba(255,255,255,0.9)',
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 0 },
+  },
   heroBtnGhostLight: {
     backgroundColor: 'rgba(18,50,91,0.08)',
     borderColor: 'rgba(18,50,91,0.45)',
