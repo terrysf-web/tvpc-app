@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { BookmarkX, ChevronRight, Highlighter, PenLine, Trash2 } from 'lucide-react-native';
+import { BookmarkX, Highlighter, PenLine, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { hasVerseNote } from '../src/components/VerseNoteCard';
 import { getSavedVerses, removeSavedVerse, type SavedVerse } from '../src/data/savedVerses';
@@ -30,8 +30,28 @@ export default function SavedVersesScreen() {
     }, []),
   );
 
-  const onRemove = (date: string) => {
-    removeSavedVerse(date).then(setItems);
+  // 삭제는 실수 방지를 위해 한 번 더 확인하고, 메모·형광펜도 함께 정리한다
+  const onRemove = (v: SavedVerse) => {
+    const doRemove = () => {
+      removeSavedVerse(v.date).then(setItems);
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(`verseNote:${v.date}`);
+          window.localStorage.removeItem(`verseHl:${v.date}`);
+        }
+      } catch {
+        /* 무시 */
+      }
+    };
+    const msg = `${v.reference} 말씀을 삭제할까요?\n적어둔 메모와 형광펜 표시도 함께 지워집니다.`;
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(msg)) doRemove();
+    } else {
+      Alert.alert('삭제할까요?', msg, [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: doRemove },
+      ]);
+    }
   };
 
   return (
@@ -49,6 +69,10 @@ export default function SavedVersesScreen() {
         ) : (
           items.map((v) => {
             const hls = getHighlights(v.date);
+            const note =
+              typeof window !== 'undefined' && window.localStorage
+                ? (window.localStorage.getItem(`verseNote:${v.date}`) ?? '')
+                : '';
             return (
             <Pressable
               key={v.date}
@@ -75,17 +99,15 @@ export default function SavedVersesScreen() {
                   )}
                 </View>
                 <Text style={styles.cardText} numberOfLines={2}>
-                  {/* 형광펜 구절이 있으면 그 구절을 먼저 보여준다 */}
-                  {(hls.length > 0
-                    ? hls.map((h) => h.t).join(' ')
-                    : v.heroText
+                  {/* 말씀은 이미 메모에 들어 있으니 미리보기는 내 메모 → 형광펜 → 첫 구절 순 */}
+                  {(note.trim() ||
+                    (hls.length > 0 ? hls.map((h) => h.t).join(' ') : v.heroText)
                   ).replace(/\n/g, ' ')}
                 </Text>
               </View>
-              <Pressable style={styles.removeBtn} onPress={() => onRemove(v.date)} hitSlop={8}>
+              <Pressable style={styles.removeBtn} onPress={() => onRemove(v)} hitSlop={8}>
                 <Trash2 size={17} color={colors.faint} strokeWidth={1.8} />
               </Pressable>
-              <ChevronRight size={18} color={colors.faint} strokeWidth={1.9} />
             </Pressable>
             );
           })
