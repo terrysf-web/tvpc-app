@@ -30,11 +30,41 @@ const DARK_SLOTS: BgSlot[] = ['dawn', 'evening', 'night'];
 // 세션 동안 슬롯별 결과 캐시 (null = 관리자 업로드 없음 → 내장 그림)
 const cache: Partial<Record<BgSlot, string | null>> = {};
 
+// 마지막으로 받아온 배경을 기기(localStorage)에 저장해, 앱을 다시 열 때
+// 서버 응답을 기다리는 동안 내장 기본 그림이 번쩍이지 않게 한다.
+// 용량 제한 때문에 현재 시간대 한 장만 저장한다.
+const DEVICE_BG_KEY = 'tvpc.verseBgLast';
+const DEVICE_SUNDAY_KEY = 'tvpc.sundayBgLast';
+
+function readDeviceBg(slot: BgSlot): string | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(DEVICE_BG_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as { slot?: string; img?: string };
+    return p.slot === slot && p.img ? p.img : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDeviceBg(slot: BgSlot, img: string | null) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    if (img) window.localStorage.setItem(DEVICE_BG_KEY, JSON.stringify({ slot, img }));
+    else window.localStorage.removeItem(DEVICE_BG_KEY);
+  } catch {
+    /* 저장 공간 부족 등은 무시 — 다음에 다시 서버에서 받는다 */
+  }
+}
+
 export function useVerseBg(): { uri: string; dark: boolean } {
   const slot = currentSlot();
   const fallback = `/verse-bg-${slot}.jpg`;
   const cached = cache[slot];
-  const [uri, setUri] = useState<string>(cached === undefined || cached === null ? fallback : cached);
+  const [uri, setUri] = useState<string>(() =>
+    cached !== undefined ? (cached ?? fallback) : (readDeviceBg(slot) ?? fallback),
+  );
 
   useEffect(() => {
     let on = true;
@@ -53,8 +83,10 @@ export function useVerseBg(): { uri: string; dark: boolean } {
         const snap = await getDoc(doc(db, 'verseBg', slot));
         const img = snap.exists() ? String(snap.get('image') ?? '') : '';
         cache[slot] = img || null;
+        writeDeviceBg(slot, img || null);
         if (on) setUri(img || fallback);
       } catch {
+        // 서버 실패 시 세션 캐시만 비워두고, 화면은 기기 저장분을 유지한다
         cache[slot] = null;
       }
     })();
@@ -212,6 +244,7 @@ async function gradeFromImage(
       updatedAt: new Date().toISOString(),
     });
     cache[slot] = dataUrl;
+    if (slot === currentSlot()) writeDeviceBg(slot, dataUrl);
   }
   onStatus?.('완료 — 앱에 바로 반영됩니다.');
 }
@@ -266,9 +299,33 @@ export async function regradeVerseBg(onStatus?: (msg: string) => void): Promise<
 
 const sundayCache: { v?: { uri: string; dark: boolean } | null } = {};
 
+function readDeviceSunday(): { uri: string; dark: boolean } | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(DEVICE_SUNDAY_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as { uri?: string; dark?: boolean };
+    return p.uri ? { uri: p.uri, dark: !!p.dark } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDeviceSunday(v: { uri: string; dark: boolean } | null) {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    if (v) window.localStorage.setItem(DEVICE_SUNDAY_KEY, JSON.stringify(v));
+    else window.localStorage.removeItem(DEVICE_SUNDAY_KEY);
+  } catch {
+    /* 저장 실패는 무시 */
+  }
+}
+
 /** 주일예배 카드 전용 배경 — 등록돼 있으면 반환, 없으면 null */
 export function useSundayBg(): { uri: string; dark: boolean } | null {
-  const [v, setV] = useState<{ uri: string; dark: boolean } | null>(sundayCache.v ?? null);
+  const [v, setV] = useState<{ uri: string; dark: boolean } | null>(() =>
+    sundayCache.v !== undefined ? sundayCache.v : readDeviceSunday(),
+  );
   useEffect(() => {
     let on = true;
     (async () => {
@@ -286,8 +343,10 @@ export function useSundayBg(): { uri: string; dark: boolean } | null {
         const snap = await getDoc(doc(db, 'verseBg', 'sunday'));
         const img = snap.exists() ? String(snap.get('image') ?? '') : '';
         sundayCache.v = img ? { uri: img, dark: !!snap.get('dark') } : null;
+        writeDeviceSunday(sundayCache.v);
         if (on) setV(sundayCache.v);
       } catch {
+        // 서버 실패 시 화면은 기기 저장분을 유지한다
         sundayCache.v = null;
       }
     })();
@@ -346,6 +405,7 @@ export async function clearSundayBg(): Promise<void> {
   if (!db) throw new Error('데이터베이스 연결이 없습니다.');
   await deleteDoc(doc(db, 'verseBg', 'sunday')).catch(() => {});
   sundayCache.v = null;
+  writeDeviceSunday(null);
 }
 
 /** 관리자 업로드를 지우고 내장 기본 그림으로 되돌린다 */
@@ -355,5 +415,6 @@ export async function resetVerseBg(): Promise<void> {
   for (const slot of BG_SLOTS) {
     await deleteDoc(doc(db, 'verseBg', slot)).catch(() => {});
     cache[slot] = null;
+    writeDeviceBg(slot, null);
   }
 }
