@@ -588,6 +588,10 @@ export default function AlbumScreen() {
         <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
       ) : (
         <>
+          {/* 확대 안내 */}
+          <View style={styles.zoomHint}>
+            <Text style={styles.zoomHintText}>사진을 탭하면 크게 볼 수 있습니다</Text>
+          </View>
           {/* 셀 선택 + 이름 검색 — 스크롤 목록 밖 고정 영역.
               목록 안에 두면 검색 결과로 내용이 바뀔 때 입력창 포커스가
               순간 끊겨 한글 조합이 낱글자로 풀어진다 */}
@@ -704,6 +708,12 @@ const styles = StyleSheet.create({
   webLink: { padding: 10 },
   webLinkText: { fontFamily: font.medium, fontSize: 13, color: colors.primary },
 
+  zoomHint: {
+    backgroundColor: colors.tagBlueBg,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  zoomHintText: { fontFamily: font.medium, fontSize: 12.5, color: colors.primary },
   filterWrap: { paddingHorizontal: 12, paddingTop: 12, gap: 10 },
   filterBar: { alignSelf: 'stretch', flexDirection: 'row', gap: 9 },
   dropBtn: {
