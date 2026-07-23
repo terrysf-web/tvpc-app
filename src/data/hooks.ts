@@ -11,7 +11,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../firebase';
 import type {
   EventDoc,
@@ -30,8 +30,27 @@ import {
 } from './sample';
 
 /**
+ * 마지막으로 받아온 데이터를 기기에 저장해 두는 캐시.
+ * 앱을 다시 열 때 서버 응답을 기다리는 동안 번들 샘플(옛 구절)이
+ * 번쩍이지 않도록, 최근 데이터를 즉시 보여주는 용도.
+ */
+const CACHE_PREFIX = 'tvpc.cache.';
+
+function readCacheSync<T>(name: string): T[] | null {
+  // 웹(PWA)에서는 localStorage를 동기로 읽어 첫 렌더부터 최신 데이터를 쓴다
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(CACHE_PREFIX + name);
+    const parsed = raw ? (JSON.parse(raw) as T[]) : null;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Firestore 컬렉션 구독 훅.
- * Firebase 미설정(데모 모드)이거나 구독 실패 시 번들 샘플 데이터를 그대로 사용한다.
+ * Firebase 미설정(데모 모드)이거나 구독 실패 시 기기 캐시 → 번들 샘플 순으로 쓴다.
  */
 function useCollection<T extends { id: string }>(
   name: string,
@@ -42,9 +61,25 @@ function useCollection<T extends { id: string }>(
   /** orderField ≤ 이 값인 문서만 (미래 날짜로 미리 등록된 문서 제외용) */
   upTo?: string,
 ): { data: T[]; loading: boolean; live: boolean } {
-  const [data, setData] = useState<T[]>(fallback);
+  const [data, setData] = useState<T[]>(() => readCacheSync<T>(name) ?? fallback);
   const [loading, setLoading] = useState(firebaseEnabled);
   const [live, setLive] = useState(false);
+  const liveRef = useRef(false);
+
+  // 네이티브(AsyncStorage는 비동기)용 캐시 복원 — 서버 데이터가 먼저 오면 건너뜀
+  useEffect(() => {
+    let stale = false;
+    AsyncStorage.getItem(CACHE_PREFIX + name)
+      .then((raw) => {
+        if (stale || liveRef.current || !raw) return;
+        const parsed = JSON.parse(raw) as T[];
+        if (Array.isArray(parsed) && parsed.length > 0) setData(parsed);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [name]);
 
   useEffect(() => {
     const db = getDb();
@@ -63,13 +98,18 @@ function useCollection<T extends { id: string }>(
         q,
         (snap) => {
           if (!snap.empty) {
-            setData(snap.docs.map((d) => ({ ...(d.data() as Omit<T, 'id'>), id: d.id }) as T));
+            const docs = snap.docs.map(
+              (d) => ({ ...(d.data() as Omit<T, 'id'>), id: d.id }) as T,
+            );
+            liveRef.current = true;
+            setData(docs);
             setLive(true);
+            AsyncStorage.setItem(CACHE_PREFIX + name, JSON.stringify(docs)).catch(() => {});
           }
           setLoading(false);
         },
         (err) => {
-          console.warn(`[firestore] ${name} 구독 실패 — 샘플 데이터 사용:`, err.message);
+          console.warn(`[firestore] ${name} 구독 실패 — 캐시/샘플 데이터 사용:`, err.message);
           setLoading(false);
         },
       );
