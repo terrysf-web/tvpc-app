@@ -4,7 +4,7 @@
   "description": "매일 말씀, 설교, 교회 소식, 기도요청 — 트라이밸리 장로교회",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F4F5F7",
+  "background_color": "#EBEFF5",
   "theme_color": "#1E5AA8",
   "lang": "ko",
   "icons": [

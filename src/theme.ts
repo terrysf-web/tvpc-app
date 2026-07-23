@@ -38,9 +38,10 @@ export const colors = {
   tabInactive: '#9AA0A8',
   segInactive: '#8B9099',
 
-  // 배경/구분선
-  screenBg: '#F4F5F7',
+  // 배경/구분선 — 배경을 살짝 푸른 회색으로 둬 흰 카드가 또렷이 떠 보이게
+  screenBg: '#EBEFF5',
   card: '#FFFFFF',
+  cardBorder: '#E2E8F1',
   divider: '#ECEEF2',
   divider2: '#F0F2F5',
 } as const;
@@ -62,21 +63,26 @@ export const radius = {
   pill: 20,
 } as const;
 
-/** 프리미엄 2겹 그림자 — RN은 단일 그림자만 지원하므로 주 그림자로 근사 */
+/** 프리미엄 2겹 그림자 — RN은 단일 그림자만 지원하므로 주 그림자로 근사.
+ * 얇은 테두리를 함께 둬, 그림자가 안 보이는 밝은 환경에서도 카드 경계가 살아 있게 한다. */
 export const shadows = {
   card: {
     shadowColor: '#14203A',
-    shadowOpacity: 0.06,
-    shadowRadius: 11,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   imageCard: {
     shadowColor: '#14203A',
-    shadowOpacity: 0.1,
-    shadowRadius: 11,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
     elevation: 5,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   hero: {
     shadowColor: '#163260',
