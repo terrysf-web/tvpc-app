@@ -192,7 +192,10 @@ for (let i = 0; i < files.length; i++) {
   let nameX = null;
   let cellX = null;
   let words300 = [];
-  if (photos.length >= 2) {
+  // 사진이 1장뿐인 명부 페이지(마지막 장에 한 명만 남는 경우)도 잡는다 —
+  // 머리글(Photo/Name/Cell)이 OCR로 확인될 때만 명부로 취급하므로
+  // 큰 사진 한 장짜리 소개 페이지가 명부로 오인되지는 않는다
+  if (photos.length >= 1) {
     // 셀·머리글은 150dpi(검증된 결과), 이름은 300dpi(한글 정확도) — 이중 OCR
     words = ocrWords(pageFile);
     const ocrFile = join(dir, ocrFiles[i]);
