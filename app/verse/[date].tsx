@@ -127,38 +127,6 @@ export default function VerseByDateScreen() {
             ))}
           </View>
 
-          {!!verse.meditation && (
-            <>
-              <Text style={styles.sectionTitle}>묵상</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                <Text style={styles.paragraph}>{verse.meditation}</Text>
-              </View>
-            </>
-          )}
-
-          {verse.application.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>적용</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                {verse.application.map((a, i) => (
-                  <View key={i} style={styles.bulletRow}>
-                    <View style={styles.bulletDot} />
-                    <Text style={styles.bulletText}>{a}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-
-          {!!verse.prayer && (
-            <>
-              <Text style={styles.sectionTitle}>기도</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                <Text style={styles.paragraph}>{verse.prayer}</Text>
-              </View>
-            </>
-          )}
-
           <Text style={styles.sectionTitle}>메모</Text>
           <VerseNoteCard
             key={verse.date}

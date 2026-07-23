@@ -1,32 +1,37 @@
-import { PenLine } from 'lucide-react-native';
-import React, { useImperativeHandle, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PenLine, X } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ensureSavedVerse } from '../data/savedVerses';
+import type { VerseHighlight } from '../data/verseMarks';
 import { colors, font, shadows } from '../theme';
-
-/** 부모(말씀 화면)가 형광펜 구절을 메모에 끼워 넣을 때 쓰는 핸들 */
-export interface VerseNoteHandle {
-  append(text: string): void;
-}
 
 /**
  * 말씀 묵상 메모 — 그날 말씀을 읽으며 받은 은혜를 적어두는 카드.
+ * 형광펜으로 표시한 구절은 메모장 위에 파란 인용 블록으로 따로 보여
+ * 내 메모(검은 글씨)와 색으로 구분된다. 인용 블록의 ✕를 누르면
+ * 형광펜도 함께 해제된다.
  * 내용은 이 기기(localStorage)에만 날짜별로 저장되고 서버로 가지 않는다.
  * 메모를 쓰면 북마크를 따로 누르지 않아도 '저장한 말씀' 목록에 자동으로
  * 담겨, 나중에 메모를 다시 찾아갈 수 있다.
- * 형광펜으로 표시한 구절은 append()로 메모 끝에 인용되어 들어온다.
  * 한글 조합(IME) 중 커서가 튀지 않도록 비제어 입력 + 디바운스 저장을 쓴다
  * (주보 설교 메모와 같은 방식).
  */
-export const VerseNoteCard = React.forwardRef<
-  VerseNoteHandle,
-  {
-    date: string;
-    reference: string;
-    heroText: string;
-    onAutoSaved?: () => void;
-  }
->(function VerseNoteCard({ date, reference, heroText, onAutoSaved }, ref) {
+export function VerseNoteCard({
+  date,
+  reference,
+  heroText,
+  quotes,
+  onRemoveQuote,
+  onAutoSaved,
+}: {
+  date: string;
+  reference: string;
+  heroText: string;
+  /** 형광펜 구절 — 메모장 위에 인용 블록으로 표시 */
+  quotes?: VerseHighlight[];
+  onRemoveQuote?: (v: number) => void;
+  onAutoSaved?: () => void;
+}) {
   const key = `verseNote:${date}`;
   const [initial] = useState(() =>
     typeof window !== 'undefined' && window.localStorage
@@ -35,13 +40,11 @@ export const VerseNoteCard = React.forwardRef<
   );
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 비제어 입력이라 현재 값을 ref로 추적한다 (append용)
-  const valueRef = useRef(initial);
-  const webTa = useRef<{ value: string } | null>(null);
-  const rnInput = useRef<TextInput | null>(null);
+
+  const refLabel = (v: number) =>
+    /장$/.test(reference) ? reference.replace(/장$/, `:${v}`) : `${reference} ${v}절`;
 
   const onChange = (t: string) => {
-    valueRef.current = t;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -56,19 +59,6 @@ export const VerseNoteCard = React.forwardRef<
     }, 500);
   };
 
-  useImperativeHandle(ref, () => ({
-    append(text: string) {
-      const cur = valueRef.current.replace(/\s+$/, '');
-      const next = cur ? `${cur}\n\n${text}\n` : `${text}\n`;
-      if (Platform.OS === 'web') {
-        if (webTa.current) webTa.current.value = next;
-      } else {
-        rnInput.current?.setNativeProps({ text: next });
-      }
-      onChange(next);
-    },
-  }));
-
   return (
     <View style={[styles.noteCard, shadows.card]}>
       <View style={styles.noteHead}>
@@ -78,9 +68,29 @@ export const VerseNoteCard = React.forwardRef<
         <Text style={styles.noteTitle}>나의 묵상 메모</Text>
         {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
       </View>
+
+      {/* 형광펜 구절 인용 — 파란 글씨로 내 메모와 구분 */}
+      {quotes && quotes.length > 0 && (
+        <View style={styles.quoteList}>
+          {quotes.map((q) => (
+            <View key={q.v} style={styles.quoteRow}>
+              <View style={styles.quoteBar} />
+              <Text style={styles.quoteText}>
+                {q.t}
+                <Text style={styles.quoteRef}> ({refLabel(q.v)})</Text>
+              </Text>
+              {onRemoveQuote && (
+                <Pressable onPress={() => onRemoveQuote(q.v)} hitSlop={8} style={styles.quoteX}>
+                  <X size={14} color={colors.faint} strokeWidth={2} />
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
       {Platform.OS === 'web' ? (
         React.createElement('textarea', {
-          ref: webTa,
           defaultValue: initial,
           placeholder: '오늘 말씀에서 받은 은혜와 실천할 일을 적어보세요.',
           autoComplete: 'off',
@@ -109,7 +119,6 @@ export const VerseNoteCard = React.forwardRef<
         } as object)
       ) : (
         <TextInput
-          ref={rnInput}
           style={styles.noteInput}
           defaultValue={initial}
           onChangeText={onChange}
@@ -126,7 +135,7 @@ export const VerseNoteCard = React.forwardRef<
       </Text>
     </View>
   );
-});
+}
 
 /** 이 기기에 해당 날짜의 말씀 메모가 있는지 */
 export function hasVerseNote(date: string): boolean {
@@ -155,6 +164,28 @@ const styles = StyleSheet.create({
   },
   noteTitle: { fontFamily: font.bold, fontSize: 14.5, color: colors.title, flex: 1 },
   noteSaved: { fontFamily: font.medium, fontSize: 11.5, color: colors.tagGreenText },
+  quoteList: { gap: 8 },
+  quoteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#F2F7FD',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingLeft: 0,
+    paddingRight: 8,
+    overflow: 'hidden',
+  },
+  quoteBar: { width: 3, alignSelf: 'stretch', backgroundColor: '#1D5C9E', borderRadius: 2 },
+  quoteText: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: 13.5,
+    lineHeight: 21,
+    color: '#1D5C9E',
+  },
+  quoteRef: { fontFamily: font.bold, fontSize: 12, color: '#5B7BA6' },
+  quoteX: { padding: 2, marginTop: 1 },
   noteInput: {
     minHeight: 260,
     borderRadius: 12,

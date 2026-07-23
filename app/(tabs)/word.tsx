@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
-import { VerseNoteCard, type VerseNoteHandle } from '../../src/components/VerseNoteCard';
+import { VerseNoteCard } from '../../src/components/VerseNoteCard';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { colors, font, textShadow } from '../../src/theme';
@@ -44,24 +44,15 @@ export default function WordScreen() {
     };
   }, [verse.date]);
 
-  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 메모장에 인용되어 들어온다.
+  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 메모장 위에 파란 인용으로 들어온다.
   // 표시한 구절과 메모는 저장한 말씀에 자동 보관된다.
-  const noteRef = useRef<VerseNoteHandle>(null);
   const [hls, setHls] = useState<VerseHighlight[]>([]);
   useEffect(() => {
     setHls(getHighlights(verse.date));
   }, [verse.date]);
   const onToggleHl = (p: { verse: number; text: string }) => {
     const next = toggleHighlight(verse.date, p.verse, p.text);
-    const turnedOn = next.some((h) => h.v === p.verse) && !hls.some((h) => h.v === p.verse);
     setHls(next);
-    if (turnedOn) {
-      // 형광펜 구절을 메모 끝에 인용으로 추가 — 이어서 생각을 적게
-      const refLabel = /장$/.test(verse.reference)
-        ? verse.reference.replace(/장$/, `:${p.verse}`)
-        : `${verse.reference} ${p.verse}절`;
-      noteRef.current?.append(`"${p.text}" (${refLabel})`);
-    }
     if (next.length > 0) {
       ensureSavedVerse({
         date: verse.date,
@@ -161,10 +152,11 @@ export default function WordScreen() {
             <View style={styles.noteWrap}>
               <VerseNoteCard
                 key={verse.date}
-                ref={noteRef}
                 date={verse.date}
                 reference={verse.reference}
                 heroText={verse.heroText}
+                quotes={hls}
+                onRemoveQuote={(v) => setHls(toggleHighlight(verse.date, v, ''))}
                 onAutoSaved={() => setSaved(true)}
               />
             </View>
