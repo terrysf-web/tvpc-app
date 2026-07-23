@@ -238,19 +238,41 @@ export default function HomeScreen() {
               }
             }}
           >
-            <PhotoSlot uri={nextEvent.imageUrl} tone="deep" style={styles.eventCard}>
-              <LinearGradient
-                colors={['rgba(12,28,54,0.72)', 'rgba(12,28,54,0.10)']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={StyleSheet.absoluteFill}
-              />
+            {/* 포스터가 없으면 말씀카드와 같은 밝은 배경 + 남색 글씨 */}
+            <PhotoSlot
+              uri={nextEvent.imageUrl ?? '/verse-bg.jpg'}
+              tone="deep"
+              style={styles.eventCard}
+            >
+              {nextEvent.imageUrl ? (
+                <LinearGradient
+                  colors={['rgba(12,28,54,0.72)', 'rgba(12,28,54,0.10)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
               <View style={styles.eventTextCol}>
-                <Text style={styles.eventDate}>{nextEvent.dateLabel}</Text>
+                <Text style={[styles.eventDate, !nextEvent.imageUrl && styles.eventDateDark]}>
+                  {nextEvent.dateLabel}
+                </Text>
                 {nextDayEvents.map((e) => (
                   <View key={e.id} style={styles.eventRow}>
-                    <Text style={styles.eventTitle}>{e.title}</Text>
-                    {!!e.detail && <Text style={styles.eventDetail}>{e.detail}</Text>}
+                    <Text
+                      style={[styles.eventTitle, !nextEvent.imageUrl && styles.eventTitleDark]}
+                    >
+                      {e.title}
+                    </Text>
+                    {!!e.detail && (
+                      <Text
+                        style={[
+                          styles.eventDetail,
+                          !nextEvent.imageUrl && styles.eventDetailDark,
+                        ]}
+                      >
+                        {e.detail}
+                      </Text>
+                    )}
                   </View>
                 ))}
               </View>
@@ -432,6 +454,10 @@ const styles = StyleSheet.create({
   eventDate: { fontFamily: font.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)', ...textShadow },
   eventTitle: { fontFamily: font.extraBold, fontSize: 16.5, color: '#FFFFFF', ...textShadow },
   eventDetail: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.85)', ...textShadow },
+  // 밝은 기본 배경용 — 진한 남색 글씨
+  eventDateDark: { color: '#1D5C9E', textShadowColor: 'transparent', textShadowRadius: 0 },
+  eventTitleDark: { color: '#122B4F', textShadowColor: 'transparent', textShadowRadius: 0 },
+  eventDetailDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
 
   sermonWrap: { borderRadius: 18 },
   sermonCard: { borderRadius: 18, height: 164, justifyContent: 'flex-end' },
