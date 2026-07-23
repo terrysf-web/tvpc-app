@@ -26,6 +26,61 @@ const db = getFirestore();
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
+// 게시판 본문(썸네일 이미지)이 회원에게만 보이는 경우를 위한 로그인 —
+// 시크릿이 없으면 로그인 없이 공개 이미지만 쓴다.
+const WEB_USER = process.env.TVPC_WEB_USER;
+const WEB_PASS = process.env.TVPC_WEB_PASS;
+const jar = new Map();
+function storeCookies(res) {
+  for (const c of res.headers.getSetCookie?.() ?? []) {
+    const [kv] = c.split(';');
+    const i = kv.indexOf('=');
+    if (i > 0) jar.set(kv.slice(0, i).trim(), kv.slice(i + 1));
+  }
+}
+async function jfetch(url, opts = {}, depth = 0) {
+  const res = await fetch(url, {
+    redirect: 'manual',
+    ...opts,
+    headers: {
+      'user-agent': UA,
+      'accept-language': 'ko,en',
+      ...(jar.size ? { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; ') } : {}),
+      ...(opts.headers ?? {}),
+    },
+  });
+  storeCookies(res);
+  if ([301, 302, 303, 307, 308].includes(res.status) && depth < 6) {
+    const loc = res.headers.get('location');
+    if (loc) return jfetch(new URL(loc, url).href, { method: 'GET' }, depth + 1);
+  }
+  return res;
+}
+let siteLoginTried = false;
+async function ensureSiteLogin() {
+  if (siteLoginTried || !WEB_USER || !WEB_PASS) return;
+  siteLoginTried = true;
+  try {
+    await jfetch('https://tvpc.church/wp/wp-login.php');
+    await jfetch('https://tvpc.church/wp/wp-login.php', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        log: WEB_USER,
+        pwd: WEB_PASS,
+        rememberme: 'forever',
+        'wp-submit': 'Log In',
+        redirect_to: 'https://tvpc.church/wp/',
+        testcookie: '1',
+      }).toString(),
+    });
+    const ok = [...jar.keys()].some((k) => k.startsWith('wordpress_logged_in'));
+    console.log(ok ? '  ✓ 홈페이지 로그인 (썸네일용)' : '  ! 홈페이지 로그인 실패 — 공개 이미지만 사용');
+  } catch {
+    /* 로그인 실패해도 계속 */
+  }
+}
+
 const MAX_NEWS = Number(process.env.MAX_NEWS || 12);
 const MAX_EVENTS = Number(process.env.MAX_EVENTS || 120);
 /** 소식 탭 "행사" 카드로 함께 노출할 일정 수 (반복 모임까지 다 올리면 소식이 넘침) */
@@ -278,10 +333,8 @@ async function fetchOgImage(url) {
   if (ogImageCache.has(url)) return ogImageCache.get(url);
   let img = null;
   try {
-    const res = await fetch(url, {
-      headers: { 'user-agent': UA, 'accept-language': 'ko,en' },
-      redirect: 'follow',
-    });
+    await ensureSiteLogin();
+    const res = await jfetch(url);
     if (res.ok) {
       const html = await res.text();
       const m =
@@ -297,14 +350,18 @@ async function fetchOgImage(url) {
         cand = area ? area[1] : null;
       }
       if (!cand) {
-        for (const m2 of html.matchAll(/<img[^>]+src=["']([^"']+)["']/g)) {
-          const s = m2[1];
+        // 지연 로딩(data-src)·배경 이미지까지 포함해 업로드 이미지를 찾는다
+        for (const m2 of html.matchAll(
+          /<img[^>]+(?:data-src|src)=["']([^"']+)["']|background(?:-image)?\s*:\s*url\(["']?([^"')]+)["']?\)/g,
+        )) {
+          const s = m2[1] || m2[2] || '';
           if (s.includes('/wp-content/uploads/') && !/logo|icon|favicon|emoji|avatar/i.test(s)) {
             cand = s;
             break;
           }
         }
       }
+      if (!cand) console.log(`    (썸네일 이미지 없음: ${url})`);
       if (cand) {
         img = unescape(cand).replace(/&amp;/g, '&');
         if (img.startsWith('/')) img = 'https://tvpc.church' + img;
