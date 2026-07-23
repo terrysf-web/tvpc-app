@@ -7,6 +7,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
 import { colors, font, textShadow } from '../../src/theme';
+import { verseBg } from '../../src/verseBg';
 
 type WordTab = 'text' | 'med' | 'app' | 'pray';
 
@@ -23,6 +24,7 @@ const FONT_SCALES = [1, 1.15, 1.3];
 export default function WordScreen() {
   const insets = useSafeAreaInsets();
   const { verse } = useTodayVerse();
+  const bg = verseBg();
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -36,7 +38,7 @@ export default function WordScreen() {
       </View>
 
       {/* 히어로 */}
-      <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
+      <PhotoSlot uri={verse.imageUrl ?? bg.uri} tone="deep" style={styles.hero}>
         {/* 기본(밝은) 배경은 진한 남색 글씨, 어두운 사진은 흰 글씨 + 덮개 */}
         {verse.imageUrl ? (
           <LinearGradient
@@ -45,10 +47,10 @@ export default function WordScreen() {
           />
         ) : null}
         <View style={styles.heroBottom}>
-          <Text style={[styles.heroRef, !verse.imageUrl && styles.heroRefDark]}>
+          <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
             {verse.passageTitle}
           </Text>
-          <Text style={[styles.heroDate, !verse.imageUrl && styles.heroDateDark]}>
+          <Text style={[styles.heroDate, !verse.imageUrl && !bg.dark && styles.heroDateDark]}>
             {new Date(verse.date + 'T00:00:00').toLocaleDateString('ko-KR', {
               month: 'long',
               day: 'numeric',

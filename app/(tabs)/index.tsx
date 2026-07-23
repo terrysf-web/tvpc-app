@@ -22,6 +22,7 @@ import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
+import { verseBg } from '../../src/verseBg';
 
 /** 시간대 — 아침(6~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~6) */
 function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' | 'dawn' {
@@ -84,6 +85,8 @@ export default function HomeScreen() {
   // 최신 주보 — 교인·관리자는 앱 안 이미지 주보, 그 외는 홈페이지 게시글로 (뷰어에서 분기)
   const openBulletin = () => router.push('/bulletin');
 
+  // 시간대별 기본 배경 (새벽·저녁·밤은 어두운 그림 → 흰 글씨)
+  const bg = verseBg();
   // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
   const isSunday = new Date().getDay() === 0;
   const sundayTimes = churchInfo.services
@@ -197,35 +200,35 @@ export default function HomeScreen() {
           ) : (
             // 기본(밝은) 배경일 땐 진한 남색 글씨가 또렷하다.
             // 관리자가 어두운 사진을 넣으면 흰 글씨 + 어두운 덮개로 전환.
-            <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
+            <PhotoSlot uri={verse.imageUrl ?? bg.uri} tone="deep" style={styles.hero}>
               {verse.imageUrl ? (
                 <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               ) : null}
               <View style={styles.heroTopRow}>
-                <View style={[styles.heroBadge, !verse.imageUrl && styles.heroBadgeDark]}>
+                <View style={[styles.heroBadge, !verse.imageUrl && !bg.dark && styles.heroBadgeDark]}>
                   <Text style={styles.heroBadgeText}>
                     {verse.passageTitle?.includes('새벽예배')
                       ? '오늘의 말씀 · 새벽예배'
                       : '오늘의 말씀'}
                   </Text>
                 </View>
-                <Text style={[styles.heroDate, !verse.imageUrl && styles.heroDateDark]}>
+                <Text style={[styles.heroDate, !verse.imageUrl && !bg.dark && styles.heroDateDark]}>
                   {todayLabel()}
                 </Text>
               </View>
               <View style={styles.heroBottom}>
-                <Text style={[styles.heroRef, !verse.imageUrl && styles.heroRefDark]}>
+                <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
                   {verse.reference}
                 </Text>
-                <Text style={[styles.heroVerse, !verse.imageUrl && styles.heroVerseDark]}>
+                <Text style={[styles.heroVerse, !verse.imageUrl && !bg.dark && styles.heroVerseDark]}>
                   {verse.heroText}
                 </Text>
                 <Pressable
-                  style={[styles.heroBtn, !verse.imageUrl && styles.heroBtnDark]}
+                  style={[styles.heroBtn, !verse.imageUrl && !bg.dark && styles.heroBtnDark]}
                   onPress={() => router.push('/word')}
                 >
                   <Text
-                    style={[styles.heroBtnText, !verse.imageUrl && styles.heroBtnTextDark]}
+                    style={[styles.heroBtnText, !verse.imageUrl && !bg.dark && styles.heroBtnTextDark]}
                   >
                     말씀 보기
                   </Text>
@@ -274,7 +277,7 @@ export default function HomeScreen() {
           >
             {/* 포스터가 없으면 말씀카드와 같은 밝은 배경 + 남색 글씨 */}
             <PhotoSlot
-              uri={nextEvent.imageUrl ?? '/verse-bg.jpg'}
+              uri={nextEvent.imageUrl ?? bg.uri}
               tone="deep"
               style={styles.eventCard}
             >
@@ -287,13 +290,13 @@ export default function HomeScreen() {
                 />
               ) : null}
               <View style={styles.eventTextCol}>
-                <Text style={[styles.eventDate, !nextEvent.imageUrl && styles.eventDateDark]}>
+                <Text style={[styles.eventDate, !nextEvent.imageUrl && !bg.dark && styles.eventDateDark]}>
                   {nextEvent.dateLabel}
                 </Text>
                 {nextDayEvents.map((e) => (
                   <View key={e.id} style={styles.eventRow}>
                     <Text
-                      style={[styles.eventTitle, !nextEvent.imageUrl && styles.eventTitleDark]}
+                      style={[styles.eventTitle, !nextEvent.imageUrl && !bg.dark && styles.eventTitleDark]}
                     >
                       {e.title}
                     </Text>
@@ -301,7 +304,7 @@ export default function HomeScreen() {
                       <Text
                         style={[
                           styles.eventDetail,
-                          !nextEvent.imageUrl && styles.eventDetailDark,
+                          !nextEvent.imageUrl && !bg.dark && styles.eventDetailDark,
                         ]}
                       >
                         {e.detail}
