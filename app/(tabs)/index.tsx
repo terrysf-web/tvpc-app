@@ -5,6 +5,7 @@ import {
   BookOpen,
   FileText,
   Megaphone,
+  Moon,
   MoonStar,
   Play,
   Sun,
@@ -22,16 +23,18 @@ import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
-/** 시간대 — 아침(5~12) · 오후(12~18) · 저녁(18~22) · 밤(22~5) */
-function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' {
+/** 시간대 — 아침(5~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~5) */
+function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' | 'dawn' {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12) return 'morning';
-  if (h >= 12 && h < 18) return 'afternoon';
-  if (h >= 18 && h < 22) return 'evening';
+  if (h < 5) return 'dawn';
+  if (h < 12) return 'morning';
+  if (h < 18) return 'afternoon';
+  if (h < 20) return 'evening';
   return 'night';
 }
 
 const GREETING_TEXT = {
+  dawn: '은혜로운 새벽입니다',
   morning: '좋은 아침입니다',
   afternoon: '좋은 오후입니다',
   evening: '좋은 저녁입니다',
@@ -134,8 +137,10 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <View style={styles.greetingTitleRow}>
               <Text style={styles.greetingTitle}>{GREETING_TEXT[timeSlot()]}</Text>
-              {/* 시간대별 아이콘 — 아침 해돋이 · 오후 해 · 저녁 노을 · 밤 달 */}
-              {timeSlot() === 'morning' ? (
+              {/* 시간대별 아이콘 — 새벽 달 · 아침 해돋이 · 오후 해 · 저녁 노을 · 밤 달별 */}
+              {timeSlot() === 'dawn' ? (
+                <Moon size={20} color="#9AA8D8" strokeWidth={2} />
+              ) : timeSlot() === 'morning' ? (
                 <Sunrise size={20} color={colors.sun} strokeWidth={2} />
               ) : timeSlot() === 'afternoon' ? (
                 <Sun size={20} color={colors.sun} strokeWidth={2} />
