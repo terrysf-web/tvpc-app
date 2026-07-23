@@ -42,6 +42,15 @@ const GREETING_TEXT = {
   night: '좋은 밤입니다',
 } as const;
 
+/** 인사말 아래 문구 — 시간대에 맞게 */
+const GREETING_SUB = {
+  dawn: '고요한 새벽, 주님과 함께 시작해요',
+  morning: '오늘도 주님의 은혜가 함께하는 하루 되세요',
+  afternoon: '오후에도 주님의 평안이 함께하길 빕니다',
+  evening: '오늘 하루도 수고 많으셨어요. 주님 안에서 쉼을 누리세요',
+  night: '주님의 평안 속에 편안한 밤 되세요',
+} as const;
+
 function todayLabel(): string {
   const d = new Date();
   const days = ['일', '월', '화', '수', '목', '금', '토'];
@@ -156,7 +165,7 @@ export default function HomeScreen() {
             <Text style={styles.greetingSub}>
               {isSunday
                 ? '복된 주일입니다\n예배로 함께 나아가요'
-                : '오늘도 주님의 은혜가 함께하는 하루 되세요'}
+                : GREETING_SUB[timeSlot()]}
             </Text>
           </View>
           <Pressable style={styles.bellBtn} onPress={() => router.push('/news')} hitSlop={6}>
