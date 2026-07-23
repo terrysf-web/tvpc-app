@@ -14,7 +14,19 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { doc, getDoc, type Firestore } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query as fsQuery,
+  startAfter,
+  type Firestore,
+  type Query,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
 import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../src/firebase';
@@ -518,51 +530,53 @@ export default function AlbumScreen() {
         };
         await loadPage(0);
 
-        // 나머지 페이지·명부는 동시 4개씩 내려받는다 — 한 장씩 순차로 받으면
-        // 왕복 지연이 쌓여 전체 로딩이 몇 배 느려진다.
-        // 명부 반영은 10장씩 묶고, 검색 중에는 잠시 멈춰 검색 결과에 양보한다.
-        let batch: Record<number, AlbumPage> = {};
-        const flush = () => {
-          if (Object.keys(batch).length === 0) return;
-          const b = batch;
-          batch = {};
-          setCache((prev) => ({ ...prev, ...b }));
+        // 문서를 한 개씩 165번 왕복해서 받으면 지연이 쌓여 몇 배 느려진다.
+        // 페이지는 한 번의 묶음 조회로, 명부는 25줄씩 묶어 왕복을 ~8회로 줄인다.
+        const pausedWhileFiltering = async () => {
+          while (filteringRef.current && !cancelled) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
         };
-        const loadRow = async (i: number) => {
-          if (fetching.current.has(i)) return;
-          fetching.current.add(i);
-          try {
-            const snap = await getDoc(
-              doc(db, 'albums', 'current', 'rows', String(i).padStart(4, '0')),
-            );
-            const image = String(snap.get('image') ?? '');
+        const pagesSnap = await getDocs(
+          fsQuery(collection(db, 'albums', 'current', 'pages'), orderBy('__name__')),
+        );
+        if (cancelled) return;
+        setPages((prev) => {
+          const next = [...prev];
+          for (const d of pagesSnap.docs) {
+            const i = Number(d.id);
+            const image = String(d.get('image') ?? '');
+            if (Number.isInteger(i) && i >= 0 && i < next.length && image) {
+              next[i] = { image, w: Number(d.get('w') ?? 3), h: Number(d.get('h') ?? 4) };
+            }
+          }
+          return next;
+        });
+
+        const rowsCol = collection(db, 'albums', 'current', 'rows');
+        let lastDoc: QueryDocumentSnapshot | null = null;
+        while (!cancelled) {
+          await pausedWhileFiltering();
+          if (cancelled) return;
+          const q: Query = lastDoc
+            ? fsQuery(rowsCol, orderBy('__name__'), startAfter(lastDoc), limit(25))
+            : fsQuery(rowsCol, orderBy('__name__'), limit(25));
+          const snap = await getDocs(q);
+          if (cancelled || snap.empty) break;
+          const b: Record<number, AlbumPage> = {};
+          for (const d of snap.docs) {
+            const i = Number(d.id);
+            if (!Number.isInteger(i) || i < 0) continue;
+            fetching.current.add(i);
+            const image = String(d.get('image') ?? '');
             if (image) {
-              batch[i] = { image, w: Number(snap.get('w') ?? 3), h: Number(snap.get('h') ?? 1) };
-            }
-          } catch {
-            fetching.current.delete(i);
-          }
-          if (Object.keys(batch).length >= 10) flush();
-        };
-        const tasks: (() => Promise<void>)[] = [];
-        for (let i = 1; i < n; i++) tasks.push(() => loadPage(i));
-        for (let i = 0; i < idx.length; i++) tasks.push(() => loadRow(i));
-        const worker = async () => {
-          while (!cancelled && tasks.length > 0) {
-            while (filteringRef.current && !cancelled) {
-              await new Promise((r) => setTimeout(r, 300));
-            }
-            const t = tasks.shift();
-            if (!t) break;
-            try {
-              await t();
-            } catch {
-              /* 개별 실패는 건너뜀 */
+              b[i] = { image, w: Number(d.get('w') ?? 3), h: Number(d.get('h') ?? 1) };
             }
           }
-        };
-        await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
-        if (!cancelled) flush();
+          setCache((prev) => ({ ...prev, ...b }));
+          lastDoc = snap.docs[snap.docs.length - 1];
+          if (snap.docs.length < 25) break;
+        }
       } catch {
         if (!cancelled) setFailed(true);
       }
