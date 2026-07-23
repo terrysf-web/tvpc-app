@@ -520,12 +520,33 @@ for (const it of newsItems.slice(0, MAX_NEWS)) {
       category: isEventLike(it.title) ? 'event' : 'notice',
       date,
       url: it.link || null,
-      imageUrl,
+      // 일시적으로 못 찾은 경우 기존 썸네일을 지우지 않는다
+      ...(imageUrl ? { imageUrl } : {}),
     },
     { merge: true },
   );
   console.log(`  ✓ ${date}  ${it.title}${imageUrl ? ' [썸네일]' : ''}\n      링크: ${it.link}`);
   newsWrote++;
+}
+
+// 교회 소식 카드 배너 통일 — 최신 글의 배너를 지난 글에도 적용한다.
+// 홈페이지에서 최신 글 이미지만 바꾸면 앱의 지난 카드까지 새 배너로 보인다.
+try {
+  const allNews = await db.collection('news').get();
+  const notices = allNews.docs
+    .filter((d) => String(d.get('title') ?? '').startsWith('교회 소식 · '))
+    .sort((a, b) => String(b.get('date') ?? '').localeCompare(String(a.get('date') ?? '')));
+  const bannerUrl = notices.length ? notices[0].get('imageUrl') : null;
+  if (bannerUrl) {
+    for (const d of notices.slice(1)) {
+      if (d.get('imageUrl') !== bannerUrl) {
+        await d.ref.set({ imageUrl: bannerUrl }, { merge: true });
+        console.log(`  ~ 배너 통일: ${d.get('title')}`);
+      }
+    }
+  }
+} catch (e) {
+  console.log(`  ! 배너 통일 건너뜀: ${e.message}`);
 }
 
 // ── 2. 일정 ────────────────────────────────────────────────────
