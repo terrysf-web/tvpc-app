@@ -73,13 +73,20 @@ const SearchBox = React.memo(function SearchBox({
   const webInput =
     Platform.OS === 'web'
       ? React.createElement('input', {
-          type: 'text',
-          placeholder: '이름 검색',
+          // iOS는 placeholder에 '이름' 같은 연락처 단어가 있으면 연락처
+          // 자동완성(AutoFill Contact)을 강제로 붙이고, 그 오버레이가
+          // 키 입력마다 갱신되며 한글 조합 커서를 튀게 한다.
+          // type=search + 중립적인 문구로 검색창임을 명확히 해 차단한다.
+          type: 'search',
+          name: 'q',
+          id: 'album-search',
+          placeholder: '검색',
           autoComplete: 'off',
           autoCorrect: 'off',
           autoCapitalize: 'off',
           spellCheck: false,
-          'aria-label': '이름 검색',
+          enterKeyHint: 'search',
+          'aria-label': '검색',
           onInput: (e: { target: { value: string } }) => onChangeText(e.target.value),
           style: {
             flex: 1,
@@ -87,6 +94,8 @@ const SearchBox = React.memo(function SearchBox({
             border: 'none',
             outline: 'none',
             background: 'transparent',
+            WebkitAppearance: 'none',
+            appearance: 'none',
             padding: '10px 0',
             fontSize: 16,
             color: colors.body,
