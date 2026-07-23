@@ -2,8 +2,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Bell,
-  BookOpen,
   FileText,
+  Images,
   Megaphone,
   Moon,
   MoonStar,
@@ -123,13 +123,6 @@ export default function HomeScreen() {
 
   const quickMenu = [
     {
-      key: 'qt',
-      label: '말씀(QT)',
-      icon: <BookOpen size={21} color={colors.primary} strokeWidth={1.9} />,
-      chipBg: colors.tagBlueBg,
-      onPress: () => router.push('/word'),
-    },
-    {
       key: 'newcomer',
       label: '새가족 안내',
       icon: <UserRound size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
@@ -149,6 +142,13 @@ export default function HomeScreen() {
       icon: <FileText size={21} color={colors.tagGrayText} strokeWidth={1.9} />,
       chipBg: colors.tagGrayBg,
       onPress: openBulletin,
+    },
+    {
+      key: 'album',
+      label: '교회 앨범',
+      icon: <Images size={21} color={colors.primary} strokeWidth={1.9} />,
+      chipBg: colors.tagBlueBg,
+      onPress: () => router.push('/album'),
     },
   ];
 
