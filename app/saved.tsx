@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { BookmarkX, ChevronRight, Trash2 } from 'lucide-react-native';
+import { BookmarkX, ChevronRight, PenLine, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
+import { hasVerseNote } from '../src/components/VerseNoteCard';
 import { getSavedVerses, removeSavedVerse, type SavedVerse } from '../src/data/savedVerses';
 import { colors, font, radius, shadows } from '../src/theme';
 
@@ -53,7 +54,15 @@ export default function SavedVersesScreen() {
             >
               <View style={styles.cardBody}>
                 <Text style={styles.cardDate}>{dateLabel(v.date)}</Text>
-                <Text style={styles.cardRef}>{v.reference}</Text>
+                <View style={styles.cardRefRow}>
+                  <Text style={styles.cardRef}>{v.reference}</Text>
+                  {hasVerseNote(v.date) && (
+                    <View style={styles.noteBadge}>
+                      <PenLine size={11} color={colors.primary} strokeWidth={2.2} />
+                      <Text style={styles.noteBadgeText}>메모</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.cardText} numberOfLines={2}>
                   {v.heroText.replace(/\n/g, ' ')}
                 </Text>
@@ -94,7 +103,18 @@ const styles = StyleSheet.create({
   },
   cardBody: { flex: 1, gap: 2 },
   cardDate: { fontFamily: font.medium, fontSize: 12, color: colors.muted3 },
+  cardRefRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   cardRef: { fontFamily: font.bold, fontSize: 15.5, color: colors.title },
+  noteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  noteBadgeText: { fontFamily: font.bold, fontSize: 10.5, color: colors.primary },
   cardText: { fontFamily: font.regular, fontSize: 13, lineHeight: 19, color: colors.body },
   removeBtn: { padding: 8 },
 });

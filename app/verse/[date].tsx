@@ -141,7 +141,13 @@ export default function VerseByDateScreen() {
           )}
 
           <Text style={styles.sectionTitle}>메모</Text>
-          <VerseNoteCard key={verse.date} date={verse.date} />
+          <VerseNoteCard
+            key={verse.date}
+            date={verse.date}
+            reference={verse.reference}
+            heroText={verse.heroText}
+            onAutoSaved={() => setSaved(true)}
+          />
         </ScrollView>
       )}
     </View>

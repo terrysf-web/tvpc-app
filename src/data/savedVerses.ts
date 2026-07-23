@@ -43,6 +43,17 @@ export async function toggleSavedVerse(entry: Omit<SavedVerse, 'savedAt'>): Prom
   return nowSaved;
 }
 
+/** 이미 있으면 그대로 두고, 없으면 목록 맨 앞에 추가 (메모 자동 보관용) */
+export async function ensureSavedVerse(entry: Omit<SavedVerse, 'savedAt'>): Promise<void> {
+  const list = await getSavedVerses();
+  if (list.some((v) => v.date === entry.date)) return;
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify([{ ...entry, savedAt: Date.now() }, ...list]));
+  } catch {
+    /* 저장 실패는 무시 */
+  }
+}
+
 export async function removeSavedVerse(date: string): Promise<SavedVerse[]> {
   const next = (await getSavedVerses()).filter((v) => v.date !== date);
   try {

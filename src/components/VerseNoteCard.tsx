@@ -1,15 +1,28 @@
 import { PenLine } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ensureSavedVerse } from '../data/savedVerses';
 import { colors, font, shadows } from '../theme';
 
 /**
  * 말씀 묵상 메모 — 그날 말씀을 읽으며 받은 은혜를 적어두는 카드.
  * 내용은 이 기기(localStorage)에만 날짜별로 저장되고 서버로 가지 않는다.
+ * 메모를 쓰면 북마크를 따로 누르지 않아도 '저장한 말씀' 목록에 자동으로
+ * 담겨, 나중에 메모를 다시 찾아갈 수 있다.
  * 한글 조합(IME) 중 커서가 튀지 않도록 비제어 입력 + 디바운스 저장을 쓴다
  * (주보 설교 메모와 같은 방식).
  */
-export function VerseNoteCard({ date }: { date: string }) {
+export function VerseNoteCard({
+  date,
+  reference,
+  heroText,
+  onAutoSaved,
+}: {
+  date: string;
+  reference: string;
+  heroText: string;
+  onAutoSaved?: () => void;
+}) {
   const key = `verseNote:${date}`;
   const [initial] = useState(() =>
     typeof window !== 'undefined' && window.localStorage
@@ -26,6 +39,10 @@ export function VerseNoteCard({ date }: { date: string }) {
         window.localStorage.setItem(key, t);
         // 저장 표시는 처음 한 번만 — 입력 중 재렌더로 커서가 흔들리지 않게
         setSavedAt((s) => s ?? Date.now());
+      }
+      // 메모가 있으면 '저장한 말씀' 목록에도 자동으로 담는다
+      if (t.trim()) {
+        ensureSavedVerse({ date, reference, heroText }).then(() => onAutoSaved?.());
       }
     }, 500);
   };
@@ -81,7 +98,7 @@ export function VerseNoteCard({ date }: { date: string }) {
         />
       )}
       <Text style={styles.noteHint}>
-        메모는 이 전화기에만 저장됩니다. 말씀 날짜별로 따로 보관돼요.
+        메모는 이 전화기에만 저장되고, 메모한 말씀은 '저장한 말씀' 목록에 자동으로 담깁니다.
       </Text>
     </View>
   );
