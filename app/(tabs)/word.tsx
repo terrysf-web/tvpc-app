@@ -13,13 +13,12 @@ import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/d
 import { colors, font, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
-type WordTab = 'text' | 'med' | 'app' | 'pray';
+type WordTab = 'text' | 'note' | 'med' | 'app' | 'pray';
 
+// 묵상·적용·기도 탭은 지금은 쓰지 않아 숨김 — 필요해지면 다시 넣는다
 const TABS: { key: WordTab; label: string }[] = [
   { key: 'text', label: '본문' },
-  { key: 'med', label: '묵상' },
-  { key: 'app', label: '적용' },
-  { key: 'pray', label: '기도' },
+  { key: 'note', label: '메모' },
 ];
 
 /** 글씨크기 3단계 */
@@ -57,7 +56,9 @@ export default function WordScreen() {
     const turnedOn = next.some((h) => h.v === p.verse) && !hls.some((h) => h.v === p.verse);
     setHls(next);
     if (turnedOn) {
-      // 구절이 메모장 맨 아래(이전 메모 다음)에 붙고 새 메모 칸으로 커서 이동
+      // 구절이 메모장 맨 아래(이전 메모 다음)에 붙고, 메모 탭으로 넘어가
+      // 새 메모 칸에 커서가 놓인다
+      setTab('note');
       noteRef.current?.addQuote(p.verse, p.text);
     } else {
       noteRef.current?.removeQuote(p.verse);
@@ -141,7 +142,7 @@ export default function WordScreen() {
         {tab === 'text' && (
           <>
             <Text style={styles.hlHint}>
-              구절을 누르면 형광펜으로 표시되고, 아래 메모장에 인용되어 들어갑니다
+              구절을 누르면 형광펜으로 표시되고, 메모 탭에 담겨 바로 적을 수 있습니다
             </Text>
             {verse.passage.map((p) => (
               <Pressable
@@ -157,20 +158,21 @@ export default function WordScreen() {
                 </Text>
               </Pressable>
             ))}
-            {/* 본문을 보면서 바로 적는 묵상 메모 — 메모하면 저장한 말씀에 자동 보관 */}
-            <View style={styles.noteWrap}>
-              <VerseNoteCard
-                key={verse.date}
-                ref={noteRef}
-                date={verse.date}
-                reference={verse.reference}
-                heroText={verse.heroText}
-                onQuoteRemoved={(v) => setHls(toggleHighlight(verse.date, v, ''))}
-                onAutoSaved={() => setSaved(true)}
-              />
-            </View>
           </>
         )}
+        {/* 메모 탭 — 형광펜 구절이 담기는 메모장. 탭을 오가도 상태가 유지되게
+            숨김(display:none)으로만 감춘다 */}
+        <View style={{ display: tab === 'note' ? 'flex' : 'none' }}>
+          <VerseNoteCard
+            key={verse.date}
+            ref={noteRef}
+            date={verse.date}
+            reference={verse.reference}
+            heroText={verse.heroText}
+            onQuoteRemoved={(v) => setHls(toggleHighlight(verse.date, v, ''))}
+            onAutoSaved={() => setSaved(true)}
+          />
+        </View>
         {tab === 'med' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
             {verse.meditation ||
