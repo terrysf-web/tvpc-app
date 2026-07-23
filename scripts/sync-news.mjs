@@ -418,9 +418,11 @@ for (const snap of badNews.docs) {
 let newsWrote = 0;
 for (const it of newsItems.slice(0, MAX_NEWS)) {
   const date = it.date && !isNaN(it.date) ? ymd(it.date) : ymd(new Date());
-  // 주보 글 제목이 날짜뿐이면 알아보기 쉽게 "주보" 접두어
+  // 주보 게시글은 사실상 교회 소식(광고)이라 제목도 그렇게 붙인다
   if (/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일$/.test(it.title)) {
-    it.title = `주보 · ${it.title}`;
+    it.title = `교회 소식 · ${it.title}`;
+  } else if (it.title.startsWith('주보 · ')) {
+    it.title = it.title.replace(/^주보 · /, '교회 소식 · ');
   }
   const imageUrl = await fetchOgImage(it.link);
   await db.doc(`news/web-${hash(it.link || it.title)}`).set(
