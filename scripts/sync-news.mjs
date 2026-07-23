@@ -413,6 +413,12 @@ for (const snap of badNews.docs) {
     await snap.ref.delete();
     console.log(`  – 깨진 링크 문서 삭제: ${snap.get('title')}`);
   }
+  // 옛 표기 정리 — 주보 게시글은 교회 소식(광고)이므로 제목을 맞춘다
+  const t = String(snap.get('title') ?? '');
+  if (t.startsWith('주보 · ')) {
+    await snap.ref.set({ title: t.replace(/^주보 · /, '교회 소식 · ') }, { merge: true });
+    console.log(`  ~ 제목 변경: ${t} → 교회 소식 표기`);
+  }
 }
 
 let newsWrote = 0;
