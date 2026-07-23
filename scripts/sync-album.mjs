@@ -74,7 +74,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 13;
+const CONVERTER_VERSION = 15;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -227,7 +227,8 @@ for (let i = 0; i < files.length; i++) {
 
   if (nameX === null || cellX === null) {
     // 소개·단체사진 페이지는 통째로
-    const buf = await encode(pageImg);
+    // 화면 표시 폭(≤520 CSS px)에는 1000px면 충분 — 용량을 줄여 로딩을 빠르게
+    const buf = await encode(pageImg.clone().resize({ width: 1000, withoutEnlargement: true }));
     total += buf.length;
     await db.doc(`albums/current/pages/${String(introCount).padStart(3, '0')}`).set({
       order: introCount,
@@ -296,7 +297,7 @@ for (let i = 0; i < files.length; i++) {
     const slice = sharp(
       await pageImg.clone().extract({ left: 0, top: startPx, width: imgW, height: cropH }).toBuffer(),
     );
-    const buf = await encode(slice);
+    const buf = await encode(slice.resize({ width: 1000, withoutEnlargement: true }));
     total += buf.length;
     rows.push({ cell, names, buf, w: imgW, h: cropH });
   }

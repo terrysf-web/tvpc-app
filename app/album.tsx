@@ -488,9 +488,11 @@ export default function AlbumScreen() {
         setIndex(idx);
         setCells(((meta.get('cells') as string[] | undefined) ?? []).map(String));
         setSourceUrl((meta.get('sourceUrl') as string | undefined) ?? null);
-        // 소개 페이지 → 명부 이미지 순서대로 배경 로드 (첫 장부터 바로 보인다)
-        for (let i = 0; i < n && !cancelled; i++) {
-          const snap = await getDoc(doc(db, 'albums', 'current', 'pages', String(i).padStart(3, '0')));
+        // 첫 페이지를 최우선으로 받아 바로 보여준다
+        const loadPage = async (i: number) => {
+          const snap = await getDoc(
+            doc(db, 'albums', 'current', 'pages', String(i).padStart(3, '0')),
+          );
           if (cancelled) return;
           const image = String(snap.get('image') ?? '');
           if (image) {
@@ -500,9 +502,12 @@ export default function AlbumScreen() {
               return next;
             });
           }
-        }
-        // 명부 이미지 배경 로드는 10장씩 묶어 반영 — 한 장마다 화면 전체를
-        // 다시 그리면 입력 중 커서가 흔들리고 스크롤이 버벅인다
+        };
+        await loadPage(0);
+
+        // 나머지 페이지·명부는 동시 4개씩 내려받는다 — 한 장씩 순차로 받으면
+        // 왕복 지연이 쌓여 전체 로딩이 몇 배 느려진다.
+        // 명부 반영은 10장씩 묶고, 검색 중에는 잠시 멈춰 검색 결과에 양보한다.
         let batch: Record<number, AlbumPage> = {};
         const flush = () => {
           if (Object.keys(batch).length === 0) return;
@@ -510,14 +515,8 @@ export default function AlbumScreen() {
           batch = {};
           setCache((prev) => ({ ...prev, ...b }));
         };
-        for (let i = 0; i < idx.length && !cancelled; i++) {
-          // 검색·셀 필터 중에는 배경 로딩을 멈춰, 검색된 줄 사진이
-          // 대역폭을 독차지하고 바로 내려오게 한다
-          while (filteringRef.current && !cancelled) {
-            await new Promise((r) => setTimeout(r, 300));
-          }
-          if (cancelled) return;
-          if (fetching.current.has(i)) continue;
+        const loadRow = async (i: number) => {
+          if (fetching.current.has(i)) return;
           fetching.current.add(i);
           try {
             const snap = await getDoc(
@@ -531,7 +530,25 @@ export default function AlbumScreen() {
             fetching.current.delete(i);
           }
           if (Object.keys(batch).length >= 10) flush();
-        }
+        };
+        const tasks: (() => Promise<void>)[] = [];
+        for (let i = 1; i < n; i++) tasks.push(() => loadPage(i));
+        for (let i = 0; i < idx.length; i++) tasks.push(() => loadRow(i));
+        const worker = async () => {
+          while (!cancelled && tasks.length > 0) {
+            while (filteringRef.current && !cancelled) {
+              await new Promise((r) => setTimeout(r, 300));
+            }
+            const t = tasks.shift();
+            if (!t) break;
+            try {
+              await t();
+            } catch {
+              /* 개별 실패는 건너뜀 */
+            }
+          }
+        };
+        await Promise.all([worker(), worker(), worker(), worker()]);
         if (!cancelled) flush();
       } catch {
         if (!cancelled) setFailed(true);
