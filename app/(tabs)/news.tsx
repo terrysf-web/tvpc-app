@@ -6,6 +6,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
 import { useEvents, useNews } from '../../src/data/hooks';
+import { useNewsBanner } from '../../src/newsBanner';
 import { useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
@@ -28,6 +29,8 @@ export default function NewsScreen() {
   const insets = useSafeAreaInsets();
   const { news } = useNews();
   const { events } = useEvents();
+  // 관리자가 올린 소식 배너 — 교회 소식(주보 게시판) 카드의 썸네일로 쓴다
+  const banner = useNewsBanner();
   const [tab, setTab] = useState<NewsTab>('notice');
 
   const filtered = news.filter((n) => n.category === (tab === 'event' ? 'event' : 'notice'));
@@ -84,7 +87,12 @@ export default function NewsScreen() {
             {filtered.length === 0 && (
               <Text style={styles.empty}>등록된 소식이 아직 없습니다.</Text>
             )}
-            {filtered.map((n) => (
+            {filtered.map((n) => {
+              // 교회 소식 카드는 관리자가 올린 배너를 우선 사용 —
+              // 홈페이지 이미지 주소는 앱에서 안 열려 빈 박스가 되는 경우가 있다
+              const isChurchNews = n.title.startsWith('교회 소식') || n.title.startsWith('주보');
+              const thumbUri = isChurchNews && banner ? banner : n.imageUrl;
+              return (
               <Pressable
                 key={n.id}
                 style={[styles.card, shadows.card]}
@@ -107,10 +115,10 @@ export default function NewsScreen() {
                   </Text>
                   <Text style={styles.date}>{fmtDate(n.date)}</Text>
                 </View>
-                <PhotoSlot uri={n.imageUrl} style={styles.thumb}>
-                  {!n.imageUrl && (
+                <PhotoSlot uri={thumbUri} style={styles.thumb}>
+                  {!thumbUri && (
                     <View style={styles.thumbIcon}>
-                      {n.title.startsWith('주보') ? (
+                      {isChurchNews ? (
                         <FileText size={26} color={colors.muted} strokeWidth={1.6} />
                       ) : n.category === 'notice' ? (
                         <Megaphone size={26} color={colors.muted} strokeWidth={1.6} />
@@ -121,7 +129,8 @@ export default function NewsScreen() {
                   )}
                 </PhotoSlot>
               </Pressable>
-            ))}
+              );
+            })}
           </>
         )}
       </ScrollView>

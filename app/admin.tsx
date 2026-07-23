@@ -34,6 +34,7 @@ import {
 } from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
 import { getDb } from '../src/firebase';
+import { clearNewsBanner, saveNewsBanner } from '../src/newsBanner';
 import {
   clearSundayBg,
   gradeAndSaveVerseBg,
@@ -207,6 +208,31 @@ export default function AdminScreen() {
         imageUrl: null,
       });
     }, `${vDate} 말씀이 등록됐습니다. 앱에 바로 반영됩니다.`);
+
+  const pickNewsBannerImage = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      setMsg('배너 그림 업로드는 웹 브라우저에서 해주세요.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBusy(true);
+      setMsg(null);
+      try {
+        await saveNewsBanner(file);
+        setMsg('소식 배너가 등록됐습니다. 소식 화면의 교회 소식 카드에 바로 반영됩니다.');
+      } catch (e) {
+        setMsg(`저장 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      } finally {
+        setBusy(false);
+      }
+    };
+    input.click();
+  };
 
   const pickSundayBgImage = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
@@ -597,6 +623,31 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '소식 등록'}</Text>
+            </Pressable>
+
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>교회 소식 카드 배너</Text>
+            <Text style={styles.bgHint}>
+              소식 화면의 '교회 소식' 카드 썸네일로 쓸 그림입니다. 올리면 지난
+              소식 카드까지 전부 이 그림으로 보입니다.
+            </Text>
+            <Pressable
+              style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
+              onPress={pickNewsBannerImage}
+              disabled={busy}
+            >
+              <Text style={styles.secondaryBtnText}>배너 그림 올리기</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.ghostBtn, busy && { opacity: 0.6 }]}
+              onPress={() =>
+                submit(async () => {
+                  await clearNewsBanner();
+                }, '소식 배너를 지웠습니다. 카드가 기본 아이콘으로 돌아갑니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.ghostBtnText}>배너 지우기</Text>
             </Pressable>
           </View>
         )}

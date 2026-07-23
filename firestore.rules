@@ -58,6 +58,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 소식 카드 배너 — 누구나 보고, 등록은 관리자만
+    match /newsBanner/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /bulletins/{date} {
       // 이미지 주보 — 인쇄물 QR 코드로 누구나 열람, 등록은 관리자만
       allow read: if true;
