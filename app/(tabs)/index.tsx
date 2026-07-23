@@ -90,6 +90,21 @@ export default function HomeScreen() {
   const nextDayEvents = nextEvent
     ? futureEvents.filter((e) => e.dateLabel === nextEvent.dateLabel)
     : [];
+  // 일정 카드용 날짜 정보 — 날짜 박스(월·일), 요일, D-day
+  const nextKey = nextEvent ? eventKey(nextEvent) : null;
+  const nextMonth = nextKey ? Number(nextKey.slice(5, 7)) : 0;
+  const nextDay = nextKey ? Number(nextKey.slice(8, 10)) : 0;
+  const nextWeekday = nextKey
+    ? ['일', '월', '화', '수', '목', '금', '토'][new Date(nextKey + 'T00:00:00').getDay()]
+    : '';
+  const ddayNum = nextKey
+    ? Math.round(
+        (new Date(nextKey + 'T00:00:00').getTime() -
+          new Date(todayKey + 'T00:00:00').getTime()) /
+          86400000,
+      )
+    : 0;
+  const ddayLabel = ddayNum <= 0 ? 'D-DAY' : `D-${ddayNum}`;
 
   // 최신 주보 — 교인·관리자는 앱 안 이미지 주보, 그 외는 홈페이지 게시글로 (뷰어에서 분기)
   const openBulletin = () => router.push('/bulletin');
@@ -296,8 +311,9 @@ export default function HomeScreen() {
               <Text style={styles.sectionLink}>전체 달력 ›</Text>
             </Pressable>
           </View>
+          {/* 배경 없이 날짜 박스 + D-day 배지의 깔끔한 카드 */}
           <Pressable
-            style={[styles.eventWrap, shadows.imageCard]}
+            style={[styles.eventPlain, shadows.card]}
             onPress={() => {
               // 일정이 하나이고 상세 링크가 있으면 바로 열고, 여러 개면 달력으로
               if (nextDayEvents.length === 1 && nextEvent.url) {
@@ -310,45 +326,22 @@ export default function HomeScreen() {
               }
             }}
           >
-            {/* 포스터가 없으면 말씀카드와 같은 밝은 배경 + 남색 글씨 */}
-            <PhotoSlot
-              uri={nextEvent.imageUrl ?? bg.uri}
-              tone="deep"
-              style={styles.eventCard}
-            >
-              {nextEvent.imageUrl ? (
-                <LinearGradient
-                  colors={['rgba(12,28,54,0.72)', 'rgba(12,28,54,0.10)']}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : null}
-              <View style={styles.eventTextCol}>
-                <Text style={[styles.eventDate, !nextEvent.imageUrl && !bg.dark && styles.eventDateDark]}>
-                  {nextEvent.dateLabel}
-                </Text>
-                {nextDayEvents.map((e) => (
-                  <View key={e.id} style={styles.eventRow}>
-                    <Text
-                      style={[styles.eventTitle, !nextEvent.imageUrl && !bg.dark && styles.eventTitleDark]}
-                    >
-                      {e.title}
-                    </Text>
-                    {!!e.detail && (
-                      <Text
-                        style={[
-                          styles.eventDetail,
-                          !nextEvent.imageUrl && !bg.dark && styles.eventDetailDark,
-                        ]}
-                      >
-                        {e.detail}
-                      </Text>
-                    )}
-                  </View>
-                ))}
-              </View>
-            </PhotoSlot>
+            <View style={styles.eventDateBox}>
+              <Text style={styles.eventDateBoxMonth}>{nextMonth}월</Text>
+              <Text style={styles.eventDateBoxDay}>{nextDay}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.eventPlainCaption}>{nextWeekday}요일</Text>
+              {nextDayEvents.map((e) => (
+                <View key={e.id} style={styles.eventRow}>
+                  <Text style={styles.eventPlainTitle}>{e.title}</Text>
+                  {!!e.detail && <Text style={styles.eventPlainDetail}>{e.detail}</Text>}
+                </View>
+              ))}
+            </View>
+            <View style={styles.ddayChip}>
+              <Text style={styles.ddayChipText}>{ddayLabel}</Text>
+            </View>
           </Pressable>
         </FadeInUp>
       )}
@@ -526,6 +519,35 @@ const styles = StyleSheet.create({
   quickLabel: { fontFamily: font.medium, fontSize: 12, color: colors.body },
 
   eventWrap: { borderRadius: 18, marginBottom: 22 },
+  eventPlain: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 22,
+  },
+  eventDateBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventDateBoxMonth: { fontFamily: font.bold, fontSize: 11, color: 'rgba(255,255,255,0.85)' },
+  eventDateBoxDay: { fontFamily: font.extraBold, fontSize: 20, color: '#FFFFFF', marginTop: 1 },
+  eventPlainCaption: { fontFamily: font.medium, fontSize: 12, color: colors.muted },
+  eventPlainTitle: { fontFamily: font.extraBold, fontSize: 15.5, color: colors.title, marginTop: 2 },
+  eventPlainDetail: { fontFamily: font.regular, fontSize: 12.5, color: colors.muted, marginTop: 2 },
+  ddayChip: {
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  ddayChipText: { fontFamily: font.bold, fontSize: 11.5, color: colors.primary },
   eventCard: { borderRadius: 18, minHeight: 100, justifyContent: 'center' },
   eventTextCol: { paddingHorizontal: 18, paddingVertical: 16, gap: 2 },
   eventRow: { marginTop: 5 },
