@@ -287,8 +287,26 @@ async function fetchOgImage(url) {
       const m =
         html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/) ||
         html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/);
-      if (m) {
-        img = unescape(m[1]);
+      let cand = m ? m[1] : null;
+      // og:image가 없으면(주보 게시판 등) 본문 영역의 첫 이미지를 쓴다 —
+      // 교회소식 배너처럼 글 머리에 넣는 그림이 카드 썸네일이 된다
+      if (!cand) {
+        const area = html.match(
+          /class=["'][^"']*(?:content-view|kboard-content|document-content)[^"']*["'][\s\S]{0,20000}?<img[^>]+src=["']([^"']+)["']/,
+        );
+        cand = area ? area[1] : null;
+      }
+      if (!cand) {
+        for (const m2 of html.matchAll(/<img[^>]+src=["']([^"']+)["']/g)) {
+          const s = m2[1];
+          if (s.includes('/wp-content/uploads/') && !/logo|icon|favicon|emoji|avatar/i.test(s)) {
+            cand = s;
+            break;
+          }
+        }
+      }
+      if (cand) {
+        img = unescape(cand).replace(/&amp;/g, '&');
         if (img.startsWith('/')) img = 'https://tvpc.church' + img;
         if (!/^https?:\/\//.test(img)) img = null;
       }
@@ -418,6 +436,14 @@ for (const snap of badNews.docs) {
   if (t.startsWith('주보 · ')) {
     await snap.ref.set({ title: t.replace(/^주보 · /, '교회 소식 · ') }, { merge: true });
     console.log(`  ~ 제목 변경: ${t} → 교회 소식 표기`);
+  }
+  // 썸네일이 비어 있는 기존 문서는 게시글에서 다시 찾아 채운다
+  if (snap.id.startsWith('web-') && !snap.get('imageUrl') && snap.get('url')) {
+    const im = await fetchOgImage(String(snap.get('url')));
+    if (im) {
+      await snap.ref.set({ imageUrl: im }, { merge: true });
+      console.log(`  ~ 썸네일 보충: ${t}`);
+    }
   }
 }
 
