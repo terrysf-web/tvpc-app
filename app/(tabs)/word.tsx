@@ -7,7 +7,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
 import { colors, font, textShadow } from '../../src/theme';
-import { verseBg } from '../../src/verseBg';
+import { useVerseBg } from '../../src/verseBg';
 
 type WordTab = 'text' | 'med' | 'app' | 'pray';
 
@@ -24,7 +24,7 @@ const FONT_SCALES = [1, 1.15, 1.3];
 export default function WordScreen() {
   const insets = useSafeAreaInsets();
   const { verse } = useTodayVerse();
-  const bg = verseBg();
+  const bg = useVerseBg();
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);

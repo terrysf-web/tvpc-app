@@ -32,6 +32,7 @@ import {
   saveBulletin,
 } from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
+import { gradeAndSaveVerseBg, resetVerseBg } from '../src/verseBg';
 
 type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'members' | 'offering';
 
@@ -120,6 +121,7 @@ export default function AdminScreen() {
   const [bDate, setBDate] = useState(upcomingSunday());
   const [bPages, setBPages] = useState<BulletinPage[]>([]);
   const [bStatus, setBStatus] = useState<string | null>(null);
+  const [bgStatus, setBgStatus] = useState<string | null>(null);
 
   // 교인 승인 / 헌금 입력
   const pending = usePendingMembers(isAdmin);
@@ -169,6 +171,32 @@ export default function AdminScreen() {
         imageUrl: null,
       });
     }, `${vDate} 말씀이 등록됐습니다. 앱에 바로 반영됩니다.`);
+
+  const pickVerseBgImage = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      setMsg('배경 그림 업로드는 컴퓨터 브라우저에서 해주세요.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBusy(true);
+      setMsg(null);
+      try {
+        await gradeAndSaveVerseBg(file, setBgStatus);
+        setMsg('배경이 등록됐습니다. 시간대에 따라 자동으로 바뀝니다.');
+      } catch (e) {
+        setBgStatus(null);
+        setMsg(`변환 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      } finally {
+        setBusy(false);
+      }
+    };
+    input.click();
+  };
 
   const pickBulletinPdf = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
@@ -353,6 +381,34 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '말씀 등록'}</Text>
+            </Pressable>
+
+            {/* 말씀카드 배경 — 그림 한 장으로 시간대별 5종 자동 생성 */}
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>말씀카드 배경 그림</Text>
+            <Text style={styles.bgHint}>
+              밝은 낮 풍경 그림 한 장을 올리면 새벽(해돋이)·아침·오후·저녁(노을)·밤(달과 별)
+              5가지 시간대 버전을 자동으로 만들어 앱 전체에 적용합니다.
+            </Text>
+            <Pressable
+              style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+              onPress={pickVerseBgImage}
+              disabled={busy}
+            >
+              <Text style={styles.primaryBtnText}>배경 그림 선택 (자동 변환)</Text>
+            </Pressable>
+            {bgStatus ? <Text style={styles.bgStatus}>{bgStatus}</Text> : null}
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={() =>
+                submit(async () => {
+                  await resetVerseBg();
+                  setBgStatus(null);
+                }, '기본 그림으로 되돌렸습니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.ghostBtnText}>기본 그림으로 되돌리기</Text>
             </Pressable>
           </View>
         )}
@@ -578,6 +634,22 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   primaryBtnText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
+  bgDivider: { height: 1, backgroundColor: colors.divider2, marginVertical: 20 },
+  bgHint: {
+    fontFamily: font.regular,
+    fontSize: 12.5,
+    lineHeight: 19,
+    color: colors.muted,
+    marginBottom: 10,
+  },
+  bgStatus: {
+    marginTop: 10,
+    fontFamily: font.medium,
+    fontSize: 13,
+    color: colors.tagGreenText,
+  },
+  ghostBtn: { alignSelf: 'center', marginTop: 12, padding: 6 },
+  ghostBtnText: { fontFamily: font.medium, fontSize: 12.5, color: colors.muted },
   secondaryBtn: {
     marginTop: 4,
     backgroundColor: colors.tagBlueBg,

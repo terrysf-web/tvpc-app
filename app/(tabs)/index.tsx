@@ -22,7 +22,7 @@ import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
-import { verseBg } from '../../src/verseBg';
+import { useVerseBg } from '../../src/verseBg';
 
 /** 시간대 — 아침(6~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~6) */
 function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' | 'dawn' {
@@ -86,7 +86,7 @@ export default function HomeScreen() {
   const openBulletin = () => router.push('/bulletin');
 
   // 시간대별 기본 배경 (새벽·저녁·밤은 어두운 그림 → 흰 글씨)
-  const bg = verseBg();
+  const bg = useVerseBg();
   // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
   const isSunday = new Date().getDay() === 0;
   const sundayTimes = churchInfo.services
