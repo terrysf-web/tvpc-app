@@ -48,11 +48,19 @@ function matchNames(names: string, cell: string, q: string): boolean {
   const n = toks.length;
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
+      if (i !== j && (toks[i] + toks[j]).includes(nq)) return true;
+    }
+  }
+  // 세 조각 조합('영 허 성' 같은 낱글자 분해)은 짧은 토큰(≤2자)끼리만 —
+  // 긴 토큰 조합은 위의 두 조각 검사로 이미 걸리고, 전체 삼중 루프는 느리다
+  const short = toks.filter((t) => t.length <= 2);
+  const m = short.length;
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < m; j++) {
       if (i === j) continue;
-      if ((toks[i] + toks[j]).includes(nq)) return true;
-      for (let k = 0; k < n; k++) {
+      for (let k = 0; k < m; k++) {
         if (k === i || k === j) continue;
-        if ((toks[i] + toks[j] + toks[k]).includes(nq)) return true;
+        if ((short[i] + short[j] + short[k]).includes(nq)) return true;
       }
     }
   }
@@ -185,11 +193,13 @@ const PageItem = React.memo(function PageItem({
 const RowItem = React.memo(function RowItem({
   img,
   cell,
+  names,
   showHeader,
   pageWidth,
 }: {
   img: AlbumPage | undefined;
   cell: string;
+  names: string;
   showHeader: boolean;
   pageWidth: number;
 }) {
@@ -209,8 +219,13 @@ const RowItem = React.memo(function RowItem({
           />
         </View>
       ) : (
-        <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 0.32 }]}>
+        // 사진이 내려오기 전에도 이름을 먼저 보여준다 — 검색이 느리다는
+        // 느낌의 대부분은 사진 다운로드 대기 시간이다
+        <View style={[styles.placeholder, styles.placeholderRow, { width: pageWidth }]}>
           <ActivityIndicator color={colors.faint} />
+          <Text style={styles.placeholderNames} numberOfLines={2}>
+            {names.replace(/\s+/g, ' ').trim()}
+          </Text>
         </View>
       )}
     </>
@@ -238,6 +253,7 @@ export default function AlbumScreen() {
   const queryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dbRef = useRef<Firestore | null>(null);
   const fetching = useRef<Set<number>>(new Set());
+  const filteringRef = useRef(false);
 
   // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리므로
   // 입력창은 비제어로 두고, 필터는 입력이 잠시 멈춘 뒤(300ms) 적용한다.
@@ -312,6 +328,12 @@ export default function AlbumScreen() {
           setCache((prev) => ({ ...prev, ...b }));
         };
         for (let i = 0; i < idx.length && !cancelled; i++) {
+          // 검색·셀 필터 중에는 배경 로딩을 멈춰, 검색된 줄 사진이
+          // 대역폭을 독차지하고 바로 내려오게 한다
+          while (filteringRef.current && !cancelled) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
+          if (cancelled) return;
           if (fetching.current.has(i)) continue;
           fetching.current.add(i);
           try {
@@ -340,6 +362,7 @@ export default function AlbumScreen() {
 
   // 검색은 두 글자부터 동작 (한 글자는 무시하고 소개 페이지 유지)
   const filtering = !!cellFilter || norm(query).length >= 2;
+  filteringRef.current = filtering;
   const visible = useMemo(() => {
     const base = index
       .map((r, i) => ({ r, i }))
@@ -442,6 +465,7 @@ export default function AlbumScreen() {
                 key={`r${i}`}
                 img={cache[i]}
                 cell={r.cell}
+                names={r.names}
                 showHeader={!prev || prev.cell !== r.cell}
                 pageWidth={pageWidth}
               />
@@ -466,6 +490,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.screenBg,
     borderRadius: 10,
+  },
+  placeholderRow: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: colors.card,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+  },
+  placeholderNames: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.body,
   },
   pageNum: {
     position: 'absolute',
