@@ -2,12 +2,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bookmark, List } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
-import { VerseNoteCard, type VerseNoteHandle } from '../../src/components/VerseNoteCard';
+import {
+  hasVerseNote,
+  VerseNoteCard,
+  type VerseNoteHandle,
+} from '../../src/components/VerseNoteCard';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { colors, font, textShadow } from '../../src/theme';
@@ -73,12 +77,36 @@ export default function WordScreen() {
   };
   const hlNums = new Set(hls.map((h) => h.v));
 
+  // 북마크 해제 시 메모·형광펜이 있으면 실수로 잃지 않게 한 번 더 확인
+  const [noteKey, setNoteKey] = useState(0);
   const onToggleSaved = () => {
-    toggleSavedVerse({
-      date: verse.date,
-      reference: verse.reference,
-      heroText: verse.heroText,
-    }).then(setSaved);
+    const entry = { date: verse.date, reference: verse.reference, heroText: verse.heroText };
+    if (saved && (hls.length > 0 || hasVerseNote(verse.date))) {
+      const msg = `${verse.reference} 말씀의 저장을 해제할까요?\n적어둔 메모와 형광펜 표시도 함께 지워집니다.`;
+      const doRemove = () => {
+        toggleSavedVerse(entry).then(setSaved);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(`verseNote:${verse.date}`);
+            window.localStorage.removeItem(`verseHl:${verse.date}`);
+          }
+        } catch {
+          /* 무시 */
+        }
+        setHls([]);
+        setNoteKey((k) => k + 1); // 메모장 비우기(재장착)
+      };
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.confirm(msg)) doRemove();
+      } else {
+        Alert.alert('저장 해제', msg, [
+          { text: '취소', style: 'cancel' },
+          { text: '해제', style: 'destructive', onPress: doRemove },
+        ]);
+      }
+      return;
+    }
+    toggleSavedVerse(entry).then(setSaved);
   };
 
   // 확정된 말씀·배경이 오기 전에는 샘플 구절이 번쩍이지 않게 로딩 화면만
@@ -164,7 +192,7 @@ export default function WordScreen() {
             숨김(display:none)으로만 감춘다 */}
         <View style={{ display: tab === 'note' ? 'flex' : 'none' }}>
           <VerseNoteCard
-            key={verse.date}
+            key={`${verse.date}:${noteKey}`}
             ref={noteRef}
             date={verse.date}
             reference={verse.reference}

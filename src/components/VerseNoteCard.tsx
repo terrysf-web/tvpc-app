@@ -62,13 +62,23 @@ function loadSegs(date: string): Seg[] {
   for (const h of getHighlights(date)) {
     if (!segs.some((s) => s.kind === 'q' && s.v === h.v)) {
       segs.push({ id: id++, kind: 'q', v: h.v, text: h.t });
-      segs.push({ id: id++, kind: 'm', text: '' });
     }
   }
-  if (segs.length === 0 || segs[segs.length - 1].kind === 'q') {
-    segs.push({ id: id++, kind: 'm', text: '' });
+  // 빈 메모 칸 정리 — 구절이 '빈 칸 아래(중간)'에 끼지 않게 하고,
+  // 구절 사이와 맨 끝에만 메모 칸을 둔다
+  const filled = segs.filter((s) => s.kind === 'q' || s.text.trim().length > 0);
+  const out: Seg[] = [];
+  for (let i = 0; i < filled.length; i++) {
+    out.push(filled[i]);
+    const next = filled[i + 1];
+    if (filled[i].kind === 'q' && next && next.kind === 'q') {
+      out.push({ id: id++, kind: 'm', text: '' });
+    }
   }
-  return segs;
+  if (out.length === 0 || out[out.length - 1].kind === 'q') {
+    out.push({ id: id++, kind: 'm', text: '' });
+  }
+  return out;
 }
 
 export const VerseNoteCard = React.forwardRef<
@@ -140,10 +150,18 @@ export const VerseNoteCard = React.forwardRef<
       setSegs((prev) => {
         if (prev.some((s) => s.kind === 'q' && s.v === v)) return prev;
         const q: Seg = { id: nextId.current++, kind: 'q', v, text: t };
-        const m: Seg = { id: nextId.current++, kind: 'm', text: '' };
-        vals.current[m.id] = '';
-        const next = [...prev, q, m];
-        pendingFocus.current = m.id;
+        const last = prev[prev.length - 1];
+        let next: Seg[];
+        if (last && last.kind === 'm' && !(vals.current[last.id] ?? last.text).trim()) {
+          // 맨 끝 메모 칸이 비어 있으면 그 위에 구절을 넣고 그 칸을 그대로 쓴다
+          next = [...prev.slice(0, -1), q, last];
+          pendingFocus.current = last.id;
+        } else {
+          const m: Seg = { id: nextId.current++, kind: 'm', text: '' };
+          vals.current[m.id] = '';
+          next = [...prev, q, m];
+          pendingFocus.current = m.id;
+        }
         persist(next);
         return next;
       });
