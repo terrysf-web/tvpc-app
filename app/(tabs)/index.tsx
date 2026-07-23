@@ -22,7 +22,7 @@ import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
-import { useVerseBg } from '../../src/verseBg';
+import { useSundayBg, useVerseBg } from '../../src/verseBg';
 
 /** 시간대 — 아침(6~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~6) */
 function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' | 'dawn' {
@@ -96,6 +96,9 @@ export default function HomeScreen() {
 
   // 시간대별 기본 배경 (새벽·저녁·밤은 어두운 그림 → 흰 글씨)
   const bg = useVerseBg();
+  // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
+  const sundayBg = useSundayBg();
+  const sb = sundayBg ?? bg;
   // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
   const isSunday = new Date().getDay() === 0;
   const sundayTimes = churchInfo.services
@@ -180,31 +183,31 @@ export default function HomeScreen() {
         <View style={[styles.heroWrap, shadows.hero]}>
           {isSunday ? (
             // 주일예배 안내도 시간대별 배경을 쓴다 (아침 예배 시간엔 아침 그림)
-            <PhotoSlot uri={bg.uri} tone="deep" style={styles.hero}>
+            <PhotoSlot uri={sb.uri} tone="deep" style={styles.hero}>
               <View style={styles.heroTopRow}>
-                <View style={[styles.heroBadge, !bg.dark && styles.heroBadgeDark]}>
+                <View style={[styles.heroBadge, !sb.dark && styles.heroBadgeDark]}>
                   <Text style={styles.heroBadgeText}>주일예배</Text>
                 </View>
-                <Text style={[styles.heroDate, !bg.dark && styles.heroDateDark]}>
+                <Text style={[styles.heroDate, !sb.dark && styles.heroDateDark]}>
                   {todayLabel()}
                 </Text>
               </View>
               <View style={styles.heroBottom}>
-                <Text style={[styles.heroRef, !bg.dark && styles.heroRefDark]}>
+                <Text style={[styles.heroRef, !sb.dark && styles.heroRefDark]}>
                   {churchInfo.nameKo}
                 </Text>
-                <Text style={[styles.heroVerse, !bg.dark && styles.heroVerseDark]}>
+                <Text style={[styles.heroVerse, !sb.dark && styles.heroVerseDark]}>
                   오늘은 주일입니다{'\n'}예배로 함께 나아가요
                 </Text>
-                <Text style={[styles.sundayTimes, !bg.dark && styles.sundayTimesDark]}>
+                <Text style={[styles.sundayTimes, !sb.dark && styles.sundayTimesDark]}>
                   {sundayTimes} · 본당
                 </Text>
                 <View style={styles.heroBtnRow}>
                   <Pressable
-                    style={[styles.heroBtn, !bg.dark && styles.heroBtnDark]}
+                    style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
                     onPress={() => router.push('/sermon')}
                   >
-                    <Text style={[styles.heroBtnText, !bg.dark && styles.heroBtnTextDark]}>
+                    <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
                       설교 영상
                     </Text>
                   </Pressable>
@@ -212,7 +215,7 @@ export default function HomeScreen() {
                     style={[
                       styles.heroBtn,
                       styles.heroBtnGhost,
-                      !bg.dark && styles.heroBtnGhostLight,
+                      !sb.dark && styles.heroBtnGhostLight,
                     ]}
                     onPress={openBulletin}
                   >
@@ -220,7 +223,7 @@ export default function HomeScreen() {
                       style={[
                         styles.heroBtnText,
                         styles.heroBtnGhostText,
-                        !bg.dark && styles.heroBtnGhostTextLight,
+                        !sb.dark && styles.heroBtnGhostTextLight,
                       ]}
                     >
                       주보 보기

@@ -32,7 +32,13 @@ import {
   saveBulletin,
 } from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
-import { gradeAndSaveVerseBg, regradeVerseBg, resetVerseBg } from '../src/verseBg';
+import {
+  clearSundayBg,
+  gradeAndSaveVerseBg,
+  regradeVerseBg,
+  resetVerseBg,
+  saveSundayBg,
+} from '../src/verseBg';
 
 type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'members' | 'offering';
 
@@ -171,6 +177,31 @@ export default function AdminScreen() {
         imageUrl: null,
       });
     }, `${vDate} 말씀이 등록됐습니다. 앱에 바로 반영됩니다.`);
+
+  const pickSundayBgImage = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      setMsg('배경 그림 업로드는 컴퓨터 브라우저에서 해주세요.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBusy(true);
+      setMsg(null);
+      try {
+        await saveSundayBg(file);
+        setMsg('주일 카드 배경이 등록됐습니다. 주일에 이 그림이 표시됩니다.');
+      } catch (e) {
+        setMsg(`저장 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      } finally {
+        setBusy(false);
+      }
+    };
+    input.click();
+  };
 
   const pickVerseBgImage = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
@@ -420,6 +451,33 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.ghostBtnText}>기본 그림으로 되돌리기</Text>
+            </Pressable>
+
+            {/* 주일 전용 배경 (선택) */}
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>주일예배 카드 배경 (선택)</Text>
+            <Text style={styles.bgHint}>
+              주일에만 쓸 그림을 따로 올릴 수 있습니다. 변환 없이 그대로 표시되고,
+              글씨 색은 그림 밝기에 맞춰 자동으로 정해집니다. 등록하지 않으면
+              주일에도 시간대 배경을 씁니다.
+            </Text>
+            <Pressable
+              style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
+              onPress={pickSundayBgImage}
+              disabled={busy}
+            >
+              <Text style={styles.secondaryBtnText}>주일 배경 그림 선택</Text>
+            </Pressable>
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={() =>
+                submit(async () => {
+                  await clearSundayBg();
+                }, '주일 전용 배경을 지웠습니다. 주일에도 시간대 배경을 씁니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.ghostBtnText}>주일 배경 지우기</Text>
             </Pressable>
           </View>
         )}

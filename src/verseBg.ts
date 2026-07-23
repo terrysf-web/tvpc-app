@@ -262,6 +262,92 @@ export async function regradeVerseBg(onStatus?: (msg: string) => void): Promise<
   await gradeFromImage(img, onStatus);
 }
 
+/* ---------------- 주일 전용 배경 (선택) ---------------- */
+
+const sundayCache: { v?: { uri: string; dark: boolean } | null } = {};
+
+/** 주일예배 카드 전용 배경 — 등록돼 있으면 반환, 없으면 null */
+export function useSundayBg(): { uri: string; dark: boolean } | null {
+  const [v, setV] = useState<{ uri: string; dark: boolean } | null>(sundayCache.v ?? null);
+  useEffect(() => {
+    let on = true;
+    (async () => {
+      if (sundayCache.v !== undefined) {
+        if (on) setV(sundayCache.v);
+        return;
+      }
+      try {
+        const db = getDb();
+        if (!db) {
+          sundayCache.v = null;
+          return;
+        }
+        await ensureAnonymousAuth();
+        const snap = await getDoc(doc(db, 'verseBg', 'sunday'));
+        const img = snap.exists() ? String(snap.get('image') ?? '') : '';
+        sundayCache.v = img ? { uri: img, dark: !!snap.get('dark') } : null;
+        if (on) setV(sundayCache.v);
+      } catch {
+        sundayCache.v = null;
+      }
+    })();
+    return () => {
+      on = false;
+    };
+  }, []);
+  return v;
+}
+
+/**
+ * 주일 전용 배경 저장 — 변환 없이 그대로 쓰되, 평균 밝기를 재서
+ * 글씨 색(흰색/남색)을 자동으로 정한다. (웹 전용, 관리자)
+ */
+export async function saveSundayBg(file: File): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+  const objUrl = URL.createObjectURL(file);
+  const img = await loadImage(objUrl);
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+  drawCover(ctx, img);
+  // 평균 밝기 — 64×32로 줄여 샘플링
+  const s = document.createElement('canvas');
+  s.width = 64;
+  s.height = 32;
+  const sctx = s.getContext('2d');
+  let dark = false;
+  if (sctx) {
+    sctx.drawImage(canvas, 0, 0, 64, 32);
+    const d = sctx.getImageData(0, 0, 64, 32).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    }
+    dark = sum / (d.length / 4) < 115; // 어두운 그림이면 흰 글씨
+  }
+  let dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+  if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+  await setDoc(doc(db, 'verseBg', 'sunday'), {
+    image: dataUrl,
+    dark,
+    updatedAt: new Date().toISOString(),
+  });
+  sundayCache.v = { uri: dataUrl, dark };
+  URL.revokeObjectURL(objUrl);
+}
+
+/** 주일 전용 배경 삭제 — 시간대 배경으로 복귀 */
+export async function clearSundayBg(): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+  await deleteDoc(doc(db, 'verseBg', 'sunday')).catch(() => {});
+  sundayCache.v = null;
+}
+
 /** 관리자 업로드를 지우고 내장 기본 그림으로 되돌린다 */
 export async function resetVerseBg(): Promise<void> {
   const db = getDb();
