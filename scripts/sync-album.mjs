@@ -74,7 +74,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 12;
+const CONVERTER_VERSION = 13;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -298,6 +298,20 @@ for (let i = 0; i < files.length; i++) {
     rows.push({ cell, names, buf, w: imgW, h: cropH });
   }
   console.log(`  p${i + 1}: 명부 ${photos.length}줄 (OCR 단어 ${words.length}개)`);
+}
+
+// 그룹 라벨 후처리 — 오독은 알려진 그룹만 인정하고('CVA'→'CYA' 보정),
+// 아니면 명부 순서상 바로 앞 줄의 그룹을 이어받는다
+// (Bre·er 같은 잡음 라벨은 대개 그룹 머리글이 없는 이어지는 줄이다)
+const KNOWN_CELL = /^(Cell-\d{2}|CYA|EM|Pastor|늘푸른)$/;
+const CELL_FIX = { CVA: 'CYA', CY4: 'CYA', Em: 'EM' };
+{
+  let prevCell = null;
+  for (const r of rows) {
+    if (CELL_FIX[r.cell]) r.cell = CELL_FIX[r.cell];
+    if (!KNOWN_CELL.test(r.cell)) r.cell = prevCell ?? '기타';
+    prevCell = r.cell;
+  }
 }
 
 // 셀 이름순으로 묶어 저장 — 뷰어는 순서대로 읽으며 셀이 바뀔 때 제목을 단다
