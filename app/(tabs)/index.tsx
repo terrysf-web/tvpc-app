@@ -481,8 +481,14 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
     textShadowOffset: { width: 0, height: 0 },
   },
-  heroBtnDark: { backgroundColor: colors.primary },
-  heroBtnTextDark: { color: '#FFFFFF' },
+  // 밝은 배경에서는 단색 남색이 수채화 위에서 무겁게 튀므로,
+  // 젖빛 유리 느낌의 반투명 흰 버튼 + 남색 글씨 + 얇은 테두리로.
+  heroBtnDark: {
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(23,64,110,0.3)',
+  },
+  heroBtnTextDark: { color: '#17406E' },
   sundayTimesDark: {
     color: '#17406E',
     textShadowColor: 'rgba(255,255,255,0.9)',
