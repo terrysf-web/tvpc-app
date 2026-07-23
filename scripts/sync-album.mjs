@@ -74,7 +74,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 15;
+const CONVERTER_VERSION = 16;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -273,7 +273,9 @@ for (let i = 0; i < files.length; i++) {
     let cell = normCell(cellText);
     // 이름 열 — 300dpi OCR(한글 정확도)로 검색용 이름 추출
     const names = words300
-      .filter((w) => inRow(w) && w.conf >= 30 && w.left >= nameX - 20 && w.left < cellX - 20)
+      // 이름은 검색 색인용 — 신뢰도 문턱을 낮춰(12) 흐리게 읽힌 이름도
+      // 검색에 걸리게 한다 (잡음이 섞여도 포함 검색이라 해가 없다)
+      .filter((w) => inRow(w) && w.conf >= 12 && w.left >= nameX - 20 && w.left < cellX - 20)
       .sort((a, b) => a.top - b.top || a.left - b.left)
       .map((w) => w.text)
       .join(' ')
