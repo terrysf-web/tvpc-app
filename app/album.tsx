@@ -35,6 +35,19 @@ interface RowIndex {
 const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
 /**
+ * 자리 표시용 이름 정리 — OCR 색인에는 검색을 위해 잡음까지 담겨 있지만,
+ * 화면에 보여줄 때는 사람 이름처럼 생긴 토큰(한글, 첫 글자만 대문자인
+ * 영문)만 남긴다. ")66540", "HH", "=" 같은 잡음 제거.
+ */
+function cleanNames(s: string): string {
+  return s
+    .split(/\s+/)
+    .filter((t) => /^[가-힣]+$/.test(t) || /^[A-Z][a-z]+$/.test(t))
+    .join(' ')
+    .slice(0, 60);
+}
+
+/**
  * 이름 검색 — 두 글자부터, 검색어 전체가 정확히 일치해야 매칭.
  * (1글자 오차 허용은 '이현수'가 '이진수'에 걸리는 식의 오탐이 많아 제거)
  * OCR이 이름을 '영 허 성'처럼 쪼개거나 순서를 뒤집는 경우가 있어
@@ -232,7 +245,7 @@ const RowItem = React.memo(function RowItem({
         <View style={[styles.placeholder, styles.placeholderRow, { width: pageWidth }]}>
           <ActivityIndicator color={colors.faint} />
           <Text style={styles.placeholderNames} numberOfLines={2}>
-            {names.replace(/\s+/g, ' ').trim()}
+            {cleanNames(names) || '사진 불러오는 중…'}
           </Text>
         </View>
       )}
@@ -548,7 +561,7 @@ export default function AlbumScreen() {
             }
           }
         };
-        await Promise.all([worker(), worker(), worker(), worker()]);
+        await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
         if (!cancelled) flush();
       } catch {
         if (!cancelled) setFailed(true);
