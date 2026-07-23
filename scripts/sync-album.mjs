@@ -15,8 +15,44 @@ import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import sharp from 'sharp';
 
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)';
+const FALLBACK_URL = 'https://tvpc.church/ChurchDirectory/TVPC_2026_01.pdf';
+
+/**
+ * 최신 앨범 자동 탐색 — 교회가 ChurchDirectory 폴더에 TVPC_연도_월.pdf
+ * 규칙으로 올리면(예: TVPC_2026_07.pdf) 여기서 최근 월부터 거꾸로
+ * 확인해 가장 최신 파일을 쓴다. 새 앨범이 나와도 코드를 고칠 필요가 없다.
+ */
+async function discoverAlbumUrl() {
+  const exists = async (url) => {
+    try {
+      const head = await fetch(url, { method: 'HEAD', headers: { 'user-agent': UA } });
+      if (head.ok) return (head.headers.get('content-type') || '').includes('pdf') || true;
+      if (head.status === 405 || head.status === 403) {
+        // HEAD를 막는 서버 — 첫 바이트만 받아 확인
+        const r = await fetch(url, {
+          headers: { 'user-agent': UA, range: 'bytes=0-4' },
+        });
+        return r.ok;
+      }
+    } catch {
+      /* 다음 후보로 */
+    }
+    return false;
+  };
+  const now = new Date();
+  for (let k = 0; k < 24; k++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+    const url = `https://tvpc.church/ChurchDirectory/TVPC_${d.getFullYear()}_${String(
+      d.getMonth() + 1,
+    ).padStart(2, '0')}.pdf`;
+    if (await exists(url)) return url;
+  }
+  return null;
+}
+
 const ALBUM_URL =
-  process.env.ALBUM_URL || 'https://tvpc.church/ChurchDirectory/TVPC_2026_01.pdf';
+  process.env.ALBUM_URL || (await discoverAlbumUrl()) || FALLBACK_URL;
 
 const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 initializeApp({ credential: cert(sa) });
@@ -24,7 +60,7 @@ const db = getFirestore();
 
 console.log(`[앨범] 다운로드: ${ALBUM_URL}`);
 const res = await fetch(ALBUM_URL, {
-  headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
+  headers: { 'user-agent': UA },
 });
 if (!res.ok) {
   console.error(`  ✗ HTTP ${res.status} — 주소를 확인해 주세요.`);

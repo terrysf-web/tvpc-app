@@ -425,6 +425,7 @@ export default function AlbumScreen() {
   const [cache, setCache] = useState<Record<number, AlbumPage>>({});
   const [failed, setFailed] = useState(false);
   const [cells, setCells] = useState<string[]>([]);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [cellFilter, setCellFilter] = useState<string | null>(null);
   const [dropOpen, setDropOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -486,6 +487,7 @@ export default function AlbumScreen() {
         setPages(Array(n).fill(null));
         setIndex(idx);
         setCells(((meta.get('cells') as string[] | undefined) ?? []).map(String));
+        setSourceUrl((meta.get('sourceUrl') as string | undefined) ?? null);
         // 소개 페이지 → 명부 이미지 순서대로 배경 로드 (첫 장부터 바로 보인다)
         for (let i = 0; i < n && !cancelled; i++) {
           const snap = await getDoc(doc(db, 'albums', 'current', 'pages', String(i).padStart(3, '0')));
@@ -565,8 +567,12 @@ export default function AlbumScreen() {
   }, [filtering, visible]);
 
   const pageWidth = Math.min(width, 520) - 24;
+  // 변환에 실제로 쓰인 최신 PDF 주소(자동 탐색 결과)를 우선 사용
   const openPdf = () =>
-    router.push({ pathname: '/browser', params: { url: churchInfo.albumPdf, t: '교회 앨범' } });
+    router.push({
+      pathname: '/browser',
+      params: { url: sourceUrl ?? churchInfo.albumPdf, t: '교회 앨범' },
+    });
 
   return (
     <View style={styles.screen}>
