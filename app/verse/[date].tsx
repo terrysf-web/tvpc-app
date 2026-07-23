@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { OverlayHeader } from '../../src/components/OverlayHeader';
 import { VerseNoteCard } from '../../src/components/VerseNoteCard';
 import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
-import { getHighlights } from '../../src/data/verseMarks';
+import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { ensureAnonymousAuth, getDb } from '../../src/firebase';
 import { colors, font, radius, shadows } from '../../src/theme';
 import type { VerseDoc } from '../../src/types';
@@ -52,7 +52,11 @@ export default function VerseByDateScreen() {
   }, [date]);
 
   // 이 날짜에 형광펜으로 표시해 둔 구절 (기기 저장)
-  const hls = date ? getHighlights(date) : [];
+  // 이 날짜에 형광펜으로 표시해 둔 구절 — 메모장 안에 고정으로 보여준다
+  const [hls, setHls] = useState<VerseHighlight[]>([]);
+  useEffect(() => {
+    if (date) setHls(getHighlights(date));
+  }, [date]);
   const hlSet = new Set(hls.map((h) => h.v));
 
   const onToggleSaved = () => {
@@ -103,20 +107,6 @@ export default function VerseByDateScreen() {
             )}
           </View>
 
-          {hls.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>형광펜 구절</Text>
-              <View style={[styles.sectionCard, styles.hlCard, shadows.card]}>
-                {hls.map((h) => (
-                  <View key={h.v} style={styles.verseRow}>
-                    <Text style={styles.verseNum}>{h.v}</Text>
-                    <Text style={styles.verseText}>{h.t}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-
           <Text style={styles.sectionTitle}>본문</Text>
           <View style={[styles.sectionCard, shadows.card]}>
             {verse.passage.map((p) => (
@@ -133,6 +123,8 @@ export default function VerseByDateScreen() {
             date={verse.date}
             reference={verse.reference}
             heroText={verse.heroText}
+            quotes={hls}
+            onRemoveQuote={(v) => date && setHls(toggleHighlight(date, v, ''))}
             onAutoSaved={() => setSaved(true)}
           />
         </ScrollView>
