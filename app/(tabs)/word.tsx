@@ -71,6 +71,14 @@ export default function WordScreen() {
                 weekday: 'long',
               })}
             </Text>
+            {/* 자동 등록 본문은 개역한글판 — 예배용 개역개정과 어투가 달라 표기해 둔다 */}
+            {verse.source === 'auto' && (
+              <Text
+                style={[styles.versionTag, !verse.imageUrl && !bg.dark && styles.versionTagDark]}
+              >
+                성경전서 개역한글판
+              </Text>
+            )}
           </View>
         </View>
       </PhotoSlot>
@@ -160,6 +168,14 @@ const styles = StyleSheet.create({
   // 밝은 기본 배경용 — 진한 남색 글씨 (반투명 흰 패널 위)
   heroRefDark: { color: '#122B4F', textShadowColor: 'transparent', textShadowRadius: 0 },
   heroDateDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
+  versionTag: {
+    marginTop: 4,
+    fontFamily: font.medium,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.75)',
+    ...textShadow,
+  },
+  versionTagDark: { color: '#5B7BA6', textShadowColor: 'transparent', textShadowRadius: 0 },
   heroPanel: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.78)',

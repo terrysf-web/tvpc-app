@@ -13,6 +13,8 @@ export interface VerseDoc {
   application: string[];
   prayer: string;
   imageUrl?: string | null;
+  /** 'auto' = 주보에서 자동 등록(개역한글 본문), 없으면 직접 등록 */
+  source?: string;
 }
 
 export type SermonCategory = 'sermon' | 'podcast' | 'praise' | 'etc';
