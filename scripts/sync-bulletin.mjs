@@ -370,9 +370,24 @@ async function syncDawnVerses() {
   console.log(`  → 매일 말씀 ${wrote}건 등록`);
 }
 
+// 마지막 자동 확인 결과 — 관리자 화면 '자동 동기화 상태'에 표시된다
+async function writeStatus(changed, note) {
+  try {
+    await db.doc('syncStatus/bulletin').set({
+      at: FieldValue.serverTimestamp(),
+      bulletinDate: date,
+      changed,
+      note,
+    });
+  } catch (e) {
+    console.log(`  ! 상태 기록 실패(무해): ${e.message}`);
+  }
+}
+
 const existing = await db.doc(`bulletins/${date}`).get();
 if (existing.exists && existing.get('pdfHash') === pdfHash) {
   console.log(`완료: ${date} 주보는 이미 최신입니다 (변경 없음).`);
+  await writeStatus(false, '이미 최신 (변경 없음)');
   process.exit(0);
 }
 
@@ -428,4 +443,5 @@ await db.doc(`bulletins/${date}`).set({
   source: 'auto',
   updatedAt: FieldValue.serverTimestamp(),
 });
+await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
 console.log(`완료: ${date} 주보 ${ordered.length}페이지 등록`);

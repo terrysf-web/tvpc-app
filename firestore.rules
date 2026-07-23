@@ -52,6 +52,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 자동 동기화 상태 — 관리자 화면 표시용, 기록은 서버(서비스 계정)만
+    match /syncStatus/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /bulletins/{date} {
       // 이미지 주보 — 인쇄물 QR 코드로 누구나 열람, 등록은 관리자만
       allow read: if true;

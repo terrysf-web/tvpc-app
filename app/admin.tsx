@@ -1,5 +1,6 @@
 import { LogOut } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { doc, getDoc, type Timestamp } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -32,6 +33,7 @@ import {
   saveBulletin,
 } from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
+import { getDb } from '../src/firebase';
 import {
   clearSundayBg,
   gradeAndSaveVerseBg,
@@ -128,6 +130,34 @@ export default function AdminScreen() {
   const [bPages, setBPages] = useState<BulletinPage[]>([]);
   const [bStatus, setBStatus] = useState<string | null>(null);
   const [bgStatus, setBgStatus] = useState<string | null>(null);
+
+  // 주보 자동 동기화 상태 — 토요일 저녁 자동 확인이 잘 돌았는지 표시
+  const [syncInfo, setSyncInfo] = useState<string | null>(null);
+  useEffect(() => {
+    const db = getDb();
+    if (!db) return;
+    getDoc(doc(db, 'syncStatus', 'bulletin'))
+      .then((snap) => {
+        if (!snap.exists()) {
+          setSyncInfo('아직 자동 확인 기록이 없습니다 (이번 토요일 오후 5:45 첫 실행)');
+          return;
+        }
+        const at = (snap.get('at') as Timestamp | null)?.toDate();
+        const when = at
+          ? at.toLocaleString('ko-KR', {
+              month: 'numeric',
+              day: 'numeric',
+              weekday: 'short',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          : '';
+        setSyncInfo(
+          `마지막 자동 확인: ${when} ✓ · ${String(snap.get('bulletinDate') ?? '')} 주보 — ${String(snap.get('note') ?? '')}`,
+        );
+      })
+      .catch(() => setSyncInfo(null));
+  }, []);
 
   // 교인 승인 / 헌금 입력
   const pending = usePendingMembers(isAdmin);
@@ -484,6 +514,11 @@ export default function AdminScreen() {
 
         {tab === 'bulletin' && (
           <View style={[styles.card, shadows.card]}>
+            {syncInfo ? (
+              <View style={styles.syncBox}>
+                <Text style={styles.syncBoxText}>{syncInfo}</Text>
+              </View>
+            ) : null}
             <Text style={styles.blockTitle}>주보 PDF 업로드</Text>
             <Field
               label="주보 날짜 (YYYY-MM-DD)"
@@ -757,6 +792,19 @@ const styles = StyleSheet.create({
   blockTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title, marginBottom: 12 },
   emptyText: { fontFamily: font.regular, fontSize: 13, color: colors.faint, marginBottom: 8 },
   hintText: { marginTop: 12, fontFamily: font.regular, fontSize: 11.5, lineHeight: 17, color: colors.faint },
+  syncBox: {
+    backgroundColor: colors.tagGreenBg,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  syncBoxText: {
+    fontFamily: font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.tagGreenText,
+  },
   pendingRow: {
     flexDirection: 'row',
     alignItems: 'center',
