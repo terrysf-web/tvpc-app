@@ -7,17 +7,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
+import { VerseNoteCard } from '../../src/components/VerseNoteCard';
 import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { colors, font, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
-type WordTab = 'text' | 'med' | 'app' | 'pray';
+type WordTab = 'text' | 'med' | 'app' | 'pray' | 'note';
 
 const TABS: { key: WordTab; label: string }[] = [
   { key: 'text', label: '본문' },
   { key: 'med', label: '묵상' },
   { key: 'app', label: '적용' },
   { key: 'pray', label: '기도' },
+  { key: 'note', label: '메모' },
 ];
 
 /** 글씨크기 3단계 */
@@ -143,6 +145,8 @@ export default function WordScreen() {
               '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
           </Text>
         )}
+        {/* 날짜별 묵상 메모 — 이 기기에 저장, 저장한 말씀에서 다시 볼 때도 보인다 */}
+        {tab === 'note' && <VerseNoteCard key={verse.date} date={verse.date} />}
       </ScrollView>
 
       {/* 하단 액션 바 */}

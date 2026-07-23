@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../../src/components/OverlayHeader';
+import { VerseNoteCard } from '../../src/components/VerseNoteCard';
 import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { ensureAnonymousAuth, getDb } from '../../src/firebase';
 import { colors, font, radius, shadows } from '../../src/theme';
@@ -138,6 +139,9 @@ export default function VerseByDateScreen() {
               </View>
             </>
           )}
+
+          <Text style={styles.sectionTitle}>메모</Text>
+          <VerseNoteCard key={verse.date} date={verse.date} />
         </ScrollView>
       )}
     </View>
