@@ -147,12 +147,24 @@ export default function WordScreen() {
 
       {/* 하단 액션 바 */}
       <View style={[styles.actionBar, { paddingBottom: 10 }]}>
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => setScaleStep((s) => (s + 1) % FONT_SCALES.length)}
-        >
-          <Text style={[styles.fontSizeGlyph, { fontSize: 16 + scaleStep * 2 }]}>가</Text>
-        </Pressable>
+        {/* 글자 크기 — '가−/가+' 두 버튼으로, 한눈에 뜻이 보이게 */}
+        <View style={styles.fontCtl}>
+          <Pressable
+            style={[styles.fontBtn, scaleStep === 0 && styles.fontBtnDim]}
+            onPress={() => setScaleStep((s) => Math.max(0, s - 1))}
+            hitSlop={6}
+          >
+            <Text style={[styles.fontBtnText, { fontSize: 13 }]}>가−</Text>
+          </Pressable>
+          <View style={styles.fontCtlDivider} />
+          <Pressable
+            style={[styles.fontBtn, scaleStep === FONT_SCALES.length - 1 && styles.fontBtnDim]}
+            onPress={() => setScaleStep((s) => Math.min(FONT_SCALES.length - 1, s + 1))}
+            hitSlop={6}
+          >
+            <Text style={[styles.fontBtnText, { fontSize: 17 }]}>가+</Text>
+          </Pressable>
+        </View>
         <Pressable style={styles.actionBtn} onPress={onToggleSaved}>
           <Bookmark
             size={20}
@@ -256,5 +268,21 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   actionBtnLabel: { fontFamily: font.medium, fontSize: 13, color: colors.muted3 },
-  fontSizeGlyph: { fontFamily: font.bold, color: colors.body },
+  fontCtl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  fontBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fontBtnDim: { opacity: 0.35 },
+  fontBtnText: { fontFamily: font.bold, color: colors.body },
+  fontCtlDivider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.divider },
 });
