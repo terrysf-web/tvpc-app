@@ -161,28 +161,40 @@ export default function HomeScreen() {
               </View>
             </PhotoSlot>
           ) : (
+            // 기본(밝은) 배경일 땐 진한 남색 글씨가 또렷하다.
+            // 관리자가 어두운 사진을 넣으면 흰 글씨 + 어두운 덮개로 전환.
             <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
-              {/* 밝은 배경이 살도록 위쪽은 거의 투명, 글씨가 앉는 아래쪽만 어둡게 */}
-              <LinearGradient
-                colors={['rgba(12,28,54,0)', 'rgba(12,28,54,0.06)', 'rgba(12,28,54,0.55)']}
-                locations={[0, 0.45, 1]}
-                style={StyleSheet.absoluteFill}
-              />
+              {verse.imageUrl ? (
+                <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+              ) : null}
               <View style={styles.heroTopRow}>
-                <View style={styles.heroBadge}>
+                <View style={[styles.heroBadge, !verse.imageUrl && styles.heroBadgeDark]}>
                   <Text style={styles.heroBadgeText}>
                     {verse.passageTitle?.includes('새벽예배')
                       ? '오늘의 말씀 · 새벽예배'
                       : '오늘의 말씀'}
                   </Text>
                 </View>
-                <Text style={styles.heroDate}>{todayLabel()}</Text>
+                <Text style={[styles.heroDate, !verse.imageUrl && styles.heroDateDark]}>
+                  {todayLabel()}
+                </Text>
               </View>
               <View style={styles.heroBottom}>
-                <Text style={styles.heroRef}>{verse.reference}</Text>
-                <Text style={styles.heroVerse}>{verse.heroText}</Text>
-                <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
-                  <Text style={styles.heroBtnText}>말씀 보기</Text>
+                <Text style={[styles.heroRef, !verse.imageUrl && styles.heroRefDark]}>
+                  {verse.reference}
+                </Text>
+                <Text style={[styles.heroVerse, !verse.imageUrl && styles.heroVerseDark]}>
+                  {verse.heroText}
+                </Text>
+                <Pressable
+                  style={[styles.heroBtn, !verse.imageUrl && styles.heroBtnDark]}
+                  onPress={() => router.push('/word')}
+                >
+                  <Text
+                    style={[styles.heroBtnText, !verse.imageUrl && styles.heroBtnTextDark]}
+                  >
+                    말씀 보기
+                  </Text>
                 </Pressable>
               </View>
             </PhotoSlot>
@@ -353,6 +365,22 @@ const styles = StyleSheet.create({
   },
   heroBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
   heroBtnRow: { flexDirection: 'row', gap: 9 },
+
+  // 밝은 기본 배경용 — 진한 남색 글씨로 또렷하게
+  heroBadgeDark: { backgroundColor: 'rgba(18,50,91,0.75)' },
+  heroDateDark: { color: '#17406E' },
+  heroRefDark: {
+    color: '#1D5C9E',
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
+  },
+  heroVerseDark: {
+    color: '#122B4F',
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
+  },
+  heroBtnDark: { backgroundColor: colors.primary },
+  heroBtnTextDark: { color: '#FFFFFF' },
   heroBtnGhost: {
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,

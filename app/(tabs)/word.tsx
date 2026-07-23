@@ -37,15 +37,18 @@ export default function WordScreen() {
 
       {/* 히어로 */}
       <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
-        {/* 밝은 배경이 살도록 위쪽은 투명, 글씨가 앉는 아래쪽만 어둡게 */}
-        <LinearGradient
-          colors={['rgba(12,28,54,0)', 'rgba(12,28,54,0.5)']}
-          locations={[0.35, 1]}
-          style={StyleSheet.absoluteFill}
-        />
+        {/* 기본(밝은) 배경은 진한 남색 글씨, 어두운 사진은 흰 글씨 + 덮개 */}
+        {verse.imageUrl ? (
+          <LinearGradient
+            colors={['rgba(18,38,68,0.05)', 'rgba(12,28,54,0.62)']}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         <View style={styles.heroBottom}>
-          <Text style={styles.heroRef}>{verse.passageTitle}</Text>
-          <Text style={styles.heroDate}>
+          <Text style={[styles.heroRef, !verse.imageUrl && styles.heroRefDark]}>
+            {verse.passageTitle}
+          </Text>
+          <Text style={[styles.heroDate, !verse.imageUrl && styles.heroDateDark]}>
             {new Date(verse.date + 'T00:00:00').toLocaleDateString('ko-KR', {
               month: 'long',
               day: 'numeric',
@@ -137,6 +140,9 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     ...textShadow,
   },
+  // 밝은 기본 배경용 — 진한 남색 글씨
+  heroRefDark: { color: '#122B4F', textShadowColor: 'transparent', textShadowRadius: 0 },
+  heroDateDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
 
   body: { flex: 1 },
   bodyContent: { padding: 16, paddingBottom: 28 },
