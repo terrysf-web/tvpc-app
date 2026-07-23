@@ -1,25 +1,25 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bookmark, List } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
-import { VerseNoteCard } from '../../src/components/VerseNoteCard';
-import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
+import { VerseNoteCard, type VerseNoteHandle } from '../../src/components/VerseNoteCard';
+import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
+import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { colors, font, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
-type WordTab = 'text' | 'med' | 'app' | 'pray' | 'note';
+type WordTab = 'text' | 'med' | 'app' | 'pray';
 
 const TABS: { key: WordTab; label: string }[] = [
   { key: 'text', label: '본문' },
   { key: 'med', label: '묵상' },
   { key: 'app', label: '적용' },
   { key: 'pray', label: '기도' },
-  { key: 'note', label: '메모' },
 ];
 
 /** 글씨크기 3단계 */
@@ -43,6 +43,34 @@ export default function WordScreen() {
       on = false;
     };
   }, [verse.date]);
+
+  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 메모장에 인용되어 들어온다.
+  // 표시한 구절과 메모는 저장한 말씀에 자동 보관된다.
+  const noteRef = useRef<VerseNoteHandle>(null);
+  const [hls, setHls] = useState<VerseHighlight[]>([]);
+  useEffect(() => {
+    setHls(getHighlights(verse.date));
+  }, [verse.date]);
+  const onToggleHl = (p: { verse: number; text: string }) => {
+    const next = toggleHighlight(verse.date, p.verse, p.text);
+    const turnedOn = next.some((h) => h.v === p.verse) && !hls.some((h) => h.v === p.verse);
+    setHls(next);
+    if (turnedOn) {
+      // 형광펜 구절을 메모 끝에 인용으로 추가 — 이어서 생각을 적게
+      const refLabel = /장$/.test(verse.reference)
+        ? verse.reference.replace(/장$/, `:${p.verse}`)
+        : `${verse.reference} ${p.verse}절`;
+      noteRef.current?.append(`"${p.text}" (${refLabel})`);
+    }
+    if (next.length > 0) {
+      ensureSavedVerse({
+        date: verse.date,
+        reference: verse.reference,
+        heroText: verse.heroText,
+      }).then(() => setSaved(true));
+    }
+  };
+  const hlNums = new Set(hls.map((h) => h.v));
 
   const onToggleSaved = () => {
     toggleSavedVerse({
@@ -110,15 +138,38 @@ export default function WordScreen() {
 
       {/* 본문 */}
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-        {tab === 'text' &&
-          verse.passage.map((p) => (
-            <View key={p.verse} style={styles.verseRow}>
-              <Text style={[styles.verseNum, { fontSize: 13 * scale }]}>{p.verse}</Text>
-              <Text style={[styles.verseText, { fontSize: 14.5 * scale, lineHeight: 24 * scale }]}>
-                {p.text}
-              </Text>
+        {tab === 'text' && (
+          <>
+            <Text style={styles.hlHint}>
+              구절을 누르면 형광펜으로 표시되고, 아래 메모장에 인용되어 들어갑니다
+            </Text>
+            {verse.passage.map((p) => (
+              <Pressable
+                key={p.verse}
+                style={[styles.verseRow, hlNums.has(p.verse) && styles.verseRowHl]}
+                onPress={() => onToggleHl(p)}
+              >
+                <Text style={[styles.verseNum, { fontSize: 13 * scale }]}>{p.verse}</Text>
+                <Text
+                  style={[styles.verseText, { fontSize: 14.5 * scale, lineHeight: 24 * scale }]}
+                >
+                  {p.text}
+                </Text>
+              </Pressable>
+            ))}
+            {/* 본문을 보면서 바로 적는 묵상 메모 — 메모하면 저장한 말씀에 자동 보관 */}
+            <View style={styles.noteWrap}>
+              <VerseNoteCard
+                key={verse.date}
+                ref={noteRef}
+                date={verse.date}
+                reference={verse.reference}
+                heroText={verse.heroText}
+                onAutoSaved={() => setSaved(true)}
+              />
             </View>
-          ))}
+          </>
+        )}
         {tab === 'med' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
             {verse.meditation ||
@@ -144,16 +195,6 @@ export default function WordScreen() {
             {verse.prayer ||
               '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
           </Text>
-        )}
-        {/* 날짜별 묵상 메모 — 이 기기에 저장, 메모하면 저장한 말씀에 자동 보관 */}
-        {tab === 'note' && (
-          <VerseNoteCard
-            key={verse.date}
-            date={verse.date}
-            reference={verse.reference}
-            heroText={verse.heroText}
-            onAutoSaved={() => setSaved(true)}
-          />
         )}
       </ScrollView>
 
@@ -235,7 +276,24 @@ const styles = StyleSheet.create({
 
   body: { flex: 1 },
   bodyContent: { padding: 16, paddingBottom: 28 },
-  verseRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  verseRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    marginHorizontal: -6,
+    borderRadius: 8,
+  },
+  // 형광펜 표시 — 부드러운 노란 바탕
+  verseRowHl: { backgroundColor: '#FFF3BF' },
+  hlHint: {
+    fontFamily: font.regular,
+    fontSize: 11.5,
+    color: colors.faint,
+    marginBottom: 10,
+  },
+  noteWrap: { marginTop: 18 },
   verseNum: {
     fontFamily: font.bold,
     color: colors.primary,

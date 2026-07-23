@@ -1,28 +1,32 @@
 import { PenLine } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useImperativeHandle, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ensureSavedVerse } from '../data/savedVerses';
 import { colors, font, shadows } from '../theme';
+
+/** 부모(말씀 화면)가 형광펜 구절을 메모에 끼워 넣을 때 쓰는 핸들 */
+export interface VerseNoteHandle {
+  append(text: string): void;
+}
 
 /**
  * 말씀 묵상 메모 — 그날 말씀을 읽으며 받은 은혜를 적어두는 카드.
  * 내용은 이 기기(localStorage)에만 날짜별로 저장되고 서버로 가지 않는다.
  * 메모를 쓰면 북마크를 따로 누르지 않아도 '저장한 말씀' 목록에 자동으로
  * 담겨, 나중에 메모를 다시 찾아갈 수 있다.
+ * 형광펜으로 표시한 구절은 append()로 메모 끝에 인용되어 들어온다.
  * 한글 조합(IME) 중 커서가 튀지 않도록 비제어 입력 + 디바운스 저장을 쓴다
  * (주보 설교 메모와 같은 방식).
  */
-export function VerseNoteCard({
-  date,
-  reference,
-  heroText,
-  onAutoSaved,
-}: {
-  date: string;
-  reference: string;
-  heroText: string;
-  onAutoSaved?: () => void;
-}) {
+export const VerseNoteCard = React.forwardRef<
+  VerseNoteHandle,
+  {
+    date: string;
+    reference: string;
+    heroText: string;
+    onAutoSaved?: () => void;
+  }
+>(function VerseNoteCard({ date, reference, heroText, onAutoSaved }, ref) {
   const key = `verseNote:${date}`;
   const [initial] = useState(() =>
     typeof window !== 'undefined' && window.localStorage
@@ -31,8 +35,13 @@ export function VerseNoteCard({
   );
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 비제어 입력이라 현재 값을 ref로 추적한다 (append용)
+  const valueRef = useRef(initial);
+  const webTa = useRef<{ value: string } | null>(null);
+  const rnInput = useRef<TextInput | null>(null);
 
   const onChange = (t: string) => {
+    valueRef.current = t;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -47,6 +56,19 @@ export function VerseNoteCard({
     }, 500);
   };
 
+  useImperativeHandle(ref, () => ({
+    append(text: string) {
+      const cur = valueRef.current.replace(/\s+$/, '');
+      const next = cur ? `${cur}\n\n${text}\n` : `${text}\n`;
+      if (Platform.OS === 'web') {
+        if (webTa.current) webTa.current.value = next;
+      } else {
+        rnInput.current?.setNativeProps({ text: next });
+      }
+      onChange(next);
+    },
+  }));
+
   return (
     <View style={[styles.noteCard, shadows.card]}>
       <View style={styles.noteHead}>
@@ -58,6 +80,7 @@ export function VerseNoteCard({
       </View>
       {Platform.OS === 'web' ? (
         React.createElement('textarea', {
+          ref: webTa,
           defaultValue: initial,
           placeholder: '오늘 말씀에서 받은 은혜와 실천할 일을 적어보세요.',
           autoComplete: 'off',
@@ -86,6 +109,7 @@ export function VerseNoteCard({
         } as object)
       ) : (
         <TextInput
+          ref={rnInput}
           style={styles.noteInput}
           defaultValue={initial}
           onChangeText={onChange}
@@ -102,7 +126,7 @@ export function VerseNoteCard({
       </Text>
     </View>
   );
-}
+});
 
 /** 이 기기에 해당 날짜의 말씀 메모가 있는지 */
 export function hasVerseNote(date: string): boolean {

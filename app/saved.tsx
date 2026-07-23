@@ -1,10 +1,11 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { BookmarkX, ChevronRight, PenLine, Trash2 } from 'lucide-react-native';
+import { BookmarkX, ChevronRight, Highlighter, PenLine, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { hasVerseNote } from '../src/components/VerseNoteCard';
 import { getSavedVerses, removeSavedVerse, type SavedVerse } from '../src/data/savedVerses';
+import { getHighlights } from '../src/data/verseMarks';
 import { colors, font, radius, shadows } from '../src/theme';
 
 function dateLabel(date: string): string {
@@ -46,7 +47,9 @@ export default function SavedVersesScreen() {
             </Text>
           </View>
         ) : (
-          items.map((v) => (
+          items.map((v) => {
+            const hls = getHighlights(v.date);
+            return (
             <Pressable
               key={v.date}
               style={[styles.card, shadows.card]}
@@ -56,6 +59,14 @@ export default function SavedVersesScreen() {
                 <Text style={styles.cardDate}>{dateLabel(v.date)}</Text>
                 <View style={styles.cardRefRow}>
                   <Text style={styles.cardRef}>{v.reference}</Text>
+                  {hls.length > 0 && (
+                    <View style={[styles.noteBadge, styles.hlBadge]}>
+                      <Highlighter size={11} color="#8A6D00" strokeWidth={2.2} />
+                      <Text style={[styles.noteBadgeText, styles.hlBadgeText]}>
+                        형광펜 {hls.length}
+                      </Text>
+                    </View>
+                  )}
                   {hasVerseNote(v.date) && (
                     <View style={styles.noteBadge}>
                       <PenLine size={11} color={colors.primary} strokeWidth={2.2} />
@@ -64,7 +75,11 @@ export default function SavedVersesScreen() {
                   )}
                 </View>
                 <Text style={styles.cardText} numberOfLines={2}>
-                  {v.heroText.replace(/\n/g, ' ')}
+                  {/* 형광펜 구절이 있으면 그 구절을 먼저 보여준다 */}
+                  {(hls.length > 0
+                    ? hls.map((h) => h.t).join(' ')
+                    : v.heroText
+                  ).replace(/\n/g, ' ')}
                 </Text>
               </View>
               <Pressable style={styles.removeBtn} onPress={() => onRemove(v.date)} hitSlop={8}>
@@ -72,7 +87,8 @@ export default function SavedVersesScreen() {
               </Pressable>
               <ChevronRight size={18} color={colors.faint} strokeWidth={1.9} />
             </Pressable>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -115,6 +131,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   noteBadgeText: { fontFamily: font.bold, fontSize: 10.5, color: colors.primary },
+  hlBadge: { backgroundColor: '#FFF3BF' },
+  hlBadgeText: { color: '#8A6D00' },
   cardText: { fontFamily: font.regular, fontSize: 13, lineHeight: 19, color: colors.body },
   removeBtn: { padding: 8 },
 });
