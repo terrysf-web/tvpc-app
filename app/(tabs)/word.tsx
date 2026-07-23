@@ -57,8 +57,10 @@ export default function WordScreen() {
     const turnedOn = next.some((h) => h.v === p.verse) && !hls.some((h) => h.v === p.verse);
     setHls(next);
     if (turnedOn) {
-      // 구절이 메모장에 들어갔으니 바로 이어서 쓸 수 있게 커서를 옮긴다
-      setTimeout(() => noteRef.current?.focus(), 50);
+      // 구절이 메모장 맨 아래(이전 메모 다음)에 붙고 새 메모 칸으로 커서 이동
+      noteRef.current?.addQuote(p.verse, p.text);
+    } else {
+      noteRef.current?.removeQuote(p.verse);
     }
     if (next.length > 0) {
       ensureSavedVerse({
@@ -163,8 +165,7 @@ export default function WordScreen() {
                 date={verse.date}
                 reference={verse.reference}
                 heroText={verse.heroText}
-                quotes={hls}
-                onRemoveQuote={(v) => setHls(toggleHighlight(verse.date, v, ''))}
+                onQuoteRemoved={(v) => setHls(toggleHighlight(verse.date, v, ''))}
                 onAutoSaved={() => setSaved(true)}
               />
             </View>

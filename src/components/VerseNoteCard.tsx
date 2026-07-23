@@ -1,73 +1,231 @@
 import { PenLine, X } from 'lucide-react-native';
-import React, { useImperativeHandle, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ensureSavedVerse } from '../data/savedVerses';
-import type { VerseHighlight } from '../data/verseMarks';
+import { getHighlights } from '../data/verseMarks';
 import { colors, font, shadows } from '../theme';
 
-/** 부모(말씀 화면)가 형광펜 후 커서를 메모로 옮길 때 쓰는 핸들 */
+/**
+ * 말씀 묵상 메모 — "구절 → 메모 → 구절 → 메모"가 번갈아 쌓이는 메모장.
+ * 형광펜을 그으면 새 구절 블록이 항상 맨 아래(이전 메모 다음)에 붙고,
+ * 바로 아래 새 메모 칸에 커서가 놓인다. 구절 블록은 수정·삭제가 안 되고
+ * ✕ 또는 본문에서 다시 탭해야 사라진다.
+ * 내용은 이 기기(localStorage)에만 날짜별로 저장되고 서버로 가지 않는다.
+ * 한글 조합(IME) 안전을 위해 메모 칸은 비제어 입력 + 디바운스 저장.
+ */
+
+interface Seg {
+  id: number;
+  kind: 'q' | 'm';
+  /** kind='q'일 때 절 번호 */
+  v?: number;
+  text: string;
+}
+
 export interface VerseNoteHandle {
+  /** 형광펜 구절을 맨 아래에 추가하고 새 메모 칸으로 커서 이동 */
+  addQuote(v: number, t: string): void;
+  /** 형광펜 해제 시 해당 구절 블록 제거 */
+  removeQuote(v: number): void;
   focus(): void;
 }
 
-/**
- * 말씀 묵상 메모 — 그날 말씀을 읽으며 받은 은혜를 적어두는 카드.
- * 형광펜으로 표시한 구절은 메모장 안 맨 위에 노란 형광펜 블록으로
- * 고정되어(수정·삭제 불가) 들어오고, 그 바로 아래에서 내 메모를
- * 이어서 쓴다. 구절 블록의 ✕ 또는 본문에서 다시 탭하면 형광펜과
- * 함께 블록도 사라진다.
- * 내용은 이 기기(localStorage)에만 날짜별로 저장되고 서버로 가지 않는다.
- * 메모나 형광펜이 있으면 '저장한 말씀' 목록에 자동으로 담긴다.
- * 한글 조합(IME) 중 커서가 튀지 않도록 비제어 입력 + 디바운스 저장을 쓴다
- * (주보 설교 메모와 같은 방식).
- */
+const storeKey = (date: string) => `verseNote:${date}`;
+
+/** 저장된 메모를 세그먼트로 읽는다 — 옛 형식(순수 문자열)도 허용 */
+function loadSegs(date: string): Seg[] {
+  let segs: Seg[] = [];
+  let id = 1;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(storeKey(date));
+      if (raw) {
+        if (raw.startsWith('{"seg"')) {
+          const parsed = JSON.parse(raw) as { seg?: { k?: string; v?: number; x?: string }[] };
+          for (const s of parsed.seg ?? []) {
+            segs.push({
+              id: id++,
+              kind: s.k === 'q' ? 'q' : 'm',
+              v: s.v,
+              text: String(s.x ?? ''),
+            });
+          }
+        } else {
+          segs = [{ id: id++, kind: 'm', text: raw }];
+        }
+      }
+    }
+  } catch {
+    segs = [];
+  }
+  // 형광펜 저장분 중 메모장에 없는 구절은 뒤에 붙인다 (버전 이행)
+  for (const h of getHighlights(date)) {
+    if (!segs.some((s) => s.kind === 'q' && s.v === h.v)) {
+      segs.push({ id: id++, kind: 'q', v: h.v, text: h.t });
+      segs.push({ id: id++, kind: 'm', text: '' });
+    }
+  }
+  if (segs.length === 0 || segs[segs.length - 1].kind === 'q') {
+    segs.push({ id: id++, kind: 'm', text: '' });
+  }
+  return segs;
+}
+
 export const VerseNoteCard = React.forwardRef<
   VerseNoteHandle,
   {
     date: string;
     reference: string;
     heroText: string;
-    /** 형광펜 구절 — 메모장 안 맨 위에 고정 표시 */
-    quotes?: VerseHighlight[];
-    onRemoveQuote?: (v: number) => void;
+    /** 카드 안 ✕로 구절을 지웠을 때 부모가 형광펜도 해제하도록 알림 */
+    onQuoteRemoved?: (v: number) => void;
     onAutoSaved?: () => void;
   }
->(function VerseNoteCard({ date, reference, heroText, quotes, onRemoveQuote, onAutoSaved }, ref) {
-  const key = `verseNote:${date}`;
-  const [initial] = useState(() =>
-    typeof window !== 'undefined' && window.localStorage
-      ? (window.localStorage.getItem(key) ?? '')
-      : '',
+>(function VerseNoteCard({ date, reference, heroText, onQuoteRemoved, onAutoSaved }, ref) {
+  const [segs, setSegs] = useState<Seg[]>(() => loadSegs(date));
+  const nextId = useRef(Math.max(0, ...segs.map((s) => s.id)) + 1);
+  // 메모 칸의 현재 값 — 비제어 입력이라 ref로 추적
+  const vals = useRef<Record<number, string>>(
+    Object.fromEntries(segs.filter((s) => s.kind === 'm').map((s) => [s.id, s.text])),
   );
+  const inputs = useRef<Record<number, { focus(): void } | null>>({});
+  const pendingFocus = useRef<number | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const webTa = useRef<{ focus(): void } | null>(null);
-  const rnInput = useRef<TextInput | null>(null);
-
-  useImperativeHandle(ref, () => ({
-    focus() {
-      if (Platform.OS === 'web') webTa.current?.focus();
-      else rnInput.current?.focus();
-    },
-  }));
 
   const refLabel = (v: number) =>
     /장$/.test(reference) ? reference.replace(/장$/, `:${v}`) : `${reference} ${v}절`;
 
-  const onChange = (t: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
+  const serialize = (list: Seg[]) =>
+    JSON.stringify({
+      seg: list.map((s) =>
+        s.kind === 'q'
+          ? { k: 'q', v: s.v, x: s.text }
+          : { k: 'm', x: vals.current[s.id] ?? s.text },
+      ),
+    });
+
+  const persist = (list: Seg[]) => {
+    try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, t);
-        // 저장 표시는 처음 한 번만 — 입력 중 재렌더로 커서가 흔들리지 않게
+        window.localStorage.setItem(storeKey(date), serialize(list));
         setSavedAt((s) => s ?? Date.now());
       }
-      // 메모가 있으면 '저장한 말씀' 목록에도 자동으로 담는다
-      if (t.trim()) {
-        ensureSavedVerse({ date, reference, heroText }).then(() => onAutoSaved?.());
-      }
-    }, 500);
+    } catch {
+      /* 저장 실패는 무시 */
+    }
+    const hasText = list.some((s) => s.kind === 'm' && (vals.current[s.id] ?? s.text).trim());
+    if (hasText || list.some((s) => s.kind === 'q')) {
+      ensureSavedVerse({ date, reference, heroText }).then(() => onAutoSaved?.());
+    }
   };
+
+  const onInput = (id: number, t: string) => {
+    vals.current[id] = t;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => persist(segs), 500);
+  };
+
+  // 구절 추가/삭제 뒤 커서 이동
+  useEffect(() => {
+    if (pendingFocus.current != null) {
+      const id = pendingFocus.current;
+      pendingFocus.current = null;
+      setTimeout(() => inputs.current[id]?.focus(), 50);
+    }
+  }, [segs]);
+
+  useImperativeHandle(ref, () => ({
+    addQuote(v: number, t: string) {
+      setSegs((prev) => {
+        if (prev.some((s) => s.kind === 'q' && s.v === v)) return prev;
+        const q: Seg = { id: nextId.current++, kind: 'q', v, text: t };
+        const m: Seg = { id: nextId.current++, kind: 'm', text: '' };
+        vals.current[m.id] = '';
+        const next = [...prev, q, m];
+        pendingFocus.current = m.id;
+        persist(next);
+        return next;
+      });
+    },
+    removeQuote(v: number) {
+      setSegs((prev) => {
+        const next = prev.filter((s) => !(s.kind === 'q' && s.v === v));
+        persist(next);
+        return next;
+      });
+    },
+    focus() {
+      const last = [...segs].reverse().find((s) => s.kind === 'm');
+      if (last) inputs.current[last.id]?.focus();
+    },
+  }));
+
+  const removeByX = (v: number) => {
+    setSegs((prev) => {
+      const next = prev.filter((s) => !(s.kind === 'q' && s.v === v));
+      persist(next);
+      return next;
+    });
+    onQuoteRemoved?.(v);
+  };
+
+  const renderInput = (s: Seg, isLast: boolean) => {
+    const common = {
+      placeholder: isLast ? '여기에 이어서 받은 은혜와 실천할 일을 적어보세요.' : '',
+    };
+    if (Platform.OS === 'web') {
+      return React.createElement('textarea', {
+        key: s.id,
+        ref: (el: { focus(): void } | null) => {
+          inputs.current[s.id] = el;
+        },
+        defaultValue: vals.current[s.id] ?? s.text,
+        autoComplete: 'off',
+        autoCorrect: 'off',
+        autoCapitalize: 'off',
+        spellCheck: false,
+        onInput: (e: { target: { value: string } }) => onInput(s.id, e.target.value),
+        ...common,
+        style: {
+          minHeight: isLast ? 150 : 64,
+          width: '100%',
+          boxSizing: 'border-box',
+          border: 'none',
+          outline: 'none',
+          resize: 'vertical',
+          background: 'transparent',
+          padding: '10px 14px',
+          fontSize: 16,
+          lineHeight: '24px',
+          color: colors.body,
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+          WebkitUserSelect: 'text',
+          userSelect: 'text',
+        },
+      } as object);
+    }
+    return (
+      <TextInput
+        key={s.id}
+        ref={(el) => {
+          inputs.current[s.id] = el;
+        }}
+        style={[styles.noteInput, { minHeight: isLast ? 150 : 64 }]}
+        defaultValue={vals.current[s.id] ?? s.text}
+        onChangeText={(t) => onInput(s.id, t)}
+        multiline
+        placeholder={common.placeholder}
+        placeholderTextColor={colors.faint}
+        autoComplete="off"
+        autoCorrect={false}
+        spellCheck={false}
+      />
+    );
+  };
+
+  const lastTextId = [...segs].reverse().find((s) => s.kind === 'm')?.id;
 
   return (
     <View style={[styles.noteCard, shadows.card]}>
@@ -79,66 +237,22 @@ export const VerseNoteCard = React.forwardRef<
         {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
       </View>
 
-      {/* 메모장 — 형광펜 구절(고정) + 내 메모가 한 판에 담긴다 */}
+      {/* 구절(고정)과 메모 칸이 번갈아 쌓인다 */}
       <View style={styles.notePad}>
-        {quotes && quotes.length > 0 && (
-          <View style={styles.quoteList}>
-            {quotes.map((q) => (
-              <View key={q.v} style={styles.quoteRow}>
-                <Text style={styles.quoteText}>
-                  {q.t}
-                  <Text style={styles.quoteRef}> ({refLabel(q.v)})</Text>
-                </Text>
-                {onRemoveQuote && (
-                  <Pressable onPress={() => onRemoveQuote(q.v)} hitSlop={8} style={styles.quoteX}>
-                    <X size={14} color="#8A6D00" strokeWidth={2} />
-                  </Pressable>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-        {Platform.OS === 'web' ? (
-          React.createElement('textarea', {
-            ref: webTa,
-            defaultValue: initial,
-            placeholder: '여기에 이어서 받은 은혜와 실천할 일을 적어보세요.',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            autoCapitalize: 'off',
-            spellCheck: false,
-            onInput: (e: { target: { value: string } }) => onChange(e.target.value),
-            style: {
-              minHeight: 200,
-              width: '100%',
-              boxSizing: 'border-box',
-              border: 'none',
-              outline: 'none',
-              resize: 'vertical',
-              background: 'transparent',
-              padding: '12px 14px',
-              fontSize: 16,
-              lineHeight: '24px',
-              color: colors.body,
-              fontFamily:
-                '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
-              WebkitUserSelect: 'text',
-              userSelect: 'text',
-            },
-          } as object)
-        ) : (
-          <TextInput
-            ref={rnInput}
-            style={styles.noteInput}
-            defaultValue={initial}
-            onChangeText={onChange}
-            multiline
-            placeholder="여기에 이어서 받은 은혜와 실천할 일을 적어보세요."
-            placeholderTextColor={colors.faint}
-            autoComplete="off"
-            autoCorrect={false}
-            spellCheck={false}
-          />
+        {segs.map((s) =>
+          s.kind === 'q' ? (
+            <View key={s.id} style={styles.quoteRow}>
+              <Text style={styles.quoteText}>
+                {s.text}
+                <Text style={styles.quoteRef}> ({refLabel(s.v ?? 0)})</Text>
+              </Text>
+              <Pressable onPress={() => removeByX(s.v ?? 0)} hitSlop={8} style={styles.quoteX}>
+                <X size={14} color="#8A6D00" strokeWidth={2} />
+              </Pressable>
+            </View>
+          ) : (
+            renderInput(s, s.id === lastTextId)
+          ),
         )}
       </View>
       <Text style={styles.noteHint}>
@@ -148,13 +262,27 @@ export const VerseNoteCard = React.forwardRef<
   );
 });
 
-/** 이 기기에 해당 날짜의 말씀 메모가 있는지 */
+/** 이 기기에 해당 날짜의 '내가 쓴 메모'가 있는지 */
 export function hasVerseNote(date: string): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    !!window.localStorage &&
-    !!window.localStorage.getItem(`verseNote:${date}`)
-  );
+  return getVerseNoteText(date).trim().length > 0;
+}
+
+/** 내가 쓴 메모 본문만 이어붙여 반환 (목록 미리보기용) */
+export function getVerseNoteText(date: string): string {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return '';
+    const raw = window.localStorage.getItem(storeKey(date));
+    if (!raw) return '';
+    if (!raw.startsWith('{"seg"')) return raw;
+    const parsed = JSON.parse(raw) as { seg?: { k?: string; x?: string }[] };
+    return (parsed.seg ?? [])
+      .filter((s) => s.k !== 'q')
+      .map((s) => String(s.x ?? ''))
+      .join(' ')
+      .trim();
+  } catch {
+    return '';
+  }
 }
 
 const styles = StyleSheet.create({
@@ -175,13 +303,13 @@ const styles = StyleSheet.create({
   },
   noteTitle: { fontFamily: font.bold, fontSize: 14.5, color: colors.title, flex: 1 },
   noteSaved: { fontFamily: font.medium, fontSize: 11.5, color: colors.tagGreenText },
-  // 형광펜 구절 + 메모가 함께 담기는 한 판
+  // 형광펜 구절 + 메모가 번갈아 담기는 한 판
   notePad: {
     backgroundColor: colors.screenBg,
     borderRadius: 12,
     overflow: 'hidden',
+    paddingVertical: 4,
   },
-  quoteList: { padding: 10, paddingBottom: 0, gap: 6 },
   quoteRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -190,6 +318,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
+    marginHorizontal: 8,
+    marginVertical: 4,
   },
   quoteText: {
     flex: 1,
@@ -201,9 +331,8 @@ const styles = StyleSheet.create({
   quoteRef: { fontFamily: font.bold, fontSize: 12, color: '#8A6D00' },
   quoteX: { padding: 2, marginTop: 1 },
   noteInput: {
-    minHeight: 200,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     fontFamily: font.regular,
     fontSize: 15,
     lineHeight: 23,

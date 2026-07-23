@@ -115,8 +115,7 @@ export default function VerseByDateScreen() {
             date={verse.date}
             reference={verse.reference}
             heroText={verse.heroText}
-            quotes={hls}
-            onRemoveQuote={(v) => date && setHls(toggleHighlight(date, v, ''))}
+            onQuoteRemoved={(v) => date && setHls(toggleHighlight(date, v, ''))}
             onAutoSaved={() => setSaved(true)}
           />
 

@@ -3,7 +3,7 @@ import { BookmarkX, Highlighter, PenLine, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { hasVerseNote } from '../src/components/VerseNoteCard';
+import { getVerseNoteText, hasVerseNote } from '../src/components/VerseNoteCard';
 import { getSavedVerses, removeSavedVerse, type SavedVerse } from '../src/data/savedVerses';
 import { getHighlights } from '../src/data/verseMarks';
 import { colors, font, radius, shadows } from '../src/theme';
@@ -69,10 +69,7 @@ export default function SavedVersesScreen() {
         ) : (
           items.map((v) => {
             const hls = getHighlights(v.date);
-            const note =
-              typeof window !== 'undefined' && window.localStorage
-                ? (window.localStorage.getItem(`verseNote:${v.date}`) ?? '')
-                : '';
+            const note = getVerseNoteText(v.date);
             return (
             <Pressable
               key={v.date}
