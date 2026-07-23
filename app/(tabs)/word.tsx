@@ -1,11 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bookmark } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { Bookmark, List } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useTodayVerse } from '../../src/data/hooks';
+import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { colors, font, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
@@ -25,10 +27,28 @@ export default function WordScreen() {
   const insets = useSafeAreaInsets();
   const { verse, ready } = useTodayVerse();
   const bg = useVerseBg();
+  const router = useRouter();
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
   const scale = FONT_SCALES[scaleStep];
+
+  // 오늘 말씀이 기기에 저장(북마크)돼 있는지 동기화
+  useEffect(() => {
+    let on = true;
+    isVerseSaved(verse.date).then((s) => on && setSaved(s));
+    return () => {
+      on = false;
+    };
+  }, [verse.date]);
+
+  const onToggleSaved = () => {
+    toggleSavedVerse({
+      date: verse.date,
+      reference: verse.reference,
+      heroText: verse.heroText,
+    }).then(setSaved);
+  };
 
   // 확정된 말씀·배경이 오기 전에는 샘플 구절이 번쩍이지 않게 로딩 화면만
   if (!ready || (!verse.imageUrl && !bg.ready)) {
@@ -133,13 +153,18 @@ export default function WordScreen() {
         >
           <Text style={[styles.fontSizeGlyph, { fontSize: 16 + scaleStep * 2 }]}>가</Text>
         </Pressable>
-        <Pressable style={styles.actionBtn} onPress={() => setSaved((s) => !s)}>
+        <Pressable style={styles.actionBtn} onPress={onToggleSaved}>
           <Bookmark
             size={20}
             color={saved ? colors.primary : colors.muted3}
             fill={saved ? colors.primary : 'transparent'}
             strokeWidth={1.9}
           />
+        </Pressable>
+        {/* 저장한 말씀 목록 */}
+        <Pressable style={styles.actionBtnWide} onPress={() => router.push('/saved')}>
+          <List size={18} color={colors.muted3} strokeWidth={1.9} />
+          <Text style={styles.actionBtnLabel}>저장한 말씀</Text>
         </Pressable>
       </View>
     </View>
@@ -222,5 +247,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
+  actionBtnWide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginLeft: 'auto',
+  },
+  actionBtnLabel: { fontFamily: font.medium, fontSize: 13, color: colors.muted3 },
   fontSizeGlyph: { fontFamily: font.bold, color: colors.body },
 });
