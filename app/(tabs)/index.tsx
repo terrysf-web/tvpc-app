@@ -179,29 +179,52 @@ export default function HomeScreen() {
       <FadeInUp delay={40}>
         <View style={[styles.heroWrap, shadows.hero]}>
           {isSunday ? (
-            <PhotoSlot uri={null} tone="deep" style={styles.hero}>
-              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+            // 주일예배 안내도 시간대별 배경을 쓴다 (아침 예배 시간엔 아침 그림)
+            <PhotoSlot uri={bg.uri} tone="deep" style={styles.hero}>
               <View style={styles.heroTopRow}>
-                <View style={styles.heroBadge}>
+                <View style={[styles.heroBadge, !bg.dark && styles.heroBadgeDark]}>
                   <Text style={styles.heroBadgeText}>주일예배</Text>
                 </View>
-                <Text style={styles.heroDate}>{todayLabel()}</Text>
+                <Text style={[styles.heroDate, !bg.dark && styles.heroDateDark]}>
+                  {todayLabel()}
+                </Text>
               </View>
               <View style={styles.heroBottom}>
-                <Text style={styles.heroRef}>{churchInfo.nameKo}</Text>
-                <Text style={styles.heroVerse}>
+                <Text style={[styles.heroRef, !bg.dark && styles.heroRefDark]}>
+                  {churchInfo.nameKo}
+                </Text>
+                <Text style={[styles.heroVerse, !bg.dark && styles.heroVerseDark]}>
                   오늘은 주일입니다{'\n'}예배로 함께 나아가요
                 </Text>
-                <Text style={styles.sundayTimes}>{sundayTimes} · 본당</Text>
+                <Text style={[styles.sundayTimes, !bg.dark && styles.sundayTimesDark]}>
+                  {sundayTimes} · 본당
+                </Text>
                 <View style={styles.heroBtnRow}>
-                  <Pressable style={styles.heroBtn} onPress={() => router.push('/sermon')}>
-                    <Text style={styles.heroBtnText}>설교 영상</Text>
+                  <Pressable
+                    style={[styles.heroBtn, !bg.dark && styles.heroBtnDark]}
+                    onPress={() => router.push('/sermon')}
+                  >
+                    <Text style={[styles.heroBtnText, !bg.dark && styles.heroBtnTextDark]}>
+                      설교 영상
+                    </Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.heroBtn, styles.heroBtnGhost]}
+                    style={[
+                      styles.heroBtn,
+                      styles.heroBtnGhost,
+                      !bg.dark && styles.heroBtnGhostLight,
+                    ]}
                     onPress={openBulletin}
                   >
-                    <Text style={[styles.heroBtnText, styles.heroBtnGhostText]}>주보 보기</Text>
+                    <Text
+                      style={[
+                        styles.heroBtnText,
+                        styles.heroBtnGhostText,
+                        !bg.dark && styles.heroBtnGhostTextLight,
+                      ]}
+                    >
+                      주보 보기
+                    </Text>
                   </Pressable>
                 </View>
               </View>
@@ -449,6 +472,12 @@ const styles = StyleSheet.create({
   },
   heroBtnDark: { backgroundColor: colors.primary },
   heroBtnTextDark: { color: '#FFFFFF' },
+  sundayTimesDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
+  heroBtnGhostLight: {
+    backgroundColor: 'rgba(18,50,91,0.08)',
+    borderColor: 'rgba(18,50,91,0.45)',
+  },
+  heroBtnGhostTextLight: { color: '#122B4F' },
   heroBtnGhost: {
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,
