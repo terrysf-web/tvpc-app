@@ -162,7 +162,12 @@ export default function HomeScreen() {
             </PhotoSlot>
           ) : (
             <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
-              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+              {/* 밝은 배경이 살도록 위쪽은 거의 투명, 글씨가 앉는 아래쪽만 어둡게 */}
+              <LinearGradient
+                colors={['rgba(12,28,54,0)', 'rgba(12,28,54,0.06)', 'rgba(12,28,54,0.55)']}
+                locations={[0, 0.45, 1]}
+                style={StyleSheet.absoluteFill}
+              />
               <View style={styles.heroTopRow}>
                 <View style={styles.heroBadge}>
                   <Text style={styles.heroBadgeText}>

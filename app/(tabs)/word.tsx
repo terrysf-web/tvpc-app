@@ -37,8 +37,10 @@ export default function WordScreen() {
 
       {/* 히어로 */}
       <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
+        {/* 밝은 배경이 살도록 위쪽은 투명, 글씨가 앉는 아래쪽만 어둡게 */}
         <LinearGradient
-          colors={['rgba(18,38,68,0.05)', 'rgba(12,28,54,0.62)']}
+          colors={['rgba(12,28,54,0)', 'rgba(12,28,54,0.5)']}
+          locations={[0.35, 1]}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.heroBottom}>
