@@ -148,39 +148,42 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     glow(ctx, W * 0.72, H * 0.58, W * 0.2, 'rgba(255,224,160,0.85)', 'rgba(255,201,126,0.3)');
     circle(ctx, W * 0.72, H * 0.56, 36, '#FFE9B8');
   } else {
-    // 밤 — 어둡게 + 달과 별
+    // 밤 — 어둡게 + 달과 별. 달은 카드 오른쪽 위의 날짜 글씨와 겹치지 않게
+    // 가운데 위쪽에 둔다.
     multiply(ctx, '#5F6E92');
     ctx.fillStyle = 'rgba(18,36,76,0.45)';
     ctx.fillRect(0, 0, W, H);
-    glow(ctx, W * 0.79, H * 0.2, W * 0.18, 'rgba(232,240,255,0.4)', 'rgba(232,240,255,0.15)');
-    circle(ctx, W * 0.79, H * 0.2, 42, '#F2ECD4');
-    circle(ctx, W * 0.79 - 15, H * 0.2 - 12, 8, 'rgba(222,215,188,0.6)');
-    circle(ctx, W * 0.79 + 14, H * 0.2 + 14, 5, 'rgba(222,215,188,0.5)');
+    const mx = W * 0.58;
+    const my = H * 0.2;
+    glow(ctx, mx, my, W * 0.16, 'rgba(232,240,255,0.4)', 'rgba(232,240,255,0.15)');
+    circle(ctx, mx, my, 40, '#F2ECD4');
+    circle(ctx, mx - 14, my - 11, 8, 'rgba(222,215,188,0.6)');
+    circle(ctx, mx + 13, my + 13, 5, 'rgba(222,215,188,0.5)');
     for (let i = 0; i < 14; i++) {
       const x = (i * 397) % W;
       const y = (i * 173) % (H * 0.45);
+      // 오른쪽 위 날짜 자리와 왼쪽 위 배지 자리는 별도 피한다
+      if (y < H * 0.18 && (x > W * 0.62 || x < W * 0.3)) continue;
       circle(ctx, x, y, 1.6 + (i % 3) * 0.6, `rgba(255,255,255,${0.5 + (i % 4) * 0.12})`);
     }
   }
 }
 
-/**
- * 관리자 화면에서 사용 — 밝은 낮 풍경 그림 한 장을 받아
- * 시간대별 5종으로 변환해 Firestore에 저장한다. (웹 전용)
- */
-export async function gradeAndSaveVerseBg(
-  file: File,
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error('이미지를 읽을 수 없습니다.'));
+    el.src = src;
+  });
+}
+
+async function gradeFromImage(
+  img: HTMLImageElement,
   onStatus?: (msg: string) => void,
 ): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('데이터베이스 연결이 없습니다.');
-
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error('이미지를 읽을 수 없습니다.'));
-    el.src = URL.createObjectURL(file);
-  });
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -210,8 +213,53 @@ export async function gradeAndSaveVerseBg(
     });
     cache[slot] = dataUrl;
   }
-  URL.revokeObjectURL(img.src);
   onStatus?.('완료 — 앱에 바로 반영됩니다.');
+}
+
+/**
+ * 관리자 화면에서 사용 — 밝은 낮 풍경 그림 한 장을 받아
+ * 시간대별 5종으로 변환해 Firestore에 저장한다. (웹 전용)
+ * 원본도 함께 저장해, 변환 규칙이 바뀌면 그림을 다시 올리지 않고
+ * '다시 변환'만 누르면 되게 한다.
+ */
+export async function gradeAndSaveVerseBg(
+  file: File,
+  onStatus?: (msg: string) => void,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+
+  const objUrl = URL.createObjectURL(file);
+  const img = await loadImage(objUrl);
+
+  // 원본 보관 (카드 크기로 잘라 고화질 저장)
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    drawCover(ctx, img);
+    let dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+    await setDoc(doc(db, 'verseBg', 'original'), {
+      image: dataUrl,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  await gradeFromImage(img, onStatus);
+  URL.revokeObjectURL(objUrl);
+}
+
+/** 저장된 원본으로 다시 변환 — 변환 규칙이 바뀐 뒤 원클릭 갱신용 */
+export async function regradeVerseBg(onStatus?: (msg: string) => void): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+  const snap = await getDoc(doc(db, 'verseBg', 'original'));
+  const src = snap.exists() ? String(snap.get('image') ?? '') : '';
+  if (!src) throw new Error('저장된 원본이 없습니다. 배경 그림을 먼저 선택해 주세요.');
+  const img = await loadImage(src);
+  await gradeFromImage(img, onStatus);
 }
 
 /** 관리자 업로드를 지우고 내장 기본 그림으로 되돌린다 */

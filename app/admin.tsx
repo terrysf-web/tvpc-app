@@ -32,7 +32,7 @@ import {
   saveBulletin,
 } from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
-import { gradeAndSaveVerseBg, resetVerseBg } from '../src/verseBg';
+import { gradeAndSaveVerseBg, regradeVerseBg, resetVerseBg } from '../src/verseBg';
 
 type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'members' | 'offering';
 
@@ -396,6 +396,17 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.primaryBtnText}>배경 그림 선택 (자동 변환)</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
+              onPress={() =>
+                submit(async () => {
+                  await regradeVerseBg(setBgStatus);
+                }, '저장된 원본으로 다시 변환했습니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.secondaryBtnText}>저장된 원본으로 다시 변환</Text>
             </Pressable>
             {bgStatus ? <Text style={styles.bgStatus}>{bgStatus}</Text> : null}
             <Pressable
