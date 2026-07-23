@@ -1,6 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, BookOpen, FileText, Megaphone, Play, Sun, UserRound } from 'lucide-react-native';
+import {
+  Bell,
+  BookOpen,
+  FileText,
+  Megaphone,
+  MoonStar,
+  Play,
+  Sun,
+  Sunrise,
+  UserRound,
+} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,7 +124,14 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <View style={styles.greetingTitleRow}>
               <Text style={styles.greetingTitle}>{greeting()}</Text>
-              <Sun size={20} color={colors.sun} strokeWidth={2} />
+              {/* 시간대에 맞는 아이콘 — 아침 해돋이, 낮 해, 저녁 달 */}
+              {new Date().getHours() < 12 ? (
+                <Sunrise size={20} color={colors.sun} strokeWidth={2} />
+              ) : new Date().getHours() < 18 ? (
+                <Sun size={20} color={colors.sun} strokeWidth={2} />
+              ) : (
+                <MoonStar size={20} color="#7E8EC9" strokeWidth={2} />
+              )}
             </View>
             <Text style={styles.greetingSub}>
               {isSunday
