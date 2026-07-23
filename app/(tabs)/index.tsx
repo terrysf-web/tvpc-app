@@ -161,7 +161,7 @@ export default function HomeScreen() {
               </View>
             </PhotoSlot>
           ) : (
-            <PhotoSlot uri={verse.imageUrl} tone="deep" style={styles.hero}>
+            <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               <View style={styles.heroTopRow}>
                 <View style={styles.heroBadge}>

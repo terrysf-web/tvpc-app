@@ -36,7 +36,7 @@ export default function WordScreen() {
       </View>
 
       {/* 히어로 */}
-      <PhotoSlot uri={verse.imageUrl} tone="deep" style={styles.hero}>
+      <PhotoSlot uri={verse.imageUrl ?? '/verse-bg.jpg'} tone="deep" style={styles.hero}>
         <LinearGradient
           colors={['rgba(18,38,68,0.05)', 'rgba(12,28,54,0.62)']}
           style={StyleSheet.absoluteFill}
