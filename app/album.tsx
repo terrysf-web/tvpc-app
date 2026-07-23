@@ -117,6 +117,77 @@ const SearchBox = React.memo(function SearchBox({
 });
 
 /**
+ * 소개 페이지·명부 줄 — memo로 고정해, 검색어가 바뀌어도 내용이 같은 줄은
+ * 다시 그리지 않는다. 키 입력마다 이미지 145장을 전부 재렌더하면
+ * 메인 스레드가 막혀 한글 조합 커서가 튄다.
+ */
+const PageItem = React.memo(function PageItem({
+  p,
+  i,
+  pageCount,
+  pageWidth,
+}: {
+  p: AlbumPage | null;
+  i: number;
+  pageCount: number;
+  pageWidth: number;
+}) {
+  return (
+    <View style={[styles.pageWrap, shadows.card]}>
+      {p ? (
+        <Image
+          source={{ uri: p.image }}
+          style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
+          resizeMode="contain"
+        />
+      ) : (
+        <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 1.29 }]}>
+          <ActivityIndicator color={colors.faint} />
+        </View>
+      )}
+      <Text style={styles.pageNum}>
+        {i + 1} / {pageCount}
+      </Text>
+    </View>
+  );
+});
+
+const RowItem = React.memo(function RowItem({
+  img,
+  cell,
+  showHeader,
+  pageWidth,
+}: {
+  img: AlbumPage | undefined;
+  cell: string;
+  showHeader: boolean;
+  pageWidth: number;
+}) {
+  return (
+    <>
+      {showHeader && (
+        <View style={styles.cellHeader}>
+          <Text style={styles.cellHeaderText}>{cell.toUpperCase()}</Text>
+        </View>
+      )}
+      {img ? (
+        <View style={[styles.rowWrap, shadows.card]}>
+          <Image
+            source={{ uri: img.image }}
+            style={{ width: pageWidth, height: pageWidth * (img.h / img.w), borderRadius: 10 }}
+            resizeMode="contain"
+          />
+        </View>
+      ) : (
+        <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 0.32 }]}>
+          <ActivityIndicator color={colors.faint} />
+        </View>
+      )}
+    </>
+  );
+});
+
+/**
  * 교회 앨범 뷰어 — 소개 페이지와 셀별 명부.
  * 색인(이름·셀)은 즉시 로드되어 검색·셀 선택이 바로 되고,
  * 줄 이미지는 화면에 필요한 것부터 가져온다.
@@ -327,22 +398,7 @@ export default function AlbumScreen() {
         >
           {!filtering &&
             pages.map((p, i) => (
-              <View key={`p${i}`} style={[styles.pageWrap, shadows.card]}>
-                {p ? (
-                  <Image
-                    source={{ uri: p.image }}
-                    style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 1.29 }]}>
-                    <ActivityIndicator color={colors.faint} />
-                  </View>
-                )}
-                <Text style={styles.pageNum}>
-                  {i + 1} / {pageCount}
-                </Text>
-              </View>
+              <PageItem key={`p${i}`} p={p} i={i} pageCount={pageCount} pageWidth={pageWidth} />
             ))}
 
           {/* 명부 — 셀 제목 아래 멤버 줄들 */}
@@ -351,29 +407,14 @@ export default function AlbumScreen() {
           )}
           {visible.map(({ r, i }, vi) => {
             const prev = vi > 0 ? visible[vi - 1].r : null;
-            const showHeader = !prev || prev.cell !== r.cell;
-            const img = cache[i];
             return (
-              <React.Fragment key={`r${i}`}>
-                {showHeader && (
-                  <View style={styles.cellHeader}>
-                    <Text style={styles.cellHeaderText}>{r.cell.toUpperCase()}</Text>
-                  </View>
-                )}
-                {img ? (
-                  <View style={[styles.rowWrap, shadows.card]}>
-                    <Image
-                      source={{ uri: img.image }}
-                      style={{ width: pageWidth, height: pageWidth * (img.h / img.w), borderRadius: 10 }}
-                      resizeMode="contain"
-                    />
-                  </View>
-                ) : (
-                  <View style={[styles.placeholder, { width: pageWidth, height: pageWidth * 0.32 }]}>
-                    <ActivityIndicator color={colors.faint} />
-                  </View>
-                )}
-              </React.Fragment>
+              <RowItem
+                key={`r${i}`}
+                img={cache[i]}
+                cell={r.cell}
+                showHeader={!prev || prev.cell !== r.cell}
+                pageWidth={pageWidth}
+              />
             );
           })}
           <Pressable style={styles.webLink} onPress={openPdf}>
