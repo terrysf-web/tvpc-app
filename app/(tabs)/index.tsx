@@ -9,6 +9,7 @@ import {
   Play,
   Sun,
   Sunrise,
+  Sunset,
   UserRound,
 } from 'lucide-react-native';
 import React from 'react';
@@ -21,12 +22,21 @@ import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
-function greeting(): string {
+/** 시간대 — 아침(5~12) · 오후(12~18) · 저녁(18~22) · 밤(22~5) */
+function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' {
   const h = new Date().getHours();
-  if (h < 12) return '좋은 아침입니다';
-  if (h < 18) return '좋은 오후입니다';
-  return '좋은 저녁입니다';
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 18) return 'afternoon';
+  if (h >= 18 && h < 22) return 'evening';
+  return 'night';
 }
+
+const GREETING_TEXT = {
+  morning: '좋은 아침입니다',
+  afternoon: '좋은 오후입니다',
+  evening: '좋은 저녁입니다',
+  night: '좋은 밤입니다',
+} as const;
 
 function todayLabel(): string {
   const d = new Date();
@@ -123,12 +133,14 @@ export default function HomeScreen() {
         <View style={styles.greetingRow}>
           <View style={{ flex: 1 }}>
             <View style={styles.greetingTitleRow}>
-              <Text style={styles.greetingTitle}>{greeting()}</Text>
-              {/* 시간대에 맞는 아이콘 — 아침 해돋이, 낮 해, 저녁 달 */}
-              {new Date().getHours() < 12 ? (
+              <Text style={styles.greetingTitle}>{GREETING_TEXT[timeSlot()]}</Text>
+              {/* 시간대별 아이콘 — 아침 해돋이 · 오후 해 · 저녁 노을 · 밤 달 */}
+              {timeSlot() === 'morning' ? (
                 <Sunrise size={20} color={colors.sun} strokeWidth={2} />
-              ) : new Date().getHours() < 18 ? (
+              ) : timeSlot() === 'afternoon' ? (
                 <Sun size={20} color={colors.sun} strokeWidth={2} />
+              ) : timeSlot() === 'evening' ? (
+                <Sunset size={20} color="#E8935E" strokeWidth={2} />
               ) : (
                 <MoonStar size={20} color="#7E8EC9" strokeWidth={2} />
               )}
