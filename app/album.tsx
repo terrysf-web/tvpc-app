@@ -60,6 +60,27 @@ function matchNames(names: string, cell: string, q: string): boolean {
 }
 
 /**
+ * 근사 일치 — OCR이 이름 마지막 글자를 잘못 읽은 경우('백대희'↔'백대호')를
+ * 위한 대체 검색. 검색어 앞부분이 그대로 이어지고 마지막 글자 하나만
+ * 다를 때(그 글자가 한글일 때)만 인정한다.
+ * 정확 일치 결과가 하나도 없을 때만 사용한다 — 항상 켜 두면
+ * '이진수'가 '이진 고'(고이진)에 걸리는 오탐이 생긴다.
+ */
+function matchNamesFuzzy(names: string, cell: string, q: string): boolean {
+  const nq = norm(q);
+  if (nq.length < 3) return false;
+  const comb = norm(`${names} ${cell}`);
+  const head = nq.slice(0, -1);
+  let i = comb.indexOf(head);
+  while (i >= 0) {
+    const c = comb[i + nq.length - 1];
+    if (c && c !== nq[nq.length - 1] && /[가-힣]/.test(c)) return true;
+    i = comb.indexOf(head, i + 1);
+  }
+  return false;
+}
+
+/**
  * 이름 검색창 — 한글 조합(IME) 중 커서가 왼쪽으로 튀었다 돌아오는 문제를
  * 없애기 위해 웹에서는 react-native-web TextInput 대신 순수 <input>을 쓴다.
  * 프레임워크가 입력 이벤트에 개입하지 않고, 글꼴도 시스템 글꼴로 고정해
@@ -319,16 +340,16 @@ export default function AlbumScreen() {
 
   // 검색은 두 글자부터 동작 (한 글자는 무시하고 소개 페이지 유지)
   const filtering = !!cellFilter || norm(query).length >= 2;
-  const visible = useMemo(
-    () =>
-      index
-        .map((r, i) => ({ r, i }))
-        .filter(
-          ({ r }) =>
-            (!cellFilter || r.cell === cellFilter) && matchNames(r.names, r.cell, query),
-        ),
-    [index, cellFilter, query],
-  );
+  const visible = useMemo(() => {
+    const base = index
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => !cellFilter || r.cell === cellFilter);
+    if (norm(query).length < 2) return base;
+    const exact = base.filter(({ r }) => matchNames(r.names, r.cell, query));
+    if (exact.length > 0) return exact;
+    // 정확 일치가 없을 때만 마지막 글자 오독 허용 (백대호 → 백대희)
+    return base.filter(({ r }) => matchNamesFuzzy(r.names, r.cell, query));
+  }, [index, cellFilter, query]);
 
   // 검색·셀 선택 결과의 이미지를 우선 로드
   useEffect(() => {
