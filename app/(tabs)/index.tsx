@@ -119,7 +119,7 @@ export default function HomeScreen() {
             <Text style={styles.greetingSub}>
               {isSunday
                 ? '복된 주일입니다\n예배로 함께 나아가요'
-                : '오늘도 주님의 은혜가\n함께하는 하루 되세요'}
+                : '오늘도 주님의 은혜가 함께하는 하루 되세요'}
             </Text>
           </View>
           <Pressable style={styles.bellBtn} onPress={() => router.push('/news')} hitSlop={6}>
