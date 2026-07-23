@@ -22,6 +22,7 @@ export default function VerseByDateScreen() {
   const [verse, setVerse] = useState<VerseDoc | null>(null);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showFull, setShowFull] = useState(false);
 
   useEffect(() => {
     if (!date) return;
@@ -107,16 +108,7 @@ export default function VerseByDateScreen() {
             )}
           </View>
 
-          <Text style={styles.sectionTitle}>본문</Text>
-          <View style={[styles.sectionCard, shadows.card]}>
-            {verse.passage.map((p) => (
-              <View key={p.verse} style={[styles.verseRow, hlSet.has(p.verse) && styles.verseRowHl]}>
-                <Text style={styles.verseNum}>{p.verse}</Text>
-                <Text style={styles.verseText}>{p.text}</Text>
-              </View>
-            ))}
-          </View>
-
+          {/* 저장한 말씀에는 형광펜 구절 + 메모만 — 장 전체는 원할 때만 펼친다 */}
           <Text style={styles.sectionTitle}>메모</Text>
           <VerseNoteCard
             key={verse.date}
@@ -127,6 +119,30 @@ export default function VerseByDateScreen() {
             onRemoveQuote={(v) => date && setHls(toggleHighlight(date, v, ''))}
             onAutoSaved={() => setSaved(true)}
           />
+
+          {hls.length > 0 && (
+            <Pressable style={styles.fullToggle} onPress={() => setShowFull((s) => !s)}>
+              <Text style={styles.fullToggleText}>
+                {showFull ? '전체 본문 접기 ▲' : '전체 본문 보기 ▼'}
+              </Text>
+            </Pressable>
+          )}
+          {(showFull || hls.length === 0) && (
+            <>
+              <Text style={styles.sectionTitle}>본문</Text>
+              <View style={[styles.sectionCard, shadows.card]}>
+                {verse.passage.map((p) => (
+                  <View
+                    key={p.verse}
+                    style={[styles.verseRow, hlSet.has(p.verse) && styles.verseRowHl]}
+                  >
+                    <Text style={styles.verseNum}>{p.verse}</Text>
+                    <Text style={styles.verseText}>{p.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </ScrollView>
       )}
     </View>
@@ -176,7 +192,8 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
   },
   verseRowHl: { backgroundColor: '#FFF3BF' },
-  hlCard: { backgroundColor: '#FFFBEA' },
+  fullToggle: { alignSelf: 'center', marginTop: 18, paddingVertical: 8, paddingHorizontal: 16 },
+  fullToggleText: { fontFamily: font.bold, fontSize: 13, color: colors.primary },
   verseNum: {
     fontFamily: font.bold,
     fontSize: 12,
