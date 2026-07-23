@@ -23,10 +23,10 @@ import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 
-/** 시간대 — 아침(5~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~5) */
+/** 시간대 — 아침(6~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~6) */
 function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' | 'dawn' {
   const h = new Date().getHours();
-  if (h < 5) return 'dawn';
+  if (h < 6) return 'dawn';
   if (h < 12) return 'morning';
   if (h < 18) return 'afternoon';
   if (h < 20) return 'evening';
