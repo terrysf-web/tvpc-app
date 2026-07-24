@@ -1,15 +1,13 @@
-# 가입 승인 대기 알림 — 새 가입 신청이 있으면 관리자 기기로 푸시.
-# 관리자 계정으로 앱에 로그인하고 "말씀 알림"을 켠 기기가 대상이다.
-name: Notify pending members
+# 긴급 알림 즉시 발송 — 관리자 화면에서 긴급 알림을 등록하면
+# 앱이 이 워크플로를 바로 깨워(workflow_dispatch) 대기 알림을 전송한다.
+# 깨우기가 실패해도 notify-pending.yml(매시간)이 안전망으로 발송한다.
+name: Send emergency alert
 
 on:
-  schedule:
-    # 매시간 정각
-    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
-  notify:
+  send:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,14 +29,7 @@ jobs:
         if: env.skip != 'true'
         run: npm install --no-save firebase-admin
 
-      - name: Notify admins
-        if: env.skip != 'true'
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node scripts/notify-pending-members.mjs
-
-      # 긴급 알림 안전망 — 즉시 발송이 실패해 남아 있는 대기 알림을 매시간 발송
-      - name: Flush emergency alerts
+      - name: Send alerts
         if: env.skip != 'true'
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

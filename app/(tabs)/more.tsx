@@ -119,8 +119,8 @@ export default function MoreScreen() {
             <BellRing size={20} color={colors.tagOrangeText} strokeWidth={1.9} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.gridLabel}>말씀 알림</Text>
-            <Text style={styles.gridSub}>매일 아침 오늘의 말씀을 알려드려요</Text>
+            <Text style={styles.gridLabel}>알림 받기</Text>
+            <Text style={styles.gridSub}>매일 아침 말씀과 교회 긴급 공지를 알려드려요</Text>
             {push.error ? <Text style={styles.pushError}>{push.error}</Text> : null}
           </View>
           {push.busy ? (

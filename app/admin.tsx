@@ -3,6 +3,7 @@ import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -28,6 +29,15 @@ import {
   usePendingMembers,
 } from '../src/data/admin';
 import {
+  type AlertDoc,
+  createAlert,
+  getAlert,
+  getDispatchToken,
+  getRecentAlerts,
+  saveDispatchToken,
+  triggerAlertWorkflow,
+} from '../src/data/alerts';
+import {
   BulletinPage,
   convertPdfToBulletinPages,
   saveBulletin,
@@ -43,13 +53,14 @@ import {
   saveSundayBg,
 } from '../src/verseBg';
 
-type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'members' | 'offering';
+type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'alert' | 'members' | 'offering';
 
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
   { key: 'bulletin', label: '주보' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
+  { key: 'alert', label: '알림' },
   { key: 'members', label: '교인' },
   { key: 'offering', label: '헌금' },
 ];
@@ -159,6 +170,95 @@ export default function AdminScreen() {
       })
       .catch(() => setSyncInfo(null));
   }, []);
+
+  // 긴급 알림 폼
+  const [aTitle, setATitle] = useState('긴급 공지');
+  const [aBody, setABody] = useState('');
+  const [aResult, setAResult] = useState<string | null>(null);
+  const [aRecent, setARecent] = useState<AlertDoc[]>([]);
+  const [hasToken, setHasToken] = useState<boolean | null>(null);
+  const [tokenInput, setTokenInput] = useState('');
+
+  const refreshAlertTab = React.useCallback(() => {
+    getDispatchToken().then((t) => setHasToken(!!t)).catch(() => setHasToken(false));
+    getRecentAlerts(3).then(setARecent).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (isAdmin && tab === 'alert') refreshAlertTab();
+  }, [isAdmin, tab, refreshAlertTab]);
+
+  // 발송 결과 확인 — 워크플로가 상태를 sent로 바꿀 때까지 잠시 지켜본다
+  const watchAlertResult = (id: string, immediate: boolean) => {
+    let tries = 0;
+    const check = async () => {
+      tries++;
+      try {
+        const a = await getAlert(id);
+        if (a?.status === 'sent') {
+          setAResult(`✓ 발송 완료 — ${a.sentCount ?? 0}대 기기에 전송했습니다.`);
+          getRecentAlerts(3).then(setARecent).catch(() => {});
+          return;
+        }
+      } catch {}
+      if (tries < 24) {
+        setTimeout(check, 10_000);
+      } else if (immediate) {
+        setAResult(
+          '아직 발송 확인이 안 됩니다. 잠시 후 이 탭을 다시 열어 발송 내역을 확인해 주세요.',
+        );
+      }
+    };
+    setTimeout(check, 15_000);
+  };
+
+  const sendAlertForm = async () => {
+    const title = aTitle.trim();
+    const body = aBody.trim();
+    if (!title || !body) {
+      setMsg('제목과 내용을 모두 입력해 주세요.');
+      return;
+    }
+    const question = '알림을 켠 모든 기기로 긴급 알림을 보낼까요?';
+    const ok = await new Promise<boolean>((resolve) => {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        resolve(window.confirm(question));
+      } else {
+        Alert.alert('긴급 알림 발송', question, [
+          { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+          { text: '보내기', style: 'destructive', onPress: () => resolve(true) },
+        ]);
+      }
+    });
+    if (!ok) return;
+
+    setMsg(null);
+    setAResult(null);
+    setBusy(true);
+    try {
+      const id = await createAlert(title, body);
+      const token = await getDispatchToken().catch(() => null);
+      const immediate = token ? await triggerAlertWorkflow(token) : false;
+      setAResult(
+        immediate
+          ? '✓ 발송을 시작했습니다. 약 1분 안에 각 기기에 알림이 도착합니다.'
+          : '✓ 알림이 접수됐습니다. 즉시 발송 연결이 없어 다음 정시(최대 1시간 내)에 자동 발송됩니다.',
+      );
+      setABody('');
+      watchAlertResult(id, immediate);
+    } catch (e) {
+      setMsg(`발송 실패: ${e instanceof Error ? e.message : '권한을 확인해 주세요.'}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveTokenForm = () =>
+    submit(async () => {
+      if (!tokenInput.trim()) throw new Error('토큰을 붙여넣어 주세요.');
+      await saveDispatchToken(tokenInput);
+      setTokenInput('');
+      setHasToken(true);
+    }, '즉시 발송 연결이 저장됐습니다. 이제 긴급 알림이 약 1분 안에 나갑니다.');
 
   // 교인 승인 / 헌금 입력
   const pending = usePendingMembers(isAdmin);
@@ -652,6 +752,106 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {tab === 'alert' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>긴급 알림 보내기</Text>
+            <Text style={styles.bgHint}>
+              더보기 탭에서 알림을 켠 모든 기기로 푸시 알림이 전송됩니다. 앱이 닫혀
+              있어도 화면에 알림이 뜨고, 확인할 때까지 사라지지 않습니다.
+            </Text>
+            <Field label="제목" value={aTitle} onChange={setATitle} placeholder="예: 긴급 공지" />
+            <Field
+              label="내용"
+              value={aBody}
+              onChange={setABody}
+              placeholder="예: 오늘 저녁 예배는 폭설로 온라인으로 전환합니다."
+              multiline
+              lines={4}
+            />
+            <Pressable
+              style={[styles.primaryBtn, { backgroundColor: colors.heartActive }, busy && { opacity: 0.6 }]}
+              onPress={sendAlertForm}
+              disabled={busy}
+            >
+              <Text style={styles.primaryBtnText}>{busy ? '보내는 중…' : '긴급 알림 발송'}</Text>
+            </Pressable>
+            {aResult ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={aResult.startsWith('✓') ? styles.bgStatus : styles.hintText}>
+                  {aResult}
+                </Text>
+              </View>
+            ) : null}
+
+            {aRecent.length > 0 && (
+              <>
+                <View style={styles.bgDivider} />
+                <Text style={styles.blockTitle}>최근 발송 내역</Text>
+                {aRecent.map((a) => (
+                  <View key={a.id} style={styles.alertRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pendingName} numberOfLines={1}>
+                        {a.title}
+                      </Text>
+                      <Text style={styles.pendingMeta} numberOfLines={2}>
+                        {new Date(a.createdAt).toLocaleString('ko-KR', {
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}{' '}
+                        · {a.body}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.alertStatus,
+                        a.status === 'pending' && { color: colors.tagOrangeText },
+                      ]}
+                    >
+                      {a.status === 'sent'
+                        ? `${a.sentCount ?? 0}대 발송`
+                        : a.status === 'pending'
+                          ? '발송 대기'
+                          : '만료'}
+                    </Text>
+                  </View>
+                ))}
+              </>
+            )}
+
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>즉시 발송 연결 (한 번만 설정)</Text>
+            <Text style={styles.bgHint}>
+              {hasToken === null
+                ? '연결 상태 확인 중…'
+                : hasToken
+                  ? '✓ 연결돼 있습니다 — 긴급 알림이 약 1분 안에 발송됩니다.'
+                  : '아직 연결 전입니다. 지금도 알림은 매시간 정시에 자동 발송되지만, 아래 연결 토큰을 저장하면 약 1분 안에 바로 나갑니다.'}
+            </Text>
+            <Field
+              label="GitHub 연결 토큰"
+              value={tokenInput}
+              onChange={setTokenInput}
+              placeholder="github_pat_… 붙여넣기"
+            />
+            <Pressable
+              style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
+              onPress={saveTokenForm}
+              disabled={busy}
+            >
+              <Text style={styles.secondaryBtnText}>연결 토큰 저장</Text>
+            </Pressable>
+            <Text style={styles.hintText}>
+              토큰 만들기: github.com 로그인 → Settings → Developer settings →
+              Fine-grained personal access tokens → Generate new token →
+              Repository access에서 tvpc-app 저장소만 선택 → Permissions에서
+              Actions를 Read and write로 → 생성된 토큰을 위에 붙여넣고 저장.
+              토큰은 관리자만 볼 수 있는 곳에 보관됩니다.
+            </Text>
+          </View>
+        )}
+
         {tab === 'members' && (
           <View style={[styles.card, shadows.card]}>
             <Text style={styles.blockTitle}>가입 승인 대기 ({pending.length})</Text>
@@ -866,6 +1066,15 @@ const styles = StyleSheet.create({
   },
   pendingName: { fontFamily: font.bold, fontSize: 14, color: colors.title },
   pendingMeta: { marginTop: 2, fontFamily: font.regular, fontSize: 11.5, color: colors.muted },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider2,
+  },
+  alertStatus: { fontFamily: font.bold, fontSize: 12, color: colors.tagGreenText },
   approveBtn: { backgroundColor: colors.primary, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
   approveBtnText: { fontFamily: font.bold, fontSize: 12.5, color: '#FFFFFF' },
   rejectBtn: { backgroundColor: colors.tagGrayBg, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },

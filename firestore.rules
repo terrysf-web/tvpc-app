@@ -58,6 +58,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 긴급 알림 큐 — 관리자가 등록(pending)하면 발송 스크립트(서비스 계정)가
+    // 전송 후 상태를 기록한다. 발송 결과 확인을 위해 읽기는 관리자만.
+    match /alerts/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 60
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 500
+        && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
+
+    // 관리자 설정(긴급 알림 즉시 발송용 GitHub 연결 토큰 등) — 관리자 전용
+    match /config/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // 소식 카드 배너 — 누구나 보고, 등록은 관리자만
     match /newsBanner/{id} {
       allow read: if true;

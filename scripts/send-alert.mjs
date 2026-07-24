@@ -1,0 +1,80 @@
+/**
+ * 긴급 알림 발송 — alerts 컬렉션의 대기(pending) 문서를
+ * pushTokens에 등록된 모든 기기로 전송하고 발송 완료로 표시한다.
+ *
+ * 관리자 화면에서 알림을 등록하면 send-alert.yml 워크플로가 즉시 실행되고,
+ * 매시간 notify-pending.yml이 안전망으로 남은 대기 알림을 발송한다.
+ * 24시간이 지난 대기 알림은 뒤늦게 나가지 않도록 만료 처리한다.
+ */
+import { cert, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
+
+const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+if (!saRaw) {
+  console.error('FIREBASE_SERVICE_ACCOUNT 환경변수(서비스 계정 JSON)가 필요합니다.');
+  process.exit(1);
+}
+initializeApp({ credential: cert(JSON.parse(saRaw)) });
+const db = getFirestore();
+
+const pendingSnap = await db.collection('alerts').where('status', '==', 'pending').get();
+if (pendingSnap.empty) {
+  console.log('대기 중인 긴급 알림이 없습니다.');
+  process.exit(0);
+}
+
+const tokensSnap = await db.collection('pushTokens').get();
+let tokens = tokensSnap.docs.map((d) => d.id);
+console.log(`대기 알림 ${pendingSnap.size}건 · 등록 기기 ${tokens.length}대`);
+
+const messaging = getMessaging();
+
+for (const alertDoc of pendingSnap.docs) {
+  const alert = alertDoc.data();
+
+  if (Date.now() - Number(alert.createdAt || 0) > 24 * 3600e3) {
+    await alertDoc.ref.update({ status: 'expired' });
+    console.log(`- ${alertDoc.id}: 24시간 경과로 만료 처리`);
+    continue;
+  }
+
+  const title = String(alert.title || '긴급 공지').slice(0, 60);
+  const body = String(alert.body || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  let sent = 0;
+  let removed = 0;
+
+  for (let i = 0; i < tokens.length; i += 500) {
+    const chunk = tokens.slice(i, i + 500);
+    const res = await messaging.sendEachForMulticast({
+      tokens: chunk,
+      notification: { title, body },
+      webpush: {
+        // requireInteraction: 사용자가 확인할 때까지 알림이 사라지지 않는다
+        notification: { icon: '/icon-192.png', tag: `alert-${alertDoc.id}`, requireInteraction: true },
+        fcmOptions: { link: 'https://app.tvpc.church' },
+      },
+    });
+    for (let j = 0; j < res.responses.length; j++) {
+      const r = res.responses[j];
+      if (r.success) {
+        sent++;
+      } else {
+        const code = r.error?.code || '';
+        if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
+          await db.doc(`pushTokens/${chunk[j]}`).delete().catch(() => {});
+          tokens = tokens.filter((t) => t !== chunk[j]);
+          removed++;
+        } else {
+          console.log(`  ! 발송 실패(${code})`);
+        }
+      }
+    }
+  }
+
+  await alertDoc.ref.update({ status: 'sent', sentAt: Date.now(), sentCount: sent });
+  console.log(`- ${alertDoc.id} "${title}": ${sent}대 발송, 무효 토큰 ${removed}개 정리`);
+}
+
+console.log('완료');
+process.exit(0);
