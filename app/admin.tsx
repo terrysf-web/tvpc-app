@@ -55,11 +55,10 @@ import {
 
 type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'alert' | 'members' | 'offering';
 
-// 알림(긴급 공지)은 더보기의 전용 화면으로 이동, 교인·헌금은 사용하지 않아
-// 탭에서 제외 (코드는 유지 — 다시 넣으면 복원)
+// 알림(긴급 공지)은 더보기의 전용 화면으로 이동. 주보는 토요일마다 홈페이지에서
+// 자동 동기화되고, 교인·헌금은 사용하지 않아 탭에서 제외 (코드는 유지 — 다시 넣으면 복원)
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
-  { key: 'bulletin', label: '주보' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
 ];
