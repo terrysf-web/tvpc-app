@@ -1,7 +1,9 @@
-import { BellRing } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { BellRing, ChevronRight, HeartHandshake } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
+import { useAdminAuth } from '../src/data/admin';
 import { useNews } from '../src/data/hooks';
 import { colors, font, shadows } from '../src/theme';
 
@@ -12,13 +14,25 @@ function fmtDate(d: string): string {
 
 /** 알림 보관함 — 홈 우측 상단 종 아이콘으로 진입. 지난 긴급 알림을 다시 본다. */
 export default function AlertsScreen() {
+  const router = useRouter();
   const { news } = useNews();
+  const { role } = useAdminAuth();
   const alerts = news.filter((n) => n.alert);
 
   return (
     <View style={styles.screen}>
       <OverlayHeader title="알림" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 목회자에게는 기도요청함 바로가기도 여기서 보이게 */}
+        {role === 'pastor' && (
+          <Pressable style={[styles.inboxCard, shadows.card]} onPress={() => router.push('/pray-inbox')}>
+            <View style={styles.inboxChip}>
+              <HeartHandshake size={18} color="#FFFFFF" strokeWidth={2} />
+            </View>
+            <Text style={styles.inboxLabel}>기도요청함 열기</Text>
+            <ChevronRight size={18} color="#9CC3A9" strokeWidth={2} />
+          </Pressable>
+        )}
         {alerts.length === 0 && (
           <View style={[styles.card, shadows.card, { alignItems: 'center' }]}>
             <BellRing size={26} color={colors.faint2} strokeWidth={1.7} />
@@ -49,6 +63,25 @@ export default function AlertsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { padding: 16, paddingBottom: 40 },
+  inboxCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    backgroundColor: '#F2FAF4',
+    borderColor: '#D8EBDD',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+  },
+  inboxChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.tagGreenText,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inboxLabel: { flex: 1, fontFamily: font.bold, fontSize: 14, color: '#2C5E3A' },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
