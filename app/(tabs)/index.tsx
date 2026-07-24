@@ -18,7 +18,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
-import { useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
+import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
@@ -60,6 +60,8 @@ function todayLabel(): string {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // 시간이 흐르면(오후 → 저녁) 인사말·배경이 저절로 바뀌도록 1분마다 갱신
+  useClockTick();
   const { verse, ready: verseReady } = useTodayVerse();
   const { events } = useEvents();
   const { sermons } = useSermons();

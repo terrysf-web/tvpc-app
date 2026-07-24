@@ -6,7 +6,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
-import { useTodayVerse } from '../../src/data/hooks';
+import { useClockTick, useTodayVerse } from '../../src/data/hooks';
 import {
   hasVerseNote,
   VerseNoteCard,
@@ -30,6 +30,8 @@ const FONT_SCALES = [1, 1.15, 1.3];
 
 export default function WordScreen() {
   const insets = useSafeAreaInsets();
+  // 시간대 배경이 저절로 갱신되도록 1분마다·앱 복귀 때 다시 그린다
+  useClockTick();
   const { verse, ready } = useTodayVerse();
   const bg = useVerseBg();
   const router = useRouter();

@@ -234,6 +234,29 @@ export function usePrayers() {
   return { prayers, loading, liked, toggleLike, addPrayer };
 }
 
+/**
+ * 시계 틱 — 1분마다, 그리고 앱을 다시 앞으로 가져올 때 값이 바뀐다.
+ * 시간대별 인사말·배경처럼 '지금 시각'으로 그리는 화면이 이 훅을 쓰면
+ * 앱을 켜 둔 채 시간이 흘러도(오후 → 저녁) 화면이 저절로 갱신된다.
+ */
+export function useClockTick(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    const onVis = () => setTick((t) => t + 1);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVis);
+    }
+    return () => {
+      clearInterval(id);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVis);
+      }
+    };
+  }, []);
+  return tick;
+}
+
 /** "n시간 전" 스타일 상대 시간 */
 export function timeAgo(millis: number): string {
   const diff = Date.now() - millis;
