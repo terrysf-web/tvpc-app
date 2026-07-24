@@ -74,7 +74,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 18;
+const CONVERTER_VERSION = 19;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -349,16 +349,18 @@ for (const r of rows) {
   }
 }
 
-// 라벨 OCR이 놓친 다중 소속 보정 — 이름 표식이 있는 줄에 추가 셀을 붙인다
-// (백대호 가족: 명부에는 "Cell-08, CYA"로 인쇄돼 있으나 OCR이 놓칠 수 있음)
-const EXTRA_CELLS = [
+// 라벨 OCR이 주 소속을 놓치거나 순서를 뒤집는 경우 보정 — 이름 표식이
+// 있는 줄의 주 소속을 지정 셀로 맞추고, 원래 셀은 추가 소속으로 남긴다
+// (백대호 가족: 명부 인쇄 "Cell-08, CYA" — 주 소속은 Cell-08)
+const PRIMARY_CELL_FIX = [
   ['Joanne', 'Cell-08'],
 ];
 for (const r of rows) {
-  for (const [mark, c] of EXTRA_CELLS) {
-    if (r.names.includes(mark) && r.cell !== c && !(r.extra ?? '').includes(c)) {
-      r.extra = r.extra ? `${r.extra}, ${c}` : c;
-    }
+  for (const [mark, c] of PRIMARY_CELL_FIX) {
+    if (!r.names.includes(mark) || r.cell === c) continue;
+    const rest = [r.cell, ...(r.extra ? r.extra.split(', ') : [])].filter((v) => v && v !== c);
+    r.cell = c;
+    r.extra = [...new Set(rest)].join(', ');
   }
 }
 {
