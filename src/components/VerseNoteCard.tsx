@@ -119,7 +119,6 @@ export const VerseNoteCard = React.forwardRef<
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(storeKey(date), serialize(list));
-        setSavedAt((s) => s ?? Date.now());
       }
     } catch {
       /* 저장 실패는 무시 */
@@ -135,6 +134,9 @@ export const VerseNoteCard = React.forwardRef<
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => persist(segs), 500);
   };
+  // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
+  // 입력 도중 카드가 재렌더되면 한글 조합이 미세하게 흔들린다
+  const onBlurInput = () => setSavedAt((s) => s ?? Date.now());
 
   // 구절 추가/삭제 뒤 커서 이동
   useEffect(() => {
@@ -207,11 +209,14 @@ export const VerseNoteCard = React.forwardRef<
         autoCorrect: 'off',
         autoCapitalize: 'off',
         spellCheck: false,
+        onBlur: onBlurInput,
         onInput: (e: { target: HTMLTextAreaElement }) => {
-          // 내용에 따라 칸이 늘어나 위에 쓴 메모가 가려지지 않게
+          // 매 키마다 높이를 리셋하면 화면이 출렁여 한글 조합이 부자연스럽다.
+          // 내용이 칸을 넘칠 때만 늘린다 (줄이는 것은 새로 열 때만).
           const el = e.target;
-          el.style.height = 'auto';
-          el.style.height = `${el.scrollHeight + 2}px`;
+          if (el.scrollHeight > el.clientHeight + 2) {
+            el.style.height = `${el.scrollHeight + 2}px`;
+          }
           onInput(s.id, el.value);
         },
         ...common,
@@ -244,6 +249,7 @@ export const VerseNoteCard = React.forwardRef<
         style={[styles.noteInput, { minHeight: isLast ? 150 : 64 }]}
         defaultValue={vals.current[s.id] ?? s.text}
         onChangeText={(t) => onInput(s.id, t)}
+        onBlur={onBlurInput}
         multiline
         placeholder={common.placeholder}
         placeholderTextColor={colors.faint}

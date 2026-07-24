@@ -185,12 +185,12 @@ function SermonNoteCard({ date }: { date: string }) {
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, t);
-        // 저장할 때마다 상태를 바꾸면 입력 중 카드가 재렌더되어 커서가
-        // 흔들리므로, "자동 저장됨" 표시는 처음 한 번만 켠다
-        setSavedAt((s) => s ?? Date.now());
       }
     }, 500);
   };
+  // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
+  // 입력 도중 카드가 재렌더되면 한글 조합이 미세하게 흔들린다
+  const onBlur = () => setSavedAt((s) => s ?? Date.now());
 
   return (
     <View style={[styles.noteCard, shadows.card]}>
@@ -218,10 +218,14 @@ function SermonNoteCard({ date }: { date: string }) {
           autoCorrect: 'off',
           autoCapitalize: 'off',
           spellCheck: false,
+          onBlur,
           onInput: (e: { target: HTMLTextAreaElement }) => {
             const el = e.target;
-            el.style.height = 'auto';
-            el.style.height = `${el.scrollHeight + 2}px`;
+            // 매 키마다 높이를 리셋하면 화면이 출렁여 한글 조합이 부자연스럽다.
+            // 내용이 칸을 넘칠 때만 늘린다 (줄이는 것은 새로 열 때만).
+            if (el.scrollHeight > el.clientHeight + 2) {
+              el.style.height = `${el.scrollHeight + 2}px`;
+            }
             onChange(el.value);
           },
           style: {
@@ -249,6 +253,7 @@ function SermonNoteCard({ date }: { date: string }) {
           style={styles.noteInput}
           defaultValue={initial}
           onChangeText={onChange}
+          onBlur={onBlur}
           multiline
           placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
           placeholderTextColor={colors.faint}
