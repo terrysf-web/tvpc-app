@@ -95,7 +95,7 @@ export default function MoreScreen() {
           onPress={() => openEmail('shower724@gmail.com', '기도요청')}
         >
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
-            <HeartHandshake size={22} color={colors.tagGreenText} strokeWidth={1.9} />
+            <Text style={styles.prayEmoji}>🙏</Text>
           </View>
           <Text style={styles.gridLabel}>함께기도해요</Text>
           <Text style={styles.gridSub}>
@@ -191,6 +191,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   gridLabel: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
+  prayEmoji: { fontSize: 21, lineHeight: 26 },
   gridSub: { fontFamily: font.regular, fontSize: 12, color: colors.muted },
 
   pushCard: {
