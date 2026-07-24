@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { FileText, PenLine } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -201,27 +201,83 @@ const FillInCard = React.memo(function FillInCard({
 
 const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: string }) {
   const key = `bulletinNote:${date}`;
-  // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리며
-  // 조합이 끊기므로, 입력창은 비제어(defaultValue)로 두고 저장만 디바운스한다.
   const [initial] = useState(() =>
     typeof window !== 'undefined' && window.localStorage
       ? (window.localStorage.getItem(key) ?? '')
       : '',
   );
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
-  // 한글 조합(IME) 중 크기 변경은 조합을 끊고, 글자마다 크기 계산을 하면
-  // 커서가 흔들린다 — 타이핑 중에는 아무것도 하지 않고, 입력을 잠깐
-  // 멈췄을 때(저장 시점)와 칸을 벗어날 때만 칸을 늘린다.
-  const composing = useRef(false);
-  const grow = () => {
-    const el = taRef.current;
-    if (el && !composing.current && el.scrollHeight > el.clientHeight + 2) {
-      el.style.height = `${el.scrollHeight + 2}px`;
-    }
-  };
+  const hostRef = useRef<View | null>(null);
 
+  // 웹: React를 입력 경로에서 완전히 배제한다 — textarea를 직접 만들어
+  // 끼워 넣고 순수 DOM 이벤트로만 저장한다. React가 키 입력마다 개입해
+  // 커서가 글 처음으로 튕기는 문제를 원천 차단 (일반 웹페이지의 메모장과
+  // 100% 동일한 동작).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const host = hostRef.current as unknown as HTMLElement | null;
+    if (!host) return;
+    const ta = document.createElement('textarea');
+    ta.value = initial;
+    ta.placeholder = '괄호 채우기와 은혜받은 말씀을 적어보세요.';
+    ta.setAttribute('autocomplete', 'off');
+    ta.setAttribute('autocorrect', 'off');
+    ta.setAttribute('autocapitalize', 'off');
+    ta.setAttribute('spellcheck', 'false');
+    Object.assign(ta.style, {
+      minHeight: '130px',
+      width: '100%',
+      boxSizing: 'border-box',
+      border: 'none',
+      outline: 'none',
+      resize: 'none',
+      overflow: 'auto',
+      borderRadius: '12px',
+      background: colors.screenBg,
+      padding: '12px 14px',
+      fontSize: '16px',
+      lineHeight: '24px',
+      color: colors.body,
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+      webkitUserSelect: 'text',
+      userSelect: 'text',
+    });
+    host.appendChild(ta);
+    // 저장된 내용 전체가 보이게 첫 크기만 맞춘다
+    if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const onInput = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        try {
+          window.localStorage.setItem(key, ta.value);
+        } catch {
+          /* 무시 */
+        }
+      }, 500);
+    };
+    const onBlur = () => {
+      // 칸을 벗어난 뒤에만 내용 전체가 보이게 늘린다
+      if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
+      try {
+        window.localStorage.setItem(key, ta.value);
+      } catch {
+        /* 무시 */
+      }
+    };
+    ta.addEventListener('input', onInput);
+    ta.addEventListener('blur', onBlur);
+    return () => {
+      if (t) clearTimeout(t);
+      ta.removeEventListener('input', onInput);
+      ta.removeEventListener('blur', onBlur);
+      ta.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // 네이티브 앱용 저장 (웹은 위 순수 DOM 경로 사용)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChange = (t: string) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
@@ -229,12 +285,6 @@ const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: stri
         window.localStorage.setItem(key, t);
       }
     }, 500);
-  };
-  // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
-  // 입력 도중 카드가 재렌더되면 한글 조합이 미세하게 흔들린다
-  const onBlur = () => {
-    grow();
-    setSavedAt((s) => s ?? Date.now());
   };
 
   return (
@@ -244,67 +294,15 @@ const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: stri
           <PenLine size={16} color={colors.primary} strokeWidth={2} />
         </View>
         <Text style={styles.noteTitle}>설교 메모</Text>
-        {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
+        <Text style={styles.noteSaved}>자동 저장</Text>
       </View>
       {Platform.OS === 'web' ? (
-        // 한글 조합(IME) 중 커서가 튀지 않도록 react-native-web TextInput 대신
-        // 순수 <textarea> 사용 + 시스템 글꼴 고정 (조합 중 글자 폭 변화 방지).
-        // 내용에 따라 높이가 자동으로 늘어나 위에 쓴 메모가 가려지지 않는다.
-        React.createElement('textarea', {
-          ref: (el: HTMLTextAreaElement | null) => {
-            taRef.current = el;
-            // 화면이 다시 그려질 때 ref가 재실행돼도 크기 재설정은 최초 한 번만 —
-            // 입력 중 크기 변경은 커서를 처음으로 튕겨보낸다
-            if (el && !el.dataset.sized) {
-              el.dataset.sized = '1';
-              el.style.height = 'auto';
-              el.style.height = `${el.scrollHeight + 2}px`;
-            }
-          },
-          defaultValue: initial,
-          placeholder: '괄호 채우기와 은혜받은 말씀을 적어보세요.',
-          autoComplete: 'off',
-          autoCorrect: 'off',
-          autoCapitalize: 'off',
-          spellCheck: false,
-          onBlur,
-          onCompositionStart: () => {
-            composing.current = true;
-          },
-          onCompositionEnd: () => {
-            composing.current = false;
-          },
-          onInput: (e: { target: HTMLTextAreaElement }) => {
-            onChange(e.target.value);
-          },
-          style: {
-            minHeight: 130,
-            width: '100%',
-            boxSizing: 'border-box',
-            border: 'none',
-            outline: 'none',
-            resize: 'none',
-            // 입력 중에는 칸을 키우지 않으므로 안에서 자연스럽게 스크롤,
-            // 칸을 벗어나면 내용 전체가 보이게 늘어난다
-            overflow: 'auto',
-            borderRadius: 12,
-            background: colors.screenBg,
-            padding: '12px 14px',
-            fontSize: 16,
-            lineHeight: '24px',
-            color: colors.body,
-            fontFamily:
-              '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
-            WebkitUserSelect: 'text',
-            userSelect: 'text',
-          },
-        } as object)
+        <View ref={hostRef} />
       ) : (
         <TextInput
           style={styles.noteInput}
           defaultValue={initial}
           onChangeText={onChange}
-          onBlur={onBlur}
           multiline
           placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
           placeholderTextColor={colors.faint}
