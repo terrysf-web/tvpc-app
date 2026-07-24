@@ -59,7 +59,6 @@ function FillInCard({ date, lines }: { date: string; lines: string[] }) {
       } catch {
         /* 무시 */
       }
-      fit();
     }, 500);
   };
 
@@ -218,7 +217,6 @@ function SermonNoteCard({ date }: { date: string }) {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, t);
       }
-      grow();
     }, 500);
   };
   // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
@@ -272,7 +270,9 @@ function SermonNoteCard({ date }: { date: string }) {
             border: 'none',
             outline: 'none',
             resize: 'none',
-            overflow: 'hidden',
+            // 입력 중에는 칸을 키우지 않으므로 안에서 자연스럽게 스크롤,
+            // 칸을 벗어나면 내용 전체가 보이게 늘어난다
+            overflow: 'auto',
             borderRadius: 12,
             background: colors.screenBg,
             padding: '12px 14px',

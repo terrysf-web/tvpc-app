@@ -132,10 +132,7 @@ export const VerseNoteCard = React.forwardRef<
   const onInput = (id: number, t: string) => {
     vals.current[id] = t;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      persist(segs);
-      grow();
-    }, 500);
+    timer.current = setTimeout(() => persist(segs), 500);
   };
   // 한글 조합(IME) 중 크기 변경은 조합을 끊고(낱글자 풀어짐), 글자마다
   // 크기 계산을 하면 커서가 흔들린다 — 타이핑 중에는 아무것도 하지 않고,
@@ -245,7 +242,9 @@ export const VerseNoteCard = React.forwardRef<
           border: 'none',
           outline: 'none',
           resize: 'none',
-          overflow: 'hidden',
+          // 입력 중에는 칸을 키우지 않으므로 안에서 자연스럽게 스크롤,
+          // 칸을 벗어나면 내용 전체가 보이게 늘어난다
+          overflow: 'auto',
           background: 'transparent',
           padding: '10px 14px',
           fontSize: 16,
