@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BookOpen, Clock, ClipboardPen, Globe, MapPin, MonitorPlay, Phone, Users } from 'lucide-react-native';
+import { BookOpen, Clock, ClipboardPen, Globe, Mail, MapPin, MonitorPlay, Phone, Users } from 'lucide-react-native';
 import React from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +55,15 @@ export default function InfoScreen() {
   const openSite = () => openExternal(churchInfo.website);
   const openYoutube = () => openExternal(churchInfo.youtube);
   const openMap = () => Linking.openURL(mapsUrl).catch(() => {});
+  // 메일 앱이 교회 주소가 적힌 새 메일로 바로 열린다
+  const openEmail = () => {
+    const url = 'mailto:admin@tvpc.church';
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      window.location.href = url;
+    } else {
+      Linking.openURL(url).catch(() => {});
+    }
+  };
   const openInApp = (pageUrl: string, title: string) =>
     router.push({ pathname: '/browser', params: { url: pageUrl, t: title } });
 
@@ -210,6 +219,12 @@ export default function InfoScreen() {
               label="교회 사무실"
               sub={churchInfo.phone}
               onPress={call}
+            />
+            <ActionRow
+              icon={<Mail size={20} color={colors.tagBlueText} strokeWidth={1.9} />}
+              label="이메일 문의"
+              sub="admin@tvpc.church"
+              onPress={openEmail}
             />
             <ActionRow
               icon={<Globe size={20} color={colors.primary} strokeWidth={1.9} />}
