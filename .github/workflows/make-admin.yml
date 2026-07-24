@@ -21,6 +21,14 @@ on:
         options:
           - admin
           - pastor
+      remove:
+        description: '제거 모드 — true면 이 이메일을 관리자 명단·로그인에서 삭제'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   make-admin:
@@ -41,4 +49,5 @@ jobs:
           ADMIN_EMAIL: ${{ inputs.email }}
           ADMIN_PASSWORD: ${{ inputs.password }}
           ADMIN_ROLE: ${{ inputs.role }}
+          ADMIN_REMOVE: ${{ inputs.remove }}
         run: node scripts/make-admin.mjs

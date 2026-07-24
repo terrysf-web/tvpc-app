@@ -34,6 +34,20 @@ initializeApp({ credential: cert(JSON.parse(saRaw)) });
 const auth = getAuth();
 const db = getFirestore();
 
+// 제거 모드 — 관리자 명단과 로그인 계정을 삭제한다
+if ((process.env.ADMIN_REMOVE || '').trim() === 'true') {
+  await db.doc(`admins/${email}`).delete();
+  try {
+    const u = await auth.getUserByEmail(email);
+    await auth.deleteUser(u.uid);
+    console.log(`로그인 계정 삭제: ${email}`);
+  } catch {
+    console.log(`로그인 계정이 없어 명단만 삭제: ${email}`);
+  }
+  console.log(`완료! ${email} 이(가) 관리자 명단에서 제거되었습니다.`);
+  process.exit(0);
+}
+
 let user;
 try {
   user = await auth.getUserByEmail(email);
