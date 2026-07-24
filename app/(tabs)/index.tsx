@@ -5,6 +5,7 @@ import {
   FileText,
   HandCoins,
   Images,
+  Mail,
   Megaphone,
   Moon,
   MoonStar,
@@ -14,7 +15,7 @@ import {
   Sunset,
 } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
@@ -156,6 +157,18 @@ export default function HomeScreen() {
       icon: <HandCoins size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
       chipBg: colors.tagGreenBg,
       onPress: () => router.push('/offering'),
+    },
+    {
+      key: 'email',
+      label: '이메일',
+      icon: <Mail size={21} color={colors.tagBlueText} strokeWidth={1.9} />,
+      chipBg: colors.tagBlueBg,
+      // 누르면 메일 앱이 교회 주소가 적힌 새 메일로 바로 열린다
+      onPress: () => {
+        const url = 'mailto:admin@tvpc.church';
+        if (Platform.OS === 'web') window.location.href = url;
+        else Linking.openURL(url).catch(() => {});
+      },
     },
   ];
 
@@ -528,7 +541,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 11, marginBottom: 22 },
+  // 5개가 한 줄에 들어가도록 간격·글씨를 살짝 좁힌다
+  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 22 },
   quickCard: {
     flex: 1,
     backgroundColor: colors.card,
@@ -544,7 +558,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickLabel: { fontFamily: font.medium, fontSize: 12, color: colors.body },
+  quickLabel: { fontFamily: font.medium, fontSize: 11, color: colors.body },
 
   eventWrap: { borderRadius: 18, marginBottom: 22 },
   eventPlain: {
