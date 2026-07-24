@@ -51,6 +51,9 @@ export async function ensureAnonymousAuth(): Promise<string | null> {
   if (!a) return null;
   try {
     if (!auth) auth = getAuth(a);
+    // 저장된 로그인(관리자 등)의 복원이 끝나기를 기다린 뒤 판단.
+    // 복원 전에 익명 로그인을 하면 관리자 세션을 덮어써 로그인이 풀린다.
+    await auth.authStateReady();
     if (auth.currentUser) return auth.currentUser.uid;
     const cred = await signInAnonymously(auth);
     return cred.user.uid;
