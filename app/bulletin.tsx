@@ -64,22 +64,35 @@ function SermonNoteCard({ date }: { date: string }) {
       </View>
       {Platform.OS === 'web' ? (
         // 한글 조합(IME) 중 커서가 튀지 않도록 react-native-web TextInput 대신
-        // 순수 <textarea> 사용 + 시스템 글꼴 고정 (조합 중 글자 폭 변화 방지)
+        // 순수 <textarea> 사용 + 시스템 글꼴 고정 (조합 중 글자 폭 변화 방지).
+        // 내용에 따라 높이가 자동으로 늘어나 위에 쓴 메모가 가려지지 않는다.
         React.createElement('textarea', {
+          ref: (el: HTMLTextAreaElement | null) => {
+            if (el) {
+              el.style.height = 'auto';
+              el.style.height = `${el.scrollHeight + 2}px`;
+            }
+          },
           defaultValue: initial,
           placeholder: '괄호 채우기와 은혜받은 말씀을 적어보세요.',
           autoComplete: 'off',
           autoCorrect: 'off',
           autoCapitalize: 'off',
           spellCheck: false,
-          onInput: (e: { target: { value: string } }) => onChange(e.target.value),
+          onInput: (e: { target: HTMLTextAreaElement }) => {
+            const el = e.target;
+            el.style.height = 'auto';
+            el.style.height = `${el.scrollHeight + 2}px`;
+            onChange(el.value);
+          },
           style: {
             minHeight: 130,
             width: '100%',
             boxSizing: 'border-box',
             border: 'none',
             outline: 'none',
-            resize: 'vertical',
+            resize: 'none',
+            overflow: 'hidden',
             borderRadius: 12,
             background: colors.screenBg,
             padding: '12px 14px',

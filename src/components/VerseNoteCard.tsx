@@ -195,15 +195,25 @@ export const VerseNoteCard = React.forwardRef<
     if (Platform.OS === 'web') {
       return React.createElement('textarea', {
         key: s.id,
-        ref: (el: { focus(): void } | null) => {
+        ref: (el: HTMLTextAreaElement | null) => {
           inputs.current[s.id] = el;
+          if (el) {
+            el.style.height = 'auto';
+            el.style.height = `${el.scrollHeight + 2}px`;
+          }
         },
         defaultValue: vals.current[s.id] ?? s.text,
         autoComplete: 'off',
         autoCorrect: 'off',
         autoCapitalize: 'off',
         spellCheck: false,
-        onInput: (e: { target: { value: string } }) => onInput(s.id, e.target.value),
+        onInput: (e: { target: HTMLTextAreaElement }) => {
+          // 내용에 따라 칸이 늘어나 위에 쓴 메모가 가려지지 않게
+          const el = e.target;
+          el.style.height = 'auto';
+          el.style.height = `${el.scrollHeight + 2}px`;
+          onInput(s.id, el.value);
+        },
         ...common,
         style: {
           minHeight: isLast ? 150 : 64,
@@ -211,7 +221,8 @@ export const VerseNoteCard = React.forwardRef<
           boxSizing: 'border-box',
           border: 'none',
           outline: 'none',
-          resize: 'vertical',
+          resize: 'none',
+          overflow: 'hidden',
           background: 'transparent',
           padding: '10px 14px',
           fontSize: 16,
