@@ -46,9 +46,9 @@ export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const push = usePushNotifications();
 
-  // 메일 앱이 교회 주소·제목이 채워진 새 메일로 바로 열린다
-  const openEmail = (subject: string) => {
-    const url = `mailto:admin@tvpc.church?subject=${encodeURIComponent(subject)}`;
+  // 메일 앱이 주소·제목이 채워진 새 메일로 바로 열린다
+  const openEmail = (to: string, subject: string) => {
+    const url = `mailto:${to}?subject=${encodeURIComponent(subject)}`;
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       window.location.href = url;
     } else {
@@ -92,15 +92,18 @@ export default function MoreScreen() {
       <View style={styles.gridRow}>
         <Pressable
           style={[styles.gridCard, shadows.card]}
-          onPress={() => openEmail('기도 요청')}
+          onPress={() => openEmail('shower724@gmail.com', '기도 요청')}
         >
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
             <HeartHandshake size={22} color={colors.tagGreenText} strokeWidth={1.9} />
           </View>
           <Text style={styles.gridLabel}>기도 요청</Text>
-          <Text style={styles.gridSub}>이메일로 기도 부탁드려요</Text>
+          <Text style={styles.gridSub}>목사님께 이메일로</Text>
         </Pressable>
-        <Pressable style={[styles.gridCard, shadows.card]} onPress={() => openEmail('문의')}>
+        <Pressable
+          style={[styles.gridCard, shadows.card]}
+          onPress={() => openEmail('admin@tvpc.church', '문의')}
+        >
           <View style={[styles.gridChip, { backgroundColor: colors.tagBlueBg }]}>
             <Mail size={22} color={colors.primary} strokeWidth={1.9} />
           </View>
