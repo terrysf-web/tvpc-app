@@ -137,6 +137,14 @@ export const VerseNoteCard = React.forwardRef<
   // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
   // 입력 도중 카드가 재렌더되면 한글 조합이 미세하게 흔들린다
   const onBlurInput = () => setSavedAt((s) => s ?? Date.now());
+  // 한글 조합(IME) 중에 입력칸 크기를 바꾸면 iOS가 조합을 강제로 끝내
+  // ㄱㅏㄴㅏ처럼 낱글자로 풀어진다 — 조합 중에는 절대 크기를 건드리지 않는다
+  const composing = useRef(false);
+  const grow = (el: HTMLTextAreaElement) => {
+    if (el.scrollHeight > el.clientHeight + 2) {
+      el.style.height = `${el.scrollHeight + 2}px`;
+    }
+  };
 
   // 구절 추가/삭제 뒤 커서 이동
   useEffect(() => {
@@ -210,13 +218,16 @@ export const VerseNoteCard = React.forwardRef<
         autoCapitalize: 'off',
         spellCheck: false,
         onBlur: onBlurInput,
+        onCompositionStart: () => {
+          composing.current = true;
+        },
+        onCompositionEnd: (e: { target: HTMLTextAreaElement }) => {
+          composing.current = false;
+          grow(e.target);
+        },
         onInput: (e: { target: HTMLTextAreaElement }) => {
-          // 매 키마다 높이를 리셋하면 화면이 출렁여 한글 조합이 부자연스럽다.
-          // 내용이 칸을 넘칠 때만 늘린다 (줄이는 것은 새로 열 때만).
           const el = e.target;
-          if (el.scrollHeight > el.clientHeight + 2) {
-            el.style.height = `${el.scrollHeight + 2}px`;
-          }
+          if (!composing.current) grow(el);
           onInput(s.id, el.value);
         },
         ...common,
