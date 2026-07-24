@@ -14,7 +14,7 @@ type SermonTab = 'recent' | 'topic' | 'podcast';
 
 const TABS: { key: SermonTab; label: string }[] = [
   { key: 'recent', label: '최근 설교' },
-  { key: 'topic', label: '말씀별' },
+  // 말씀별 탭은 당분간 숨김 — 코드는 유지 (TABS에 다시 넣으면 복원)
   { key: 'podcast', label: '팟캐스트' },
 ];
 
