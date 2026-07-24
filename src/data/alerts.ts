@@ -59,3 +59,33 @@ export async function getRecentAlerts(count = 3): Promise<AlertDoc[]> {
   );
   return snap.docs.map((d) => ({ ...(d.data() as Omit<AlertDoc, 'id'>), id: d.id }));
 }
+
+export interface PushDevice {
+  id: string;
+  /** 교인 가입이 된 기기의 이름 (미가입이면 null) */
+  name: string | null;
+  email: string | null;
+  ua: string;
+  createdAt: number;
+}
+
+/** 알림을 켠 기기 목록 — 관리자만 조회 가능 (보안 규칙) */
+export async function getPushDevices(): Promise<PushDevice[]> {
+  const snap = await getDocs(collection(requireDb(), 'pushTokens'));
+  const rows = snap.docs.map((d) => ({
+    id: d.id,
+    name: (d.get('name') as string | undefined) ?? null,
+    email: (d.get('email') as string | undefined) ?? null,
+    ua: (d.get('ua') as string | undefined) ?? '',
+    createdAt: Number(d.get('createdAt') ?? 0),
+  }));
+  rows.sort((a, b) => b.createdAt - a.createdAt);
+  return rows;
+}
+
+/** 기기 종류 표시용 — 브라우저 정보(ua)에서 기종을 추린다 */
+export function deviceKind(ua: string): string {
+  if (/iPhone|iPad|iPod/i.test(ua)) return '아이폰';
+  if (/Android/i.test(ua)) return '안드로이드';
+  return '컴퓨터';
+}

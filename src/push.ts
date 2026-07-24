@@ -1,4 +1,4 @@
-import { deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -74,10 +74,20 @@ export function usePushNotifications() {
         const uid = await ensureAnonymousAuth();
         if (!uid) throw new Error('로그인 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       }
+      // 교인 가입이 된 계정이면 이름을 함께 저장 — 관리자 "알림 켠 기기" 목록 표시용
+      let memberName: string | null = null;
+      try {
+        const uid = getAuthOrNull()?.currentUser?.uid;
+        if (uid) {
+          const m = await getDoc(doc(db, 'members', uid));
+          memberName = m.exists() ? ((m.get('name') as string | undefined) ?? null) : null;
+        }
+      } catch {}
       await setDoc(doc(db, 'pushTokens', token), {
         createdAt: Date.now(),
         // 관리자 알림(가입 신청 등) 대상 식별용
         email: currentEmail ? currentEmail.toLowerCase() : null,
+        name: memberName,
         ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 150) : '',
       });
       localStorage.setItem(SAVED_KEY, token);

@@ -132,8 +132,8 @@ service cloud.firestore {
     match /pushTokens/{token} {
       // 알림 토큰 등록·해제 — 익명 로그인 사용자.
       // 같은 기기가 다시 켜면 기존 문서 덮어쓰기(update)가 되므로 함께 허용.
-      // 목록 읽기는 서버(발송 스크립트)만.
-      allow read: if false;
+      // 목록 읽기는 발송 서버와 관리자(알림 기기 현황 표시)만.
+      allow read: if isAdmin();
       allow create, update, delete: if request.auth != null;
     }
 

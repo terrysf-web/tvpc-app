@@ -28,7 +28,15 @@ import {
   useAdminAuth,
   usePendingMembers,
 } from '../src/data/admin';
-import { type AlertDoc, createAlert, getAlert, getRecentAlerts } from '../src/data/alerts';
+import {
+  type AlertDoc,
+  createAlert,
+  deviceKind,
+  getAlert,
+  getPushDevices,
+  getRecentAlerts,
+  type PushDevice,
+} from '../src/data/alerts';
 import {
   BulletinPage,
   convertPdfToBulletinPages,
@@ -168,9 +176,13 @@ export default function AdminScreen() {
   const [aBody, setABody] = useState('');
   const [aResult, setAResult] = useState<string | null>(null);
   const [aRecent, setARecent] = useState<AlertDoc[]>([]);
+  const [aDevices, setADevices] = useState<PushDevice[] | null>(null);
 
   useEffect(() => {
-    if (isAdmin && tab === 'alert') getRecentAlerts(3).then(setARecent).catch(() => {});
+    if (isAdmin && tab === 'alert') {
+      getRecentAlerts(3).then(setARecent).catch(() => {});
+      getPushDevices().then(setADevices).catch(() => setADevices(null));
+    }
   }, [isAdmin, tab]);
 
   // 발송 결과 확인 — 서버가 상태를 sent로 바꿀 때까지 지켜본다 (보통 몇 초)
@@ -792,9 +804,34 @@ export default function AdminScreen() {
               </>
             )}
 
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>
+              알림 켠 기기{aDevices ? ` (${aDevices.length}대)` : ''}
+            </Text>
+            {aDevices && aDevices.length === 0 && (
+              <Text style={styles.emptyText}>아직 알림을 켠 기기가 없습니다.</Text>
+            )}
+            {(aDevices ?? []).map((d) => (
+              <View key={d.id} style={styles.alertRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingName} numberOfLines={1}>
+                    {d.name || d.email || '미가입 기기'}
+                  </Text>
+                  <Text style={styles.pendingMeta}>
+                    {deviceKind(d.ua)} ·{' '}
+                    {new Date(d.createdAt).toLocaleDateString('ko-KR', {
+                      month: 'numeric',
+                      day: 'numeric',
+                    })}{' '}
+                    알림 켬
+                  </Text>
+                </View>
+              </View>
+            ))}
             <Text style={styles.hintText}>
-              긴급할 때만 사용해 주세요. 알림은 더보기 탭에서 "알림 받기"를 켠
-              기기에만 도착합니다.
+              긴급 알림은 위 기기들에만 도착합니다. 교인 가입(로그인)이 된 기기는
+              이름이 보이고, 가입 없이 알림만 켠 기기는 "미가입 기기"로 표시됩니다.
+              긴급할 때만 사용해 주세요.
             </Text>
           </View>
         )}
