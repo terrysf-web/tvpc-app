@@ -246,7 +246,17 @@ const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: stri
     // 저장된 내용 전체가 보이게 첫 크기만 맞춘다
     if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
     let t: ReturnType<typeof setTimeout> | null = null;
+    let caretT: ReturnType<typeof setTimeout> | null = null;
     const onInput = () => {
+      // 아이폰 사파리는 한글 조합 글자를 다시 그릴 때 커서를 한 글자 뒤로
+      // 1프레임 그렸다 되돌린다(브라우저 엔진 동작, 앱 코드와 무관).
+      // 타이핑하는 동안 커서를 잠깐 숨겨 그 깜빡임이 보이지 않게 하고,
+      // 손을 멈추면(0.4초) 커서를 다시 보여준다.
+      ta.style.caretColor = 'transparent';
+      if (caretT) clearTimeout(caretT);
+      caretT = setTimeout(() => {
+        ta.style.caretColor = '';
+      }, 400);
       if (t) clearTimeout(t);
       t = setTimeout(() => {
         try {
@@ -257,6 +267,7 @@ const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: stri
       }, 500);
     };
     const onBlur = () => {
+      ta.style.caretColor = '';
       // 칸을 벗어난 뒤에만 내용 전체가 보이게 늘린다
       if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
       try {
@@ -269,6 +280,7 @@ const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: stri
     ta.addEventListener('blur', onBlur);
     return () => {
       if (t) clearTimeout(t);
+      if (caretT) clearTimeout(caretT);
       ta.removeEventListener('input', onInput);
       ta.removeEventListener('blur', onBlur);
       ta.remove();
