@@ -106,14 +106,12 @@ function Field({
 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
-  const { email, isAdmin, checking, signIn, signOut } = useAdminAuth();
+  const { email, isAdmin, checking, signOut } = useAdminAuth();
   const [tab, setTab] = useState<AdminTab>('verse');
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // 로그인 폼
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPw, setLoginPw] = useState('');
+  // 로그인 (Google 전용)
   const [loginErr, setLoginErr] = useState<string | null>(null);
 
   // 말씀 폼
@@ -248,19 +246,6 @@ export default function AdminScreen() {
   const [oItem, setOItem] = useState('');
   const [oDate, setODate] = useState(today());
   const [oAmount, setOAmount] = useState('');
-
-  const doLogin = async () => {
-    setLoginErr(null);
-    setBusy(true);
-    try {
-      await signIn(loginEmail, loginPw);
-      setLoginPw('');
-    } catch {
-      setLoginErr('로그인에 실패했습니다. 이메일과 비밀번호를 확인해 주세요.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const doGoogleLogin = async () => {
     setLoginErr(null);
@@ -476,6 +461,7 @@ export default function AdminScreen() {
                 <Text style={styles.loginTitle}>교역자 로그인</Text>
                 <Text style={styles.loginSub}>
                   오늘의 말씀·소식·일정을 등록할 수 있는 관리자 전용 화면입니다.
+                  등록된 교역자 Google 계정으로만 들어올 수 있습니다.
                 </Text>
                 <Pressable
                   style={[styles.googleBtn, busy && { opacity: 0.6 }]}
@@ -483,31 +469,11 @@ export default function AdminScreen() {
                   disabled={busy}
                 >
                   <Text style={styles.googleG}>G</Text>
-                  <Text style={styles.googleBtnText}>Google 계정으로 로그인</Text>
+                  <Text style={styles.googleBtnText}>
+                    {busy ? '로그인 중…' : 'Google 계정으로 로그인'}
+                  </Text>
                 </Pressable>
-                <View style={styles.orRow}>
-                  <View style={styles.orLine} />
-                  <Text style={styles.orText}>또는 이메일로</Text>
-                  <View style={styles.orLine} />
-                </View>
-                <Field label="이메일" value={loginEmail} onChange={setLoginEmail} placeholder="pastor@example.com" />
-                <Text style={styles.fieldLabel}>비밀번호</Text>
-                <TextInput
-                  style={styles.input}
-                  value={loginPw}
-                  onChangeText={setLoginPw}
-                  secureTextEntry
-                  placeholder="••••••••"
-                  placeholderTextColor={colors.faint}
-                />
                 {loginErr ? <Text style={styles.error}>{loginErr}</Text> : null}
-                <Pressable
-                  style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
-                  onPress={doLogin}
-                  disabled={busy}
-                >
-                  <Text style={styles.primaryBtnText}>{busy ? '로그인 중…' : '로그인'}</Text>
-                </Pressable>
               </>
             )}
           </View>
@@ -964,9 +930,6 @@ const styles = StyleSheet.create({
   },
   googleG: { fontFamily: font.extraBold, fontSize: 17, color: '#4285F4' },
   googleBtnText: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
-  orRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 16 },
-  orLine: { flex: 1, height: 1, backgroundColor: colors.divider2 },
-  orText: { fontFamily: font.regular, fontSize: 12, color: colors.faint },
   loginSub: {
     marginTop: 6,
     marginBottom: 18,
