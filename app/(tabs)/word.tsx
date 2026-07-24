@@ -78,6 +78,12 @@ export default function WordScreen() {
     }
   };
   const hlNums = new Set(hls.map((h) => h.v));
+  // 메모 카드(memo)가 재렌더에서 격리되도록 콜백 참조를 고정한다
+  const onQuoteRemoved = React.useCallback(
+    (v: number) => setHls(toggleHighlight(verse.date, v, '')),
+    [verse.date],
+  );
+  const onNoteAutoSaved = React.useCallback(() => setSaved(true), []);
 
   // 북마크 해제 시 메모·형광펜이 있으면 실수로 잃지 않게 한 번 더 확인
   const [noteKey, setNoteKey] = useState(0);
@@ -199,8 +205,8 @@ export default function WordScreen() {
             date={verse.date}
             reference={verse.reference}
             heroText={verse.heroText}
-            onQuoteRemoved={(v) => setHls(toggleHighlight(verse.date, v, ''))}
-            onAutoSaved={() => setSaved(true)}
+            onQuoteRemoved={onQuoteRemoved}
+            onAutoSaved={onNoteAutoSaved}
           />
         </View>
         {tab === 'med' && (

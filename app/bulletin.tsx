@@ -35,7 +35,13 @@ function fmtKo(date: string): string {
  * 입력칸은 쓰는 글자 수에 따라 옆으로 늘어난다.
  * 답은 이 기기(localStorage)에만 날짜별로 저장된다.
  */
-function FillInCard({ date, lines }: { date: string; lines: string[] }) {
+const FillInCard = React.memo(function FillInCard({
+  date,
+  lines,
+}: {
+  date: string;
+  lines: string[];
+}) {
   const key = `bulletinFill:${date}`;
   const [initial] = useState<Record<string, string>>(() => {
     try {
@@ -83,7 +89,12 @@ function FillInCard({ date, lines }: { date: string; lines: string[] }) {
         autoCapitalize: 'off',
         spellCheck: false,
         ref: (el: HTMLInputElement | null) => {
-          if (el) el.style.width = `${Math.max(4, (vals.current[id] ?? '').length + 2)}ch`;
+          // 화면이 다시 그려질 때 ref가 재실행돼도 크기 재설정은 최초 한 번만 —
+          // 입력 중 크기 변경은 커서를 처음으로 튕겨보낸다
+          if (el && !el.dataset.sized) {
+            el.dataset.sized = '1';
+            el.style.width = `${Math.max(4, (vals.current[id] ?? '').length + 2)}ch`;
+          }
         },
         onCompositionStart: () => {
           composingBlank.current = true;
@@ -186,9 +197,9 @@ function FillInCard({ date, lines }: { date: string; lines: string[] }) {
       <Text style={styles.noteHint}>괄호에 적은 답은 이 전화기에만 저장됩니다.</Text>
     </View>
   );
-}
+});
 
-function SermonNoteCard({ date }: { date: string }) {
+const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: string }) {
   const key = `bulletinNote:${date}`;
   // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리며
   // 조합이 끊기므로, 입력창은 비제어(defaultValue)로 두고 저장만 디바운스한다.
@@ -242,7 +253,10 @@ function SermonNoteCard({ date }: { date: string }) {
         React.createElement('textarea', {
           ref: (el: HTMLTextAreaElement | null) => {
             taRef.current = el;
-            if (el) {
+            // 화면이 다시 그려질 때 ref가 재실행돼도 크기 재설정은 최초 한 번만 —
+            // 입력 중 크기 변경은 커서를 처음으로 튕겨보낸다
+            if (el && !el.dataset.sized) {
+              el.dataset.sized = '1';
               el.style.height = 'auto';
               el.style.height = `${el.scrollHeight + 2}px`;
             }
@@ -302,7 +316,7 @@ function SermonNoteCard({ date }: { date: string }) {
       <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
     </View>
   );
-}
+});
 
 /**
  * 주보 뷰어 — 관리자가 올린 페이지 이미지를 전화기 화면 폭에 맞춰 한 장씩 보여준다.

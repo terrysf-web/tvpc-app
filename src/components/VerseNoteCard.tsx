@@ -81,7 +81,10 @@ function loadSegs(date: string): Seg[] {
   return out;
 }
 
-export const VerseNoteCard = React.forwardRef<
+// memo로 감싸 부모(키보드 추천줄 등으로 화면 치수가 바뀔 때마다 재렌더)의
+// 재렌더가 입력칸 DOM에 닿지 않게 격리한다 — 커서 튐 방지의 핵심
+export const VerseNoteCard = React.memo(
+  React.forwardRef<
   VerseNoteHandle,
   {
     date: string;
@@ -312,7 +315,8 @@ export const VerseNoteCard = React.forwardRef<
       </Text>
     </View>
   );
-});
+  }),
+);
 
 /** 이 기기에 해당 날짜의 '내가 쓴 메모'가 있는지 */
 export function hasVerseNote(date: string): boolean {
