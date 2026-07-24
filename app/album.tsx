@@ -42,6 +42,8 @@ interface AlbumPage {
 interface RowIndex {
   cell: string;
   names: string;
+  /** 추가 소속 셀 (예: 주 소속 Cell-08 + 추가 CYA) */
+  x: string;
 }
 
 const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
@@ -502,8 +504,14 @@ export default function AlbumScreen() {
         const meta = await getDoc(doc(db, 'albums', 'current'));
         if (cancelled) return;
         const n = Number(meta.get('pageCount') ?? 0);
-        const idxRaw = (meta.get('index') as { c?: string; n?: string }[] | undefined) ?? [];
-        const idx = idxRaw.map((r) => ({ cell: String(r.c ?? '기타'), names: String(r.n ?? '') }));
+        const idxRaw =
+          (meta.get('index') as { c?: string; n?: string; x?: string }[] | undefined) ?? [];
+        const idx = idxRaw.map((r) => ({
+          cell: String(r.c ?? '기타'),
+          names: String(r.n ?? ''),
+          // 추가 소속 셀("Cell-08, CYA"처럼 두 그룹에 속한 가정) — 검색·필터에 포함
+          x: r.x ? String(r.x) : '',
+        }));
         if (!meta.exists || (!n && !idx.length)) {
           setFailed(true);
           return;
@@ -593,12 +601,12 @@ export default function AlbumScreen() {
   const visible = useMemo(() => {
     const base = index
       .map((r, i) => ({ r, i }))
-      .filter(({ r }) => !cellFilter || r.cell === cellFilter);
+      .filter(({ r }) => !cellFilter || r.cell === cellFilter || r.x.includes(cellFilter));
     if (norm(query).length < 2) return base;
-    const exact = base.filter(({ r }) => matchNames(r.names, r.cell, query));
+    const exact = base.filter(({ r }) => matchNames(r.names, `${r.cell} ${r.x}`, query));
     if (exact.length > 0) return exact;
     // 정확 일치가 없을 때만 마지막 글자 오독 허용 (백대호 → 백대희)
-    return base.filter(({ r }) => matchNamesFuzzy(r.names, r.cell, query));
+    return base.filter(({ r }) => matchNamesFuzzy(r.names, `${r.cell} ${r.x}`, query));
   }, [index, cellFilter, query]);
 
   // 검색·셀 선택 결과의 이미지를 우선 로드

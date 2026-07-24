@@ -74,7 +74,7 @@ if (pdfBuf.subarray(0, 5).toString() !== '%PDF-') {
 console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 
 // 변환 방식이 바뀌면(버전 증가) 같은 PDF라도 다시 변환한다
-const CONVERTER_VERSION = 17;
+const CONVERTER_VERSION = 18;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
 if (
@@ -151,6 +151,22 @@ function normCell(raw) {
   if (m) return `Cell-${m[1].padStart(2, '0')}`;
   if (/^[A-Za-z가-힣]{2,}/.test(s)) return s;
   return '기타';
+}
+
+// 한 줄이 여러 그룹에 속하는 경우("Cell-08, CYA") — 라벨의 모든 그룹을 읽는다.
+// 첫 항목이 주 소속, 나머지는 추가 소속으로 저장해 검색·셀 필터에 함께 걸린다.
+const CELL_FIX_MAP = { CVA: 'CYA', CY4: 'CYA', Em: 'EM' };
+function allCells(raw) {
+  const out = [];
+  for (const tok of String(raw).split(/[,\s]+/)) {
+    if (!tok) continue;
+    let c = normCell(tok);
+    c = CELL_FIX_MAP[c] ?? c;
+    if ((/^Cell-\d{2}$/.test(c) || /^(CYA|EM|Pastor|늘푸른)$/.test(c)) && !out.includes(c)) {
+      out.push(c);
+    }
+  }
+  return out;
 }
 
 const MAX_BYTES = 675_000; // base64 후 Firestore 1MB 한도 아래
@@ -270,7 +286,8 @@ for (let i = 0; i < files.length; i++) {
       .map((w) => w.text)
       .join(' ')
       .trim();
-    let cell = normCell(cellText);
+    let cellList = allCells(cellText);
+    let cell = cellList[0] ?? normCell(cellText);
     // 이름 열 — 300dpi OCR(한글 정확도)로 검색용 이름 추출
     const names = words300
       // 이름은 검색 색인용 — 신뢰도 문턱을 낮춰(12) 흐리게 읽힌 이름도
@@ -294,6 +311,7 @@ for (let i = 0; i < files.length; i++) {
         .sort((a, b) => b.left - a.left)[0];
       if (cand) cell = normCell(cand.text);
     }
+    const extra = cellList.slice(1).join(', ');
     const cropH = endPx - startPx;
     if (cropH < 30) continue;
     const slice = sharp(
@@ -301,7 +319,7 @@ for (let i = 0; i < files.length; i++) {
     );
     const buf = await encode(slice.resize({ width: 1000, withoutEnlargement: true }));
     total += buf.length;
-    rows.push({ cell, names, buf, w: imgW, h: cropH });
+    rows.push({ cell, extra, names, buf, w: imgW, h: cropH });
   }
   console.log(`  p${i + 1}: 명부 ${photos.length}줄 (OCR 단어 ${words.length}개)`);
 }
@@ -331,6 +349,27 @@ for (const r of rows) {
   }
 }
 
+// 라벨 OCR이 놓친 다중 소속 보정 — 이름 표식이 있는 줄에 추가 셀을 붙인다
+// (백대호 가족: 명부에는 "Cell-08, CYA"로 인쇄돼 있으나 OCR이 놓칠 수 있음)
+const EXTRA_CELLS = [
+  ['Joanne', 'Cell-08'],
+];
+for (const r of rows) {
+  for (const [mark, c] of EXTRA_CELLS) {
+    if (r.names.includes(mark) && r.cell !== c && !(r.extra ?? '').includes(c)) {
+      r.extra = r.extra ? `${r.extra}, ${c}` : c;
+    }
+  }
+}
+{
+  const multi = rows.filter((r) => r.extra);
+  if (multi.length) {
+    console.log(
+      `  다중 소속 ${multi.length}줄: ${multi.map((r) => `[${r.cell} + ${r.extra}] ${r.names.slice(0, 24)}`).join(' / ')}`,
+    );
+  }
+}
+
 // 셀 이름순으로 묶어 저장 — 뷰어는 순서대로 읽으며 셀이 바뀔 때 제목을 단다
 const cellOrder = [...new Set(rows.map((r) => r.cell))].sort((a, b) =>
   a.localeCompare(b, 'en', { numeric: true }),
@@ -342,6 +381,7 @@ for (let i = 0; i < rows.length; i++) {
   await db.doc(`albums/current/rows/${String(i).padStart(4, '0')}`).set({
     order: i,
     cell: rows[i].cell,
+    ...(rows[i].extra ? { extra: rows[i].extra } : {}),
     names: rows[i].names,
     image: `data:image/jpeg;base64,${rows[i].buf.toString('base64')}`,
     w: rows[i].w,
@@ -349,12 +389,17 @@ for (let i = 0; i < rows.length; i++) {
   });
 }
 
+// 셀 필터 목록에는 추가 소속 셀도 포함한다 (그 셀로 걸러도 나오게)
+const allCellList = [
+  ...new Set([...cellOrder, ...rows.flatMap((r) => (r.extra ? r.extra.split(', ') : []))]),
+].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+
 await db.doc('albums/current').set({
   pageCount: introCount,
   rowCount: rows.length,
-  cells: cellOrder,
+  cells: allCellList,
   // 가벼운 색인 — 뷰어가 이미지를 받기 전에도 전체 이름 검색이 되도록
-  index: rows.map((r) => ({ c: r.cell, n: r.names })),
+  index: rows.map((r) => ({ c: r.cell, n: r.names, ...(r.extra ? { x: r.extra } : {}) })),
   pdfHash,
   converterVersion: CONVERTER_VERSION,
   sourceUrl: ALBUM_URL,
