@@ -102,13 +102,13 @@ export default function MoreScreen() {
         </Pressable>
         <Pressable
           style={[styles.gridCard, shadows.card]}
-          onPress={() => openEmail('admin@tvpc.church', '문의')}
+          onPress={() => openEmail('admin@tvpc.church', '도움 요청')}
         >
           <View style={[styles.gridChip, { backgroundColor: colors.tagBlueBg }]}>
             <Mail size={22} color={colors.primary} strokeWidth={1.9} />
           </View>
-          <Text style={styles.gridLabel}>문의하기</Text>
-          <Text style={styles.gridSub}>admin@tvpc.church</Text>
+          <Text style={styles.gridLabel}>도움받기</Text>
+          <Text style={styles.gridSub}>도움이 필요하시면 언제든지 말씀해 주세요</Text>
         </Pressable>
       </View>
 
