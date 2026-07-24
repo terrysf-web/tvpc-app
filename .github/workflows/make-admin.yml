@@ -11,8 +11,16 @@ on:
         description: '관리자 이메일'
         required: true
       password:
-        description: '비밀번호 (6자 이상, 등록 후 변경 권장)'
+        description: '비밀번호 (6자 이상 — Google 로그인만 쓰면 사용되지 않음)'
         required: true
+      role:
+        description: '역할 (pastor=목회자·말씀 관리 / admin=관리자·소식·일정 관리)'
+        required: false
+        default: 'admin'
+        type: choice
+        options:
+          - admin
+          - pastor
 
 jobs:
   make-admin:
@@ -32,4 +40,5 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           ADMIN_EMAIL: ${{ inputs.email }}
           ADMIN_PASSWORD: ${{ inputs.password }}
+          ADMIN_ROLE: ${{ inputs.role }}
         run: node scripts/make-admin.mjs

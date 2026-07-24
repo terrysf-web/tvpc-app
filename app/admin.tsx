@@ -57,6 +57,7 @@ type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'alert' | 'members' | 
 
 // 알림(긴급 공지)은 더보기의 전용 화면으로 이동. 주보는 토요일마다 홈페이지에서
 // 자동 동기화되고, 교인·헌금은 사용하지 않아 탭에서 제외 (코드는 유지 — 다시 넣으면 복원)
+// 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정만 관리한다.
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
   { key: 'news', label: '소식' },
@@ -106,8 +107,18 @@ function Field({
 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
-  const { email, isAdmin, checking, signOut } = useAdminAuth();
+  const { email, isAdmin, role, checking, signOut } = useAdminAuth();
   const [tab, setTab] = useState<AdminTab>('verse');
+  const visibleTabs = TABS.filter((t) =>
+    role === 'pastor' ? t.key === 'verse' : t.key !== 'verse',
+  );
+  // 역할이 정해지면 그 역할의 첫 탭으로 이동
+  useEffect(() => {
+    if (isAdmin && visibleTabs.length > 0 && !visibleTabs.some((t) => t.key === tab)) {
+      setTab(visibleTabs[0].key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, role]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -496,7 +507,7 @@ export default function AdminScreen() {
           </Pressable>
         }
       />
-      <SegmentTabs tabs={TABS} active={tab} onChange={(t) => { setTab(t); setMsg(null); }} />
+      <SegmentTabs tabs={visibleTabs} active={tab} onChange={(t) => { setTab(t); setMsg(null); }} />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"

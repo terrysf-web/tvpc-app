@@ -21,9 +21,13 @@ import type { EventDoc, NewsDoc, VerseDoc } from '../types';
  * 관리자 여부는 Firestore `admins/{이메일}` 문서 존재로 판별하며,
  * 실제 쓰기 권한은 보안 규칙이 강제한다 (클라이언트 표시는 편의용).
  */
+export type AdminRole = 'pastor' | 'admin';
+
 export function useAdminAuth() {
   const [email, setEmail] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  // 역할: pastor(목회자) = 말씀 관리, admin(관리자) = 소식·일정 관리
+  const [role, setRole] = useState<AdminRole | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -32,15 +36,19 @@ export function useAdminAuth() {
       setEmail(mail);
       if (!mail) {
         setIsAdmin(false);
+        setRole(null);
         setChecking(false);
         return;
       }
       try {
         const db = getDb();
         const snap = db ? await getDoc(doc(db, 'admins', mail)) : null;
-        setIsAdmin(!!snap?.exists());
+        const ok = !!snap?.exists();
+        setIsAdmin(ok);
+        setRole(ok ? ((snap?.get('role') as string) === 'pastor' ? 'pastor' : 'admin') : null);
       } catch {
         setIsAdmin(false);
+        setRole(null);
       }
       setChecking(false);
     });
@@ -55,7 +63,7 @@ export function useAdminAuth() {
     await adminSignOut();
   }, []);
 
-  return { email, isAdmin, checking, signIn, signOut };
+  return { email, isAdmin, role, checking, signIn, signOut };
 }
 
 function requireDb() {

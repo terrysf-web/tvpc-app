@@ -44,12 +44,15 @@ try {
   console.log(`사용자 생성: ${email}`);
 }
 
+// 역할: pastor(목회자) = 말씀 관리, admin(관리자) = 소식·일정 관리
+const role = (process.env.ADMIN_ROLE || 'admin').trim() === 'pastor' ? 'pastor' : 'admin';
+
 await db.doc(`admins/${email}`).set({
   email,
-  role: 'admin',
+  role,
   createdAt: Date.now(),
 });
 
-console.log(`완료! ${email} 계정이 관리자로 등록되었습니다.`);
+console.log(`완료! ${email} 계정이 ${role === 'pastor' ? '목회자' : '관리자'}로 등록되었습니다.`);
 console.log('앱의 더보기 맨 아래 "교역자 · 관리자"에서 이 계정으로 로그인하세요.');
 process.exit(0);
