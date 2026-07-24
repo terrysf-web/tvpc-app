@@ -97,8 +97,11 @@ export default function MoreScreen() {
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
             <HeartHandshake size={22} color={colors.tagGreenText} strokeWidth={1.9} />
           </View>
-          <Text style={styles.gridLabel}>기도요청</Text>
-          <Text style={styles.gridSub}>목사님께 이메일로</Text>
+          <Text style={styles.gridLabel}>함께기도해요</Text>
+          <Text style={styles.gridSub}>
+            목사님께 나누고 싶은 기도 제목이나 마음의 짐이 있다면 편하게
+            적어주세요. 목사님이 함께 기도합니다
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.gridCard, shadows.card]}
