@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import {
   BellRing,
-  BookUser,
   Building2,
   ChevronRight,
   Clock,
-  RefreshCw,
-  HandCoins,
+  HeartHandshake,
+  Mail,
   MapPin,
   MessageCircle,
+  RefreshCw,
   Share2,
   UserRound,
   Users,
@@ -16,6 +16,7 @@ import {
 import React from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   Share,
@@ -44,6 +45,16 @@ export default function MoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const push = usePushNotifications();
+
+  // 메일 앱이 교회 주소·제목이 채워진 새 메일로 바로 열린다
+  const openEmail = (subject: string) => {
+    const url = `mailto:admin@tvpc.church?subject=${encodeURIComponent(subject)}`;
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      window.location.href = url;
+    } else {
+      Linking.openURL(url).catch(() => {});
+    }
+  };
 
   const onMenu = (key: (typeof MENU)[number]['key']) => {
     if (key === 'refresh') {
@@ -77,21 +88,24 @@ export default function MoreScreen() {
     >
       <Text style={styles.screenTitle}>더보기</Text>
 
-      {/* 2열 그리드 — 교회 앨범 / 온라인 헌금 */}
+      {/* 2열 그리드 — 기도 요청 / 문의하기 (둘 다 교회 이메일로 연결) */}
       <View style={styles.gridRow}>
-        <Pressable style={[styles.gridCard, shadows.card]} onPress={() => router.push('/album')}>
+        <Pressable
+          style={[styles.gridCard, shadows.card]}
+          onPress={() => openEmail('기도 요청')}
+        >
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
-            <BookUser size={22} color={colors.tagGreenText} strokeWidth={1.9} />
+            <HeartHandshake size={22} color={colors.tagGreenText} strokeWidth={1.9} />
           </View>
-          <Text style={styles.gridLabel}>교회 앨범</Text>
-          <Text style={styles.gridSub}>사진으로 보는 교우들</Text>
+          <Text style={styles.gridLabel}>기도 요청</Text>
+          <Text style={styles.gridSub}>이메일로 기도 부탁드려요</Text>
         </Pressable>
-        <Pressable style={[styles.gridCard, shadows.card]} onPress={() => router.push('/offering')}>
+        <Pressable style={[styles.gridCard, shadows.card]} onPress={() => openEmail('문의')}>
           <View style={[styles.gridChip, { backgroundColor: colors.tagBlueBg }]}>
-            <HandCoins size={22} color={colors.primary} strokeWidth={1.9} />
+            <Mail size={22} color={colors.primary} strokeWidth={1.9} />
           </View>
-          <Text style={styles.gridLabel}>온라인 헌금</Text>
-          <Text style={styles.gridSub}>어디서나 간편하게</Text>
+          <Text style={styles.gridLabel}>문의하기</Text>
+          <Text style={styles.gridSub}>admin@tvpc.church</Text>
         </Pressable>
       </View>
 
