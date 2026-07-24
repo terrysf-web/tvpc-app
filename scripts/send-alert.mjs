@@ -3,7 +3,8 @@
  * pushTokens에 등록된 모든 기기로 전송하고 발송 완료로 표시한다.
  *
  * 관리자 화면에서 알림을 등록하면 send-alert.yml 워크플로가 즉시 실행되고,
- * 매시간 notify-pending.yml이 안전망으로 남은 대기 알림을 발송한다.
+ * 같은 워크플로의 5분 간격 예비 실행이 남은 대기 알림을 발송한다.
+ * 두 실행이 겹쳐도 트랜잭션 잠금(pending→sending)으로 한 번만 나간다.
  * 24시간이 지난 대기 알림은 뒤늦게 나가지 않도록 만료 처리한다.
  */
 import { cert, initializeApp } from 'firebase-admin/app';
@@ -18,7 +19,11 @@ if (!saRaw) {
 initializeApp({ credential: cert(JSON.parse(saRaw)) });
 const db = getFirestore();
 
-const pendingSnap = await db.collection('alerts').where('status', '==', 'pending').get();
+// sending 상태도 함께 조회 — 이전 실행이 중간에 죽어 잠긴 채 남은 알림을 되살린다
+const pendingSnap = await db
+  .collection('alerts')
+  .where('status', 'in', ['pending', 'sending'])
+  .get();
 if (pendingSnap.empty) {
   console.log('대기 중인 긴급 알림이 없습니다.');
   process.exit(0);
@@ -36,6 +41,22 @@ for (const alertDoc of pendingSnap.docs) {
   if (Date.now() - Number(alert.createdAt || 0) > 24 * 3600e3) {
     await alertDoc.ref.update({ status: 'expired' });
     console.log(`- ${alertDoc.id}: 24시간 경과로 만료 처리`);
+    continue;
+  }
+
+  // 잠금 선점 — 다른 실행이 이미 보내는 중이면 건너뛴다 (10분 넘게 잠겨 있으면 회수)
+  const claimed = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(alertDoc.ref);
+    const cur = snap.data();
+    if (!cur) return false;
+    const staleClaim =
+      cur.status === 'sending' && Date.now() - Number(cur.claimedAt || 0) > 10 * 60e3;
+    if (cur.status !== 'pending' && !staleClaim) return false;
+    tx.update(alertDoc.ref, { status: 'sending', claimedAt: Date.now() });
+    return true;
+  });
+  if (!claimed) {
+    console.log(`- ${alertDoc.id}: 다른 실행이 발송 중이라 건너뜁니다.`);
     continue;
   }
 

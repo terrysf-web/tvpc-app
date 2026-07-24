@@ -14,8 +14,8 @@ import { getAuthOrNull, getDb } from '../firebase';
  * 긴급 알림 — 관리자가 등록하면 알림을 켠 모든 기기로 푸시 전송.
  *
  * 흐름: alerts 컬렉션에 대기(pending) 문서 저장 → GitHub 발송 워크플로를
- * 즉시 깨워(연결 토큰 필요, 약 1분) 전송. 토큰이 없거나 깨우기에 실패해도
- * 매시간 도는 안전망 워크플로가 대기 알림을 자동 발송한다.
+ * 즉시 깨워(연결 토큰 필요, 약 1분) 전송. 깨우기에 실패한 경우에만
+ * 5분 간격 예비 실행이 대기 알림을 자동 발송한다.
  */
 
 const GITHUB_REPO = 'terrysf-web/tvpc-app';
@@ -26,7 +26,7 @@ export interface AlertDoc {
   id: string;
   title: string;
   body: string;
-  status: 'pending' | 'sent' | 'expired';
+  status: 'pending' | 'sending' | 'sent' | 'expired';
   createdAt: number;
   sentAt?: number;
   sentCount?: number;
@@ -79,23 +79,27 @@ export async function saveDispatchToken(token: string): Promise<void> {
   );
 }
 
-/** 발송 워크플로를 즉시 깨운다 — 성공하면 약 1분 안에 푸시가 나간다 */
+/** 발송 워크플로를 즉시 깨운다 — 실패하면 자동 재시도(총 3회) 후 결과를 알린다 */
 export async function triggerAlertWorkflow(token: string): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${ALERT_WORKFLOW}/dispatches`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json',
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 2000));
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${ALERT_WORKFLOW}/dispatches`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ref: WORKFLOW_BRANCH }),
         },
-        body: JSON.stringify({ ref: WORKFLOW_BRANCH }),
-      },
-    );
-    return res.status === 204;
-  } catch {
-    return false;
+      );
+      if (res.status === 204) return true;
+      // 401/403(토큰 만료·권한 부족)은 재시도해도 소용없다
+      if (res.status === 401 || res.status === 403 || res.status === 404) return false;
+    } catch {}
   }
+  return false;
 }

@@ -36,10 +36,3 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node scripts/notify-pending-members.mjs
-
-      # 긴급 알림 안전망 — 즉시 발송이 실패해 남아 있는 대기 알림을 매시간 발송
-      - name: Flush emergency alerts
-        if: env.skip != 'true'
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node scripts/send-alert.mjs

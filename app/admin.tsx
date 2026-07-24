@@ -187,8 +187,8 @@ export default function AdminScreen() {
     if (isAdmin && tab === 'alert') refreshAlertTab();
   }, [isAdmin, tab, refreshAlertTab]);
 
-  // 발송 결과 확인 — 워크플로가 상태를 sent로 바꿀 때까지 잠시 지켜본다
-  const watchAlertResult = (id: string, immediate: boolean) => {
+  // 발송 결과 확인 — 발송 스크립트가 상태를 sent로 바꿀 때까지 잠시 지켜본다
+  const watchAlertResult = (id: string) => {
     let tries = 0;
     const check = async () => {
       tries++;
@@ -200,9 +200,9 @@ export default function AdminScreen() {
           return;
         }
       } catch {}
-      if (tries < 24) {
+      if (tries < 40) {
         setTimeout(check, 10_000);
-      } else if (immediate) {
+      } else {
         setAResult(
           '아직 발송 확인이 안 됩니다. 잠시 후 이 탭을 다시 열어 발송 내역을 확인해 주세요.',
         );
@@ -216,6 +216,10 @@ export default function AdminScreen() {
     const body = aBody.trim();
     if (!title || !body) {
       setMsg('제목과 내용을 모두 입력해 주세요.');
+      return;
+    }
+    if (!hasToken) {
+      setMsg('먼저 아래 "즉시 발송 연결"을 한 번만 설정해 주세요. 설정 후에는 항상 약 1분 안에 발송됩니다.');
       return;
     }
     const question = '알림을 켠 모든 기기로 긴급 알림을 보낼까요?';
@@ -241,10 +245,10 @@ export default function AdminScreen() {
       setAResult(
         immediate
           ? '✓ 발송을 시작했습니다. 약 1분 안에 각 기기에 알림이 도착합니다.'
-          : '✓ 알림이 접수됐습니다. 즉시 발송 연결이 없어 다음 정시(최대 1시간 내)에 자동 발송됩니다.',
+          : '⚠ 즉시 발송 깨우기에 실패했습니다 (토큰 만료 여부를 확인해 주세요). 알림은 예비 발송으로 약 5분 안에 자동 전송됩니다.',
       );
       setABody('');
-      watchAlertResult(id, immediate);
+      watchAlertResult(id);
     } catch (e) {
       setMsg(`발송 실패: ${e instanceof Error ? e.message : '권한을 확인해 주세요.'}`);
     } finally {
@@ -759,6 +763,14 @@ export default function AdminScreen() {
               더보기 탭에서 알림을 켠 모든 기기로 푸시 알림이 전송됩니다. 앱이 닫혀
               있어도 화면에 알림이 뜨고, 확인할 때까지 사라지지 않습니다.
             </Text>
+            {hasToken === false && (
+              <View style={styles.warnBox}>
+                <Text style={styles.warnBoxText}>
+                  아래 "즉시 발송 연결"을 한 번만 설정하면 발송 버튼이 열립니다.
+                  설정 후에는 언제나 약 1분 안에 발송됩니다.
+                </Text>
+              </View>
+            )}
             <Field label="제목" value={aTitle} onChange={setATitle} placeholder="예: 긴급 공지" />
             <Field
               label="내용"
@@ -769,11 +781,17 @@ export default function AdminScreen() {
               lines={4}
             />
             <Pressable
-              style={[styles.primaryBtn, { backgroundColor: colors.heartActive }, busy && { opacity: 0.6 }]}
+              style={[
+                styles.primaryBtn,
+                { backgroundColor: colors.heartActive },
+                (busy || !hasToken) && { opacity: 0.5 },
+              ]}
               onPress={sendAlertForm}
               disabled={busy}
             >
-              <Text style={styles.primaryBtnText}>{busy ? '보내는 중…' : '긴급 알림 발송'}</Text>
+              <Text style={styles.primaryBtnText}>
+                {busy ? '보내는 중…' : hasToken ? '긴급 알림 발송' : '연결 설정 후 발송할 수 있어요'}
+              </Text>
             </Pressable>
             {aResult ? (
               <View style={{ marginTop: 12 }}>
@@ -811,8 +829,8 @@ export default function AdminScreen() {
                     >
                       {a.status === 'sent'
                         ? `${a.sentCount ?? 0}대 발송`
-                        : a.status === 'pending'
-                          ? '발송 대기'
+                        : a.status === 'pending' || a.status === 'sending'
+                          ? '발송 중'
                           : '만료'}
                     </Text>
                   </View>
@@ -826,8 +844,8 @@ export default function AdminScreen() {
               {hasToken === null
                 ? '연결 상태 확인 중…'
                 : hasToken
-                  ? '✓ 연결돼 있습니다 — 긴급 알림이 약 1분 안에 발송됩니다.'
-                  : '아직 연결 전입니다. 지금도 알림은 매시간 정시에 자동 발송되지만, 아래 연결 토큰을 저장하면 약 1분 안에 바로 나갑니다.'}
+                  ? '✓ 연결돼 있습니다 — 긴급 알림이 항상 약 1분 안에 발송됩니다.'
+                  : '아직 연결 전입니다. 아래 안내대로 토큰을 만들어 저장하면 발송 버튼이 열립니다.'}
             </Text>
             <Field
               label="GitHub 연결 토큰"
@@ -1055,6 +1073,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: colors.tagGreenText,
+  },
+  warnBox: {
+    backgroundColor: colors.tagOrangeBg,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  warnBoxText: {
+    fontFamily: font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.tagOrangeText,
   },
   pendingRow: {
     flexDirection: 'row',
