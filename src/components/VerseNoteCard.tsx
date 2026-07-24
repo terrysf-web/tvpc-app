@@ -132,18 +132,27 @@ export const VerseNoteCard = React.forwardRef<
   const onInput = (id: number, t: string) => {
     vals.current[id] = t;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => persist(segs), 500);
+    timer.current = setTimeout(() => {
+      persist(segs);
+      grow();
+    }, 500);
+  };
+  // 한글 조합(IME) 중 크기 변경은 조합을 끊고(낱글자 풀어짐), 글자마다
+  // 크기 계산을 하면 커서가 흔들린다 — 타이핑 중에는 아무것도 하지 않고,
+  // 입력을 잠깐 멈췄을 때(저장 시점)와 칸을 벗어날 때만 칸을 늘린다.
+  const composing = useRef(false);
+  const lastEl = useRef<HTMLTextAreaElement | null>(null);
+  const grow = () => {
+    const el = lastEl.current;
+    if (el && !composing.current && el.scrollHeight > el.clientHeight + 2) {
+      el.style.height = `${el.scrollHeight + 2}px`;
+    }
   };
   // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
   // 입력 도중 카드가 재렌더되면 한글 조합이 미세하게 흔들린다
-  const onBlurInput = () => setSavedAt((s) => s ?? Date.now());
-  // 한글 조합(IME) 중에 입력칸 크기를 바꾸면 iOS가 조합을 강제로 끝내
-  // ㄱㅏㄴㅏ처럼 낱글자로 풀어진다 — 조합 중에는 절대 크기를 건드리지 않는다
-  const composing = useRef(false);
-  const grow = (el: HTMLTextAreaElement) => {
-    if (el.scrollHeight > el.clientHeight + 2) {
-      el.style.height = `${el.scrollHeight + 2}px`;
-    }
+  const onBlurInput = () => {
+    grow();
+    setSavedAt((s) => s ?? Date.now());
   };
 
   // 구절 추가/삭제 뒤 커서 이동
@@ -221,14 +230,12 @@ export const VerseNoteCard = React.forwardRef<
         onCompositionStart: () => {
           composing.current = true;
         },
-        onCompositionEnd: (e: { target: HTMLTextAreaElement }) => {
+        onCompositionEnd: () => {
           composing.current = false;
-          grow(e.target);
         },
         onInput: (e: { target: HTMLTextAreaElement }) => {
-          const el = e.target;
-          if (!composing.current) grow(el);
-          onInput(s.id, el.value);
+          lastEl.current = e.target;
+          onInput(s.id, e.target.value);
         },
         ...common,
         style: {

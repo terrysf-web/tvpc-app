@@ -59,13 +59,19 @@ function FillInCard({ date, lines }: { date: string; lines: string[] }) {
       } catch {
         /* 무시 */
       }
+      fit();
     }, 500);
   };
 
-  // 한글 조합(IME) 중에 칸 폭을 바꾸면 iOS가 조합을 끝내 낱글자로 풀어진다
+  // 한글 조합(IME) 중 칸 폭을 바꾸면 조합이 끊기고, 글자마다 폭을 바꾸면
+  // 커서가 흔들린다 — 입력을 잠깐 멈췄을 때와 칸을 벗어날 때만 폭을 맞춘다.
   const composingBlank = useRef(false);
-  const fit = (el: HTMLInputElement) => {
-    el.style.width = `${Math.max(4, el.value.length + 2)}ch`;
+  const lastBlank = useRef<HTMLInputElement | null>(null);
+  const fit = () => {
+    const el = lastBlank.current;
+    if (el && !composingBlank.current) {
+      el.style.width = `${Math.max(4, el.value.length + 2)}ch`;
+    }
   };
   const blankInput = (id: string) => {
     if (Platform.OS === 'web') {
@@ -83,13 +89,16 @@ function FillInCard({ date, lines }: { date: string; lines: string[] }) {
         onCompositionStart: () => {
           composingBlank.current = true;
         },
-        onCompositionEnd: (e: { target: HTMLInputElement }) => {
+        onCompositionEnd: () => {
           composingBlank.current = false;
-          fit(e.target);
+        },
+        onBlur: (e: { target: HTMLInputElement }) => {
+          lastBlank.current = e.target;
+          fit();
         },
         onInput: (e: { target: HTMLInputElement }) => {
           const el = e.target;
-          if (!composingBlank.current) fit(el);
+          lastBlank.current = el;
           vals.current[id] = el.value;
           save();
         },
@@ -191,6 +200,17 @@ function SermonNoteCard({ date }: { date: string }) {
   );
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  // 한글 조합(IME) 중 크기 변경은 조합을 끊고, 글자마다 크기 계산을 하면
+  // 커서가 흔들린다 — 타이핑 중에는 아무것도 하지 않고, 입력을 잠깐
+  // 멈췄을 때(저장 시점)와 칸을 벗어날 때만 칸을 늘린다.
+  const composing = useRef(false);
+  const grow = () => {
+    const el = taRef.current;
+    if (el && !composing.current && el.scrollHeight > el.clientHeight + 2) {
+      el.style.height = `${el.scrollHeight + 2}px`;
+    }
+  };
 
   const onChange = (t: string) => {
     if (timer.current) clearTimeout(timer.current);
@@ -198,18 +218,14 @@ function SermonNoteCard({ date }: { date: string }) {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, t);
       }
+      grow();
     }, 500);
   };
   // "자동 저장됨" 표시는 입력을 마치고 칸을 벗어날 때만 —
   // 입력 도중 카드가 재렌더되면 한글 조합이 미세하게 흔들린다
-  const onBlur = () => setSavedAt((s) => s ?? Date.now());
-  // 한글 조합(IME) 중에 입력칸 크기를 바꾸면 iOS가 조합을 강제로 끝내
-  // ㄱㅏㄴㅏ처럼 낱글자로 풀어진다 — 조합 중에는 절대 크기를 건드리지 않는다
-  const composing = useRef(false);
-  const grow = (el: HTMLTextAreaElement) => {
-    if (el.scrollHeight > el.clientHeight + 2) {
-      el.style.height = `${el.scrollHeight + 2}px`;
-    }
+  const onBlur = () => {
+    grow();
+    setSavedAt((s) => s ?? Date.now());
   };
 
   return (
@@ -227,6 +243,7 @@ function SermonNoteCard({ date }: { date: string }) {
         // 내용에 따라 높이가 자동으로 늘어나 위에 쓴 메모가 가려지지 않는다.
         React.createElement('textarea', {
           ref: (el: HTMLTextAreaElement | null) => {
+            taRef.current = el;
             if (el) {
               el.style.height = 'auto';
               el.style.height = `${el.scrollHeight + 2}px`;
@@ -242,14 +259,11 @@ function SermonNoteCard({ date }: { date: string }) {
           onCompositionStart: () => {
             composing.current = true;
           },
-          onCompositionEnd: (e: { target: HTMLTextAreaElement }) => {
+          onCompositionEnd: () => {
             composing.current = false;
-            grow(e.target);
           },
           onInput: (e: { target: HTMLTextAreaElement }) => {
-            const el = e.target;
-            if (!composing.current) grow(el);
-            onChange(el.value);
+            onChange(e.target.value);
           },
           style: {
             minHeight: 130,
