@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import {
   Bell,
   FileText,
+  HandCoins,
   Images,
   Megaphone,
   Moon,
@@ -11,7 +12,6 @@ import {
   Sun,
   Sunrise,
   Sunset,
-  UserRound,
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -130,13 +130,6 @@ export default function HomeScreen() {
 
   const quickMenu = [
     {
-      key: 'newcomer',
-      label: '새가족 안내',
-      icon: <UserRound size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
-      chipBg: colors.tagGreenBg,
-      onPress: () => router.push('/info/newcomer'),
-    },
-    {
       key: 'news',
       label: '교회소식',
       icon: <Megaphone size={21} color={colors.tagOrangeText} strokeWidth={1.9} />,
@@ -156,6 +149,13 @@ export default function HomeScreen() {
       icon: <Images size={21} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
       onPress: () => router.push('/album'),
+    },
+    {
+      key: 'offering',
+      label: '온라인 헌금',
+      icon: <HandCoins size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
+      chipBg: colors.tagGreenBg,
+      onPress: () => router.push('/offering'),
     },
   ];
 
