@@ -46,8 +46,8 @@ export default function MoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const push = usePushNotifications();
-  // 긴급 공지 바로가기 — 관리자 계정으로 로그인된 기기에만 보인다
-  const { isAdmin } = useAdminAuth();
+  // 긴급 공지·기도요청함 바로가기 — 역할에 맞는 기기에만 보인다
+  const { isAdmin, role } = useAdminAuth();
 
   // 메일 앱이 주소·제목이 채워진 새 메일로 바로 열린다
   const openEmail = (to: string, subject: string) => {
@@ -108,11 +108,28 @@ export default function MoreScreen() {
         </Pressable>
       )}
 
+      {/* 목회자 전용 — 기도요청함 */}
+      {role === 'pastor' && (
+        <Pressable
+          style={[styles.inboxCard, shadows.card]}
+          onPress={() => router.push('/pray-inbox')}
+        >
+          <View style={styles.inboxChip}>
+            <HeartHandshake size={20} color="#FFFFFF" strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inboxLabel}>기도요청함</Text>
+            <Text style={styles.inboxSub}>교인들이 보낸 기도 제목 보기</Text>
+          </View>
+          <ChevronRight size={18} color="#9CC3A9" strokeWidth={2} />
+        </Pressable>
+      )}
+
       {/* 2열 그리드 — 기도 요청 / 문의하기 (둘 다 교회 이메일로 연결) */}
       <View style={styles.gridRow}>
         <Pressable
           style={[styles.gridCard, shadows.card]}
-          onPress={() => openEmail('shower724@gmail.com', '기도요청')}
+          onPress={() => router.push('/pray-request')}
         >
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
             <Text style={styles.prayEmoji}>🙏</Text>
@@ -214,6 +231,27 @@ const styles = StyleSheet.create({
   },
   alertLabel: { fontFamily: font.bold, fontSize: 14.5, color: '#8F3B33' },
   alertSub: { marginTop: 1, fontFamily: font.regular, fontSize: 12, color: '#B07068' },
+
+  inboxCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F2FAF4',
+    borderColor: '#D8EBDD',
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 14,
+  },
+  inboxChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.tagGreenText,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inboxLabel: { fontFamily: font.bold, fontSize: 14.5, color: '#2C5E3A' },
+  inboxSub: { marginTop: 1, fontFamily: font.regular, fontSize: 12, color: '#5F8A6C' },
 
   gridRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
   gridCard: {

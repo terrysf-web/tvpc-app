@@ -137,6 +137,28 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null;
     }
 
+    // 기도요청함 — 교인이 목사님께 보내는 비공개 기도요청.
+    // 열람·관리는 목회자(role == 'pastor')만.
+    match /prayerRequests/{id} {
+      allow read: if request.auth != null
+        && request.auth.token.email != null
+        && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor';
+      allow create: if request.auth != null
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.status == 'new';
+      allow update: if request.auth != null
+        && request.auth.token.email != null
+        && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if request.auth != null
+        && request.auth.token.email != null
+        && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor';
+    }
+
     match /prayers/{id} {
       // 기도요청 — 앱 사용자는 익명 인증으로 자동 로그인되므로
       // 별도 교인 로그인 없이 이용 (로그인은 관리자만 사용하는 정책)

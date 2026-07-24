@@ -86,7 +86,7 @@ export const sendAlert = onDocumentCreated(
 
     await ref.update({ status: 'sent', sentAt: Date.now(), sentCount: sent });
 
-    // 알림을 지운 뒤에도 다시 볼 수 있게 소식 탭에 자동 등록
+    // 알림을 지운 뒤에도 다시 볼 수 있게 소식 탭에 자동 등록 (아래에서 계속)
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
     await db.doc(`news/n-${event.params.id}`).set({
       category: 'notice',
@@ -98,5 +98,46 @@ export const sendAlert = onDocumentCreated(
     });
 
     console.log(`완료: ${sent}대 발송, 무효 토큰 ${removed}개 정리`);
+  },
+);
+
+/** 새 기도요청 알림 — 목회자로 로그인해 알림을 켠 기기로만 보낸다 */
+export const notifyPrayerRequest = onDocumentCreated(
+  { document: 'prayerRequests/{id}', memory: '256MiB', timeoutSeconds: 120, retry: false },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const db = getFirestore();
+    const req = snap.data();
+
+    const pastorsSnap = await db.collection('admins').where('role', '==', 'pastor').get();
+    const emails = pastorsSnap.docs
+      .map((d) => String(d.data().email || d.id).toLowerCase())
+      .slice(0, 30);
+    if (emails.length === 0) {
+      console.log('목회자 계정이 없어 알림을 건너뜁니다.');
+      return;
+    }
+    const tokensSnap = await db.collection('pushTokens').where('email', 'in', emails).get();
+    const tokens = tokensSnap.docs.map((d) => d.id);
+    if (tokens.length === 0) {
+      console.log('목회자 로그인 기기에 알림 등록이 없어 건너뜁니다.');
+      return;
+    }
+
+    const name = String(req.name || '').trim();
+    // 사생활 보호 — 잠금화면에는 내용 없이 도착 사실만 알린다
+    const res = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: '🙏 새 기도요청',
+        body: name ? `${name}님이 기도요청을 보냈습니다.` : '새 기도요청이 도착했습니다.',
+      },
+      webpush: {
+        notification: { icon: '/icon-192.png', tag: `pray-${event.params.id}` },
+        fcmOptions: { link: 'https://app.tvpc.church' },
+      },
+    });
+    console.log(`기도요청 알림: 목회자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
   },
 );
