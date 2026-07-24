@@ -193,7 +193,7 @@ export default function HomeScreen() {
                 : GREETING_SUB[timeSlot()]}
             </Text>
           </View>
-          <Pressable style={styles.bellBtn} onPress={() => router.push('/news')} hitSlop={6}>
+          <Pressable style={styles.bellBtn} onPress={() => router.push('/alerts')} hitSlop={6}>
             <Bell size={20} color={colors.title} strokeWidth={1.9} />
             <View style={styles.bellDot} />
           </Pressable>

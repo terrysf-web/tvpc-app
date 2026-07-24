@@ -94,6 +94,18 @@ for (const alertDoc of pendingSnap.docs) {
   }
 
   await alertDoc.ref.update({ status: 'sent', sentAt: Date.now(), sentCount: sent });
+
+  // 알림을 지운 뒤에도 다시 볼 수 있게 소식 탭에 자동 등록
+  const todayLA = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  await db.doc(`news/n-${alertDoc.id}`).set({
+    category: 'notice',
+    title,
+    body,
+    date: todayLA,
+    imageUrl: null,
+    alert: true,
+  });
+
   console.log(`- ${alertDoc.id} "${title}": ${sent}대 발송, 무효 토큰 ${removed}개 정리`);
 }
 

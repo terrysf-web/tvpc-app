@@ -107,12 +107,17 @@ export default function NewsScreen() {
               >
                 <View style={styles.textCol}>
                   <Tag
-                    label={n.category === 'notice' ? '공지' : '행사'}
-                    tone={n.category === 'notice' ? 'blue' : 'orange'}
+                    label={n.alert ? '긴급' : n.category === 'notice' ? '공지' : '행사'}
+                    tone={n.alert || n.category !== 'notice' ? 'orange' : 'blue'}
                   />
                   <Text style={styles.title} numberOfLines={2}>
                     {n.title}
                   </Text>
+                  {n.alert && n.body ? (
+                    <Text style={styles.alertBody} numberOfLines={3}>
+                      {n.body}
+                    </Text>
+                  ) : null}
                   <Text style={styles.date}>{fmtDate(n.date)}</Text>
                 </View>
                 <PhotoSlot uri={thumbUri} style={styles.thumb}>
@@ -167,6 +172,7 @@ const styles = StyleSheet.create({
   textCol: { flex: 1, gap: 7 },
   title: { fontFamily: font.bold, fontSize: 14.5, lineHeight: 21, color: colors.title },
   date: { fontFamily: font.regular, fontSize: 12, color: colors.faint },
+  alertBody: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 18, color: colors.muted },
   thumb: { width: 74, height: 74, borderRadius: 12 },
   thumbIcon: {
     position: 'absolute',

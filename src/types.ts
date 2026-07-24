@@ -50,6 +50,10 @@ export interface NewsDoc {
   imageUrl?: string | null;
   /** 홈페이지 원문 링크 (홈페이지 동기화 소식) */
   url?: string | null;
+  /** 긴급 알림 본문 — 알림이 소식으로 자동 등록될 때 저장 */
+  body?: string | null;
+  /** true면 긴급 알림에서 온 소식 */
+  alert?: boolean;
 }
 
 export interface EventDoc {
