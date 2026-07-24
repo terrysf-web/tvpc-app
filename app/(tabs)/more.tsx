@@ -36,7 +36,7 @@ const MENU = [
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
   { key: 'service', label: '예배 시간 안내', icon: Clock },
   { key: 'direction', label: '오시는 길', icon: MapPin },
-  { key: 'contact', label: '문의하기', icon: MessageCircle },
+  { key: 'contact', label: '도움받기', icon: MessageCircle },
   { key: 'share', label: '앱 공유하기', icon: Share2 },
   { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;

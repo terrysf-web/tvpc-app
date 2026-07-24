@@ -16,7 +16,7 @@ const TITLES: Record<PageKey, string> = {
   newcomer: '새가족 안내',
   worship: '예배 시간 안내',
   directions: '오시는 길',
-  contact: '문의하기',
+  contact: '도움받기',
 };
 
 function ActionRow({
