@@ -33,6 +33,10 @@ jobs:
             echo "skip=true" >> "$GITHUB_ENV"
           fi
 
+      - name: Install functions dependencies
+        if: env.skip != 'true'
+        run: npm --prefix functions install
+
       - name: Deploy functions
         if: env.skip != 'true'
         env:
