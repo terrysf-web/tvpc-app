@@ -27,6 +27,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
+import { useAdminAuth } from '../../src/data/admin';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -45,6 +46,8 @@ export default function MoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const push = usePushNotifications();
+  // 긴급 공지 바로가기 — 관리자 계정으로 로그인된 기기에만 보인다
+  const { isAdmin } = useAdminAuth();
 
   // 메일 앱이 주소·제목이 채워진 새 메일로 바로 열린다
   const openEmail = (to: string, subject: string) => {
@@ -87,6 +90,23 @@ export default function MoreScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.screenTitle}>더보기</Text>
+
+      {/* 관리자 전용 — 긴급 공지 바로가기 */}
+      {isAdmin && (
+        <Pressable
+          style={[styles.alertCard, shadows.card]}
+          onPress={() => router.push('/alert-send')}
+        >
+          <View style={styles.alertChip}>
+            <BellRing size={20} color="#FFFFFF" strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.alertLabel}>긴급 공지 보내기</Text>
+            <Text style={styles.alertSub}>모든 교인 기기로 몇 초 안에 알림</Text>
+          </View>
+          <ChevronRight size={18} color="#E5A9A4" strokeWidth={2} />
+        </Pressable>
+      )}
 
       {/* 2열 그리드 — 기도 요청 / 문의하기 (둘 다 교회 이메일로 연결) */}
       <View style={styles.gridRow}>
@@ -173,6 +193,27 @@ const styles = StyleSheet.create({
     color: colors.title,
     marginBottom: 16,
   },
+
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFF5F4',
+    borderColor: '#F5D9D5',
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 14,
+  },
+  alertChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.heartActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertLabel: { fontFamily: font.bold, fontSize: 14.5, color: '#8F3B33' },
+  alertSub: { marginTop: 1, fontFamily: font.regular, fontSize: 12, color: '#B07068' },
 
   gridRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
   gridCard: {
