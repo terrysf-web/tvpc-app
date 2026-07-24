@@ -92,12 +92,12 @@ export default function MoreScreen() {
       <View style={styles.gridRow}>
         <Pressable
           style={[styles.gridCard, shadows.card]}
-          onPress={() => openEmail('shower724@gmail.com', '기도 요청')}
+          onPress={() => openEmail('shower724@gmail.com', '기도요청')}
         >
           <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
             <HeartHandshake size={22} color={colors.tagGreenText} strokeWidth={1.9} />
           </View>
-          <Text style={styles.gridLabel}>기도 요청</Text>
+          <Text style={styles.gridLabel}>기도요청</Text>
           <Text style={styles.gridSub}>목사님께 이메일로</Text>
         </Pressable>
         <Pressable
