@@ -12,7 +12,7 @@ type PageKey = 'about' | 'staff' | 'newcomer' | 'worship' | 'directions' | 'cont
 
 const TITLES: Record<PageKey, string> = {
   about: '교회 소개',
-  staff: '교역자 소개',
+  staff: '섬기는 분들',
   newcomer: '새가족 안내',
   worship: '예배 시간 안내',
   directions: '오시는 길',
@@ -119,7 +119,7 @@ export default function InfoScreen() {
             </View>
             <ActionRow
               icon={<Users size={20} color={colors.primary} strokeWidth={1.9} />}
-              label="교역자 소개 전체 보기"
+              label="섬기는 분들 전체 보기"
               sub="사진과 소개 — 교회 홈페이지"
               onPress={() => openInApp(churchInfo.pages.staff, '교역자 소개')}
             />

@@ -33,7 +33,7 @@ import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
-  { key: 'staff', label: '교역자 소개', icon: Users },
+  { key: 'staff', label: '섬기는 분들', icon: Users },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
   { key: 'service', label: '예배 시간 안내', icon: Clock },
   { key: 'direction', label: '오시는 길', icon: MapPin },
