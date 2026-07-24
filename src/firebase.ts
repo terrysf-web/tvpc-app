@@ -1,11 +1,17 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import {
   Auth,
+  EmailAuthProvider,
   getAuth,
+  GoogleAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   signInAnonymously,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
   signOut,
+  updatePassword,
   type User,
 } from 'firebase/auth';
 import {
@@ -75,6 +81,37 @@ export async function adminSignIn(email: string, password: string): Promise<void
   const au = getAuthOrNull();
   if (!au) throw new Error('Firebase가 설정되지 않았습니다.');
   await signInWithEmailAndPassword(au, email.trim(), password);
+}
+
+/**
+ * Google 계정 로그인 — 비밀번호 없이 관리자 로그인.
+ * 팝업이 막힌 환경(일부 홈 화면 앱)에서는 리디렉션 방식으로 대체한다.
+ */
+export async function adminGoogleSignIn(): Promise<void> {
+  const au = getAuthOrNull();
+  if (!au) throw new Error('Firebase가 설정되지 않았습니다.');
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    await signInWithPopup(au, provider);
+  } catch (e) {
+    const code = (e as { code?: string }).code ?? '';
+    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+      await signInWithRedirect(au, provider);
+      return;
+    }
+    throw e;
+  }
+}
+
+/** 관리자 비밀번호 변경 — 현재 비밀번호로 본인 확인 후 새 비밀번호로 교체 */
+export async function changeAdminPassword(currentPw: string, newPw: string): Promise<void> {
+  const au = getAuthOrNull();
+  const user = au?.currentUser;
+  if (!user || !user.email) throw new Error('로그인이 필요합니다.');
+  const cred = EmailAuthProvider.credential(user.email, currentPw);
+  await reauthenticateWithCredential(user, cred);
+  await updatePassword(user, newPw);
 }
 
 export async function adminSignOut(): Promise<void> {

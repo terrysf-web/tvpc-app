@@ -43,7 +43,7 @@ import {
   saveBulletin,
 } from '../src/data/bulletin';
 import { colors, font, shadows } from '../src/theme';
-import { getDb } from '../src/firebase';
+import { adminGoogleSignIn, getDb } from '../src/firebase';
 import { clearNewsBanner, saveNewsBanner } from '../src/newsBanner';
 import {
   clearSundayBg,
@@ -262,6 +262,18 @@ export default function AdminScreen() {
     }
   };
 
+  const doGoogleLogin = async () => {
+    setLoginErr(null);
+    setBusy(true);
+    try {
+      await adminGoogleSignIn();
+    } catch {
+      setLoginErr('Google 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async (fn: () => Promise<void>, done: string) => {
     setMsg(null);
     setBusy(true);
@@ -465,6 +477,19 @@ export default function AdminScreen() {
                 <Text style={styles.loginSub}>
                   오늘의 말씀·소식·일정을 등록할 수 있는 관리자 전용 화면입니다.
                 </Text>
+                <Pressable
+                  style={[styles.googleBtn, busy && { opacity: 0.6 }]}
+                  onPress={doGoogleLogin}
+                  disabled={busy}
+                >
+                  <Text style={styles.googleG}>G</Text>
+                  <Text style={styles.googleBtnText}>Google 계정으로 로그인</Text>
+                </Pressable>
+                <View style={styles.orRow}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>또는 이메일로</Text>
+                  <View style={styles.orLine} />
+                </View>
                 <Field label="이메일" value={loginEmail} onChange={setLoginEmail} placeholder="pastor@example.com" />
                 <Text style={styles.fieldLabel}>비밀번호</Text>
                 <TextInput
@@ -926,6 +951,22 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 18 },
 
   loginTitle: { fontFamily: font.extraBold, fontSize: 18, color: colors.title },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderColor: colors.divider2,
+    borderRadius: 12,
+    paddingVertical: 13,
+    backgroundColor: '#FFFFFF',
+  },
+  googleG: { fontFamily: font.extraBold, fontSize: 17, color: '#4285F4' },
+  googleBtnText: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 16 },
+  orLine: { flex: 1, height: 1, backgroundColor: colors.divider2 },
+  orText: { fontFamily: font.regular, fontSize: 12, color: colors.faint },
   loginSub: {
     marginTop: 6,
     marginBottom: 18,
