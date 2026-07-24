@@ -73,7 +73,7 @@ for (const alertDoc of pendingSnap.docs) {
       webpush: {
         // requireInteraction: 사용자가 확인할 때까지 알림이 사라지지 않는다
         notification: { icon: '/icon-192.png', tag: `alert-${alertDoc.id}`, requireInteraction: true },
-        fcmOptions: { link: 'https://app.tvpc.church' },
+        fcmOptions: { link: 'https://app.tvpc.church/alerts' },
       },
     });
     for (let j = 0; j < res.responses.length; j++) {

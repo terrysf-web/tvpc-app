@@ -17,15 +17,31 @@ firebase.initializeApp({
 
 firebase.messaging();
 
-// 알림 탭 → 이미 열린 앱 창이 있으면 포커스, 없으면 새로 열기
+// 알림 탭 → 알림에 지정된 화면(기도요청함·알림 보관함 등)으로 이동.
+// 이미 열린 앱 창이 있으면 포커스 후 그 화면으로, 없으면 새로 연다.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const msg = event.notification && event.notification.data && event.notification.data.FCM_MSG;
+  const link =
+    (msg && msg.fcmOptions && msg.fcmOptions.link) ||
+    (msg && msg.notification && msg.notification.click_action) ||
+    '/';
+  let path = '/';
+  try {
+    path = link.startsWith('http') ? new URL(link).pathname || '/' : link;
+  } catch (e) {}
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
-        if ('focus' in c) return c.focus();
+        if ('focus' in c) {
+          const p = c.focus();
+          if (path !== '/' && 'navigate' in c) {
+            return Promise.resolve(p).then(() => c.navigate(path)).catch(() => {});
+          }
+          return p;
+        }
       }
-      return clients.openWindow('/');
+      return clients.openWindow(path);
     }),
   );
 });

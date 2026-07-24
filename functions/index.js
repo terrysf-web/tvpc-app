@@ -62,7 +62,8 @@ export const sendAlert = onDocumentCreated(
             tag: `alert-${event.params.id}`,
             requireInteraction: true,
           },
-          fcmOptions: { link: 'https://app.tvpc.church' },
+          // 알림을 누르면 앱의 알림 보관함이 열린다
+          fcmOptions: { link: 'https://app.tvpc.church/alerts' },
         },
       });
       for (let j = 0; j < res.responses.length; j++) {
@@ -135,7 +136,8 @@ export const notifyPrayerRequest = onDocumentCreated(
       },
       webpush: {
         notification: { icon: '/icon-192.png', tag: `pray-${event.params.id}` },
-        fcmOptions: { link: 'https://app.tvpc.church' },
+        // 알림을 누르면 기도요청함이 바로 열린다
+        fcmOptions: { link: 'https://app.tvpc.church/pray-inbox' },
       },
     });
     console.log(`기도요청 알림: 목회자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
