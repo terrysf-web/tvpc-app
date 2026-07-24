@@ -13,6 +13,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -33,6 +34,8 @@ export interface BulletinPage {
 export interface Bulletin {
   date: string; // YYYY-MM-DD
   pages: BulletinPage[];
+  /** 설교 노트 괄호 채우기 문장 — "(____)"가 빈칸 자리 */
+  noteLines?: string[];
 }
 
 /** Firestore 문서 1MB 한도 아래로 유지 (base64 문자열 기준) */
@@ -186,16 +189,18 @@ export function useBulletin(date: string | null): {
     (async () => {
       try {
         await ensureAnonymousAuth();
-        const pagesSnap = await getDocs(
-          query(collection(db, 'bulletins', date, 'pages'), orderBy('order')),
-        );
+        const [pagesSnap, docSnap] = await Promise.all([
+          getDocs(query(collection(db, 'bulletins', date, 'pages'), orderBy('order'))),
+          getDoc(doc(db, 'bulletins', date)),
+        ]);
         if (cancelled) return;
         const pages = pagesSnap.docs.map((d) => ({
           image: String(d.get('image') ?? ''),
           w: Number(d.get('w') ?? 3),
           h: Number(d.get('h') ?? 4),
         }));
-        setBulletin(pages.length ? { date, pages } : null);
+        const noteLines = ((docSnap.get('noteLines') as string[] | undefined) ?? []).map(String);
+        setBulletin(pages.length ? { date, pages, noteLines } : null);
       } catch {
         if (!cancelled) setBulletin(null);
       } finally {

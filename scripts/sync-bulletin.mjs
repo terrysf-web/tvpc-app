@@ -384,9 +384,103 @@ async function writeStatus(changed, note) {
   }
 }
 
+// ── 3.7 설교 노트(괄호 채우기) 추출 ────────────────────────────
+// 주보의 설교 개요에서 "( … )" 빈칸이 있는 문장들을 뽑아 앱 메모장에
+// 깔아준다 — 교인은 괄호만 채우면 된다. 접는 주보라 페이지를 반쪽
+// (면) 단위로 나눠 줄을 복원하고, 빈칸이 가장 많은 면을 고른다.
+function extractNoteLines() {
+  execFileSync('pdftohtml', ['-xml', '-q', join(dir, 'in.pdf'), join(dir, 'note')], { cwd: dir });
+  const xml = readFileSync(join(dir, 'note.xml'), 'utf8');
+  const pages = [
+    ...xml.matchAll(
+      /<page number="(\d+)"[^>]*height="([\d.]+)"[^>]*width="([\d.]+)"[^>]*>([\s\S]*?)<\/page>/g,
+    ),
+  ];
+  const faces = [];
+  for (const pm of pages) {
+    const pageW = Number(pm[3]);
+    const spans = [
+      ...pm[4].matchAll(
+        /<text top="([\d.]+)" left="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g,
+      ),
+    ].map((m) => ({
+      top: Number(m[1]),
+      left: Number(m[2]),
+      w: Number(m[3]),
+      s: unescapeHtml(m[5].replace(/<[^>]+>/g, '')),
+    }));
+    // 가로 2단(접는 주보)이면 반쪽씩, 아니면 페이지 전체를 한 면으로
+    const halves = pageW > 700 ? [0, 1] : [null];
+    for (const half of halves) {
+      const hs =
+        half === null
+          ? spans
+          : spans.filter((t) => (t.left + t.w / 2 < pageW / 2) === (half === 0));
+      const byLine = new Map();
+      for (const t of hs) {
+        const k = Math.round(t.top / 8);
+        if (!byLine.has(k)) byLine.set(k, []);
+        byLine.get(k).push(t);
+      }
+      const lines = [...byLine.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, sp]) => {
+          sp.sort((a, b) => a.left - b.left);
+          let s = '';
+          let prev = null;
+          for (const t of sp) {
+            if (prev != null && t.left - prev > 14) s += ' ¶ ';
+            else if (s) s += ' ';
+            s += t.s;
+            prev = t.left + t.w;
+          }
+          return s;
+        });
+      faces.push(lines);
+    }
+  }
+  // 괄호 빈칸 표준화: "( ¶ )", "(____)", "(   )" → "(____)"
+  const normBlank = (s) =>
+    s
+      .replace(/\(\s*[¶_\s.·]*\s*\)/g, '(____)')
+      .replace(/¶/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  let best = null;
+  for (const lines of faces) {
+    const nl = lines.map(normBlank);
+    const idxs = nl.map((s, i) => (/\(____\)/.test(s) ? i : -1)).filter((i) => i >= 0);
+    if (idxs.length && (!best || idxs.length > best.count)) {
+      const block = nl.slice(idxs[0], idxs[idxs.length - 1] + 1).filter((s) => s);
+      best = { count: idxs.length, block: block.slice(0, 30) };
+    }
+  }
+  if (best) {
+    console.log(`[설교노트] 괄호 채우기 ${best.count}칸 추출:`);
+    for (const l of best.block) console.log(`    ${l}`);
+  } else {
+    console.log('[설교노트] 괄호 채우기 문장을 찾지 못했습니다.');
+  }
+  return best ? best.block : [];
+}
+let noteLines = [];
+try {
+  noteLines = extractNoteLines();
+} catch (e) {
+  console.log(`  ! 설교 노트 추출 실패(무해): ${e.message}`);
+}
+
 const existing = await db.doc(`bulletins/${date}`).get();
 if (existing.exists && existing.get('pdfHash') === pdfHash) {
   console.log(`완료: ${date} 주보는 이미 최신입니다 (변경 없음).`);
+  // 괄호 채우기 추출 결과가 새로우면 그것만 갱신
+  if (
+    noteLines.length &&
+    JSON.stringify(existing.get('noteLines') ?? []) !== JSON.stringify(noteLines)
+  ) {
+    await db.doc(`bulletins/${date}`).set({ noteLines }, { merge: true });
+    console.log('  → 설교 노트(괄호 채우기) 갱신');
+  }
   await writeStatus(false, '이미 최신 (변경 없음)');
   process.exit(0);
 }
@@ -441,6 +535,7 @@ await db.doc(`bulletins/${date}`).set({
   pageCount: ordered.length,
   pdfHash,
   source: 'auto',
+  noteLines,
   updatedAt: FieldValue.serverTimestamp(),
 });
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);

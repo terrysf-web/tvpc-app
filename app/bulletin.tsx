@@ -29,6 +29,145 @@ function fmtKo(date: string): string {
  * 설교 메모 — 주보의 괄호 채우기·나눔 질문 답을 전화기에 적어두는 카드.
  * 내용은 이 기기(localStorage)에만 저장되고 서버로 가지 않는다.
  */
+/**
+ * 괄호 채우기 — 주보 설교 노트의 빈칸 문장을 그대로 깔아주고,
+ * 괄호 자리만 입력칸으로 만든다. 문장 글자는 지워지지 않고,
+ * 입력칸은 쓰는 글자 수에 따라 옆으로 늘어난다.
+ * 답은 이 기기(localStorage)에만 날짜별로 저장된다.
+ */
+function FillInCard({ date, lines }: { date: string; lines: string[] }) {
+  const key = `bulletinFill:${date}`;
+  const [initial] = useState<Record<string, string>>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, string>;
+      }
+    } catch {
+      /* 무시 */
+    }
+    return {};
+  });
+  const vals = useRef<Record<string, string>>({ ...initial });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const save = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, JSON.stringify(vals.current));
+        }
+      } catch {
+        /* 무시 */
+      }
+    }, 500);
+  };
+
+  const blankInput = (id: string) => {
+    if (Platform.OS === 'web') {
+      return React.createElement('input', {
+        key: id,
+        type: 'text',
+        defaultValue: vals.current[id] ?? '',
+        autoComplete: 'off',
+        autoCorrect: 'off',
+        autoCapitalize: 'off',
+        spellCheck: false,
+        ref: (el: HTMLInputElement | null) => {
+          if (el) el.style.width = `${Math.max(4, (vals.current[id] ?? '').length + 2)}ch`;
+        },
+        onInput: (e: { target: HTMLInputElement }) => {
+          const el = e.target;
+          el.style.width = `${Math.max(4, el.value.length + 2)}ch`;
+          vals.current[id] = el.value;
+          save();
+        },
+        style: {
+          display: 'inline-block',
+          width: '4ch',
+          maxWidth: '100%',
+          border: 'none',
+          borderBottom: `2px solid ${colors.primary}`,
+          borderRadius: 4,
+          background: '#F0F6FD',
+          padding: '0 4px',
+          margin: '0 2px',
+          fontSize: 15,
+          lineHeight: '24px',
+          fontWeight: 700,
+          color: colors.primary,
+          outline: 'none',
+          verticalAlign: 'baseline',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+          WebkitUserSelect: 'text',
+          userSelect: 'text',
+        },
+      } as object);
+    }
+    return (
+      <TextInput
+        key={id}
+        style={styles.fillInput}
+        defaultValue={vals.current[id] ?? ''}
+        onChangeText={(t) => {
+          vals.current[id] = t;
+          save();
+        }}
+        autoComplete="off"
+        autoCorrect={false}
+        spellCheck={false}
+      />
+    );
+  };
+
+  return (
+    <View style={[styles.noteCard, shadows.card]}>
+      <View style={styles.noteHead}>
+        <View style={styles.noteChip}>
+          <PenLine size={16} color={colors.primary} strokeWidth={2} />
+        </View>
+        <Text style={styles.noteTitle}>괄호 채우기</Text>
+      </View>
+      {lines.map((line, li) => {
+        const parts = line.split('(____)');
+        if (Platform.OS === 'web') {
+          const children: React.ReactNode[] = [];
+          parts.forEach((p, pi) => {
+            if (p) children.push(p);
+            if (pi < parts.length - 1) children.push(blankInput(`${li}:${pi}`));
+          });
+          return React.createElement(
+            'div',
+            {
+              key: li,
+              style: {
+                fontSize: 15,
+                lineHeight: '26px',
+                color: colors.body,
+                marginBottom: 10,
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+              },
+            },
+            ...children,
+          );
+        }
+        return (
+          <View key={li} style={styles.fillLine}>
+            {parts.map((p, pi) => (
+              <React.Fragment key={pi}>
+                {p ? <Text style={styles.fillText}>{p}</Text> : null}
+                {pi < parts.length - 1 ? blankInput(`${li}:${pi}`) : null}
+              </React.Fragment>
+            ))}
+          </View>
+        );
+      })}
+      <Text style={styles.noteHint}>괄호에 적은 답은 이 전화기에만 저장됩니다.</Text>
+    </View>
+  );
+}
+
 function SermonNoteCard({ date }: { date: string }) {
   const key = `bulletinNote:${date}`;
   // 한글 조합(IME) 중에 React가 값을 입력창에 되써넣으면 글자가 흔들리며
@@ -212,7 +351,12 @@ export default function BulletinScreen() {
               {/* 설교 메모는 괄호 채우기가 있는 3면 바로 아래에.
                   key로 날짜가 바뀌면 새로 만들어 그 날짜의 저장 메모를 불러온다 */}
               {i === Math.min(2, bulletin.pages.length - 1) && (
-                <SermonNoteCard key={bulletin.date} date={bulletin.date} />
+                <React.Fragment key={`note-${bulletin.date}`}>
+                  {(bulletin.noteLines?.length ?? 0) > 0 && (
+                    <FillInCard date={bulletin.date} lines={bulletin.noteLines!} />
+                  )}
+                  <SermonNoteCard date={bulletin.date} />
+                </React.Fragment>
               )}
             </React.Fragment>
           ))}
@@ -347,4 +491,18 @@ const styles = StyleSheet.create({
     color: colors.body,
   },
   noteHint: { marginTop: 8, fontFamily: font.regular, fontSize: 11.5, color: colors.faint },
+  fillLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 },
+  fillText: { fontFamily: font.regular, fontSize: 15, lineHeight: 26, color: colors.body },
+  fillInput: {
+    minWidth: 64,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+    backgroundColor: '#F0F6FD',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    fontFamily: font.bold,
+    fontSize: 15,
+    color: colors.primary,
+  },
 });
