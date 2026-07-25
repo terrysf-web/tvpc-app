@@ -16,6 +16,7 @@ import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../firebase';
 import type {
   EventDoc,
   NewsDoc,
+  PhotoDoc,
   PrayerCategory,
   PrayerDoc,
   SermonDoc,
@@ -163,6 +164,16 @@ export function useEvents(): { events: EventDoc[]; loading: boolean } {
   // dateLabel(문자)이 아닌 실제 날짜(sortKey)순 — "01.01"이 "08.30"보다 앞서는 문제 방지
   const { data, loading } = useCollection<EventDoc>('events', sampleEvents, 'sortKey', 'asc', 200);
   return { events: data, loading };
+}
+
+/**
+ * 교회 사진 — 홈페이지에서 모아 온 사진들(최신순).
+ * 번들 샘플이 없으므로(교회 실제 사진이라 대체품이 없다) 데모 모드나
+ * 아직 동기화 전에는 빈 목록이고, 화면에서 홈페이지 링크로 안내한다.
+ */
+export function usePhotos(): { photos: PhotoDoc[]; loading: boolean; ready: boolean } {
+  const { data, loading, ready } = useCollection<PhotoDoc>('photos', [], 'date', 'desc', 300);
+  return { photos: data, loading, ready };
 }
 
 const LIKED_KEY = 'tvpc.likedPrayers';

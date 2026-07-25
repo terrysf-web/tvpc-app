@@ -52,6 +52,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 교회 사진 — 홈페이지에서 자동 수집(서비스 계정). 누구나 볼 수 있다.
+    match /photos/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 자동 동기화 상태 — 관리자 화면 표시용, 기록은 서버(서비스 계정)만
     match /syncStatus/{id} {
       allow read: if true;

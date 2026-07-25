@@ -9,11 +9,11 @@
 
 | 하단 탭 | 내용 |
 |---|---|
-| 홈 | 인사 헤더 · 오늘의 말씀 히어로 · 빠른 메뉴 4종 · 다가오는 일정 · 최근 설교 |
+| 홈 | 인사 헤더 · 오늘의 말씀 히어로 · 빠른 메뉴 4종(교회소식 · 주보 보기 · 교회 사진 · 온라인 헌금) · 다가오는 일정 · 최근 설교 |
 | 말씀 | QT — 본문/묵상/적용/기도 탭, 듣기(TTS)·글씨크기·저장 액션 바 |
 | 설교 | 최근 설교/시리즈/말씀별 탭, 대표 영상 카드 + 리스트 (YouTube 링크 재생) |
 | 소식 | 전체/공지/행사 탭, 카테고리 태그 카드 리스트 |
-| 더보기 | 프로필 카드 · 기도요청/온라인 헌금 그리드 · 교회 안내 메뉴 |
+| 더보기 | 프로필 카드 · 기도요청/온라인 헌금 그리드 · 교회 안내 메뉴(교우 앨범 포함) |
 
 오버레이(하단 탭 숨김): **기도요청**(작성 + 함께 기도 좋아요), **헌금**(외부 결제 링크), **마이페이지**(프로필 수정).
 
@@ -78,6 +78,7 @@ npm run deploy:rules                      # Firestore 보안 규칙 배포
 | `news` | 공지·행사 | `category`(`notice`\|`event`), `title`, `date`, `imageUrl` |
 | `events` | 다가오는 일정 | `dateLabel`, `title`, `detail`, `imageUrl` |
 | `prayers` | 기도요청 | `category`, `answered`, `text`, `authorName`, `createdAt`, `prayCount` |
+| `photos` | 교회 사진 | `imageUrl`, `thumbUrl`, `album`, `caption`, `date`, `url` |
 
 콘텐츠 관리는 Firebase 콘솔에서 문서를 직접 추가/수정하면 앱에 실시간 반영됩니다(onSnapshot 구독).
 
@@ -91,6 +92,19 @@ npm run deploy:rules                      # Firestore 보안 규칙 배포
 `FIREBASE_SERVICE_ACCOUNT` 이름으로 등록. 이후 Actions 탭에서 "Run workflow"로
 즉시 실행해 확인할 수 있습니다. 첫 동기화 성공 시 샘플 설교(sermon-1..5)는 자동 삭제됩니다.
 
+### 교회 사진 자동 동기화 (홈페이지 → 앱)
+
+`.github/workflows/sync-photos.yml`이 매일 교회 홈페이지 사진 페이지
+(https://tvpc.church/wp/ko/photos/)를 읽어 `photos` 컬렉션에 등록합니다.
+홈 화면 **"교회 사진"** 에서 묶음(글·행사)별로 보이고, 탭하면 크게 볼 수 있습니다.
+
+사진 파일은 홈페이지에 그대로 두고 **주소만** 저장하므로 저장소 비용이 없습니다.
+로고·아이콘·플러그인 장식 이미지는 자동으로 걸러냅니다.
+사진이 회원 전용이면 레포 Secrets에 `TVPC_WEB_USER`·`TVPC_WEB_PASS`를 넣으면
+로그인해서 가져옵니다(없으면 공개 사진만).
+
+동기화 전이거나 가져온 사진이 없으면 화면에서 홈페이지 사진 페이지로 안내합니다.
+
 ### 월 고정비를 0으로 유지하는 설계 (핸드오프 문서 권장사항)
 
 - 설교 영상은 **YouTube**에 두고 `youtubeId`만 저장 → 스토리지/대역폭 비용 없음
@@ -102,6 +116,8 @@ npm run deploy:rules                      # Firestore 보안 규칙 배포
 ```
 app/                  # expo-router 화면
   (tabs)/             #   하단 5탭: index(홈)·word·sermon·news·more
+  photos.tsx          #   오버레이: 교회 사진 (홈페이지 사진 모아보기)
+  album.tsx           #   오버레이: 교우 앨범 (사진 주소록 — 더보기 메뉴)
   prayer.tsx          #   오버레이: 기도요청
   offering.tsx        #   오버레이: 헌금
   mypage.tsx          #   오버레이: 마이페이지
@@ -114,10 +130,12 @@ src/
     sample.ts         # 번들 샘플 데이터 (데모 모드 폴백)
     hooks.ts          # Firestore 구독 훅 + 기도요청 작성/좋아요
     user.ts           # 로컬 프로필 (AsyncStorage)
-  components/         # PhotoSlot·Tag·SegmentTabs·FadeInUp·OverlayHeader
+  components/         # PhotoSlot·Tag·SegmentTabs·FadeInUp·OverlayHeader·ZoomViewer
+                      #   (ZoomViewer = 전체화면 확대 뷰어 — 교우 앨범·교회 사진 공용)
 assets/fonts/         # Pretendard 400/500/700/800
 firestore.rules       # Firestore 보안 규칙
 scripts/seed.mjs      # 샘플 데이터 시드 스크립트 (npm run seed)
+scripts/sync-photos.mjs  # 홈페이지 사진 페이지 → photos 컬렉션
 ```
 
 ## 기술 스택

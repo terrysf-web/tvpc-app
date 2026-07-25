@@ -6,6 +6,7 @@ import {
   Clock,
   Download,
   HeartHandshake,
+  Images,
   Mail,
   MapPin,
   MessageCircle,
@@ -37,6 +38,7 @@ import { colors, font, shadows } from '../../src/theme';
 const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'staff', label: '섬기는 분들', icon: Users },
+  { key: 'album', label: '교우 앨범', icon: Images },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
   { key: 'service', label: '예배 시간 안내', icon: Clock },
   { key: 'direction', label: '오시는 길', icon: MapPin },
@@ -111,6 +113,10 @@ export default function MoreScreen() {
         message:
           '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요.\nhttps://app.tvpc.church',
       }).catch(() => {});
+      return;
+    }
+    if (key === 'album') {
+      router.push('/album');
       return;
     }
     const pages: Record<string, string> = {

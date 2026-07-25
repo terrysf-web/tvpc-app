@@ -2,9 +2,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Bell,
+  Camera,
   FileText,
   HandCoins,
-  Images,
   Megaphone,
   Moon,
   MoonStar,
@@ -144,11 +144,11 @@ export default function HomeScreen() {
       onPress: openBulletin,
     },
     {
-      key: 'album',
-      label: '교회 앨범',
-      icon: <Images size={21} color={colors.primary} strokeWidth={1.9} />,
+      key: 'photos',
+      label: '교회 사진',
+      icon: <Camera size={21} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
-      onPress: () => router.push('/album'),
+      onPress: () => router.push('/photos'),
     },
     {
       key: 'offering',

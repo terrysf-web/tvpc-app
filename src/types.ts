@@ -84,6 +84,26 @@ export interface PrayerDoc {
   prayCount: number;
 }
 
+/**
+ * 교회 사진 — 홈페이지(tvpc.church)에서 자동으로 모아 온 사진 한 장.
+ * 사진 파일은 홈페이지에 그대로 두고 주소만 저장한다(저장소 비용 0).
+ */
+export interface PhotoDoc {
+  id: string;
+  /** 사진 원본 주소 */
+  imageUrl: string;
+  /** 목록에서 쓰는 작은 사진 — 없으면 imageUrl을 쓴다 */
+  thumbUrl?: string | null;
+  /** 사진이 속한 글·행사 제목 (묶음 제목) */
+  album: string;
+  /** 사진 자체 설명 — 없을 수 있다 */
+  caption?: string | null;
+  /** YYYY-MM-DD */
+  date: string;
+  /** 홈페이지 원문 링크 */
+  url?: string | null;
+}
+
 export interface OfferingRecord {
   id: string;
   item: string;

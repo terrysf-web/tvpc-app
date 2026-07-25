@@ -1,0 +1,46 @@
+# 교회 홈페이지 사진 페이지(/wp/ko/photos/)의 사진을 앱 "교회 사진"에 자동 등록.
+# 사진 파일은 홈페이지에 그대로 두고 주소만 저장하므로 저장소 비용이 없다.
+name: Sync church photos
+
+on:
+  schedule:
+    # 매일 새벽(태평양 5:20 무렵) — 주일 사진이 올라오면 다음 날 아침에 반영
+    - cron: '20 12 * * *'
+  workflow_dispatch:
+    inputs:
+      photos_url:
+        description: '사진 페이지 주소 (비우면 /wp/ko/photos/)'
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install deps
+        if: env.skip != 'true'
+        run: npm install --no-save firebase-admin
+
+      - name: Sync photos
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # 사진이 회원 전용일 때만 필요 — 없으면 공개 사진만 가져온다
+          TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
+          TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+          PHOTOS_URL: ${{ inputs.photos_url }}
+        run: node scripts/sync-photos.mjs
