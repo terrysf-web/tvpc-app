@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useMemoSync } from '../src/data/memoSync';
 import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -18,6 +19,8 @@ export default function RootLayout() {
   });
   const { width } = useWindowDimensions();
   const pathname = usePathname();
+  // 로그인 계정(목회자·관리자)의 개인 메모를 기기 간 자동 동기화
+  useMemoSync();
 
   useEffect(() => {
     if (loaded || error) SplashScreen.hideAsync().catch(() => {});

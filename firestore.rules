@@ -52,6 +52,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 교회 사진 — 홈페이지 사진 게시판 동기화 결과. 누구나 보기, 기록은 서버만
+    match /photos/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // 자동 동기화 상태 — 관리자 화면 표시용, 기록은 서버(서비스 계정)만
     match /syncStatus/{id} {
       allow read: if true;
@@ -135,6 +141,12 @@ service cloud.firestore {
       // 목록 읽기는 발송 서버와 관리자(알림 기기 현황 표시)만.
       allow read: if isAdmin();
       allow create, update, delete: if request.auth != null;
+    }
+
+    // 개인 메모 클라우드 보관 — 로그인한 교역자 계정 본인만 읽고 쓴다.
+    // (교인은 로그인이 없어 기기에만 저장된다)
+    match /userMemos/{uid} {
+      allow read, write: if isAdmin() && request.auth.uid == uid;
     }
 
     // 기도요청함 — 교인이 목사님께 보내는 비공개 기도요청.

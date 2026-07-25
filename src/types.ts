@@ -56,6 +56,20 @@ export interface NewsDoc {
   alert?: boolean;
 }
 
+/** 교회 사진 — 홈페이지 사진 게시판(나눔 › 교회 사진) 글 하나 */
+export interface PhotoDoc {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** 대표 사진 */
+  imageUrl?: string | null;
+  /** 글 안의 사진들 (앨범 보기용) */
+  images?: string[];
+  /** 홈페이지 원문 링크 */
+  url?: string | null;
+}
+
 export interface EventDoc {
   id: string;
   /** 예: "05.22 금요일" */

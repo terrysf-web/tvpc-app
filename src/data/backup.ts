@@ -7,6 +7,11 @@
 const PREFIXES = ['bulletinNote:', 'bulletinFill:', 'verseNote:', 'verseHl:'];
 const SINGLE_KEYS = ['tvpc.savedVerses'];
 
+/** 개인 기록에 해당하는 저장 키인지 — 백업·클라우드 동기화가 함께 쓴다 */
+export function isMemoStorageKey(key: string): boolean {
+  return SINGLE_KEYS.includes(key) || PREFIXES.some((p) => key.startsWith(p));
+}
+
 const KIND = 'tvpc-memo-backup';
 
 function storageOrNull(): Storage | null {
@@ -17,9 +22,7 @@ function storageOrNull(): Storage | null {
   }
 }
 
-function isMemoKey(key: string): boolean {
-  return SINGLE_KEYS.includes(key) || PREFIXES.some((p) => key.startsWith(p));
-}
+const isMemoKey = isMemoStorageKey;
 
 /** 백업 파일 다운로드 — 저장된 항목 수를 돌려준다 (0이면 백업할 것 없음) */
 export function exportMemoBackup(): number {

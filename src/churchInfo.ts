@@ -10,7 +10,7 @@ export const churchInfo = {
   website: 'https://tvpc.church',
   youtube: 'https://www.youtube.com/@tri-valley',
 
-  /** 교회 앨범(사진 주소록) PDF — 주보 QR과 동일. 새 앨범이 나오면 이 주소만 바꾸면 됨 */
+  /** 교우 앨범(사진 주소록) PDF — 주보 QR과 동일. 새 앨범이 나오면 이 주소만 바꾸면 됨 */
   albumPdf: 'https://tvpc.church/ChurchDirectory/TVPC_2026_01.pdf',
 
   /** 홈페이지 공식 페이지 (앱 내 뷰어로 열림) */

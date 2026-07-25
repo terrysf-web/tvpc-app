@@ -16,6 +16,7 @@ import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../firebase';
 import type {
   EventDoc,
   NewsDoc,
+  PhotoDoc,
   PrayerCategory,
   PrayerDoc,
   SermonDoc,
@@ -157,6 +158,12 @@ export function useSermons(): { sermons: SermonDoc[]; loading: boolean } {
 export function useNews(): { news: NewsDoc[]; loading: boolean } {
   const { data, loading } = useCollection<NewsDoc>('news', sampleNews, 'date');
   return { news: data, loading };
+}
+
+/** 교회 사진 — 홈페이지 사진 게시판에서 자동으로 가져온 앨범들 */
+export function usePhotos(): { photos: PhotoDoc[]; loading: boolean; ready: boolean } {
+  const { data, loading, ready } = useCollection<PhotoDoc>('photos', [], 'date', 'desc', 60);
+  return { photos: data, loading, ready };
 }
 
 export function useEvents(): { events: EventDoc[]; loading: boolean } {

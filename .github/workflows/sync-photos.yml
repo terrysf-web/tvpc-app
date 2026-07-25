@@ -1,0 +1,39 @@
+# 교회 사진 동기화 — 홈페이지 '나눔 › 교회 사진' 게시판을 앱으로 가져온다.
+name: Sync church photos
+
+on:
+  schedule:
+    # 매일 오전 8시 태평양(15:00 UTC)
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install firebase-admin
+        if: env.skip != 'true'
+        run: npm install --no-save firebase-admin
+
+      - name: Sync photos
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
+          TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+        run: node scripts/sync-photos.mjs

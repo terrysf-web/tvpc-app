@@ -438,7 +438,7 @@ function ZoomViewer({ img, onClose }: { img: AlbumPage; onClose: () => void }) {
 }
 
 /**
- * 교회 앨범 뷰어 — 소개 페이지와 셀별 명부.
+ * 교우 앨범 뷰어 — 소개 페이지와 셀별 명부.
  * 색인(이름·셀)은 즉시 로드되어 검색·셀 선택이 바로 되고,
  * 줄 이미지는 화면에 필요한 것부터 가져온다.
  */
@@ -623,12 +623,12 @@ export default function AlbumScreen() {
   const openPdf = () =>
     router.push({
       pathname: '/browser',
-      params: { url: sourceUrl ?? churchInfo.albumPdf, t: '교회 앨범' },
+      params: { url: sourceUrl ?? churchInfo.albumPdf, t: '교우 앨범' },
     });
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="교회 앨범" />
+      <OverlayHeader title="교우 앨범" />
       {failed || !firebaseEnabled ? (
         <ScrollView contentContainerStyle={styles.pages}>
           <View style={[styles.card, shadows.card]}>
