@@ -4,12 +4,14 @@ import {
   Building2,
   ChevronRight,
   Clock,
+  Download,
   HeartHandshake,
   Mail,
   MapPin,
   MessageCircle,
   RefreshCw,
   Share2,
+  Upload,
   UserRound,
   Users,
 } from 'lucide-react-native';
@@ -28,6 +30,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
+import { exportMemoBackup, importMemoBackup } from '../../src/data/backup';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -38,6 +41,8 @@ const MENU = [
   { key: 'service', label: '예배 시간 안내', icon: Clock },
   { key: 'direction', label: '오시는 길', icon: MapPin },
   { key: 'contact', label: '도움받기', icon: MessageCircle },
+  { key: 'backup', label: '내 메모 백업 (파일로 저장)', icon: Download },
+  { key: 'restore', label: '메모 가져오기 (백업 복원)', icon: Upload },
   { key: 'share', label: '앱 공유하기', icon: Share2 },
   { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;
@@ -59,7 +64,43 @@ export default function MoreScreen() {
     }
   };
 
+  const notify = (m: string) => {
+    if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(m);
+  };
+
   const onMenu = (key: (typeof MENU)[number]['key']) => {
+    if (key === 'backup') {
+      try {
+        const n = exportMemoBackup();
+        notify(
+          n > 0
+            ? `메모 ${n}건을 백업 파일로 저장했습니다. 파일을 잘 보관해 주세요.`
+            : '아직 백업할 메모가 없습니다.',
+        );
+      } catch {
+        notify('백업에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+      return;
+    }
+    if (key === 'restore') {
+      if (typeof document === 'undefined') return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          const n = await importMemoBackup(file);
+          notify(`메모 ${n}건을 되살렸습니다. 앱을 새로고침합니다.`);
+          window.location.reload();
+        } catch (e) {
+          notify(e instanceof Error ? e.message : '복원에 실패했습니다.');
+        }
+      };
+      input.click();
+      return;
+    }
     if (key === 'refresh') {
       // 홈 화면 앱(PWA)에는 새로고침 버튼이 없어 여기서 최신 버전을 다시 불러온다
       if (typeof window !== 'undefined') window.location.reload();
