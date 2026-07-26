@@ -11,6 +11,10 @@ on:
         description: '주변을 출력할 정규식 패턴'
         required: false
         default: ''
+      mode:
+        description: "links 면 페이지 안 링크 목록"
+        required: false
+        default: ''
 
 jobs:
   probe:
@@ -24,4 +28,5 @@ jobs:
         env:
           PROBE_URL: ${{ inputs.url }}
           PROBE_PATTERN: ${{ inputs.pattern }}
+          PROBE_MODE: ${{ inputs.mode }}
         run: node scripts/probe.mjs
