@@ -36,7 +36,9 @@ try {
 }
 console.log(`HTTP ${res.status}, ${buf.length}B, charset=${charset || 'utf-8'}, 최종주소 ${res.url}`);
 
-if (mode === 'links') {
+if (mode === 'raw') {
+  console.log(html.replace(/\s+/g, ' '));
+} else if (mode === 'links') {
   const seen = new Set();
   let n = 0;
   for (const m of html.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
