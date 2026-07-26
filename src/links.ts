@@ -27,12 +27,21 @@ export function openExternal(url: string) {
  * 빈 탭이 생기지 않고, 앱에서 뒤로 가면 원래 화면으로 돌아온다.
  */
 export function openYouTube(videoId: string) {
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  openYouTubeUrl(`https://www.youtube.com/watch?v=${videoId}`);
+}
+
+/** 유튜브 주소를 같은 창에서 열기 — 빈 탭이 남지 않는다 */
+export function openYouTubeUrl(url: string) {
   if (Platform.OS === 'web') {
     window.location.href = url;
   } else {
     WebBrowser.openBrowserAsync(url).catch(() => {});
   }
+}
+
+/** 주일예배 생중계 — 방송 중이면 실시간, 아니면 채널 최근 영상 */
+export function openLiveWorship() {
+  openYouTubeUrl(`${YOUTUBE_CHANNEL_URL}/live`);
 }
 
 /**

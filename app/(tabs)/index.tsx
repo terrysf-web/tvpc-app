@@ -2,10 +2,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Bell,
+  BookOpen,
   FileText,
   HandCoins,
   Images,
   Megaphone,
+  MonitorPlay,
   Moon,
   MoonStar,
   Play,
@@ -20,7 +22,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
-import { playSermon, sermonThumb } from '../../src/links';
+import { openLiveWorship, playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
 
@@ -128,7 +130,39 @@ export default function HomeScreen() {
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
     .join(' · ');
 
-  const quickMenu = [
+  // 주일에는 예배에 집중한 메뉴로 바뀐다 (주보·온라인예배·오늘의 말씀·헌금)
+  const quickMenu = isSunday
+    ? [
+        {
+          key: 'bulletin',
+          label: '주보 보기',
+          icon: <FileText size={21} color={colors.tagGrayText} strokeWidth={1.9} />,
+          chipBg: colors.tagGrayBg,
+          onPress: openBulletin,
+        },
+        {
+          key: 'live',
+          label: '온라인 예배',
+          icon: <MonitorPlay size={21} color={colors.heartActive} strokeWidth={1.9} />,
+          chipBg: '#FDEBEA',
+          onPress: openLiveWorship,
+        },
+        {
+          key: 'word',
+          label: '오늘의 말씀',
+          icon: <BookOpen size={21} color={colors.primary} strokeWidth={1.9} />,
+          chipBg: colors.tagBlueBg,
+          onPress: () => router.push('/word'),
+        },
+        {
+          key: 'offering',
+          label: '온라인 헌금',
+          icon: <HandCoins size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
+          chipBg: colors.tagGreenBg,
+          onPress: () => router.push('/offering'),
+        },
+      ]
+    : [
     {
       key: 'news',
       label: '교회소식',
@@ -230,10 +264,10 @@ export default function HomeScreen() {
                 <View style={styles.heroBtnRow}>
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
-                    onPress={() => router.push('/sermon')}
+                    onPress={openLiveWorship}
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                      설교 영상
+                      ▶ 온라인 예배
                     </Text>
                   </Pressable>
                   <Pressable
@@ -301,7 +335,7 @@ export default function HomeScreen() {
 
       {/* 3. 오늘의 한눈에 — 4열 빠른 메뉴 */}
       <FadeInUp delay={80}>
-        <Text style={styles.sectionTitle}>한눈에 보기</Text>
+        <Text style={styles.sectionTitle}>{isSunday ? '오늘 예배' : '한눈에 보기'}</Text>
         <View style={styles.quickRow}>
           {quickMenu.map((m) => (
             <Pressable key={m.key} style={[styles.quickCard, shadows.card]} onPress={m.onPress}>
@@ -356,8 +390,8 @@ export default function HomeScreen() {
         </FadeInUp>
       )}
 
-      {/* 5. 최근 설교 */}
-      {featured && (
+      {/* 5. 최근 설교 — 주일에는 예배(온라인 예배)와 겹쳐 보여 숨긴다 */}
+      {featured && !isSunday && (
         <FadeInUp delay={160}>
           <Text style={styles.sectionTitle}>최근 설교</Text>
           <View style={[styles.sermonWrap, shadows.imageCard]}>

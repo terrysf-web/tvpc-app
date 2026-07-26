@@ -15,7 +15,7 @@ import {
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { churchInfo } from '../../src/churchInfo';
-import { openExternal } from '../../src/links';
+import { openLiveWorship } from '../../src/links';
 import { colors, font, shadows, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
@@ -140,7 +140,7 @@ export default function WordScreen() {
                 {s.name.replace('주일예배 ', '')}부 예배 · {s.time.replace('주일 ', '')}
               </Text>
             ))}
-            <Pressable style={styles.liveBtn} onPress={() => openExternal(churchInfo.youtube)}>
+            <Pressable style={styles.liveBtn} onPress={openLiveWorship}>
               <Text style={styles.liveBtnText}>▶ 온라인 예배 참여하기</Text>
             </Pressable>
             <Text style={styles.liveHint}>
