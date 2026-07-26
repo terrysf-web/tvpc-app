@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bookmark, List, MonitorPlay } from 'lucide-react-native';
+import { Bookmark, List } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,8 +14,6 @@ import {
 } from '../../src/components/VerseNoteCard';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
-import { churchInfo } from '../../src/churchInfo';
-import { openLiveWorship } from '../../src/links';
 import { colors, font, shadows, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
@@ -40,8 +38,9 @@ export default function WordScreen() {
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
-  // 주일에는 이 탭이 온라인예배가 된다 — 말씀은 아래 링크로 볼 수 있음
-  const [showWordOnSunday, setShowWordOnSunday] = useState(false);
+  // 주일에는 예배에서 읽는 본문이므로 제목을 '주일 성경봉독'으로 보여준다
+  const isSunday = new Date().getDay() === 0;
+  const screenTitle = isSunday ? '주일 성경봉독' : '오늘의 말씀';
   const scale = FONT_SCALES[scaleStep];
 
   // 오늘 말씀이 기기에 저장(북마크)돼 있는지 동기화
@@ -121,46 +120,12 @@ export default function WordScreen() {
     toggleSavedVerse(entry).then(setSaved);
   };
 
-  // 주일 — 온라인예배 화면 (말씀은 아래 버튼으로 볼 수 있다)
-  if (new Date().getDay() === 0 && !showWordOnSunday) {
-    const sundayServices = churchInfo.services.filter((s) => s.name.startsWith('주일예배'));
-    return (
-      <View style={styles.screen}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
-          <Text style={styles.headerTitle}>온라인예배</Text>
-        </View>
-        <ScrollView contentContainerStyle={styles.liveContent}>
-          <View style={[styles.liveCard, shadows.card]}>
-            <View style={styles.liveChip}>
-              <MonitorPlay size={26} color={colors.primary} strokeWidth={1.8} />
-            </View>
-            <Text style={styles.liveTitle}>주일예배에 함께해요</Text>
-            {sundayServices.map((s) => (
-              <Text key={s.name} style={styles.liveTime}>
-                {s.name.replace('주일예배 ', '')}부 예배 · {s.time.replace('주일 ', '')}
-              </Text>
-            ))}
-            <Pressable style={styles.liveBtn} onPress={openLiveWorship}>
-              <Text style={styles.liveBtnText}>▶ 온라인 예배 참여하기</Text>
-            </Pressable>
-            <Text style={styles.liveHint}>
-              교회 유튜브 채널에서 실시간 예배와 다시보기를 보실 수 있습니다.
-            </Text>
-          </View>
-          <Pressable style={styles.liveGhost} onPress={() => setShowWordOnSunday(true)} hitSlop={8}>
-            <Text style={styles.liveGhostText}>오늘의 말씀 보기 ›</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-    );
-  }
-
   // 확정된 말씀·배경이 오기 전에는 샘플 구절이 번쩍이지 않게 로딩 화면만
   if (!ready || (!verse.imageUrl && !bg.ready)) {
     return (
       <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
-          <Text style={styles.headerTitle}>오늘의 말씀</Text>
+          <Text style={styles.headerTitle}>{screenTitle}</Text>
         </View>
         <LinearGradient colors={['#E9F1FA', '#D9E6F5']} style={styles.hero} />
       </View>
@@ -171,7 +136,7 @@ export default function WordScreen() {
     <View style={styles.screen}>
       {/* 헤더 */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
-        <Text style={styles.headerTitle}>오늘의 말씀</Text>
+        <Text style={styles.headerTitle}>{screenTitle}</Text>
       </View>
 
       {/* 히어로 */}
