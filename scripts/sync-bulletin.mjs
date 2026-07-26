@@ -263,10 +263,153 @@ try {
   console.log(`  ! 새벽예배 본문 등록 실패(주보 등록은 계속): ${e.message}`);
 }
 
+// ── 3.6 주보의 주일 성경봉독 → 그 주일의 말씀(verses/{주일}) 자동 등록 ──
+try {
+  await syncSundayReading();
+} catch (e) {
+  console.log(`  ! 주일 성경봉독 등록 실패(주보 등록은 계속): ${e.message}`);
+}
+
+/** 개역한글 본문 로드 — 책이름 → 장별 절 배열 */
+async function loadBible() {
+  const { gunzipSync } = await import('node:zlib');
+  const scriptDir = new URL('.', import.meta.url).pathname;
+  return JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'krv.json.gz'))).toString());
+}
+
+/** 숫자·한글 표기 차이(요한1서↔요한일서 등)를 허용해 책 이름 찾기 */
+function findBookIn(bible, name) {
+  const norm = (s) =>
+    s.replace(/\s/g, '').replace(/1서/, '일서').replace(/2서/, '이서').replace(/3서/, '삼서');
+  return bible[name] ? name : (Object.keys(bible).find((k) => norm(k) === norm(name)) ?? null);
+}
+
+/** pdftotext 결과 (한 번만 변환) */
+let pdfTextCache = null;
+function pdfText() {
+  if (pdfTextCache == null) {
+    execFileSync('pdftotext', ['-layout', join(dir, 'in.pdf'), join(dir, 'out.txt')]);
+    pdfTextCache = readFileSync(join(dir, 'out.txt'), 'utf8');
+  }
+  return pdfTextCache;
+}
+
+/**
+ * 주보 예배 순서의 "성경봉독" 칸에서 그 주일 본문을 읽어
+ * verses/{주일 날짜}에 등록한다. 예) "성경봉독  사도행전 (Acts) 11:19-30".
+ * 목사님이 직접 올린 말씀은 덮어쓰지 않는다.
+ */
+async function syncSundayReading() {
+  const lines = pdfText().split('\n');
+  // "성경봉독" 칸 — pdftotext가 글자 사이에 공백을 넣는 경우도 있어 느슨하게 찾는다
+  let hay = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (!/성\s*경\s*봉\s*독/.test(lines[i])) continue;
+    // 같은 줄의 오른쪽(본문 칸) + 다음 줄까지 함께 본다
+    hay = `${lines[i].replace(/.*성\s*경\s*봉\s*독/, ' ')} ${lines[i + 1] ?? ''}`;
+    break;
+  }
+  if (!hay) {
+    console.log('[말씀] 주보에서 성경봉독 칸을 찾지 못했습니다.');
+    return;
+  }
+  // 영어 병기 "(Acts)" 제거 후 "책 장:절-절" / "책 장:절-장:절" 인식
+  const cleaned = hay.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ');
+  const m = cleaned.match(
+    // 책 이름은 "요한1서"처럼 숫자가 낀 경우도 허용
+    /([가-힣]+(?:\d[가-힣]+)?)\s*(\d{1,3})\s*(?::|장)\s*(\d{1,3})(?:\s*절)?(?:\s*[-–~]\s*(?:(\d{1,3})\s*(?::|장)\s*)?(\d{1,3})(?:\s*절)?)?/,
+  );
+  if (!m) {
+    console.log(`[말씀] 성경봉독 본문을 인식하지 못했습니다: "${cleaned.trim().slice(0, 60)}"`);
+    return;
+  }
+  const bible = await loadBible();
+  const bookName = findBookIn(bible, m[1]);
+  if (!bookName) {
+    console.log(`[말씀] 성경봉독 책 이름을 인식하지 못했습니다: "${m[1]}"`);
+    return;
+  }
+  const ch1 = Number(m[2]);
+  const v1 = Number(m[3]);
+  const ch2 = m[4] ? Number(m[4]) : ch1;
+  const v2 = m[5] ? Number(m[5]) : v1;
+  const chapters = bible[bookName];
+  if (ch1 < 1 || ch1 > chapters.length || ch2 < 1 || ch2 > chapters.length || ch2 < ch1) {
+    console.log(`[말씀] 성경봉독 범위가 올바르지 않습니다: ${bookName} ${ch1}:${v1}-${ch2}:${v2}`);
+    return;
+  }
+
+  // 절 모으기 (장을 넘어가는 본문도 지원)
+  const picked = [];
+  for (let c = ch1; c <= ch2; c++) {
+    const verses = chapters[c - 1] ?? [];
+    const from = c === ch1 ? v1 : 1;
+    const to = c === ch2 ? Math.min(v2, verses.length) : verses.length;
+    for (let v = from; v <= to; v++) {
+      if (!verses[v - 1]) continue;
+      // 여러 장에 걸치면 어느 장인지 표시
+      picked.push({ verse: v, text: ch2 > ch1 ? `[${c}장] ${verses[v - 1]}` : verses[v - 1] });
+    }
+  }
+  if (!picked.length) {
+    console.log('[말씀] 성경봉독 본문 절을 찾지 못했습니다.');
+    return;
+  }
+  const ref =
+    ch2 > ch1
+      ? `${bookName} ${ch1}:${v1}-${ch2}:${v2}`
+      : v2 > v1
+        ? `${bookName} ${ch1}:${v1}-${v2}`
+        : `${bookName} ${ch1}:${v1}`;
+
+  // 설교 제목·설교자도 있으면 함께 안내 (없어도 진행)
+  let sermon = '';
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^\s*설\s*교\s*$|설\s*교\s{2,}/.test(lines[i])) continue;
+    const t = `${lines[i].replace(/.*설\s*교/, ' ')} ${lines[i + 1] ?? ''}`
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (t) sermon = t.slice(0, 60);
+    break;
+  }
+
+  const docRef = db.doc(`verses/${date}`);
+  const cur = await docRef.get();
+  if (cur.exists && cur.get('source') !== 'auto') {
+    console.log(`[말씀] ${date} ${ref}: 직접 등록된 말씀이 있어 유지`);
+    return;
+  }
+  const first = picked[0].text.replace(/^\[\d+장\]\s*/, '');
+  const hero = first.length > 90 ? `${first.slice(0, 90)}…` : first;
+  await docRef.set({
+    date,
+    reference: ref,
+    heroText: hero,
+    passageTitle: `${ref} (주일 성경봉독)`,
+    passage: picked,
+    meditation:
+      `오늘 주일예배 성경봉독은 ${ref}, 모두 ${picked.length}절입니다.` +
+      (sermon ? `\n설교: ${sermon}` : '') +
+      `\n\n예배 전에 본문을 소리 내어 한 번 읽어 보세요. ` +
+      `읽으면서 마음에 머무는 구절이 있다면 그 앞에 잠시 멈추어 보세요. ` +
+      `그 구절이 오늘 예배에서 하나님께서 나에게 건네시는 말씀입니다.`,
+    application: [
+      '예배 전에 본문 전체를 한 번 읽어 보세요.',
+      '설교를 들으며 마음에 새겨진 구절을 주보 메모에 적어 보세요.',
+      '오늘 받은 은혜를 한 사람과 나누어 보세요.',
+    ],
+    prayer:
+      `오늘 주일예배로 나아가게 하시니 감사합니다. ${ref} 말씀을 통해 주시는 음성에 ` +
+      `귀 기울이게 하시고, 들은 말씀이 한 주간 삶의 자리에서 열매 맺게 하옵소서. ` +
+      `예수님의 이름으로 기도합니다. 아멘.`,
+    imageUrl: null,
+    source: 'auto',
+  });
+  console.log(`[말씀] 주일 성경봉독 등록: ${date}  ${ref} (${picked.length}절)`);
+}
+
 async function syncDawnVerses() {
-  execFileSync('pdftotext', ['-layout', join(dir, 'in.pdf'), join(dir, 'out.txt')]);
-  const text = readFileSync(join(dir, 'out.txt'), 'utf8');
-  const lines = text.split('\n');
+  const lines = pdfText().split('\n');
 
   // 요일 토큰 줄 찾기 — "화(21일) 수(22일) …" (3개 이상)
   let dayLine = -1;
