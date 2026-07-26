@@ -5,7 +5,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { PhotoSlot } from '../src/components/PhotoSlot';
 import { usePhotos } from '../src/data/hooks';
-import { openExternal } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 
 function fmtDate(d: string): string {
@@ -19,12 +18,12 @@ export default function PhotosScreen() {
   const router = useRouter();
   const { photos, ready } = usePhotos();
 
-  const open = (url?: string | null, title?: string) => {
-    if (!url) return;
-    if (url.includes('tvpc.church')) {
-      router.push({ pathname: '/browser', params: { url, t: title ?? '교회 사진' } });
-    } else {
-      openExternal(url);
+  // 앨범을 앱 안 사진첩으로 연다. 사진을 아직 못 가져온 앨범만 홈페이지로.
+  const open = (p: { id: string; images?: string[]; url?: string | null; title: string }) => {
+    if (p.images && p.images.length > 0) {
+      router.push({ pathname: '/photo/[id]', params: { id: p.id } });
+    } else if (p.url) {
+      router.push({ pathname: '/browser', params: { url: p.url, t: p.title } });
     }
   };
 
@@ -44,7 +43,7 @@ export default function PhotosScreen() {
             <Pressable
               key={p.id}
               style={[styles.card, shadows.imageCard]}
-              onPress={() => open(p.url, p.title)}
+              onPress={() => open(p)}
             >
               <PhotoSlot uri={p.imageUrl} style={styles.cover}>
                 {!p.imageUrl && (
