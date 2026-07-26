@@ -21,6 +21,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
+import { SUNDAY_LIVE_END, churchNow } from '../../src/churchTime';
 import { openLiveWorship, playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
@@ -117,8 +118,13 @@ export default function HomeScreen() {
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
   const sunday = useSundayBg();
   const sb = sunday.bg ?? bg;
-  // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다
-  const isSunday = new Date().getDay() === 0;
+  // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다.
+  // 여행 중이어도 예배 안내는 교회 현지(태평양) 시각을 따른다.
+  const { weekday: churchWeekday, minutes: churchMinutes } = churchNow();
+  const isSunday = churchWeekday === 0;
+  // 2부 예배는 주일 오후 12시 30분이면 끝난다 —
+  // 그 뒤로는 생중계 대신 최신 설교 영상으로 이어준다.
+  const liveEnded = isSunday && churchMinutes >= SUNDAY_LIVE_END;
   // 어떤 내용·배경이 정답인지 확정되기 전에는 히어로를 그리지 않는다 —
   // 옛 구절이나 기본 그림이 번쩍였다가 바뀌면 혼란스럽기 때문.
   const heroReady = isSunday
@@ -267,13 +273,20 @@ export default function HomeScreen() {
                   {sundayTimes} · 본당
                 </Text>
                 <View style={styles.heroBtnRow}>
-                  {/* 1부는 온라인 중계가 없어 2부만 안내한다 */}
+                  {/* 1부는 온라인 중계가 없어 2부만 안내한다.
+                      예배가 끝난 오후에는 최신 설교 영상으로 바뀐다. */}
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
-                    onPress={openLiveWorship}
+                    onPress={() =>
+                      liveEnded
+                        ? featured
+                          ? playSermon(featured)
+                          : router.push('/sermon')
+                        : openLiveWorship()
+                    }
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                      ▶ 2부 온라인예배
+                      {liveEnded ? '▶ 최신 설교 보기' : '▶ 2부 온라인예배'}
                     </Text>
                   </Pressable>
                 </View>
