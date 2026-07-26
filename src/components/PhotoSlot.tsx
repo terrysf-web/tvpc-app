@@ -12,6 +12,8 @@ interface Props {
    * light: 리스트 썸네일용(옅은 회색)
    */
   tone?: 'deep' | 'light';
+  /** 스크린리더·검색엔진용 그림 설명 (웹에서는 alt 속성이 된다) */
+  alt?: string;
   children?: React.ReactNode;
 }
 
@@ -20,7 +22,7 @@ interface Props {
  * URL이 없거나 로딩 중이면 그라데이션 배경을 보여준다.
  * deep 톤은 단색 대신 빛 번짐·링 장식을 얹은 레이어드 배경.
  */
-export function PhotoSlot({ uri, style, tone = 'light', children }: Props) {
+export function PhotoSlot({ uri, style, tone = 'light', alt, children }: Props) {
   return (
     <View style={[styles.base, style]}>
       {uri ? (
@@ -30,6 +32,8 @@ export function PhotoSlot({ uri, style, tone = 'light', children }: Props) {
           contentFit="cover"
           transition={200}
           placeholder={null}
+          alt={alt ?? ''}
+          accessibilityLabel={alt}
         />
       ) : tone === 'deep' ? (
         <>

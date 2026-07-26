@@ -377,7 +377,7 @@ export default function HomeScreen() {
         <FadeInUp delay={160}>
           <Text style={styles.sectionTitle}>최근 설교</Text>
           <View style={[styles.sermonWrap, shadows.imageCard]}>
-            <PhotoSlot uri={sermonThumb(featured)} tone="deep" style={styles.sermonCard}>
+            <PhotoSlot uri={sermonThumb(featured)} alt={featured.title} tone="deep" style={styles.sermonCard}>
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               <Pressable
                 style={styles.playBtn}

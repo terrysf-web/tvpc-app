@@ -66,7 +66,7 @@ export default function SermonScreen() {
 
   const listItem = (s: SermonDoc) => (
     <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => playSermon(s)}>
-      <PhotoSlot uri={sermonThumb(s)} tone="deep" style={styles.thumb}>
+      <PhotoSlot uri={sermonThumb(s)} alt={s.title} tone="deep" style={styles.thumb}>
         {s.duration ? (
           <View style={styles.thumbBadge}>
             <Text style={styles.thumbBadgeText}>{s.duration}</Text>
@@ -97,7 +97,7 @@ export default function SermonScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {tab === 'recent' && featured && (
           <View style={[styles.featuredWrap, shadows.imageCard]}>
-            <PhotoSlot uri={sermonThumb(featured)} tone="deep" style={styles.featured}>
+            <PhotoSlot uri={sermonThumb(featured)} alt={featured.title} tone="deep" style={styles.featured}>
               <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
               <Pressable style={styles.playBtn} onPress={() => playSermon(featured)} hitSlop={8}>
                 <Play size={22} color={colors.primary} fill={colors.primary} strokeWidth={0} />

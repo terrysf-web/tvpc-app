@@ -25,11 +25,11 @@ if (html.includes('apple-touch-icon')) {
   process.exit(0);
 }
 html = html.replace('<html lang="en"', '<html lang="ko"');
-// iOS 사파리가 입력창 포커스 때 화면을 자동 확대하고 되돌리지 않는 문제 방지.
-// (iOS 10+에서는 maximum-scale이 있어도 손가락 확대는 계속 가능)
+// 손가락 확대를 막지 않는다(접근성 감사 지적) — 입력창 글자는 16px 이상이라
+// iOS 사파리가 포커스 때 자동 확대하지도 않는다.
 html = html.replace(
   /<meta name="viewport"[^>]*>/,
-  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />',
+  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover" />',
 );
 html = html.replace('</head>', `${TAGS}</head>`);
 writeFileSync(FILE, html);

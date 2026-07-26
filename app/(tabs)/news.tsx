@@ -120,7 +120,7 @@ export default function NewsScreen() {
                   ) : null}
                   <Text style={styles.date}>{fmtDate(n.date)}</Text>
                 </View>
-                <PhotoSlot uri={thumbUri} style={styles.thumb}>
+                <PhotoSlot uri={thumbUri} alt={n.title} style={styles.thumb}>
                   {!thumbUri && (
                     <View style={styles.thumbIcon}>
                       {isChurchNews ? (

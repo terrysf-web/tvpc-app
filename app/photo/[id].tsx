@@ -27,7 +27,17 @@ function thumbUrl(full: string): string {
 }
 
 /** 격자 사진 한 칸 — 썸네일이 없으면 원본으로 대체 */
-function GridPhoto({ uri, size, onPress }: { uri: string; size: number; onPress: () => void }) {
+function GridPhoto({
+  uri,
+  size,
+  alt,
+  onPress,
+}: {
+  uri: string;
+  size: number;
+  alt: string;
+  onPress: () => void;
+}) {
   const [src, setSrc] = useState(thumbUrl(uri));
   return (
     <Pressable onPress={onPress}>
@@ -35,6 +45,8 @@ function GridPhoto({ uri, size, onPress }: { uri: string; size: number; onPress:
         source={{ uri: src }}
         style={{ width: size, height: size, backgroundColor: colors.tagGrayBg }}
         resizeMode="cover"
+        alt={alt}
+        accessibilityLabel={alt}
         onError={() => src !== uri && setSrc(uri)}
       />
     </Pressable>
@@ -65,6 +77,7 @@ function ZoomableImage({
 
     const img = document.createElement('img');
     img.src = uri;
+    img.alt = '';
     img.draggable = false;
     img.style.cssText = `width:${width}px;height:${height}px;object-fit:contain;touch-action:pan-x;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;transform-origin:center center;`;
     host.appendChild(img);
@@ -223,7 +236,13 @@ export default function PhotoAlbumScreen() {
         <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 30 }}>
           <View style={[styles.grid, { gap }]}>
             {images.map((uri, i) => (
-              <GridPhoto key={uri} uri={uri} size={cell} onPress={() => openAt(i)} />
+              <GridPhoto
+                key={uri}
+                uri={uri}
+                size={cell}
+                alt={`${album.title} 사진 ${i + 1}`}
+                onPress={() => openAt(i)}
+              />
             ))}
           </View>
           {images.length === 0 && (

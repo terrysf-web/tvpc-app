@@ -45,7 +45,7 @@ export default function PhotosScreen() {
               style={[styles.card, shadows.imageCard]}
               onPress={() => open(p)}
             >
-              <PhotoSlot uri={p.imageUrl} style={styles.cover}>
+              <PhotoSlot uri={p.imageUrl} alt={p.title} style={styles.cover}>
                 {!p.imageUrl && (
                   <View style={styles.coverIcon}>
                     <Images size={30} color={colors.muted} strokeWidth={1.6} />

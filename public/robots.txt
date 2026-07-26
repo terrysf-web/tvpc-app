@@ -1,0 +1,8 @@
+# 트라이밸리 장로교회 앱 (app.tvpc.church)
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /alert-send
+Disallow: /pray-inbox
+
+Sitemap: https://app.tvpc.church/sitemap.xml
