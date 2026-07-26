@@ -257,6 +257,9 @@ writeFileSync(join(dir, 'in.pdf'), pdfBuf);
 // ── 3.5 주보의 새벽예배 본문표 → 매일 말씀(verses/{날짜}) 자동 등록 ──
 // 주보에 "화(21일) 수(22일) …" / "이사야 34장 이사야 35장 …" 두 줄이 있어
 // 각 요일의 본문을 개역한글 본문과 함께 등록한다. 목사님이 직접 올린 날은 건너뜀.
+/** pdftotext 결과 (한 번만 변환) — 아래 함수들이 공유한다 */
+let pdfTextCache = null;
+
 try {
   await syncDawnVerses();
 } catch (e) {
@@ -284,8 +287,6 @@ function findBookIn(bible, name) {
   return bible[name] ? name : (Object.keys(bible).find((k) => norm(k) === norm(name)) ?? null);
 }
 
-/** pdftotext 결과 (한 번만 변환) */
-let pdfTextCache = null;
 function pdfText() {
   if (pdfTextCache == null) {
     execFileSync('pdftotext', ['-layout', join(dir, 'in.pdf'), join(dir, 'out.txt')]);
