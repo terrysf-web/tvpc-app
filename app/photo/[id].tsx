@@ -66,7 +66,7 @@ function ZoomableImage({
     const img = document.createElement('img');
     img.src = uri;
     img.draggable = false;
-    img.style.cssText = `width:${width}px;height:${height}px;object-fit:contain;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;transform-origin:center center;`;
+    img.style.cssText = `width:${width}px;height:${height}px;object-fit:contain;touch-action:pan-x;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;transform-origin:center center;`;
     host.appendChild(img);
 
     let scale = 1;
@@ -82,7 +82,10 @@ function ZoomableImage({
 
     const apply = () => {
       img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-      onZoomChange(scale > 1.01);
+      const zoomed = scale > 1.01;
+      // 확대 중에는 사진 안에서 끌어 이동, 평소에는 좌우로 넘기기
+      img.style.touchAction = zoomed ? 'none' : 'pan-x';
+      onZoomChange(zoomed);
     };
     const clampPan = () => {
       const maxX = (width * (scale - 1)) / 2;
@@ -246,6 +249,14 @@ export default function PhotoAlbumScreen() {
             pagingEnabled
             scrollEnabled={!zoomed}
             showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={32}
+            onScroll={(e) => {
+              const i = Math.round(e.nativeEvent.contentOffset.x / width);
+              if (i !== pageRef.current) {
+                pageRef.current = i;
+                setPage(i);
+              }
+            }}
             onMomentumScrollEnd={(e) => {
               const i = Math.round(e.nativeEvent.contentOffset.x / width);
               pageRef.current = i;
