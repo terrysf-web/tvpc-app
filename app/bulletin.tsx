@@ -353,7 +353,12 @@ export default function BulletinScreen() {
   const { width } = useWindowDimensions();
   const { dates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
   const [selected, setSelected] = useState<string | null>(null);
-  const current = selected ?? dates[0] ?? null;
+  // 주일인데 오늘 주보가 아직 안 올라왔으면 지난 주보를 대신 보여주지 않는다 —
+  // 지난주 내용을 오늘 것으로 오해하기 쉽기 때문. (날짜를 직접 고르면 볼 수 있다)
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  const isSunday = new Date().getDay() === 0;
+  const todayMissing = isSunday && !dates.includes(todayKey);
+  const current = selected ?? (todayMissing ? null : (dates[0] ?? null));
   const { bulletin, loading: pagesLoading } = useBulletin(current);
   const loading = datesLoading || pagesLoading;
   const { news } = useNews();
@@ -374,7 +379,7 @@ export default function BulletinScreen() {
     <View style={styles.screen}>
       <OverlayHeader title={current ? `주보 · ${fmtKo(current)}` : '주보'} />
       {/* 지난 주보 날짜 선택 — 날짜별 메모(●)도 함께 열린다 */}
-      {dates.length > 1 && (
+      {(dates.length > 1 || todayMissing) && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -397,6 +402,14 @@ export default function BulletinScreen() {
       )}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
+      ) : todayMissing && !selected ? (
+        <View style={styles.waitingWrap}>
+          <Text style={styles.waitingTitle}>이번 주 주보는 준비 중입니다</Text>
+          <Text style={styles.waitingText}>
+            주보가 교회 홈페이지에 올라오면 앱에 자동으로 들어옵니다.{'\n'}
+            지난 주보는 위의 날짜를 눌러 보실 수 있습니다.
+          </Text>
+        </View>
       ) : bulletin ? (
         <ScrollView
           contentContainerStyle={[styles.pages, { paddingBottom: insets.bottom + 24 }]}
@@ -455,6 +468,21 @@ export default function BulletinScreen() {
 }
 
 const styles = StyleSheet.create({
+  waitingWrap: { alignItems: 'center', paddingHorizontal: 32, marginTop: 70 },
+  waitingTitle: {
+    fontFamily: font.extraBold,
+    fontSize: 16.5,
+    color: colors.title,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  waitingText: {
+    fontFamily: font.regular,
+    fontSize: 13,
+    lineHeight: 21,
+    color: colors.muted,
+    textAlign: 'center',
+  },
   screen: { flex: 1, backgroundColor: colors.screenBg },
   pages: { padding: 12, gap: 14, alignItems: 'center' },
   pageWrap: {

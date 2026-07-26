@@ -41,6 +41,8 @@ export default function WordScreen() {
   // 주일에는 예배에서 읽는 본문이므로 제목을 '주일 성경봉독'으로 보여준다
   const isSunday = new Date().getDay() === 0;
   const screenTitle = isSunday ? '주일 성경봉독' : '오늘의 말씀';
+  // 주일인데 오늘 주보(=봉독 본문)가 아직 안 들어왔으면 지난 본문을 보여주지 않는다
+  const sundayPending = isSunday && verse.date !== new Date().toLocaleDateString('en-CA');
   const scale = FONT_SCALES[scaleStep];
 
   // 오늘 말씀이 기기에 저장(북마크)돼 있는지 동기화
@@ -119,6 +121,26 @@ export default function WordScreen() {
     }
     toggleSavedVerse(entry).then(setSaved);
   };
+
+  // 주일 봉독 본문이 아직 없을 때 — 지난 본문 대신 준비 중으로
+  if (ready && sundayPending) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
+          <Text style={styles.headerTitle}>{screenTitle}</Text>
+        </View>
+        <View style={styles.pendingWrap}>
+          <Text style={styles.pendingTitle}>이번 주 성경봉독은 준비 중입니다</Text>
+          <Text style={styles.pendingText}>
+            주보가 올라오면 그 주일의 봉독 본문이 자동으로 표시됩니다.
+          </Text>
+          <Pressable style={styles.pendingBtn} onPress={() => router.push('/saved')}>
+            <Text style={styles.pendingBtnText}>저장한 말씀 보기</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   // 확정된 말씀·배경이 오기 전에는 샘플 구절이 번쩍이지 않게 로딩 화면만
   if (!ready || (!verse.imageUrl && !bg.ready)) {
@@ -279,6 +301,29 @@ export default function WordScreen() {
 }
 
 const styles = StyleSheet.create({
+  pendingWrap: { alignItems: 'center', paddingHorizontal: 32, marginTop: 70 },
+  pendingTitle: {
+    fontFamily: font.extraBold,
+    fontSize: 16.5,
+    color: colors.title,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  pendingText: {
+    fontFamily: font.regular,
+    fontSize: 13,
+    lineHeight: 21,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  pendingBtn: {
+    marginTop: 18,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+  pendingBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
   screen: { flex: 1, backgroundColor: colors.screenBg },
   liveContent: { padding: 16, paddingTop: 24 },
   liveCard: {
