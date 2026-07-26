@@ -516,8 +516,9 @@ const styles = StyleSheet.create({
   webLink: { padding: 10 },
   webLinkText: { fontFamily: font.medium, fontSize: 13, color: colors.primary },
 
-  dateBar: { flexGrow: 0, backgroundColor: colors.card },
-  dateBarContent: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  // 아래 주보 내용이 길면 이 줄이 함께 눌려 칩이 잘린다 — 줄어들지 않게 고정
+  dateBar: { flexGrow: 0, flexShrink: 0, backgroundColor: colors.card },
+  dateBarContent: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, gap: 8 },
   dateChip: {
     borderRadius: 18,
     paddingHorizontal: 14,
