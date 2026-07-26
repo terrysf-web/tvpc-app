@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FileText, PenLine } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -352,7 +352,17 @@ export default function BulletinScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { dates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
-  const [selected, setSelected] = useState<string | null>(null);
+  // 지난 주보는 주소에 날짜를 담아 연다 — 그래야 뒤로가기가 홈이 아니라
+  // 이번 주 주보 화면으로 돌아온다(브라우저 뒤로가기·화면 밀기 모두 동일).
+  const params = useLocalSearchParams<{ d?: string }>();
+  const selected = typeof params.d === 'string' && params.d ? params.d : null;
+  const openDate = (date: string) => {
+    if (date === selected) return;
+    const to = { pathname: '/bulletin' as const, params: { d: date } };
+    // 이미 지난 주보를 보고 있으면 기록을 쌓지 않고 갈아끼운다
+    if (selected) router.replace(to);
+    else router.push(to);
+  };
   // 주일인데 오늘 주보가 아직 안 올라왔으면 지난 주보를 대신 보여주지 않는다 —
   // 지난주 내용을 오늘 것으로 오해하기 쉽기 때문. (날짜를 직접 고르면 볼 수 있다)
   const todayKey = new Date().toLocaleDateString('en-CA');
@@ -390,7 +400,7 @@ export default function BulletinScreen() {
             <Pressable
               key={d}
               style={[styles.dateChip, d === current && styles.dateChipActive]}
-              onPress={() => setSelected(d)}
+              onPress={() => openDate(d)}
             >
               <Text style={[styles.dateChipText, d === current && styles.dateChipTextActive]}>
                 {chipLabel(d)}
