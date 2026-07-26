@@ -7,7 +7,6 @@ import {
   HandCoins,
   Images,
   Megaphone,
-  MonitorPlay,
   Moon,
   MoonStar,
   Play,
@@ -130,9 +129,16 @@ export default function HomeScreen() {
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
     .join(' · ');
 
-  // 주일에는 예배에 집중한 메뉴로 바뀐다 (주보·온라인예배·오늘의 말씀·헌금)
+  // 주일 메뉴 — 온라인예배는 위 카드에 있으므로 뺀다
   const quickMenu = isSunday
     ? [
+        {
+          key: 'news',
+          label: '교회소식',
+          icon: <Megaphone size={21} color={colors.tagOrangeText} strokeWidth={1.9} />,
+          chipBg: colors.tagOrangeBg,
+          onPress: () => router.push('/news'),
+        },
         {
           key: 'bulletin',
           label: '주보 보기',
@@ -141,15 +147,8 @@ export default function HomeScreen() {
           onPress: openBulletin,
         },
         {
-          key: 'live',
-          label: '온라인 예배',
-          icon: <MonitorPlay size={21} color={colors.heartActive} strokeWidth={1.9} />,
-          chipBg: '#FDEBEA',
-          onPress: openLiveWorship,
-        },
-        {
           key: 'word',
-          label: '오늘의 말씀',
+          label: '주일말씀',
           icon: <BookOpen size={21} color={colors.primary} strokeWidth={1.9} />,
           chipBg: colors.tagBlueBg,
           onPress: () => router.push('/word'),
@@ -262,30 +261,13 @@ export default function HomeScreen() {
                   {sundayTimes} · 본당
                 </Text>
                 <View style={styles.heroBtnRow}>
+                  {/* 1부는 온라인 중계가 없어 2부만 안내한다 */}
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
                     onPress={openLiveWorship}
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                      ▶ 온라인 예배
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.heroBtn,
-                      styles.heroBtnGhost,
-                      !sb.dark && styles.heroBtnGhostLight,
-                    ]}
-                    onPress={openBulletin}
-                  >
-                    <Text
-                      style={[
-                        styles.heroBtnText,
-                        styles.heroBtnGhostText,
-                        !sb.dark && styles.heroBtnGhostTextLight,
-                      ]}
-                    >
-                      주보 보기
+                      ▶ 2부 온라인예배
                     </Text>
                   </Pressable>
                 </View>
