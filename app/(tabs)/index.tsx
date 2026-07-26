@@ -242,6 +242,12 @@ export default function HomeScreen() {
           ) : isSunday ? (
             // 주일예배 안내도 시간대별 배경을 쓴다 (아침 예배 시간엔 아침 그림)
             <PhotoSlot uri={sb.uri} tone="deep" style={styles.hero}>
+              {/* 위·아래 그늘 — 밝은 사진에서도 배지·날짜·글씨가 묻히지 않게 */}
+              <LinearGradient
+                colors={['rgba(10,26,52,0.55)', 'rgba(10,26,52,0.04)', 'rgba(10,26,52,0.50)']}
+                locations={[0, 0.42, 1]}
+                style={StyleSheet.absoluteFill}
+              />
               <View style={styles.heroTopRow}>
                 <View style={[styles.heroBadge, !sb.dark && styles.heroBadgeDark]}>
                   <Text style={styles.heroBadgeText}>주일예배</Text>
@@ -446,13 +452,18 @@ const styles = StyleSheet.create({
   hero: { borderRadius: 22, minHeight: 222, padding: 18, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(10,26,52,0.45)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  heroBadgeText: { fontFamily: font.bold, fontSize: 12, color: '#FFFFFF' },
-  heroDate: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.85)' },
+  heroBadgeText: { fontFamily: font.bold, fontSize: 12, color: '#FFFFFF', ...textShadow },
+  heroDate: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    color: '#FFFFFF',
+    ...textShadow,
+  },
   heroBottom: { marginTop: 26 },
   heroRef: {
     fontFamily: font.bold,
