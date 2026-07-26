@@ -431,16 +431,22 @@ async function syncDawnVerses() {
     return;
   }
 
-  // 요일 줄 아래 3줄 안에서 "이사야 34장" 형태의 본문 토큰 수집
+  // 요일 줄 아래에서 본문 토큰 수집 — "이사야 34장", "이사야 34:1-20" 두 표기 모두.
+  // 표 사이에 빈 줄이 들어가는 주보도 있어 여섯 줄까지 훑는다.
   const passages = [];
-  for (let i = dayLine + 1; i <= Math.min(dayLine + 3, lines.length - 1); i++) {
-    for (const m of lines[i].matchAll(/([가-힣]+)\s*(\d{1,3})장/g)) {
+  for (let i = dayLine + 1; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
+    for (const m of lines[i].matchAll(/([가-힣]+(?:\d[가-힣]+)?)\s*(\d{1,3})\s*(?:장|:\s*\d)/g)) {
       passages.push({ book: m[1], chapter: Number(m[2]), col: m.index + m[0].length / 2 });
     }
     if (passages.length) break;
   }
   if (!passages.length) {
     console.log('  → 새벽예배 본문을 찾지 못해 매일 말씀 등록을 건너뜁니다.');
+    // 표 모양이 바뀐 경우를 확인할 수 있게 요일 줄 주변을 남긴다
+    for (let i = dayLine; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
+      const t = lines[i].replace(/\s+/g, ' ').trim();
+      if (t) console.log(`      | ${t.slice(0, 110)}`);
+    }
     return;
   }
 
