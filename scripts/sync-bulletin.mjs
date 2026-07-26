@@ -440,15 +440,19 @@ async function syncDawnVerses() {
     }
     if (passages.length) break;
   }
+  // 표 모양이 주보마다 조금씩 달라, 읽어들인 표를 항상 기록에 남긴다
+  for (let i = dayLine; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
+    const t = lines[i].replace(/\s+/g, ' ').trim();
+    if (t) console.log(`      | ${t.slice(0, 120)}`);
+  }
   if (!passages.length) {
     console.log('  → 새벽예배 본문을 찾지 못해 매일 말씀 등록을 건너뜁니다.');
-    // 표 모양이 바뀐 경우를 확인할 수 있게 요일 줄 주변을 남긴다
-    for (let i = dayLine; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
-      const t = lines[i].replace(/\s+/g, ' ').trim();
-      if (t) console.log(`      | ${t.slice(0, 110)}`);
-    }
     return;
   }
+  console.log(
+    `      · 요일 ${days.map((d) => `${d.dom}일@${Math.round(d.col)}`).join(' ')} / ` +
+      `본문 ${passages.map((p) => `${p.book}${p.chapter}@${Math.round(p.col)}`).join(' ')}`,
+  );
 
   // 개역한글 본문 로드 (책이름 → 장별 절 배열)
   const { gunzipSync } = await import('node:zlib');
