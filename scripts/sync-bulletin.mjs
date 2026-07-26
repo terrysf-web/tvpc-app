@@ -476,20 +476,37 @@ async function syncDawnVerses() {
     return null;
   };
 
+  // 요일↔본문 짝짓기 — 표의 열 위치가 가장 가까운 짝부터 확정한다.
+  // 요일마다 "가장 가까운 본문"을 고르면, 어떤 날이 '생명의 삶'처럼 성경 장이
+  // 아닐 때 옆 칸 본문을 끌어와 하루씩 밀린다. 전체에서 가까운 순으로 확정하고
+  // 허용 폭도 좁혀(≤10) 밀림을 막는다.
+  const pairs = [];
+  for (const day of days) {
+    for (const p of passages) {
+      const dist = Math.abs(p.col - day.col);
+      if (dist <= 10) pairs.push({ day, p, dist });
+    }
+  }
+  pairs.sort((a, b) => a.dist - b.dist);
+  const matched = new Map(); // day → passage
+  for (const { day, p } of pairs) {
+    if (matched.has(day) || p.used) continue;
+    p.used = true;
+    matched.set(day, p);
+  }
+
   console.log('[말씀] 새벽예배 본문 등록:');
   let wrote = 0;
   const usedDates = new Set();
+  // 본문이 없는 날(생명의 삶 등)은 전에 자동 등록해 둔 말씀이 남지 않도록 지운다
+  const emptyDates = [];
   for (const day of days) {
-    // 같은 열(column)의 본문 찾기 — 표 열 위치가 가장 가까운 토큰.
-    // 한 본문은 한 요일에만 쓴다(금요집회 열의 중복 "금(n일)"이 옆 열을 뺏지 않도록).
-    let best = null;
-    for (const p of passages) {
-      if (p.used) continue;
-      const dist = Math.abs(p.col - day.col);
-      if (dist <= 14 && (!best || dist < Math.abs(best.col - day.col))) best = p;
+    const best = matched.get(day);
+    if (!best) {
+      const d = domToDate(day.dom);
+      if (d) emptyDates.push(d);
+      continue;
     }
-    if (!best) continue;
-    best.used = true;
     const vDate = domToDate(day.dom);
     if (vDate && usedDates.has(vDate)) continue;
     if (vDate) usedDates.add(vDate);
@@ -548,6 +565,18 @@ async function syncDawnVerses() {
     wrote++;
   }
   console.log(`  → 매일 말씀 ${wrote}건 등록`);
+
+  // 새벽예배 본문이 성경 장이 아닌 날(생명의 삶 등): 예전에 잘못 등록된
+  // 자동 말씀이 남아 있으면 지운다. 직접 올린 말씀은 건드리지 않는다.
+  for (const d of emptyDates) {
+    if (usedDates.has(d)) continue;
+    const ref = db.doc(`verses/${d}`);
+    const cur = await ref.get();
+    if (cur.exists && cur.get('source') === 'auto') {
+      await ref.delete();
+      console.log(`  – ${d}: 주보에 성경 본문이 없어 자동 등록분을 지웠습니다`);
+    }
+  }
 }
 
 // 마지막 자동 확인 결과 — 관리자 화면 '자동 동기화 상태'에 표시된다
