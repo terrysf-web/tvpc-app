@@ -709,7 +709,7 @@ export default function AlbumScreen() {
                 img={cache[i]}
                 cell={r.cell}
                 names={r.names}
-                showHeader={!prev || prev.cell !== r.cell}
+                showHeader={!cellFilter && (!prev || prev.cell !== r.cell)}
                 pageWidth={pageWidth}
                 onZoom={onZoom}
               />
