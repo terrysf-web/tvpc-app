@@ -19,6 +19,23 @@ export function openExternal(url: string) {
 }
 
 /**
+ * 유튜브 영상 열기 — 유튜브 앱에서 전체 보기·자동 재생.
+ *
+ * 새 탭(window.open)으로 열면 유튜브 앱으로 넘어간 뒤 돌아왔을 때
+ * 빈 탭("Search or enter website name")이 남는다. 같은 창에서 주소를
+ * 이동하면 iOS·안드로이드가 이 주소를 유튜브 앱으로 가로채므로
+ * 빈 탭이 생기지 않고, 앱에서 뒤로 가면 원래 화면으로 돌아온다.
+ */
+export function openYouTube(videoId: string) {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  if (Platform.OS === 'web') {
+    window.location.href = url;
+  } else {
+    WebBrowser.openBrowserAsync(url).catch(() => {});
+  }
+}
+
+/**
  * 설교 영상 재생 — 유튜브에서 전체 보기로 연다(자동 재생).
  * 앱 안 작은 재생기는 영상에 따라 "Watch on YouTube"로 막히고 자동 재생도
  * 되지 않아, 유튜브 앱·사이트로 바로 넘긴다.
@@ -26,7 +43,7 @@ export function openExternal(url: string) {
  */
 export function playSermon(s: SermonDoc) {
   if (s.youtubeId) {
-    openExternal(`https://www.youtube.com/watch?v=${s.youtubeId}`);
+    openYouTube(s.youtubeId);
   } else if (s.sermonUrl) {
     router.push({ pathname: '/browser', params: { url: s.sermonUrl, t: s.title } });
   } else {
