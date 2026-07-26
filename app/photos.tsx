@@ -59,7 +59,7 @@ export default function PhotosScreen() {
                 </Text>
                 <Text style={styles.meta}>
                   {fmtDate(p.date)}
-                  {p.images && p.images.length > 1 ? ` · 사진 ${p.images.length}장` : ''}
+                  {p.photoCount ? ` · 사진 ${p.photoCount}장` : ''}
                 </Text>
               </View>
             </Pressable>

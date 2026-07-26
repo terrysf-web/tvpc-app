@@ -66,6 +66,8 @@ export interface PhotoDoc {
   imageUrl?: string | null;
   /** 글 안의 사진들 (앨범 보기용) */
   images?: string[];
+  /** 앨범 사진 수 */
+  photoCount?: number;
   /** 홈페이지 원문 링크 */
   url?: string | null;
 }
