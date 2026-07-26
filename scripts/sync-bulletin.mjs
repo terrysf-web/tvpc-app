@@ -125,44 +125,9 @@ const listUrl = `${ORIGIN}/wp/jubo/`;
 let pdfUrl = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
 let pdfLabel = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
 
-if (!pdfUrl) {
-  // 게시글 후보: KBoard 글 링크(?mod=document&uid=) 중 "M/D/YYYY 주보" 제목의 최신 날짜.
-  const dated = [];
-  for (const a of anchors) {
-    if (!/uid=\d+/.test(a.href) || /mod=(editor|remove)/.test(a.href)) continue;
-    const m =
-      a.text.match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/) ??
-      a.text.match(/(20\d{2})[-.년\s]*(\d{1,2})[-.월\s]*(\d{1,2})/);
-    if (!m || !/주보/.test(a.text)) continue;
-    const [y, mo, d] = m[1].length === 4 ? [m[1], m[2], m[3]] : [m[3], m[1], m[2]];
-    dated.push({ ...a, key: `${y}${mo.padStart(2, '0')}${d.padStart(2, '0')}` });
-  }
-  dated.sort((x, y) => y.key.localeCompare(x.key));
-  const post =
-    dated[0] ??
-    anchors.find(
-      (a) =>
-        /uid=\d+|mod=document/.test(a.href) &&
-        !/mod=(editor|remove)/.test(a.href) &&
-        /주보/.test(a.text),
-    );
-  if (!post) {
-    console.error('  ✗ 주보 게시글 링크를 찾지 못했습니다.');
-    dumpInteresting(anchors, listHtml);
-    process.exit(1);
-  }
-  const postUrl = abs(post.href);
-  pdfLabel = post.text;
-  console.log(`  → 최신 게시글: "${post.text}" ${postUrl}`);
-  const postHtml = await (await jfetch(postUrl)).text();
-  const postAnchors = [];
-  for (const m of postHtml.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
-    postAnchors.push({
-      href: unescapeHtml(m[1]),
-      text: unescapeHtml(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(),
-    });
-  }
-  const cand =
+/** 게시글 HTML에서 주보 PDF 링크 찾기 — 없으면 null */
+function findPdfInPost(postHtml, postAnchors) {
+  return (
     postAnchors.find((a) => /\.pdf(\?|$)/i.test(a.href)) ??
     // KBoard 첨부파일 다운로드 링크 (파일명이 표시 텍스트에 옴)
     postAnchors.find((a) => /kboard_file_download|kboard-file-download/i.test(a.href)) ??
@@ -184,20 +149,81 @@ if (!pdfUrl) {
         /[^"'\s<>()]*(?:action=kboard_file_download|kboard-file-download)[^"'\s<>()]*/,
       );
       return m ? { href: unescapeHtml(m[0]), text: '' } : null;
-    })();
-  if (!cand) {
-    console.error('  ✗ 게시글에서 PDF 링크를 찾지 못했습니다.');
-    dumpInteresting(postAnchors, postHtml);
-    // ".pdf" 주변 마크업을 보여 구조 파악
-    const idx = postHtml.search(/\.pdf/i);
-    if (idx >= 0) {
-      console.error('  ".pdf" 주변 마크업:');
-      console.error('  ' + postHtml.slice(Math.max(0, idx - 700), idx + 300).replace(/\s+/g, ' '));
+    })() ??
+    null
+  );
+}
+
+if (!pdfUrl) {
+  // 게시글 후보: KBoard 글 링크(?mod=document&uid=) 중 "M/D/YYYY 주보" 제목의 최신 날짜.
+  const dated = [];
+  const seen = new Set();
+  for (const a of anchors) {
+    if (!/uid=\d+/.test(a.href) || /mod=(editor|remove)/.test(a.href)) continue;
+    const uid = a.href.match(/uid=(\d+)/)[1];
+    if (seen.has(uid)) continue;
+    const m =
+      a.text.match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/) ??
+      a.text.match(/(20\d{2})[-.년\s]*(\d{1,2})[-.월\s]*(\d{1,2})/);
+    if (!m || !/주보/.test(a.text)) continue;
+    const [y, mo, d] = m[1].length === 4 ? [m[1], m[2], m[3]] : [m[3], m[1], m[2]];
+    seen.add(uid);
+    dated.push({ ...a, key: `${y}${mo.padStart(2, '0')}${d.padStart(2, '0')}` });
+  }
+  dated.sort((x, y) => y.key.localeCompare(x.key));
+  const candidates = dated.length
+    ? dated
+    : anchors.filter(
+        (a) =>
+          /uid=\d+|mod=document/.test(a.href) &&
+          !/mod=(editor|remove)/.test(a.href) &&
+          /주보/.test(a.text),
+      );
+  if (!candidates.length) {
+    console.error('  ✗ 주보 게시글 링크를 찾지 못했습니다.');
+    dumpInteresting(anchors, listHtml);
+    process.exit(1);
+  }
+  // 게시판에는 "7/26/2026 주보에 광고 부탁드립니다" 같은 안내 글도 주보 제목으로 올라온다.
+  // 첨부가 없으면 실패로 끝내지 말고 다음(지난주) 주보 글로 내려가며 찾는다.
+  let last = null;
+  for (const post of candidates.slice(0, 5)) {
+    const postUrl = abs(post.href);
+    console.log(`  → 게시글 확인: "${post.text}" ${postUrl}`);
+    const postHtml = await (await jfetch(postUrl)).text();
+    const postAnchors = [];
+    for (const m of postHtml.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+      postAnchors.push({
+        href: unescapeHtml(m[1]),
+        text: unescapeHtml(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(),
+      });
+    }
+    const cand = findPdfInPost(postHtml, postAnchors);
+    if (!cand) {
+      console.log('    · PDF 첨부가 없습니다 — 이전 주보 글을 확인합니다.');
+      last = { postHtml, postAnchors };
+      continue;
+    }
+    pdfLabel = post.text;
+    pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
+    if (!pdfLabel) pdfLabel = cand.text;
+    break;
+  }
+  if (!pdfUrl) {
+    console.error('  ✗ 최근 주보 게시글 어디에서도 PDF 링크를 찾지 못했습니다.');
+    if (last) {
+      dumpInteresting(last.postAnchors, last.postHtml);
+      // ".pdf" 주변 마크업을 보여 구조 파악
+      const idx = last.postHtml.search(/\.pdf/i);
+      if (idx >= 0) {
+        console.error('  ".pdf" 주변 마크업:');
+        console.error(
+          '  ' + last.postHtml.slice(Math.max(0, idx - 700), idx + 300).replace(/\s+/g, ' '),
+        );
+      }
     }
     process.exit(1);
   }
-  pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
-  if (!pdfLabel) pdfLabel = cand.text;
 }
 pdfUrl = abs(pdfUrl);
 console.log(`  → PDF: ${pdfUrl}`);
