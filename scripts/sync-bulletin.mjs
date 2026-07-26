@@ -566,16 +566,104 @@ async function syncDawnVerses() {
   }
   console.log(`  → 매일 말씀 ${wrote}건 등록`);
 
-  // 새벽예배 본문이 성경 장이 아닌 날(생명의 삶 등): 예전에 잘못 등록된
-  // 자동 말씀이 남아 있으면 지운다. 직접 올린 말씀은 건드리지 않는다.
-  for (const d of emptyDates) {
-    if (usedDates.has(d)) continue;
-    const ref = db.doc(`verses/${d}`);
-    const cur = await ref.get();
-    if (cur.exists && cur.get('source') === 'auto') {
-      await ref.delete();
-      console.log(`  – ${d}: 주보에 성경 본문이 없어 자동 등록분을 지웠습니다`);
+  // 새벽예배 본문이 성경 장이 아닌 날은 '생명의 삶' QT를 보는 날이다 —
+  // 두란노 공지의 월별 본문표에서 그날 본문 범위를 가져와 등록한다.
+  const pending = emptyDates.filter((d) => !usedDates.has(d));
+  if (pending.length) await syncQtVerses(pending, bible, findBook);
+}
+
+/** 생명의 삶(두란노 QT) 본문표로 그날 말씀 등록 */
+async function syncQtVerses(dates, bible, findBook) {
+  const { fetchQtMonth } = await import('./qt-passages.mjs');
+  console.log('[말씀] 생명의 삶 QT 본문 등록:');
+  // 두란노 페이지는 EUC-KR
+  const fetchText = async (url) => {
+    const res = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'ko,en' } });
+    const buf = Buffer.from(await res.arrayBuffer());
+    return new TextDecoder('euc-kr').decode(buf);
+  };
+
+  const months = new Map(); // "YYYY-M" → Map(일 → 본문)
+  for (const d of dates) {
+    const [y, m, dd] = d.split('-').map(Number);
+    const key = `${y}-${m}`;
+    if (!months.has(key)) {
+      const { url, days } = await fetchQtMonth(y, m, fetchText);
+      console.log(`  · ${y}년 ${m}월호 본문표: ${days.size}일치 ${url ?? '(글을 찾지 못함)'}`);
+      months.set(key, days);
     }
+    const p = months.get(key).get(dd);
+    if (!p) {
+      console.log(`  – ${d}: 본문표에 그날 본문이 없습니다`);
+      await removeAutoVerse(d);
+      continue;
+    }
+    const bookName = findBook(p.book);
+    const chapters = bookName ? bible[bookName] : null;
+    if (!chapters) {
+      console.log(`  – ${d}: 책 이름 인식 불가 (${p.book})`);
+      continue;
+    }
+    const picked = [];
+    for (let c = p.ch1; c <= p.ch2; c++) {
+      const verses = chapters[c - 1] ?? [];
+      const from = c === p.ch1 ? p.v1 : 1;
+      const to = c === p.ch2 ? Math.min(p.v2, verses.length) : verses.length;
+      for (let v = from; v <= to; v++) {
+        if (!verses[v - 1]) continue;
+        picked.push({ verse: v, text: p.ch2 > p.ch1 ? `[${c}장] ${verses[v - 1]}` : verses[v - 1] });
+      }
+    }
+    if (!picked.length) {
+      console.log(`  – ${d}: 본문 절을 찾지 못했습니다`);
+      continue;
+    }
+    const ref =
+      p.ch2 > p.ch1
+        ? `${bookName} ${p.ch1}:${p.v1}-${p.ch2}:${p.v2}`
+        : p.v2 > p.v1
+          ? `${bookName} ${p.ch1}:${p.v1}-${p.v2}`
+          : `${bookName} ${p.ch1}:${p.v1}`;
+    const docRef = db.doc(`verses/${d}`);
+    const cur = await docRef.get();
+    if (cur.exists && cur.get('source') !== 'auto') {
+      console.log(`  – ${d} ${ref}: 직접 등록된 말씀이 있어 유지`);
+      continue;
+    }
+    const first = picked[0].text.replace(/^\[\d+장\]\s*/, '');
+    await docRef.set({
+      date: d,
+      reference: ref,
+      heroText: first.length > 90 ? `${first.slice(0, 90)}…` : first,
+      passageTitle: `${ref} (생명의 삶 본문)`,
+      passage: picked,
+      meditation:
+        `오늘 새벽예배는 생명의 삶 본문으로 드립니다. 오늘 본문은 ${ref}, 모두 ${picked.length}절입니다.\n\n` +
+        `천천히 소리 내어 읽으며, 마음에 머무는 한 구절을 찾아보세요. ` +
+        `그 구절 앞에 잠시 멈추어 오늘 나에게 주시는 말씀으로 받아보세요.`,
+      application: [
+        '본문에서 가장 마음에 닿은 구절을 한 번 더 읽어 보세요.',
+        '그 구절이 오늘 나의 형편에 주는 의미를 생각하며, 실천할 한 가지를 정해 보세요.',
+        '받은 은혜를 오늘 만나는 한 사람과 나누어 보세요.',
+      ],
+      prayer:
+        `말씀으로 하루를 열게 하시니 감사합니다. 오늘 ${ref} 말씀을 마음에 새기게 하시고, ` +
+        `그 말씀이 하루의 생각과 걸음을 인도하게 하옵소서. ` +
+        `예수님의 이름으로 기도합니다. 아멘.`,
+      imageUrl: null,
+      source: 'auto',
+    });
+    console.log(`  ✓ ${d}  ${ref} (${picked.length}절)`);
+  }
+}
+
+/** 자동 등록해 둔 말씀 지우기 (직접 올린 말씀은 그대로 둔다) */
+async function removeAutoVerse(d) {
+  const ref = db.doc(`verses/${d}`);
+  const cur = await ref.get();
+  if (cur.exists && cur.get('source') === 'auto') {
+    await ref.delete();
+    console.log(`  – ${d}: 자동 등록분을 지웠습니다`);
   }
 }
 
