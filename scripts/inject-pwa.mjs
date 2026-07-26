@@ -31,6 +31,13 @@ html = html.replace(
   /<meta name="viewport"[^>]*>/,
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover" />',
 );
+// 분할 글꼴(필요한 글자 범위만 내려받음) + 자주 쓰는 서버 미리 연결
+const HEAD_EXTRA = [
+  '<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />',
+  '<link rel="preconnect" href="https://www.gstatic.com" crossorigin />',
+  '<link rel="stylesheet" href="/fonts/pretendard.css" />',
+].join('');
+html = html.replace('</head>', `${HEAD_EXTRA}</head>`);
 html = html.replace('</head>', `${TAGS}</head>`);
 writeFileSync(FILE, html);
 console.log('PWA 태그 주입 완료');

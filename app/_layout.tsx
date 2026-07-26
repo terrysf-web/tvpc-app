@@ -1,4 +1,3 @@
-import { useFonts } from 'expo-font';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -11,22 +10,16 @@ import { colors } from '../src/theme';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    'Pretendard-Regular': require('../assets/fonts/Pretendard-Regular.otf'),
-    'Pretendard-Medium': require('../assets/fonts/Pretendard-Medium.otf'),
-    'Pretendard-Bold': require('../assets/fonts/Pretendard-Bold.otf'),
-    'Pretendard-ExtraBold': require('../assets/fonts/Pretendard-ExtraBold.otf'),
-  });
   const { width, height } = useWindowDimensions();
   const pathname = usePathname();
   // 로그인 계정(목회자·관리자)의 개인 메모를 기기 간 자동 동기화
   useMemoSync();
 
   useEffect(() => {
-    if (loaded || error) SplashScreen.hideAsync().catch(() => {});
-  }, [loaded, error]);
-
-  if (!loaded && !error) return null;
+    // 글꼴을 기다리지 않고 바로 화면을 보여준다 — 느린 통신에서 몇 초씩
+    // 빈 화면이 보이던 문제. 글꼴은 준비되는 대로 자연스럽게 바뀐다.
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   const stack = (
     <Stack
