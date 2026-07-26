@@ -462,6 +462,12 @@ const styles = StyleSheet.create({
     fontFamily: font.medium,
     fontSize: 12.5,
     color: '#FFFFFF',
+    // 배지와 같은 짙은 반투명 바탕 — 밝은 사진 위에서도 날짜가 또렷하게
+    backgroundColor: 'rgba(10,26,52,0.45)',
+    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    overflow: 'hidden',
     ...textShadow,
   },
   heroBottom: { marginTop: 26 },
@@ -492,12 +498,8 @@ const styles = StyleSheet.create({
 
   // 밝은 기본 배경용 — 진한 남색 글씨 + 흰 광택(그림 위에서도 또렷하게)
   heroBadgeDark: { backgroundColor: 'rgba(18,50,91,0.75)' },
-  heroDateDark: {
-    color: '#17406E',
-    textShadowColor: 'rgba(255,255,255,0.9)',
-    textShadowRadius: 6,
-    textShadowOffset: { width: 0, height: 0 },
-  },
+  // 밝은 사진 위에서는 바탕을 조금 더 진하게 (글씨는 그대로 흰색)
+  heroDateDark: { backgroundColor: 'rgba(10,26,52,0.62)' },
   heroRefDark: {
     color: '#1D5C9E',
     textShadowColor: 'rgba(255,255,255,0.9)',
