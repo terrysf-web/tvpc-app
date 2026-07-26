@@ -17,7 +17,7 @@ export default function RootLayout() {
     'Pretendard-Bold': require('../assets/fonts/Pretendard-Bold.otf'),
     'Pretendard-ExtraBold': require('../assets/fonts/Pretendard-ExtraBold.otf'),
   });
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const pathname = usePathname();
   // 로그인 계정(목회자·관리자)의 개인 메모를 기기 간 자동 동기화
   useMemoSync();
@@ -43,25 +43,31 @@ export default function RootLayout() {
 
   // 컴퓨터 브라우저(넓은 화면)에서는 앱을 가운데 컬럼에 담아 사용성을 유지한다.
   // 관리자 화면은 자료 입력이 편하도록 더 넓게 편다.
-  const isDesktopWeb = Platform.OS === 'web' && width >= 768;
+  // 높이 조건도 두어, 폰을 가로로 돌렸을 때(넓지만 낮음)는 그대로 꽉 채운다.
+  const isDesktopWeb = Platform.OS === 'web' && width >= 768 && height >= 600;
 
+  // 화면 구조는 항상 같게 두고 모양만 바꾼다 — 구조가 바뀌면 화면이 새로 그려져
+  // 보던 사진·입력 중이던 내용이 사라진다(가로로 돌릴 때 사진 보기가 닫히던 문제).
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
-      {isDesktopWeb ? (
-        <View style={styles.desktopBg}>
-          <View style={[styles.frame, { maxWidth: pathname.startsWith('/admin') ? 820 : 520 }]}>
-            {stack}
-          </View>
+      <View style={isDesktopWeb ? styles.desktopBg : styles.fill}>
+        <View
+          style={
+            isDesktopWeb
+              ? [styles.frame, { maxWidth: pathname.startsWith('/admin') ? 820 : 520 }]
+              : styles.fill
+          }
+        >
+          {stack}
         </View>
-      ) : (
-        stack
-      )}
+      </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1, width: '100%' },
   desktopBg: {
     flex: 1,
     backgroundColor: '#DEE4EB',
