@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FileText, PenLine } from 'lucide-react-native';
+import { ChevronRight, FileText, PenLine, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -342,6 +342,24 @@ function hasNote(date: string): boolean {
   );
 }
 
+/** 날짜 칩으로 바로 보여줄 최근 주보 수 — 나머지는 '지난 주보' 목록으로 */
+const RECENT_CHIPS = 8;
+
+/** 지난 주보 목록을 '2026년 7월'처럼 달별로 묶는다 */
+function byMonth(dates: string[]): { key: string; label: string; days: string[] }[] {
+  const groups = new Map<string, string[]>();
+  for (const d of dates) {
+    const key = d.slice(0, 7);
+    const list = groups.get(key);
+    if (list) list.push(d);
+    else groups.set(key, [d]);
+  }
+  return [...groups].map(([key, days]) => {
+    const [y, m] = key.split('-').map(Number);
+    return { key, label: `${y}년 ${m}월`, days };
+  });
+}
+
 function chipLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   return y === new Date().getFullYear() ? `${m}월 ${d}일` : `${y}. ${m}. ${d}.`;
@@ -370,6 +388,16 @@ export default function BulletinScreen() {
   const todayMissing = isSunday && !dates.includes(todayKey);
   const current = selected ?? (todayMissing ? null : (dates[0] ?? null));
   const { bulletin, loading: pagesLoading } = useBulletin(current);
+  // 주보가 쌓여도 칩이 옆으로 끝없이 늘어나지 않게 — 최근 8주만 칩으로 두고
+  // 그 이전 것은 '지난 주보' 목록에서 월별로 고른다.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const recentDates = dates.slice(0, RECENT_CHIPS);
+  // 목록에서 고른 지난 주보도 칩으로 보이게 끼워 넣는다
+  const chipDates =
+    current && dates.includes(current) && !recentDates.includes(current)
+      ? [...recentDates, current]
+      : recentDates;
+  const olderDates = dates.filter((d) => !chipDates.includes(d));
   const loading = datesLoading || pagesLoading;
   const { news } = useNews();
 
@@ -396,7 +424,7 @@ export default function BulletinScreen() {
           style={styles.dateBar}
           contentContainerStyle={styles.dateBarContent}
         >
-          {dates.map((d) => (
+          {chipDates.map((d) => (
             <Pressable
               key={d}
               style={[styles.dateChip, d === current && styles.dateChipActive]}
@@ -408,6 +436,11 @@ export default function BulletinScreen() {
               </Text>
             </Pressable>
           ))}
+          {olderDates.length > 0 && (
+            <Pressable style={styles.dateChip} onPress={() => setPickerOpen(true)}>
+              <Text style={styles.dateChipText}>지난 주보 {olderDates.length}건 ▾</Text>
+            </Pressable>
+          )}
         </ScrollView>
       )}
       {loading ? (
@@ -473,11 +506,102 @@ export default function BulletinScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* 지난 주보 목록 — 달별로 묶어 보여준다 */}
+      {pickerOpen && (
+        <View style={styles.pickerOverlay}>
+          <Pressable style={styles.pickerBackdrop} onPress={() => setPickerOpen(false)} />
+          <View style={[styles.pickerSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={styles.pickerHead}>
+              <Text style={styles.pickerTitle}>지난 주보</Text>
+              <Pressable onPress={() => setPickerOpen(false)} hitSlop={10}>
+                <X size={20} color={colors.muted} strokeWidth={2} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+              {byMonth(olderDates).map((g) => (
+                <View key={g.key} style={styles.pickerGroup}>
+                  <Text style={styles.pickerMonth}>{g.label}</Text>
+                  {g.days.map((d) => (
+                    <Pressable
+                      key={d}
+                      style={styles.pickerRow}
+                      onPress={() => {
+                        setPickerOpen(false);
+                        openDate(d);
+                      }}
+                    >
+                      <Text style={styles.pickerRowText}>
+                        {Number(d.slice(8, 10))}일 주보
+                        {hasNote(d) ? '  ● 메모' : ''}
+                      </Text>
+                      <ChevronRight size={17} color={colors.faint2} strokeWidth={1.9} />
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 50,
+  },
+  pickerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(12, 26, 46, 0.4)',
+  },
+  pickerSheet: {
+    maxHeight: '72%',
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+  },
+  pickerHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  pickerTitle: { fontFamily: font.extraBold, fontSize: 17, color: colors.title },
+  pickerList: { marginTop: 4 },
+  pickerGroup: { marginBottom: 14 },
+  pickerMonth: {
+    fontFamily: font.bold,
+    fontSize: 13,
+    color: colors.muted2,
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.screenBg,
+    marginBottom: 6,
+  },
+  pickerRowText: { fontFamily: font.medium, fontSize: 15, color: colors.body },
+
   waitingWrap: { alignItems: 'center', paddingHorizontal: 32, marginTop: 70 },
   waitingTitle: {
     fontFamily: font.extraBold,

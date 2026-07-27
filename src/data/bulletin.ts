@@ -153,7 +153,10 @@ export function useBulletinDates(enabled: boolean): { dates: string[]; loading: 
       try {
         await ensureAnonymousAuth();
         const snap = await getDocs(
-          query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(26)),
+          // 주보 목록 문서는 한 건에 1KB도 되지 않아(그림은 하위 pages에) 몇 해치를
+          // 한꺼번에 읽어도 가볍다. 화면에서는 최근 것만 칩으로 보이고,
+          // 나머지는 '지난 주보' 목록에서 월별로 고른다.
+          query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(300)),
         );
         if (!cancelled) setDates(snap.docs.map((d) => d.id));
       } catch {
