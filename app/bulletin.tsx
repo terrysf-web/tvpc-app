@@ -68,15 +68,28 @@ const FillInCard = React.memo(function FillInCard({
     }, 500);
   };
 
-  // 한글 조합(IME) 중 칸 폭을 바꾸면 조합이 끊기고, 글자마다 폭을 바꾸면
-  // 커서가 흔들린다 — 입력을 잠깐 멈췄을 때와 칸을 벗어날 때만 폭을 맞춘다.
+  // 칸 폭 맞추기 — 적는 글자가 가려지지 않게 한 글자 칠 때마다 늘어난다.
+  // 한글은 영문보다 넓어 글자 수로는 맞지 않으므로, 실제 글자 폭을 재서 쓴다.
   const composingBlank = useRef(false);
   const lastBlank = useRef<HTMLInputElement | null>(null);
-  const fit = () => {
-    const el = lastBlank.current;
-    if (el && !composingBlank.current) {
-      el.style.width = `${Math.max(4, el.value.length + 2)}ch`;
-    }
+  const canvas = useRef<CanvasRenderingContext2D | null>(null);
+  const textWidth = (text: string, el: HTMLInputElement): number => {
+    if (typeof document === 'undefined') return 0;
+    if (!canvas.current) canvas.current = document.createElement('canvas').getContext('2d');
+    const ctx = canvas.current;
+    if (!ctx) return 0;
+    const cs = window.getComputedStyle(el);
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return ctx.measureText(text).width;
+  };
+  const MIN_BLANK = 52; // 빈 칸일 때도 눌러 넣기 좋은 최소 폭(px)
+  const fit = (input?: HTMLInputElement | null) => {
+    const el = input ?? lastBlank.current;
+    if (!el) return;
+    const want = Math.max(MIN_BLANK, Math.ceil(textWidth(el.value, el)) + 20);
+    // 한글 조합 중에는 줄이지 않는다 — 조합 글자가 지워지며 칸이 들썩이지 않게
+    const now = Number.parseFloat(el.style.width) || 0;
+    el.style.width = `${composingBlank.current ? Math.max(now, want) : want}px`;
   };
   const blankInput = (id: string) => {
     if (Platform.OS === 'web') {
@@ -93,14 +106,15 @@ const FillInCard = React.memo(function FillInCard({
           // 입력 중 크기 변경은 커서를 처음으로 튕겨보낸다
           if (el && !el.dataset.sized) {
             el.dataset.sized = '1';
-            el.style.width = `${Math.max(4, (vals.current[id] ?? '').length + 2)}ch`;
+            fit(el);
           }
         },
         onCompositionStart: () => {
           composingBlank.current = true;
         },
-        onCompositionEnd: () => {
+        onCompositionEnd: (e: { target: HTMLInputElement }) => {
           composingBlank.current = false;
+          fit(e.target);
         },
         onBlur: (e: { target: HTMLInputElement }) => {
           lastBlank.current = e.target;
@@ -110,11 +124,12 @@ const FillInCard = React.memo(function FillInCard({
           const el = e.target;
           lastBlank.current = el;
           vals.current[id] = el.value;
+          fit(el);
           save();
         },
         style: {
           display: 'inline-block',
-          width: '4ch',
+          width: '52px',
           maxWidth: '100%',
           border: 'none',
           borderBottom: `2px solid ${colors.primary}`,
