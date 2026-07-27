@@ -3,10 +3,12 @@
  * 아이폰은 [공유] → [홈 화면에 추가] 순서를,
  * 안드로이드는 브라우저의 설치 창을 바로 띄우거나 메뉴 위치를 알려드린다.
  */
-import { BellRing, Plus, Share, SquarePlus, X, Zap } from 'lucide-react-native';
+import { BellRing, ExternalLink, Plus, Share, SquarePlus, X, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
+  browserKind,
+  browserLabel,
   canInstallDirectly,
   deviceKind,
   dismissForNow,
@@ -63,7 +65,10 @@ export function InstallGuide() {
   if (Platform.OS !== 'web' || !open) return null;
 
   const kind = deviceKind();
-  const direct = canInstallDirectly();
+  const browser = browserKind();
+  const label = browserLabel();
+  // 앱 안에서 열린 창(카카오톡 등)은 홈 화면에 추가를 못 한다 — 브라우저로 옮기도록 안내
+  const direct = canInstallDirectly() && browser !== 'inapp';
 
   // 그냥 닫기 — 다음에 앱을 새로 열면 한 번 더 (최대 세 번)
   const close = () => {
@@ -82,17 +87,55 @@ export function InstallGuide() {
     if (ok) never();
   };
 
+  // 공유·메뉴 버튼 위치가 브라우저마다 달라 안내를 나눈다.
+  // 폰이 영어로 설정된 분도 그대로 찾을 수 있게 메뉴 이름은 영어를 같이 적는다.
+  const shareIcon = <Share size={18} color={colors.primary} strokeWidth={2} />;
+  const plusIcon = <SquarePlus size={18} color={colors.primary} strokeWidth={2} />;
+  const addStep = {
+    icon: plusIcon,
+    text: '목록을 내려 "홈 화면에 추가 / Add to Home Screen"을 고르세요',
+  };
+  const finishStep = {
+    icon: <Plus size={18} color={colors.primary} strokeWidth={2} />,
+    text: '오른쪽 위 "추가 / Add"를 누르세요',
+  };
+
   const steps =
-    kind === 'ios'
+    browser === 'inapp'
       ? [
-          { icon: <Share size={18} color={colors.primary} strokeWidth={2} />, text: '화면 아래 가운데의 공유 버튼을 누르세요' },
-          { icon: <SquarePlus size={18} color={colors.primary} strokeWidth={2} />, text: '목록을 내려 "홈 화면에 추가"를 고르세요' },
-          { icon: <Plus size={18} color={colors.primary} strokeWidth={2} />, text: '오른쪽 위 "추가"를 누르면 끝납니다' },
+          { icon: <Text style={styles.dots}>⋯</Text>, text: '오른쪽 위 ⋯ 버튼을 누르세요' },
+          {
+            icon: <ExternalLink size={18} color={colors.primary} strokeWidth={2} />,
+            text: '"다른 브라우저로 열기 / Open in browser"를 고르세요',
+          },
+          { icon: plusIcon, text: '열린 브라우저에서 이 안내를 다시 따라 하시면 됩니다' },
         ]
-      : [
-          { icon: <Text style={styles.dots}>⋮</Text>, text: '오른쪽 위 점 세 개(⋮) 버튼을 누르세요' },
-          { icon: <SquarePlus size={18} color={colors.primary} strokeWidth={2} />, text: '"앱 설치" 또는 "홈 화면에 추가"를 고르세요' },
-        ];
+      : kind === 'ios'
+        ? browser === 'safari'
+          ? [
+              { icon: shareIcon, text: '화면 아래 가운데의 공유 버튼을 누르세요' },
+              addStep,
+              finishStep,
+            ]
+          : [
+              // 아이폰 크롬·엣지·파이어폭스는 주소창 오른쪽 끝에 공유 버튼이 있다
+              { icon: shareIcon, text: '주소창 오른쪽 끝의 공유 버튼을 누르세요' },
+              addStep,
+              finishStep,
+            ]
+        : browser === 'samsung'
+          ? [
+              { icon: <Text style={styles.dots}>☰</Text>, text: '화면 아래 메뉴(☰) 버튼을 누르세요' },
+              { icon: plusIcon, text: '"현재 페이지 추가 / Add page to"를 고르세요' },
+              { icon: plusIcon, text: '"홈 화면 / Home screen"을 고르면 끝납니다' },
+            ]
+          : [
+              { icon: <Text style={styles.dots}>⋮</Text>, text: '오른쪽 위 점 세 개(⋮) 버튼을 누르세요' },
+              {
+                icon: plusIcon,
+                text: '"앱 설치 / Install app" 또는 "홈 화면에 추가 / Add to Home screen"을 고르세요',
+              },
+            ];
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
@@ -129,6 +172,12 @@ export function InstallGuide() {
             <Text style={styles.benefitText}>교회 소식 알림</Text>
           </View>
         </View>
+
+        {label && !direct ? (
+          <Text style={styles.browserNote}>
+            지금 쓰시는 {label} 기준 안내예요
+          </Text>
+        ) : null}
 
         {direct ? (
           <Pressable style={styles.primaryBtn} onPress={install}>
@@ -218,6 +267,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
   },
   benefitText: { fontFamily: font.medium, fontSize: 13, color: colors.body },
+  browserNote: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    color: colors.muted2,
+    marginBottom: 10,
+  },
   steps: { alignSelf: 'stretch', gap: 10, marginBottom: 6 },
   step: {
     flexDirection: 'row',

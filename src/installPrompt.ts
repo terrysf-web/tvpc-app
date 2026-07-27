@@ -35,6 +35,49 @@ export function deviceKind(): 'ios' | 'android' | 'desktop' {
   return 'desktop';
 }
 
+/**
+ * 브라우저 구분 — 공유·메뉴 버튼의 위치가 브라우저마다 달라서
+ * (사파리는 화면 아래, 아이폰 크롬은 주소창 오른쪽) 안내를 나눠야 한다.
+ * 카카오톡·인스타그램 등 앱 안에서 열린 창은 홈 화면에 추가를 못 하므로
+ * 따로 알려드린다.
+ */
+export type BrowserKind = 'safari' | 'chrome' | 'firefox' | 'edge' | 'samsung' | 'inapp' | 'other';
+
+export function browserKind(): BrowserKind {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return 'other';
+  const ua = navigator.userAgent ?? '';
+  if (/KAKAOTALK|NAVER\(inapp|FBAN|FBAV|Instagram|Line\/|DaumApps|everytimeApp/i.test(ua)) {
+    return 'inapp';
+  }
+  // 엣지·삼성 인터넷도 UA에 Chrome이 들어 있어 크롬보다 먼저 가린다
+  if (/EdgiOS|EdgA\/|Edg\//.test(ua)) return 'edge';
+  if (/SamsungBrowser/.test(ua)) return 'samsung';
+  if (/FxiOS|Firefox\//.test(ua)) return 'firefox';
+  if (/CriOS|Chrome\//.test(ua)) return 'chrome';
+  if (/Safari\//.test(ua)) return 'safari';
+  return 'other';
+}
+
+/** 안내 카드에 보여줄 브라우저 이름 */
+export function browserLabel(): string {
+  switch (browserKind()) {
+    case 'safari':
+      return '사파리';
+    case 'chrome':
+      return '크롬';
+    case 'edge':
+      return '엣지';
+    case 'firefox':
+      return '파이어폭스';
+    case 'samsung':
+      return '삼성 인터넷';
+    case 'inapp':
+      return '앱 안 브라우저';
+    default:
+      return '';
+  }
+}
+
 /** '다시 보지 않기'를 누르셨는지 */
 export function guideSeen(): boolean {
   try {
