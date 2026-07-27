@@ -30,3 +30,21 @@ export function churchNow(now: Date = new Date()): ChurchNow {
 
 /** 2부 온라인예배가 끝나는 시각 — 주일 오후 12시 30분 */
 export const SUNDAY_LIVE_END = 12 * 60 + 30;
+
+/**
+ * 홈 화면의 주일 모드.
+ *  - 'live'   주일 예배 시간 (~ 낮 12시 30분): 온라인예배로 안내
+ *  - 'after'  주일 오후·저녁: 최신 설교로 안내
+ *  - 'monday' 월요일 하루 종일 (화요일 새벽 12시 1분에 끝난다): 주일의 여운
+ *  - null     그 밖의 날: 평소처럼 오늘의 말씀
+ */
+export type SundayPhase = 'live' | 'after' | 'monday' | null;
+
+export function sundayPhase(now: Date = new Date()): SundayPhase {
+  const { weekday, minutes } = churchNow(now);
+  if (weekday === 0) return minutes < SUNDAY_LIVE_END ? 'live' : 'after';
+  if (weekday === 1) return 'monday';
+  // 화요일 0시 1분에 평일 화면으로 돌아간다
+  if (weekday === 2 && minutes < 1) return 'monday';
+  return null;
+}

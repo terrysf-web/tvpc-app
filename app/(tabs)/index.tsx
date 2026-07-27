@@ -21,7 +21,7 @@ import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
-import { SUNDAY_LIVE_END, churchNow } from '../../src/churchTime';
+import { sundayPhase } from '../../src/churchTime';
 import { openLiveWorship, playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
@@ -118,13 +118,16 @@ export default function HomeScreen() {
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
   const sunday = useSundayBg();
   const sb = sunday.bg ?? bg;
-  // 주일에는 히어로가 오늘의 말씀 대신 주일예배 안내로 바뀐다.
+  // 주일·월요일에는 히어로가 오늘의 말씀 대신 주일예배 화면으로 바뀐다.
+  // (화요일 새벽 12시 1분에 평일 화면으로 돌아간다)
   // 여행 중이어도 예배 안내는 교회 현지(태평양) 시각을 따른다.
-  const { weekday: churchWeekday, minutes: churchMinutes } = churchNow();
-  const isSunday = churchWeekday === 0;
-  // 2부 예배는 주일 오후 12시 30분이면 끝난다 —
+  const phase = sundayPhase();
+  const isSunday = phase !== null;
+  // 2부 예배는 주일 낮 12시 30분이면 끝난다 —
   // 그 뒤로는 생중계 대신 최신 설교 영상으로 이어준다.
-  const liveEnded = isSunday && churchMinutes >= SUNDAY_LIVE_END;
+  const liveEnded = isSunday && phase !== 'live';
+  // 월요일은 예배로 나아가는 날이 아니라, 주일의 은혜가 남아 있는 날
+  const isMonday = phase === 'monday';
   // 어떤 내용·배경이 정답인지 확정되기 전에는 히어로를 그리지 않는다 —
   // 옛 구절이나 기본 그림이 번쩍였다가 바뀌면 혼란스럽기 때문.
   const heroReady = isSunday
@@ -227,9 +230,11 @@ export default function HomeScreen() {
               )}
             </View>
             <Text style={styles.greetingSub}>
-              {isSunday
-                ? '복된 주일입니다\n예배로 함께 나아가요'
-                : GREETING_SUB[timeSlot()]}
+              {isMonday
+                ? '주일에 받은 은혜가\n이번 한 주도 함께하기를'
+                : isSunday
+                  ? '복된 주일입니다\n예배로 함께 나아가요'
+                  : GREETING_SUB[timeSlot()]}
             </Text>
           </View>
           <Pressable style={styles.bellBtn} onPress={() => router.push('/alerts')} hitSlop={6}>
@@ -256,7 +261,7 @@ export default function HomeScreen() {
               />
               <View style={styles.heroTopRow}>
                 <View style={[styles.heroBadge, !sb.dark && styles.heroBadgeDark]}>
-                  <Text style={styles.heroBadgeText}>주일예배</Text>
+                  <Text style={styles.heroBadgeText}>{isMonday ? '지난 주일' : '주일예배'}</Text>
                 </View>
                 <Text style={[styles.heroDate, !sb.dark && styles.heroDateDark]}>
                   {todayLabel()}
@@ -267,14 +272,18 @@ export default function HomeScreen() {
                   {churchInfo.nameKo}
                 </Text>
                 <Text style={[styles.heroVerse, !sb.dark && styles.heroVerseDark]}>
-                  오늘은 주일입니다{'\n'}예배로 함께 나아가요
+                  {isMonday
+                    ? '주일의 은혜가\n한 주간 이어지기를'
+                    : '오늘은 주일입니다\n예배로 함께 나아가요'}
                 </Text>
                 <Text style={[styles.sundayTimes, !sb.dark && styles.sundayTimesDark]}>
-                  {sundayTimes} · 본당
+                  {isMonday
+                    ? '어제 받은 말씀을 품고 한 주를 시작해요'
+                    : `${sundayTimes} · 본당`}
                 </Text>
                 <View style={styles.heroBtnRow}>
                   {/* 1부는 온라인 중계가 없어 2부만 안내한다.
-                      예배가 끝난 오후에는 최신 설교 영상으로 바뀐다. */}
+                      예배가 끝난 뒤와 월요일에는 설교 영상으로 바뀐다. */}
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
                     onPress={() =>
@@ -286,7 +295,11 @@ export default function HomeScreen() {
                     }
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                      {liveEnded ? '▶ 최신 설교 보기' : '▶ 2부 온라인예배'}
+                      {isMonday
+                        ? '▶ 주일 설교 다시 보기'
+                        : liveEnded
+                          ? '▶ 최신 설교 보기'
+                          : '▶ 2부 온라인예배'}
                     </Text>
                   </Pressable>
                 </View>
@@ -336,7 +349,9 @@ export default function HomeScreen() {
 
       {/* 3. 오늘의 한눈에 — 4열 빠른 메뉴 */}
       <FadeInUp delay={80}>
-        <Text style={styles.sectionTitle}>{isSunday ? '오늘 예배' : '한눈에 보기'}</Text>
+        <Text style={styles.sectionTitle}>
+          {isMonday ? '주일 다시 보기' : isSunday ? '오늘 예배' : '한눈에 보기'}
+        </Text>
         <View style={styles.quickRow}>
           {quickMenu.map((m) => (
             <Pressable key={m.key} style={[styles.quickCard, shadows.card]} onPress={m.onPress}>
