@@ -152,7 +152,11 @@ service cloud.firestore {
     // 기도요청함 — 교인이 목사님께 보내는 비공개 기도요청.
     // 열람·관리는 목회자(role == 'pastor')만.
     match /prayerRequests/{id} {
-      allow read: if request.auth != null
+      // 목록 훑기는 목회자만. 낱개 읽기는 아이디를 아는 사람만 가능한데,
+      // 아이디는 짐작할 수 없게 만들어 보낸 기기에만 남는다 —
+      // 보낸 분이 '기도 중' 여부를 확인하는 용도.
+      allow get: if request.auth != null;
+      allow list: if request.auth != null
         && request.auth.token.email != null
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor';
       allow create: if request.auth != null
@@ -165,7 +169,7 @@ service cloud.firestore {
       allow update: if request.auth != null
         && request.auth.token.email != null
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'prayedAt']);
       allow delete: if request.auth != null
         && request.auth.token.email != null
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor';

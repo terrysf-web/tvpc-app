@@ -15,6 +15,15 @@ export const pushConfigured = VAPID_KEY.length > 0;
 
 const SAVED_KEY = 'tvpc.pushToken';
 
+/** 이 기기의 알림 주소 — 알림을 켜지 않았으면 null */
+export function savedPushToken(): string | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage.getItem(SAVED_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function messagingOrNull() {
   const au = getAuthOrNull();
   return au ? getMessaging(au.app) : null;

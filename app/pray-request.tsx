@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,8 +11,19 @@ import {
   View,
 } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { submitPrayerRequest } from '../src/data/prayerRequests';
+import {
+  type MyPrayer,
+  getMyPrayers,
+  refreshMyPrayers,
+  submitPrayerRequest,
+} from '../src/data/prayerRequests';
 import { colors, font, shadows } from '../src/theme';
+
+/** "7월 27일" 처럼 짧게 */
+function fmtWhen(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
 
 /** 함께기도해요 — 목사님께 보내는 비공개 기도요청 작성 */
 export default function PrayRequestScreen() {
@@ -22,6 +33,11 @@ export default function PrayRequestScreen() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // 이 기기에서 보낸 기도 — 목사님이 기도를 시작하셨는지 여기서 확인한다
+  const [mine, setMine] = useState<MyPrayer[]>(() => getMyPrayers());
+  useEffect(() => {
+    refreshMyPrayers().then(setMine);
+  }, []);
 
   const send = async () => {
     if (!text.trim()) {
@@ -32,6 +48,7 @@ export default function PrayRequestScreen() {
     setBusy(true);
     try {
       await submitPrayerRequest(name, text);
+      setMine(getMyPrayers());
       setDone(true);
     } catch {
       setErr('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
@@ -91,6 +108,34 @@ export default function PrayRequestScreen() {
             </Pressable>
           </View>
         )}
+
+        {mine.length > 0 && (
+          <View style={styles.mineWrap}>
+            <Text style={styles.mineTitle}>내가 보낸 기도</Text>
+            {mine.map((m) => (
+              <View key={m.id} style={[styles.mineCard, shadows.card]}>
+                <View style={styles.mineHead}>
+                  <Text style={styles.mineWhen}>{fmtWhen(m.createdAt)} 보냄</Text>
+                  <View style={[styles.chip, m.status === 'prayed' && styles.chipPrayed]}>
+                    <Text style={[styles.chipText, m.status === 'prayed' && styles.chipTextPrayed]}>
+                      {m.status === 'prayed' ? '함께 기도 중' : '전달됨'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.mineText}>{m.text}</Text>
+                {m.status === 'prayed' && (
+                  <Text style={styles.minePrayed}>
+                    목사님이 기도 제목을 읽고 함께 기도하고 계십니다
+                    {m.prayedAt ? ` · ${fmtWhen(m.prayedAt)}` : ''}
+                  </Text>
+                )}
+              </View>
+            ))}
+            <Text style={styles.mineFoot}>
+              보낸 기도는 이 기기에만 기록됩니다. 다른 분께는 보이지 않습니다.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -98,6 +143,45 @@ export default function PrayRequestScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
+  mineWrap: { marginTop: 22 },
+  mineTitle: {
+    fontFamily: font.bold,
+    fontSize: 15,
+    color: colors.title,
+    marginBottom: 10,
+    marginLeft: 2,
+  },
+  mineCard: { backgroundColor: colors.card, borderRadius: 14, padding: 14, marginBottom: 10 },
+  mineHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mineWhen: { fontFamily: font.medium, fontSize: 12, color: colors.faint },
+  chip: { backgroundColor: colors.tagGrayBg, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
+  chipPrayed: { backgroundColor: colors.tagGreenBg },
+  chipText: { fontFamily: font.bold, fontSize: 11.5, color: colors.tagGrayText },
+  chipTextPrayed: { color: colors.tagGreenText },
+  mineText: {
+    fontFamily: font.regular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.body,
+    marginTop: 8,
+  },
+  minePrayed: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.tagGreenText,
+    marginTop: 9,
+    paddingTop: 9,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  mineFoot: {
+    fontFamily: font.regular,
+    fontSize: 11.5,
+    color: colors.faint,
+    marginTop: 2,
+    marginLeft: 2,
+  },
   content: { padding: 16, paddingBottom: 40 },
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 18 },
   hint: {

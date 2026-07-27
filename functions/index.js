@@ -9,7 +9,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { setGlobalOptions } from 'firebase-functions/v2';
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 
 initializeApp();
 setGlobalOptions({ maxInstances: 2 });
@@ -141,5 +141,43 @@ export const notifyPrayerRequest = onDocumentCreated(
       },
     });
     console.log(`기도요청 알림: 목회자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
+  },
+);
+
+/**
+ * 목사님이 '기도 시작했어요'를 누르면 기도를 보낸 그 기기 한 대에만 알린다.
+ * (교인 전체 발송이 아니다 — 요청에 적힌 알림 주소 하나로만 보낸다)
+ */
+export const notifyPrayerStarted = onDocumentUpdated(
+  { document: 'prayerRequests/{id}', memory: '256MiB', timeoutSeconds: 60, retry: false },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.status === 'prayed' || after.status !== 'prayed') return;
+
+    const token = String(after.deviceToken || '');
+    if (!token) {
+      console.log('보낸 기기의 알림 주소가 없어 건너뜁니다(앱 안에서는 상태로 보입니다).');
+      return;
+    }
+    try {
+      // 잠금화면에 기도 제목이 뜨지 않게 내용은 담지 않는다
+      await getMessaging().send({
+        token,
+        notification: {
+          title: '🙏 함께 기도하고 있습니다',
+          body: '목사님이 기도 제목을 읽고 함께 기도하고 계십니다.',
+        },
+        webpush: {
+          notification: { icon: '/icon-192.png', tag: `pray-started-${event.params.id}` },
+          fcmOptions: { link: 'https://app.tvpc.church/pray-request' },
+        },
+      });
+      console.log(`기도 시작 알림 발송: ${event.params.id}`);
+    } catch (e) {
+      // 앱을 지웠거나 알림을 끈 기기 — 조용히 넘어간다
+      console.log(`기도 시작 알림 실패(무시): ${e && e.message ? e.message : e}`);
+    }
   },
 );
