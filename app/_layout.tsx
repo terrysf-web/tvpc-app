@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
 import { colors } from '../src/theme';
 
@@ -53,6 +54,8 @@ export default function RootLayout() {
           }
         >
           {stack}
+          {/* 처음 여신 분께 '홈 화면에 추가' 방법을 한 번 안내 */}
+          <InstallGuide />
         </View>
       </View>
     </SafeAreaProvider>

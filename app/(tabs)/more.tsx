@@ -12,6 +12,7 @@ import {
   MessageCircle,
   RefreshCw,
   Share2,
+  SquarePlus,
   Upload,
   UserRound,
   Users,
@@ -32,6 +33,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
 import { exportMemoBackup, importMemoBackup } from '../../src/data/backup';
+import { isStandalone, openInstallGuide } from '../../src/installPrompt';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -45,6 +47,7 @@ const MENU = [
   { key: 'contact', label: '도움받기', icon: MessageCircle },
   { key: 'backup', label: '내 메모 백업 (파일로 저장)', icon: Download },
   { key: 'restore', label: '메모 가져오기 (백업 복원)', icon: Upload },
+  { key: 'install', label: '홈 화면에 추가하기', icon: SquarePlus },
   { key: 'share', label: '앱 공유하기', icon: Share2 },
   { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;
@@ -55,6 +58,8 @@ export default function MoreScreen() {
   const push = usePushNotifications();
   // 긴급 공지·기도요청함 바로가기 — 역할에 맞는 기기에만 보인다
   const { isAdmin, role } = useAdminAuth();
+  // 이미 홈 화면 앱으로 열었으면 '홈 화면에 추가하기'는 뺀다
+  const menu = MENU.filter((m) => m.key !== 'install' || !isStandalone());
 
   // 메일 앱이 주소·제목이 채워진 새 메일로 바로 열린다
   const openEmail = (to: string, subject: string) => {
@@ -106,6 +111,10 @@ export default function MoreScreen() {
     if (key === 'refresh') {
       // 홈 화면 앱(PWA)에는 새로고침 버튼이 없어 여기서 최신 버전을 다시 불러온다
       if (typeof window !== 'undefined') window.location.reload();
+      return;
+    }
+    if (key === 'install') {
+      openInstallGuide();
       return;
     }
     if (key === 'share') {
@@ -225,10 +234,10 @@ export default function MoreScreen() {
 
       {/* 리스트 메뉴 */}
       <View style={[styles.menuCard, shadows.card]}>
-        {MENU.map((m, i) => (
+        {menu.map((m, i) => (
           <Pressable
             key={m.key}
-            style={[styles.menuRow, i < MENU.length - 1 && styles.menuDivider]}
+            style={[styles.menuRow, i < menu.length - 1 && styles.menuDivider]}
             onPress={() => onMenu(m.key)}
           >
             <m.icon size={19} color={colors.muted} strokeWidth={1.9} />
