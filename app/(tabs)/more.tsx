@@ -33,7 +33,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
 import { exportMemoBackup, importMemoBackup } from '../../src/data/backup';
-import { isStandalone, openInstallGuide } from '../../src/installPrompt';
+import { canAddToHome, deviceKind, isStandalone, openInstallGuide } from '../../src/installPrompt';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -58,8 +58,14 @@ export default function MoreScreen() {
   const push = usePushNotifications();
   // 긴급 공지·기도요청함 바로가기 — 역할에 맞는 기기에만 보인다
   const { isAdmin, role } = useAdminAuth();
-  // 이미 홈 화면 앱으로 열었으면 '홈 화면에 추가하기'는 뺀다
-  const menu = MENU.filter((m) => m.key !== 'install' || !isStandalone());
+  // 이미 홈 화면 앱으로 열었거나 설치할 방법이 없는 브라우저면 이 줄은 뺀다.
+  // 컴퓨터에서는 '바탕화면에 설치하기'로 말을 바꾼다.
+  const menu = MENU.filter((m) => m.key !== 'install' || (!isStandalone() && canAddToHome())).map(
+    (m) =>
+      m.key === 'install' && deviceKind() === 'desktop'
+        ? { ...m, label: '바탕화면에 설치하기' }
+        : m,
+  );
 
   // 메일 앱이 주소·제목이 채워진 새 메일로 바로 열린다
   const openEmail = (to: string, subject: string) => {

@@ -193,8 +193,19 @@ export function snapshot(): string {
 }
 
 /**
+ * 이 브라우저에서 홈 화면(또는 바탕화면)에 추가할 수 있는가.
+ * 컴퓨터도 크롬·엣지는 설치가 되고, 맥 사파리는 독에 추가할 수 있다.
+ * 파이어폭스 컴퓨터판처럼 방법이 없는 곳에서는 먼저 말을 걸지 않는다.
+ */
+export function canAddToHome(): boolean {
+  const browser = browserKind();
+  if (deviceKind() !== 'desktop') return true;
+  return browser === 'chrome' || browser === 'edge' || browser === 'safari';
+}
+
+/**
  * 처음 여신 분께 자동으로 보여드릴지.
- * 홈 화면 앱으로 이미 열었거나, 컴퓨터이거나, '다시 보지 않기'를 누르셨거나,
+ * 홈 화면 앱으로 이미 열었거나, '다시 보지 않기'를 누르셨거나,
  * 이번에 이미 닫으셨거나, 세 번 보여드린 뒤에는 먼저 말을 걸지 않는다.
  * (그 뒤에도 '더보기 › 홈 화면에 추가'에서 언제든 다시 볼 수 있다)
  */
@@ -202,7 +213,7 @@ export function shouldAutoShow(): boolean {
   return (
     Platform.OS === 'web' &&
     !isStandalone() &&
-    deviceKind() !== 'desktop' &&
+    canAddToHome() &&
     !guideSeen() &&
     !dismissedThisSession() &&
     autoShowCount() < MAX_AUTO_SHOWS

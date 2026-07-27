@@ -3,7 +3,7 @@
  * 아이폰은 [공유] → [홈 화면에 추가] 순서를,
  * 안드로이드는 브라우저의 설치 창을 바로 띄우거나 메뉴 위치를 알려드린다.
  */
-import { BellRing, ExternalLink, Plus, Share, SquarePlus, X, Zap } from 'lucide-react-native';
+import { BellRing, ExternalLink, MonitorDown, Plus, Share, SquarePlus, X, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
@@ -95,13 +95,22 @@ export function InstallGuide() {
     icon: plusIcon,
     text: '목록을 내려 "홈 화면에 추가 / Add to Home Screen"을 고르세요',
   };
-  const finishStep = {
-    icon: <Plus size={18} color={colors.primary} strokeWidth={2} />,
-    text: '오른쪽 위 "추가 / Add"를 누르세요',
-  };
+  const finishIcon = <Plus size={18} color={colors.primary} strokeWidth={2} />;
+  const finishStep = { icon: finishIcon, text: '오른쪽 위 "추가 / Add"를 누르세요' };
 
   const steps =
-    browser === 'inapp'
+    kind === 'desktop'
+      ? browser === 'safari'
+        ? [
+            { icon: shareIcon, text: '위 메뉴에서 "파일 / File"을 여세요' },
+            { icon: plusIcon, text: '"독에 추가 / Add to Dock"을 고르세요' },
+            { icon: finishIcon, text: '"추가 / Add"를 누르세요' },
+          ]
+        : [
+            { icon: <MonitorDown size={18} color={colors.primary} strokeWidth={2} />, text: '주소창 오른쪽 끝의 설치 아이콘을 누르세요' },
+            { icon: plusIcon, text: '"설치 / Install"을 누르세요' },
+          ]
+      : browser === 'inapp'
       ? [
           { icon: <Text style={styles.dots}>⋯</Text>, text: '오른쪽 위 ⋯ 버튼을 누르세요' },
           {
@@ -157,9 +166,13 @@ export function InstallGuide() {
         <View style={styles.iconChip}>
           <SquarePlus size={26} color={colors.primary} strokeWidth={2} />
         </View>
-        <Text style={styles.title}>홈 화면에 추가해 보세요</Text>
+        <Text style={styles.title}>
+          {kind === 'desktop' ? '바탕화면에 설치해 보세요' : '홈 화면에 추가해 보세요'}
+        </Text>
         <Text style={styles.sub}>
-          바탕화면 아이콘으로 한 번에 열리고,{'\n'}주소창 없이 앱처럼 편하게 볼 수 있어요.
+          {kind === 'desktop'
+            ? '한 번 설치하면 창 하나로 바로 열리고,\n주소창 없이 앱처럼 쓸 수 있어요.'
+            : '바탕화면 아이콘으로 한 번에 열리고,\n주소창 없이 앱처럼 편하게 볼 수 있어요.'}
         </Text>
 
         <View style={styles.benefits}>
@@ -181,7 +194,9 @@ export function InstallGuide() {
 
         {direct ? (
           <Pressable style={styles.primaryBtn} onPress={install}>
-            <Text style={styles.primaryBtnText}>홈 화면에 추가하기</Text>
+            <Text style={styles.primaryBtnText}>
+              {kind === 'desktop' ? '지금 설치하기' : '홈 화면에 추가하기'}
+            </Text>
           </Pressable>
         ) : (
           <View style={styles.steps}>
