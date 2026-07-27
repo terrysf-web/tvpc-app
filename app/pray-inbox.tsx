@@ -95,7 +95,7 @@ export default function PrayInboxScreen() {
                   <Text
                     style={[styles.prayBtnText, r.status === 'prayed' && styles.prayBtnTextDone]}
                   >
-                    {r.status === 'prayed' ? '✓ 기도했어요' : '🙏 기도했어요'}
+                    {r.status === 'prayed' ? '✓ 기도 중' : '🙏 기도 시작했어요'}
                   </Text>
                 </Pressable>
                 <Pressable style={styles.delBtn} onPress={() => remove(r)}>
