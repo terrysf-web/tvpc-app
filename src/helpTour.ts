@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
  * 새로고침해도 남지 않도록 이 브라우저 탭에만(sessionStorage) 저장한다.
  */
 const KEY = 'tvpc.helpTour';
+/** 어느 꼭지에서 떠났는지 — 돌아올 때 그 자리로 되돌리기 위해 */
+const ANCHOR = 'tvpc.helpAnchor';
 
 const subs = new Set<() => void>();
 
@@ -65,4 +67,24 @@ export function useHelpTour(): boolean {
     };
   }, []);
   return on;
+}
+
+/** 떠나는 꼭지를 적어둔다 */
+export function setHelpAnchor(key: string) {
+  try {
+    window.sessionStorage?.setItem(ANCHOR, key);
+  } catch {
+    /* 무시 */
+  }
+}
+
+/** 돌아왔을 때 한 번만 꺼내 쓴다 (다음에 그냥 열면 맨 위부터) */
+export function takeHelpAnchor(): string | null {
+  try {
+    const v = window.sessionStorage?.getItem(ANCHOR) ?? null;
+    if (v) window.sessionStorage.removeItem(ANCHOR);
+    return v;
+  } catch {
+    return null;
+  }
 }

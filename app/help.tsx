@@ -14,10 +14,10 @@ import {
   RefreshCw,
   SquarePlus,
 } from 'lucide-react-native';
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { startHelpTour } from '../src/helpTour';
+import { setHelpAnchor, startHelpTour, takeHelpAnchor } from '../src/helpTour';
 import { colors, font, shadows } from '../src/theme';
 
 /* ────────────────────────────────────────────────────────────
@@ -168,10 +168,21 @@ interface Topic {
  */
 export default function HelpScreen() {
   const router = useRouter();
-  // 떠나기 전에 표시를 켜 둔다 — 어느 화면에서든 안내서로 돌아올 수 있게
-  const go = (to: string) => {
+  // 떠나기 전에 표시를 켜고, 어느 꼭지에서 떠나는지 적어 둔다 —
+  // 돌아왔을 때 맨 위가 아니라 보던 자리로 되돌리기 위해
+  const go = (key: string, to: string) => {
     startHelpTour();
+    setHelpAnchor(key);
     router.push(to as never);
+  };
+
+  // 돌아왔다면 그 꼭지가 자리를 잡는 순간 그 자리로 옮긴다
+  const scroller = useRef<ScrollView>(null);
+  const [anchor] = useState<string | null>(() => takeHelpAnchor());
+  const onCardLayout = (key: string) => (e: LayoutChangeEvent) => {
+    if (key !== anchor) return;
+    const y = Math.max(e.nativeEvent.layout.y - 12, 0);
+    scroller.current?.scrollTo({ y, animated: false });
   };
 
   const chip = (node: React.ReactNode, bg: string) => (
@@ -346,7 +357,11 @@ export default function HelpScreen() {
   return (
     <View style={styles.screen}>
       <OverlayHeader title="앱 사용 안내서" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scroller}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* 처음 여신 분을 위한 세 걸음 */}
         <View style={[styles.startCard, shadows.card]}>
           <Text style={styles.startTitle}>처음 오셨다면 이 세 가지만</Text>
@@ -365,7 +380,7 @@ export default function HelpScreen() {
         </View>
 
         {topics.map((t) => (
-          <View key={t.key} style={[styles.card, shadows.card]}>
+          <View key={t.key} style={[styles.card, shadows.card]} onLayout={onCardLayout(t.key)}>
             <View style={styles.cardHead}>
               {chip(t.icon, t.chipBg)}
               <Text style={styles.cardTitle}>{t.title}</Text>
@@ -381,7 +396,7 @@ export default function HelpScreen() {
             {t.figure ? <Figure note={t.figureNote ?? ''}>{t.figure}</Figure> : null}
 
             {t.go ? (
-              <Pressable style={styles.goBtn} onPress={() => go(t.go!.to)} hitSlop={6}>
+              <Pressable style={styles.goBtn} onPress={() => go(t.key, t.go!.to)} hitSlop={6}>
                 <Text style={styles.goText}>{t.go.label} ›</Text>
               </Pressable>
             ) : null}
