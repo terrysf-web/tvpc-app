@@ -208,7 +208,7 @@ export default function HelpScreen() {
       key: 'sermon',
       icon: <Play size={20} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
-      title: '설교 — 지난 설교 다시 듣기',
+      title: '설교 — 지난 설교 다시 보기',
       lines: [
         '맨 위가 가장 최근 설교이고, 아래로 지난 설교가 이어집니다.',
         '누르면 유튜브에서 재생됩니다. 다 보신 뒤에는 화면 왼쪽 위 「◀ TVPC」를 눌러 앱으로 돌아오세요.',
