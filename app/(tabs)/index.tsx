@@ -254,7 +254,11 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View style={styles.headBtns}>
-            {/* 앱이 낯선 분이 언제든 찾을 수 있게 물음표를 종 옆에 둔다 */}
+            <Pressable style={styles.bellBtn} onPress={() => router.push('/alerts')} hitSlop={6}>
+              <Bell size={20} color={colors.title} strokeWidth={1.9} />
+              <View style={styles.bellDot} />
+            </Pressable>
+            {/* 앱이 낯선 분이 언제든 찾을 수 있게 물음표를 종 오른쪽에 둔다 */}
             <Pressable
               style={styles.bellBtn}
               onPress={() => router.push('/help')}
@@ -263,10 +267,6 @@ export default function HomeScreen() {
               accessibilityLabel="앱 사용 안내서"
             >
               <CircleQuestionMark size={20} color={colors.title} strokeWidth={1.9} />
-            </Pressable>
-            <Pressable style={styles.bellBtn} onPress={() => router.push('/alerts')} hitSlop={6}>
-              <Bell size={20} color={colors.title} strokeWidth={1.9} />
-              <View style={styles.bellDot} />
             </Pressable>
           </View>
         </View>
