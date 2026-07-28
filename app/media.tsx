@@ -8,6 +8,7 @@ import { SegmentTabs } from '../src/components/SegmentTabs';
 import { usePhotos, useSermons } from '../src/data/hooks';
 import { playSermon, sermonThumb } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
+import type { SermonDoc } from '../src/types';
 
 type MediaTab = 'photo' | 'video';
 
@@ -35,6 +36,16 @@ export default function MediaScreen() {
 
   // 설교·팟캐스트를 뺀 나머지(찬양·기타) — 성가대 찬양, 워십팀, 연주, 행사 영상
   const videos = sermons.filter((s) => s.category === 'praise' || s.category === 'etc');
+
+  // 영상은 앱 안 재생기로 연다 — 유튜브 앱으로 넘기면 다 보고 닫았을 때
+  // 유튜브에 남아 앱으로 돌아오지 못한다. (영상 주소가 없으면 예전대로)
+  const openVideo = (v: SermonDoc) => {
+    if (v.youtubeId) {
+      router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } });
+    } else {
+      playSermon(v);
+    }
+  };
 
   // 앨범을 앱 안 사진첩으로 연다. 사진을 아직 못 가져온 앨범만 홈페이지로.
   const open = (p: { id: string; images?: string[]; url?: string | null; title: string }) => {
@@ -103,7 +114,7 @@ export default function MediaScreen() {
                 <Pressable
                   key={v.id}
                   style={[styles.card, shadows.imageCard]}
-                  onPress={() => playSermon(v)}
+                  onPress={() => openVideo(v)}
                 >
                   <PhotoSlot uri={sermonThumb(v)} alt={v.title} tone="deep" style={styles.cover}>
                     <View style={styles.playBtn}>

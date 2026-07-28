@@ -64,11 +64,24 @@ export default function WatchScreen() {
         )}
       </View>
 
-      {t ? (
-        <Text style={[styles.title, { marginBottom: insets.bottom + 12 }]} numberOfLines={2}>
-          {t}
-        </Text>
-      ) : null}
+      <View style={{ marginBottom: insets.bottom + 12 }}>
+        {t ? (
+          <Text style={styles.title} numberOfLines={2}>
+            {t}
+          </Text>
+        ) : null}
+        {/* 영상에 따라 앱 안 재생이 막혀 있을 수 있어(저작권 설정),
+            그럴 때 유튜브로 넘어갈 수 있는 길을 항상 남겨 둔다 */}
+        {Platform.OS === 'web' && v ? (
+          <Pressable
+            style={styles.ytLinkBtn}
+            onPress={() => openExternal(`https://www.youtube.com/watch?v=${v}`)}
+            hitSlop={8}
+          >
+            <Text style={styles.ytLinkText}>유튜브에서 보기 ›</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       {/* 닫기 · 전체화면 — 영상 위에 떠 있는 버튼 */}
       <Pressable
@@ -107,6 +120,8 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: 'rgba(255,255,255,0.6)',
   },
+  ytLinkBtn: { marginTop: 10, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 14 },
+  ytLinkText: { fontFamily: font.medium, fontSize: 13, color: 'rgba(255,255,255,0.62)' },
   iconBtn: {
     position: 'absolute',
     width: 36,
