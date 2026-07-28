@@ -142,9 +142,26 @@ export default function PrayRequestScreen() {
               <View key={m.id} style={[styles.mineCard, shadows.card]}>
                 <View style={styles.mineHead}>
                   <Text style={styles.mineWhen}>{fmtWhen(m.createdAt)} 보냄</Text>
-                  <View style={[styles.chip, m.status === 'prayed' && styles.chipPrayed]}>
-                    <Text style={[styles.chipText, m.status === 'prayed' && styles.chipTextPrayed]}>
-                      {m.status === 'prayed' ? '함께 기도 중' : '전달됨'}
+                  {/* 세 단계로 보여준다: 전달됨 → 함께 기도 중 → 기도 응답 받음 */}
+                  <View
+                    style={[
+                      styles.chip,
+                      m.status === 'prayed' && styles.chipPraying,
+                      m.answer != null && styles.chipAnswered,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        m.status === 'prayed' && styles.chipTextPraying,
+                        m.answer != null && styles.chipTextAnswered,
+                      ]}
+                    >
+                      {m.answer != null
+                        ? '기도 응답 받음'
+                        : m.status === 'prayed'
+                          ? '함께 기도 중'
+                          : '전달됨'}
                     </Text>
                   </View>
                 </View>
@@ -238,9 +255,11 @@ const styles = StyleSheet.create({
   mineHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mineWhen: { fontFamily: font.medium, fontSize: 12, color: colors.faint },
   chip: { backgroundColor: colors.tagGrayBg, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
-  chipPrayed: { backgroundColor: colors.tagGreenBg },
+  chipPraying: { backgroundColor: colors.tagBlueBg },
+  chipAnswered: { backgroundColor: colors.tagGreenBg },
   chipText: { fontFamily: font.bold, fontSize: 11.5, color: colors.tagGrayText },
-  chipTextPrayed: { color: colors.tagGreenText },
+  chipTextPraying: { color: colors.tagBlueText },
+  chipTextAnswered: { color: colors.tagGreenText },
   mineText: {
     fontFamily: font.regular,
     fontSize: 14,
