@@ -183,8 +183,9 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
       [0.62, 'rgba(245,166,94,0.35)'],
       [1, 'rgba(46,58,92,0.35)'],
     ]);
-    glow(ctx, W * 0.3, H * 0.6, W * 0.24, 'rgba(255,233,176,0.95)', 'rgba(255,201,126,0.4)');
-    circle(ctx, W * 0.3, H * 0.58, 40, '#FFF3CE');
+    // 해는 글씨(왼쪽 아래)와 날짜 배지(오른쪽 맨 위)를 피해 오른쪽 위에 둔다
+    glow(ctx, W * 0.8, H * 0.32, W * 0.24, 'rgba(255,233,176,0.95)', 'rgba(255,201,126,0.4)');
+    circle(ctx, W * 0.8, H * 0.32, 40, '#FFF3CE');
   } else if (slot === 'evening') {
     // 노을
     multiply(ctx, '#D3C2B6');
@@ -194,8 +195,9 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
       [0.7, 'rgba(240,138,80,0.45)'],
       [1, 'rgba(138,74,60,0.4)'],
     ]);
-    glow(ctx, W * 0.72, H * 0.58, W * 0.2, 'rgba(255,224,160,0.85)', 'rgba(255,201,126,0.3)');
-    circle(ctx, W * 0.72, H * 0.56, 36, '#FFE9B8');
+    // 지는 해도 같은 이유로 오른쪽 위
+    glow(ctx, W * 0.78, H * 0.3, W * 0.2, 'rgba(255,224,160,0.85)', 'rgba(255,201,126,0.3)');
+    circle(ctx, W * 0.78, H * 0.3, 36, '#FFE9B8');
   } else {
     // 밤 — 어둡게 + 달과 별. 달은 카드 오른쪽 위의 날짜 글씨와 겹치지 않게
     // 가운데 위쪽에 둔다.

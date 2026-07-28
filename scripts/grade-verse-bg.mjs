@@ -77,13 +77,13 @@ await sharp(base)
           <stop offset="1" stop-color="#2E3A5C" stop-opacity="0.35"/>
         </linearGradient>
         <rect width="${W}" height="${H}" fill="url(#d)"/>
-        <radialGradient id="g" cx="0.30" cy="0.60" r="0.34">
+        <radialGradient id="g" cx="0.80" cy="0.32" r="0.34">
           <stop offset="0" stop-color="#FFE9B0" stop-opacity="0.95"/>
           <stop offset="0.35" stop-color="#FFC97E" stop-opacity="0.45"/>
           <stop offset="0.8" stop-color="#FFC97E" stop-opacity="0"/>
         </radialGradient>
         <rect width="${W}" height="${H}" fill="url(#g)"/>
-        <circle cx="${W * 0.3}" cy="${H * 0.58}" r="40" fill="#FFF3CE"/>`),
+        <circle cx="${W * 0.8}" cy="${H * 0.32}" r="40" fill="#FFF3CE"/>`),
       blend: 'over',
     },
   ])
@@ -104,13 +104,13 @@ await sharp(base)
           <stop offset="1" stop-color="#8A4A3C" stop-opacity="0.4"/>
         </linearGradient>
         <rect width="${W}" height="${H}" fill="url(#e)"/>
-        <radialGradient id="g" cx="0.72" cy="0.58" r="0.3">
+        <radialGradient id="g" cx="0.78" cy="0.30" r="0.3">
           <stop offset="0" stop-color="#FFE0A0" stop-opacity="0.85"/>
           <stop offset="0.5" stop-color="#FFC97E" stop-opacity="0.3"/>
           <stop offset="1" stop-color="#FFC97E" stop-opacity="0"/>
         </radialGradient>
         <rect width="${W}" height="${H}" fill="url(#g)"/>
-        <circle cx="${W * 0.72}" cy="${H * 0.56}" r="36" fill="#FFE9B8"/>`),
+        <circle cx="${W * 0.78}" cy="${H * 0.3}" r="36" fill="#FFE9B8"/>`),
       blend: 'over',
     },
   ])
