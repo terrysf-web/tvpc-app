@@ -87,17 +87,27 @@ function FigVerse() {
   );
 }
 
-/** 주보 — 괄호에 답을 적는 모습 */
+/** 주보 — 빈 괄호에 답을 적으면 넓이가 늘어나는 모습 */
 function FigBlank() {
   return (
     <View>
-      <Text style={styles.blankLine}>
-        <Text>1. 온전한 그리스도인은 </Text>
-        <Text style={styles.blankBox}> 기도하는 </Text>
-        <Text> 사람입니다.</Text>
-      </Text>
-      <View style={styles.blankHintRow}>
-        <Here label="여기에 적으면 칸이 늘어납니다" />
+      {/* 적기 전 — 빈 괄호 */}
+      <View style={styles.blankRow}>
+        <Text style={styles.blankText}>1. 온전한 그리스도인은 (</Text>
+        <View style={styles.blankEmpty} />
+        <Text style={styles.blankText}>) 사람입니다.</Text>
+      </View>
+      <View style={styles.blankHereRow}>
+        <Here label="여기에 적습니다" />
+      </View>
+
+      <Text style={styles.blankArrow}>↓</Text>
+
+      {/* 적은 뒤 — 글자에 맞춰 넓어진 괄호 */}
+      <View style={styles.blankRow}>
+        <Text style={styles.blankText}>1. 온전한 그리스도인은 (</Text>
+        <Text style={styles.blankFilled}>기도하는</Text>
+        <Text style={styles.blankText}>) 사람입니다.</Text>
       </View>
     </View>
   );
@@ -223,12 +233,12 @@ export default function HelpScreen() {
       title: '주보 — 괄호 채우기와 설교 메모',
       lines: [
         '홈의 「주보 보기」로 들어갑니다. 위쪽 날짜를 누르면 그 주일 주보가 열려요.',
-        '설교 노트의 괄호에 답을 적으면 칸이 글자에 맞춰 저절로 늘어납니다.',
+        '설교 노트의 괄호를 누르고 답을 적으면, 괄호가 글자에 맞춰 저절로 넓어집니다.',
         '적으신 내용은 이 전화기에만 저장되고 다른 분께 보이지 않습니다.',
         '더 지난 주보는 「지난 주보」에서 달별로 찾을 수 있습니다.',
       ],
       figure: <FigBlank />,
-      figureNote: '괄호를 누르고 답을 적으시면 됩니다',
+      figureNote: '괄호 안에 글자를 넣으면 자동으로 넓이가 조절됩니다',
       go: { label: '주보 열기', to: '/bulletin' },
     },
     {
@@ -479,13 +489,38 @@ const styles = StyleSheet.create({
   verseNum: { fontFamily: font.bold, fontSize: 11, color: colors.faint, width: 11 },
   verseText: { flex: 1, fontFamily: font.regular, fontSize: 12.5, color: colors.body },
 
-  blankLine: { fontFamily: font.regular, fontSize: 13, lineHeight: 26, color: colors.body },
-  blankBox: {
-    fontFamily: font.bold,
-    color: colors.primary,
-    backgroundColor: colors.tagBlueBg,
+  blankRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  blankText: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 24, color: colors.body },
+  // 주보의 실제 입력칸과 같은 모양 — 옅은 파란 바탕에 파란 밑줄
+  blankEmpty: {
+    width: 46,
+    height: 20,
+    marginHorizontal: 2,
+    borderRadius: 4,
+    backgroundColor: '#F0F6FD',
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
   },
-  blankHintRow: { marginTop: 8, alignItems: 'center' },
+  blankFilled: {
+    marginHorizontal: 2,
+    paddingHorizontal: 4,
+    borderRadius: 4,
+    backgroundColor: '#F0F6FD',
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+    fontFamily: font.bold,
+    fontSize: 12.5,
+    lineHeight: 20,
+    color: colors.primary,
+  },
+  blankHereRow: { marginTop: 7, alignItems: 'center' },
+  blankArrow: {
+    marginTop: 6,
+    marginBottom: 4,
+    textAlign: 'center',
+    fontSize: 14,
+    color: colors.faint,
+  },
 
   tabRow: { flexDirection: 'row', backgroundColor: colors.card, borderRadius: 10 },
   tabCell: { flex: 1, alignItems: 'center', paddingTop: 9 },
