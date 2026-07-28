@@ -22,7 +22,7 @@ import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { churchInfo } from '../../src/churchInfo';
 import { sundayPhase } from '../../src/churchTime';
-import { openLiveWorship, playSermon, sermonThumb } from '../../src/links';
+import { openLiveWorship, openWorshipReplay, playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
 
@@ -293,7 +293,9 @@ export default function HomeScreen() {
                         ? featured
                           ? playSermon(featured)
                           : router.push('/sermon')
-                        : openLiveWorship()
+                        : liveEnded
+                          ? openWorshipReplay()
+                          : openLiveWorship()
                     }
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>

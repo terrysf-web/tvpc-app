@@ -39,9 +39,18 @@ export function openYouTubeUrl(url: string) {
   }
 }
 
-/** 주일예배 생중계 — 방송 중이면 실시간, 아니면 채널 최근 영상 */
+/** 주일 온라인예배 재생목록 — 지난 예배 녹화본이 최신순으로 쌓인다 */
+export const WORSHIP_PLAYLIST_URL =
+  'https://www.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ';
+
+/** 주일예배 생중계 — 방송 중일 때 실시간 화면으로 */
 export function openLiveWorship() {
   openYouTubeUrl(`${YOUTUBE_CHANNEL_URL}/live`);
+}
+
+/** 지난 주일 온라인예배 다시보기 — 예배 재생목록(맨 위가 가장 최근) */
+export function openWorshipReplay() {
+  openYouTubeUrl(WORSHIP_PLAYLIST_URL);
 }
 
 /**
