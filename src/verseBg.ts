@@ -206,20 +206,27 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     ]);
     glow(ctx, W * 0.86, H * 0.16, W * 0.62, 'rgba(255,215,154,0.5)', 'rgba(255,180,110,0.16)');
   } else {
-    // 밤 — 달과 별을 그려 넣으면 사진 위에 붙인 티가 나서, 남색과 달빛으로만
-    // 표현한다. 원본이 이미 어두우면 덜 눌러서 무슨 그림인지 보이게 한다.
+    // 밤 — 밝기를 낮추고 푸른 달빛 색조를 입힌다. 어둡게만 하면 검은 판이 되고,
+    // 색조가 없으면 낮처럼 보인다. 원본이 이미 어두우면 덜 누른다.
     const lum = canvasLum(ctx);
-    const f = Math.max(0.45, Math.min(1, 103 / Math.max(1, lum)));
+    const f = Math.max(0.5, Math.min(0.95, 62 / Math.max(1, lum)));
     const v = Math.round(255 * f);
-    multiply(ctx, `rgb(${v}, ${v}, ${Math.min(255, Math.round(v * 1.08))})`);
-    ctx.fillStyle = 'rgba(18,36,76,0.3)';
+    multiply(ctx, `rgb(${v}, ${v}, ${v})`);
+    // 어두운 부분을 살짝 들어 형태를 남긴다
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
     ctx.fillRect(0, 0, W, H);
-    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(214,230,255,0.28)', 'rgba(190,212,250,0.1)');
-    // 아래쪽을 조금 더 눌러 글씨가 또렷하게
+    // 밝기는 유지한 채 색만 푸르게 (sharp의 tint와 같은 효과)
+    ctx.globalCompositeOperation = 'color';
+    ctx.fillStyle = 'rgb(150, 178, 235)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(14,30,68,0.34)';
+    ctx.fillRect(0, 0, W, H);
+    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(207,226,255,0.3)', 'rgba(185,208,245,0.105)');
     vGradient(ctx, [
-      [0, 'rgba(10,20,44,0)'],
-      [0.55, 'rgba(10,20,44,0.1)'],
-      [1, 'rgba(8,16,38,0.34)'],
+      [0, 'rgba(6,13,34,0)'],
+      [0.5, 'rgba(6,13,34,0.08)'],
+      [1, 'rgba(6,13,34,0.34)'],
     ]);
   }
 }

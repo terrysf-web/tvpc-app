@@ -116,22 +116,26 @@ function gradeSlot(base, slot, srcLum = 140) {
         },
       ]);
   }
-  const f = Math.max(0.45, Math.min(1.05, 103 / Math.max(1, srcLum)));
+  // 밤 — 밝기를 낮추고 푸른 달빛 색조를 입힌다. 색조 없이 어둡게만 하면
+  // 검은 판이 되고, 색조 없이 밝게 두면 낮처럼 보인다.
+  const f = Math.max(0.5, Math.min(0.95, 62 / Math.max(1, srcLum)));
   return sharp(base)
-    .modulate({ brightness: f, saturation: 0.72 })
+    .modulate({ brightness: f, saturation: 0.55 })
+    .linear(0.92, 14) // 대비를 살짝 낮추고 어두운 부분을 들어 형태를 남긴다
+    .tint({ r: 150, g: 178, b: 235 })
     .composite([
       {
         input: svg(`
-          <rect width="${W}" height="${H}" fill="#12244C" opacity="0.3"/>
+          <rect width="${W}" height="${H}" fill="#0E1E44" opacity="0.34"/>
           <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
-            <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.28"/>
-            <stop offset="0.45" stop-color="#BED4FA" stop-opacity="0.1"/>
-            <stop offset="1" stop-color="#BED4FA" stop-opacity="0"/>
+            <stop offset="0" stop-color="#CFE2FF" stop-opacity="0.3"/>
+            <stop offset="0.45" stop-color="#B9D0F5" stop-opacity="0.105"/>
+            <stop offset="1" stop-color="#B9D0F5" stop-opacity="0"/>
           </radialGradient>
           <rect width="${W}" height="${H}" fill="url(#m)"/>
           <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0.55" stop-color="#0A142C" stop-opacity="0.1"/>
-            <stop offset="1" stop-color="#081026" stop-opacity="0.34"/>
+            <stop offset="0.5" stop-color="#060D22" stop-opacity="0.08"/>
+            <stop offset="1" stop-color="#060D22" stop-opacity="0.34"/>
           </linearGradient>
           <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
         blend: 'over',
