@@ -283,11 +283,13 @@ export default function HomeScreen() {
                 </Text>
                 <View style={styles.heroBtnRow}>
                   {/* 1부는 온라인 중계가 없어 2부만 안내한다.
-                      예배가 끝난 뒤와 월요일에는 설교 영상으로 바뀐다. */}
+                      예배가 끝난 주일 오후에는 유튜브에 생중계 녹화본(예배 전체)이
+                      그대로 남아 있어 '온라인예배 다시보기'로 잇고,
+                      영상 담당자가 설교만 편집해 올리는 월요일부터는 '설교 다시 보기'로 바꾼다. */}
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
                     onPress={() =>
-                      liveEnded
+                      isMonday
                         ? featured
                           ? playSermon(featured)
                           : router.push('/sermon')
@@ -298,7 +300,7 @@ export default function HomeScreen() {
                       {isMonday
                         ? '▶ 주일 설교 다시 보기'
                         : liveEnded
-                          ? '▶ 최신 설교 보기'
+                          ? '▶ 주일 온라인예배 다시보기'
                           : '▶ 2부 온라인예배'}
                     </Text>
                   </Pressable>
