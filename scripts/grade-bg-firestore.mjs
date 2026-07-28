@@ -1,0 +1,191 @@
+/**
+ * 말씀·주일 카드 배경을 시간대 5종으로 변환해 Firestore에 저장한다.
+ *
+ * 관리자 화면에서 버튼을 누르면 브라우저가 같은 일을 하지만, 규칙이 바뀌었을 때
+ * 서버에서 한 번에 다시 만들기 위한 도구다. 이미 올려둔 그림을 쓰므로
+ * 다시 올릴 필요가 없다.
+ *
+ *   verseBg/original      → verseBg/{slot}          (평일 말씀카드)
+ *   verseBg/sunday        → verseBg/sunday-{slot}   (주일·월요일 카드)
+ *
+ * 시간대는 새벽·아침·오후·저녁·밤 다섯이고, 해·달 모양을 그리지 않고
+ * 빛과 색만 입힌다(사진 위에 붙인 티가 나지 않게).
+ *
+ * 필요 시크릿: FIREBASE_SERVICE_ACCOUNT
+ * 사용: TARGET=both|weekday|sunday node scripts/grade-bg-firestore.mjs
+ */
+import { cert, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import sharp from 'sharp';
+
+const W = 1600;
+const H = 730;
+const SLOTS = ['dawn', 'morning', 'afternoon', 'evening', 'night'];
+const LABEL = {
+  dawn: '새벽(여명)',
+  morning: '아침',
+  afternoon: '오후(햇살)',
+  evening: '저녁(노을)',
+  night: '밤(달빛)',
+};
+
+const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+initializeApp({ credential: cert(sa) });
+const db = getFirestore();
+
+const svg = (inner) =>
+  Buffer.from(`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`);
+
+/** 한 시간대 그림 만들기 — 원본 판(base)에 빛과 색만 입힌다 */
+function gradeSlot(base, slot) {
+  if (slot === 'morning') {
+    return sharp(base).modulate({ brightness: 1.04, saturation: 1.08 });
+  }
+  if (slot === 'afternoon') {
+    return sharp(base)
+      .modulate({ brightness: 1.03, saturation: 1.12 })
+      .composite([
+        {
+          input: svg(`
+            <rect width="${W}" height="${H}" fill="#FFD98A" opacity="0.10"/>
+            <radialGradient id="s" cx="0.8" cy="0.15" r="0.5">
+              <stop offset="0" stop-color="#FFF3C2" stop-opacity="0.55"/>
+              <stop offset="0.6" stop-color="#FFF3C2" stop-opacity="0"/>
+            </radialGradient>
+            <rect width="${W}" height="${H}" fill="url(#s)"/>`),
+          blend: 'over',
+        },
+      ]);
+  }
+  if (slot === 'dawn') {
+    return sharp(base)
+      .modulate({ brightness: 0.92, saturation: 0.94 })
+      .composite([
+        {
+          input: svg(`
+            <linearGradient id="d" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#3D4C7E" stop-opacity="0.55"/>
+              <stop offset="0.45" stop-color="#8A6E8C" stop-opacity="0.32"/>
+              <stop offset="0.72" stop-color="#F5B478" stop-opacity="0.3"/>
+              <stop offset="1" stop-color="#2E3A5C" stop-opacity="0.4"/>
+            </linearGradient>
+            <rect width="${W}" height="${H}" fill="url(#d)"/>
+            <radialGradient id="g" cx="0.86" cy="0.14" r="0.6">
+              <stop offset="0" stop-color="#FFE2B4" stop-opacity="0.45"/>
+              <stop offset="0.45" stop-color="#FFCD96" stop-opacity="0.14"/>
+              <stop offset="1" stop-color="#FFCD96" stop-opacity="0"/>
+            </radialGradient>
+            <rect width="${W}" height="${H}" fill="url(#g)"/>`),
+          blend: 'over',
+        },
+      ]);
+  }
+  if (slot === 'evening') {
+    return sharp(base)
+      .modulate({ brightness: 0.86, saturation: 1.06 })
+      .composite([
+        {
+          input: svg(`
+            <linearGradient id="e" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#4A4478" stop-opacity="0.5"/>
+              <stop offset="0.45" stop-color="#B06188" stop-opacity="0.34"/>
+              <stop offset="0.78" stop-color="#E8834C" stop-opacity="0.34"/>
+              <stop offset="1" stop-color="#6E3A30" stop-opacity="0.46"/>
+            </linearGradient>
+            <rect width="${W}" height="${H}" fill="url(#e)"/>
+            <radialGradient id="g" cx="0.86" cy="0.16" r="0.62">
+              <stop offset="0" stop-color="#FFD79A" stop-opacity="0.5"/>
+              <stop offset="0.45" stop-color="#FFB46E" stop-opacity="0.16"/>
+              <stop offset="1" stop-color="#FFB46E" stop-opacity="0"/>
+            </radialGradient>
+            <rect width="${W}" height="${H}" fill="url(#g)"/>`),
+          blend: 'over',
+        },
+      ]);
+  }
+  return sharp(base)
+    .modulate({ brightness: 0.52, saturation: 0.62 })
+    .composite([
+      {
+        input: svg(`
+          <rect width="${W}" height="${H}" fill="#12244C" opacity="0.5"/>
+          <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
+            <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.3"/>
+            <stop offset="0.45" stop-color="#BED4FA" stop-opacity="0.1"/>
+            <stop offset="1" stop-color="#BED4FA" stop-opacity="0"/>
+          </radialGradient>
+          <rect width="${W}" height="${H}" fill="url(#m)"/>
+          <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0.6" stop-color="#0A142C" stop-opacity="0.12"/>
+            <stop offset="1" stop-color="#081026" stop-opacity="0.4"/>
+          </linearGradient>
+          <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
+        blend: 'over',
+      },
+    ]);
+}
+
+/** 글씨 색 판단 — 어두우면 흰 글씨 */
+async function isDark(buf) {
+  const { data } = await sharp(buf).resize(64, 32).raw().toBuffer({ resolveWithObject: true });
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 3) {
+    sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  return sum / (data.length / 3) < 115;
+}
+
+/** Firestore 문서 1MB 한도 아래로 맞춘 data URL */
+async function toDataUrl(pipe) {
+  for (const q of [82, 70, 58, 46]) {
+    const buf = await pipe.clone().jpeg({ quality: q }).toBuffer();
+    const url = `data:image/jpeg;base64,${buf.toString('base64')}`;
+    if (url.length < 900_000) return { url, buf };
+  }
+  const buf = await pipe.clone().resize(1200).jpeg({ quality: 60 }).toBuffer();
+  return { url: `data:image/jpeg;base64,${buf.toString('base64')}`, buf };
+}
+
+/** 원본 문서에서 그림 읽기 */
+async function readSource(docId) {
+  const snap = await db.doc(`verseBg/${docId}`).get();
+  const img = snap.exists ? String(snap.get('image') ?? '') : '';
+  if (!img.startsWith('data:image')) return null;
+  return Buffer.from(img.split(',', 2)[1], 'base64');
+}
+
+async function grade(sourceId, targetPrefix) {
+  const src = await readSource(sourceId);
+  if (!src) {
+    console.log(`  – verseBg/${sourceId}: 원본이 없어 건너뜁니다.`);
+    return 0;
+  }
+  const base = await sharp(src).resize(W, H, { fit: 'cover' }).toBuffer();
+  let n = 0;
+  for (const slot of SLOTS) {
+    const { url, buf } = await toDataUrl(gradeSlot(base, slot));
+    const dark = await isDark(buf);
+    const id = targetPrefix ? `${targetPrefix}-${slot}` : slot;
+    await db.doc(`verseBg/${id}`).set({
+      image: url,
+      dark,
+      updatedAt: new Date().toISOString(),
+    });
+    console.log(
+      `  ✓ ${id.padEnd(18)} ${LABEL[slot]} ${Math.round(url.length / 1024)}KB ${dark ? '흰 글씨' : '남색 글씨'}`,
+    );
+    n++;
+  }
+  return n;
+}
+
+const target = process.env.TARGET || 'both';
+if (target === 'both' || target === 'weekday') {
+  console.log('[평일 말씀카드] verseBg/original → verseBg/{시간대}');
+  await grade('original', '');
+}
+if (target === 'both' || target === 'sunday') {
+  console.log('[주일·월요일 카드] verseBg/sunday → verseBg/sunday-{시간대}');
+  await grade('sunday', 'sunday');
+}
+console.log('완료 — 앱을 새로고침하면 바로 보입니다.');

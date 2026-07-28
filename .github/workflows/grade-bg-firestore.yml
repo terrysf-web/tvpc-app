@@ -1,0 +1,38 @@
+# 이미 올려둔 배경 그림으로 시간대 5종을 다시 만들어 Firestore에 저장한다.
+# 그림을 다시 올릴 필요 없이 Actions에서 Run workflow만 누르면 된다.
+name: Regrade card backgrounds
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '대상 (both = 평일+주일)'
+        type: choice
+        options: [both, weekday, sunday]
+        default: both
+
+jobs:
+  regrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 건너뜁니다."
+            exit 1
+          fi
+
+      - name: Install deps
+        run: npm install --no-save sharp firebase-admin
+
+      - name: Regrade
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TARGET: ${{ inputs.target }}
+        run: node scripts/grade-bg-firestore.mjs
