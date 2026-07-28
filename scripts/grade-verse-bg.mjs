@@ -122,24 +122,24 @@ let nsum = 0;
 for (let i = 0; i < nd.length; i += 3) {
   nsum += 0.299 * nd[i] + 0.587 * nd[i + 1] + 0.114 * nd[i + 2];
 }
-const nightF = Math.max(0.42, Math.min(0.9, 50 / Math.max(1, nsum / (nd.length / 3))));
+const nightF = Math.max(0.46, Math.min(0.92, 56 / Math.max(1, nsum / (nd.length / 3))));
 await sharp(base)
-  .modulate({ brightness: nightF, saturation: 0.5 })
-  .linear(0.9, 12)
-  .tint({ r: 140, g: 168, b: 230 })
+  .modulate({ brightness: nightF, saturation: 0.52 })
+  .linear(0.91, 13)
+  .tint({ r: 145, g: 173, b: 232 })
   .composite([
     {
       input: svgOverlay(`
-        <rect width="${W}" height="${H}" fill="#0A1738" opacity="0.42"/>
+        <rect width="${W}" height="${H}" fill="#0C1B3E" opacity="0.38"/>
         <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
-          <stop offset="0" stop-color="#CFE2FF" stop-opacity="0.34"/>
-          <stop offset="0.45" stop-color="#B9D0F5" stop-opacity="0.12"/>
+          <stop offset="0" stop-color="#CFE2FF" stop-opacity="0.32"/>
+          <stop offset="0.45" stop-color="#B9D0F5" stop-opacity="0.11"/>
           <stop offset="1" stop-color="#B9D0F5" stop-opacity="0"/>
         </radialGradient>
         <rect width="${W}" height="${H}" fill="url(#m)"/>
         <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0.45" stop-color="#050A1C" stop-opacity="0.1"/>
-          <stop offset="1" stop-color="#050A1C" stop-opacity="0.42"/>
+          <stop offset="0.48" stop-color="#060D22" stop-opacity="0.09"/>
+          <stop offset="1" stop-color="#060D22" stop-opacity="0.38"/>
         </linearGradient>
         <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
       blend: 'over',

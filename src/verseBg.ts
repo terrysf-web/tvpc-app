@@ -209,7 +209,7 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     // 밤 — 밝기를 낮추고 푸른 달빛 색조를 입힌다. 어둡게만 하면 검은 판이 되고,
     // 색조가 없으면 낮처럼 보인다. 원본이 이미 어두우면 덜 누른다.
     const lum = canvasLum(ctx);
-    const f = Math.max(0.42, Math.min(0.9, 50 / Math.max(1, lum)));
+    const f = Math.max(0.46, Math.min(0.92, 56 / Math.max(1, lum)));
     const v = Math.round(255 * f);
     multiply(ctx, `rgb(${v}, ${v}, ${v})`);
     // 어두운 부분을 살짝 들어 형태를 남긴다
@@ -217,16 +217,16 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     ctx.fillRect(0, 0, W, H);
     // 밝기는 유지한 채 색만 푸르게 (sharp의 tint와 같은 효과)
     ctx.globalCompositeOperation = 'color';
-    ctx.fillStyle = 'rgb(140, 168, 230)';
+    ctx.fillStyle = 'rgb(145, 173, 232)';
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(10,23,56,0.42)';
+    ctx.fillStyle = 'rgba(12,27,62,0.38)';
     ctx.fillRect(0, 0, W, H);
-    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(207,226,255,0.34)', 'rgba(185,208,245,0.12)');
+    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(207,226,255,0.32)', 'rgba(185,208,245,0.11)');
     vGradient(ctx, [
-      [0, 'rgba(5,10,28,0)'],
-      [0.45, 'rgba(5,10,28,0.1)'],
-      [1, 'rgba(5,10,28,0.42)'],
+      [0, 'rgba(6,13,34,0)'],
+      [0.48, 'rgba(6,13,34,0.09)'],
+      [1, 'rgba(6,13,34,0.38)'],
     ]);
   }
 }
