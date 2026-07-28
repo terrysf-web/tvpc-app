@@ -44,7 +44,7 @@ function Here({ label = '여기' }: { label?: string }) {
   );
 }
 
-/** 홈 바로가기 넉 칸 */
+/** 홈 바로가기 아이콘 넷 */
 function FigQuick() {
   const cells = [
     { t: '교회소식', bg: colors.tagOrangeBg },
@@ -103,7 +103,7 @@ function FigBlank() {
   );
 }
 
-/** 교회 미디어 — 사진·영상 칸 */
+/** 교회 미디어 — 사진·영상 고르는 곳 */
 function FigTabs() {
   return (
     <View style={styles.tabRow}>
@@ -173,10 +173,10 @@ export default function HelpScreen() {
       lines: [
         '맨 위 카드는 그날의 말씀입니다. 눌러서 본문 전체를 볼 수 있어요.',
         '주일에는 이 카드가 예배 안내로 바뀝니다. 오전에는 온라인예배 생중계로, 낮 12시 30분이 지나면 그 주일 예배 다시보기로 이어집니다.',
-        '그 아래 넉 칸이 자주 쓰는 곳으로 가는 지름길입니다.',
+        '그 아래 네 개의 아이콘이 자주 쓰는 곳으로 가는 지름길입니다.',
       ],
       figure: <FigQuick />,
-      figureNote: '홈 가운데의 「한눈에 보기」 넉 칸',
+      figureNote: '홈 가운데의 「한눈에 보기」 네 개 아이콘',
       go: { label: '홈으로 가보기', to: '/' },
     },
     {
@@ -212,7 +212,7 @@ export default function HelpScreen() {
       lines: [
         '맨 위가 가장 최근 설교이고, 아래로 지난 설교가 이어집니다.',
         '누르면 유튜브에서 재생됩니다. 다 보신 뒤에는 화면 왼쪽 위 「◀ TVPC」를 눌러 앱으로 돌아오세요.',
-        '「팟캐스트」 칸에는 말씀 묵상 음성이 모여 있습니다.',
+        '위쪽 「팟캐스트」를 누르시면 말씀 묵상 음성이 모여 있습니다.',
       ],
       go: { label: '설교 보러 가기', to: '/sermon' },
     },
@@ -237,12 +237,12 @@ export default function HelpScreen() {
       chipBg: colors.tagBlueBg,
       title: '교회 미디어 — 사진과 영상',
       lines: [
-        '홈의 「교회 미디어」로 들어가면 위에 「사진」과 「영상」 두 칸이 있습니다.',
+        '홈의 「교회 미디어」로 들어가면 위에 「사진」과 「영상」이 있습니다.',
         '사진은 교회 홈페이지 사진첩에서, 영상은 교회 유튜브에서 저절로 들어옵니다.',
         '영상은 앱 안에서 재생되고, 왼쪽 위 ✕를 누르면 보던 목록으로 돌아옵니다.',
       ],
       figure: <FigTabs />,
-      figureNote: '위쪽 칸을 눌러 사진과 영상을 오갑니다',
+      figureNote: '위쪽 「사진」·「영상」을 눌러 오갑니다',
       go: { label: '교회 미디어 열기', to: '/media' },
     },
     {
@@ -272,7 +272,7 @@ export default function HelpScreen() {
       icon: <Megaphone size={20} color={colors.tagOrangeText} strokeWidth={1.9} />,
       chipBg: colors.tagOrangeBg,
       title: '소식',
-      lines: ['교회 공지와 선교 소식이 올라옵니다. 아래 「소식」 칸에서 보실 수 있어요.'],
+      lines: ['교회 공지와 선교 소식이 올라옵니다. 맨 아래 「소식」에서 보실 수 있어요.'],
       go: { label: '소식 보러 가기', to: '/news' },
     },
     {
@@ -336,7 +336,7 @@ export default function HelpScreen() {
         <View style={[styles.startCard, shadows.card]}>
           <Text style={styles.startTitle}>처음 오셨다면 이 세 가지만</Text>
           {[
-            '아래 다섯 칸(홈·말씀·설교·소식·더보기)이 앱의 전부입니다. 눌러서 오가시면 됩니다.',
+            '맨 아래 다섯 개의 아이콘(홈·말씀·설교·소식·더보기)이 앱의 전부입니다. 눌러서 오가시면 됩니다.',
             '더보기 › 「홈 화면에 추가하기」로 전화기 첫 화면에 두시면 다음부터 바로 열립니다.',
             '더보기 › 「알림 받기」를 켜시면 매일 아침 말씀이 옵니다.',
           ].map((t, i) => (
