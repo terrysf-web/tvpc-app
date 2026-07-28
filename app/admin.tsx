@@ -47,6 +47,7 @@ import { adminGoogleSignIn, getDb } from '../src/firebase';
 import { clearNewsBanner, saveNewsBanner } from '../src/newsBanner';
 import {
   clearSundayBg,
+  regradeSundayBg,
   gradeAndSaveVerseBg,
   regradeVerseBg,
   resetVerseBg,
@@ -338,8 +339,8 @@ export default function AdminScreen() {
       setBusy(true);
       setMsg(null);
       try {
-        await saveSundayBg(file);
-        setMsg('주일 카드 배경이 등록됐습니다. 주일에 이 그림이 표시됩니다.');
+        await saveSundayBg(file, setMsg);
+        setMsg('주일 카드 배경이 등록됐습니다. 시간대(아침·오후·노을·밤)에 따라 바뀝니다.');
       } catch (e) {
         setMsg(`저장 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
       } finally {
@@ -597,9 +598,10 @@ export default function AdminScreen() {
             <View style={styles.bgDivider} />
             <Text style={styles.blockTitle}>주일예배 카드 배경 (선택)</Text>
             <Text style={styles.bgHint}>
-              주일에만 쓸 그림을 따로 올릴 수 있습니다. 변환 없이 그대로 표시되고,
-              글씨 색은 그림 밝기에 맞춰 자동으로 정해집니다. 등록하지 않으면
-              주일에도 시간대 배경을 씁니다.
+              주일·월요일 카드에 쓸 그림을 따로 올릴 수 있습니다. 올린 한 장에서
+              시간대 5종(새벽 해돋이·아침·오후 햇살·저녁 노을·밤 달과 별)을 만들어,
+              보는 시간에 맞는 그림이 나옵니다. 글씨 색도 그림 밝기에 맞춰 자동으로
+              정해집니다. 등록하지 않으면 평일과 같은 시간대 배경을 씁니다.
             </Text>
             <Pressable
               style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
@@ -607,6 +609,20 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.secondaryBtnText}>주일 배경 그림 선택</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
+              onPress={() =>
+                submit(
+                  async () => {
+                    await regradeSundayBg(setMsg);
+                  },
+                  '주일 배경을 시간대 5종으로 만들었습니다.',
+                )
+              }
+              disabled={busy}
+            >
+              <Text style={styles.secondaryBtnText}>올려둔 주일 그림으로 시간대 만들기</Text>
             </Pressable>
             <Pressable
               style={styles.ghostBtn}

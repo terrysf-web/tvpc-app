@@ -314,15 +314,18 @@ export async function regradeVerseBg(onStatus?: (msg: string) => void): Promise<
 
 /* ---------------- 주일 전용 배경 (선택) ---------------- */
 
-const sundayCache: { v?: { uri: string; dark: boolean } | null } = {};
+// 슬롯별 캐시 — 시간대 변환본(verseBg/sunday-{slot})이 있으면 그것을,
+// 없으면 예전처럼 한 장짜리(verseBg/sunday)를 쓴다.
+const sundayCache: Partial<Record<BgSlot, { uri: string; dark: boolean } | null>> = {};
 
 /** undefined = 아직 모름, null = '주일 배경 없음' 확인됨, 값 = 마지막 배경 */
-function readDeviceSunday(): { uri: string; dark: boolean } | null | undefined {
+function readDeviceSunday(slot: BgSlot): { uri: string; dark: boolean } | null | undefined {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return undefined;
     const raw = window.localStorage.getItem(DEVICE_SUNDAY_KEY);
     if (!raw) return undefined;
-    const p = JSON.parse(raw) as { uri?: string; dark?: boolean; none?: boolean };
+    const p = JSON.parse(raw) as { slot?: string; uri?: string; dark?: boolean; none?: boolean };
+    if (p.slot !== slot) return undefined;
     if (p.none) return null;
     return p.uri ? { uri: p.uri, dark: !!p.dark } : undefined;
   } catch {
@@ -330,10 +333,13 @@ function readDeviceSunday(): { uri: string; dark: boolean } | null | undefined {
   }
 }
 
-function writeDeviceSunday(v: { uri: string; dark: boolean } | null) {
+function writeDeviceSunday(slot: BgSlot, v: { uri: string; dark: boolean } | null) {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    window.localStorage.setItem(DEVICE_SUNDAY_KEY, JSON.stringify(v ?? { none: true }));
+    window.localStorage.setItem(
+      DEVICE_SUNDAY_KEY,
+      JSON.stringify(v ? { slot, ...v } : { slot, none: true }),
+    );
   } catch {
     /* 저장 실패는 무시 */
   }
@@ -344,45 +350,49 @@ function writeDeviceSunday(v: { uri: string; dark: boolean } | null) {
  * ready가 false면 아직 모르는 상태이므로 화면은 로딩 표시를 유지할 것.
  */
 export function useSundayBg(): { bg: { uri: string; dark: boolean } | null; ready: boolean } {
+  const slot = currentSlot();
   const [state, setState] = useState<{
     bg: { uri: string; dark: boolean } | null;
     ready: boolean;
   }>(() => {
-    if (sundayCache.v !== undefined) return { bg: sundayCache.v, ready: true };
-    const dev = readDeviceSunday();
+    if (sundayCache[slot] !== undefined) return { bg: sundayCache[slot] ?? null, ready: true };
+    const dev = readDeviceSunday(slot);
     if (dev !== undefined) return { bg: dev, ready: true };
     return { bg: null, ready: false };
   });
   useEffect(() => {
     let on = true;
     (async () => {
-      if (sundayCache.v !== undefined) {
-        if (on) setState({ bg: sundayCache.v, ready: true });
+      if (sundayCache[slot] !== undefined) {
+        if (on) setState({ bg: sundayCache[slot] ?? null, ready: true });
         return;
       }
       try {
         const db = getDb();
         if (!db) {
-          sundayCache.v = null;
+          sundayCache[slot] = null;
           if (on) setState({ bg: null, ready: true });
           return;
         }
         await ensureAnonymousAuth();
-        const snap = await getDoc(doc(db, 'verseBg', 'sunday'));
+        // 시간대 변환본 우선, 없으면 예전 한 장짜리
+        let snap = await getDoc(doc(db, 'verseBg', `sunday-${slot}`));
+        if (!snap.exists()) snap = await getDoc(doc(db, 'verseBg', 'sunday'));
         const img = snap.exists() ? String(snap.get('image') ?? '') : '';
-        sundayCache.v = img ? { uri: img, dark: !!snap.get('dark') } : null;
-        writeDeviceSunday(sundayCache.v);
-        if (on) setState({ bg: sundayCache.v, ready: true });
+        const found = img ? { uri: img, dark: !!snap.get('dark') } : null;
+        sundayCache[slot] = found;
+        writeDeviceSunday(slot, found);
+        if (on) setState({ bg: found, ready: true });
       } catch {
         // 서버 실패 — 기기 저장분이 있으면 유지, 없으면 '없음'으로 확정
-        sundayCache.v = null;
+        sundayCache[slot] = null;
         if (on) setState((s) => ({ ...s, ready: true }));
       }
     })();
     return () => {
       on = false;
     };
-  }, []);
+  }, [slot]);
   return state;
 }
 
@@ -390,7 +400,10 @@ export function useSundayBg(): { bg: { uri: string; dark: boolean } | null; read
  * 주일 전용 배경 저장 — 변환 없이 그대로 쓰되, 평균 밝기를 재서
  * 글씨 색(흰색/남색)을 자동으로 정한다. (웹 전용, 관리자)
  */
-export async function saveSundayBg(file: File): Promise<void> {
+export async function saveSundayBg(
+  file: File,
+  onStatus?: (msg: string) => void,
+): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('데이터베이스 연결이 없습니다.');
   const objUrl = URL.createObjectURL(file);
@@ -419,13 +432,83 @@ export async function saveSundayBg(file: File): Promise<void> {
   let dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.7);
   if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+  // 원본 보관 — 시간대 변환을 다시 하거나, 변환본이 없을 때의 대비
   await setDoc(doc(db, 'verseBg', 'sunday'), {
     image: dataUrl,
     dark,
     updatedAt: new Date().toISOString(),
   });
-  sundayCache.v = { uri: dataUrl, dark };
+  // 평일 말씀 배경과 같은 방식으로 시간대 5종을 함께 만든다
+  await gradeSundayFromImage(img, onStatus);
   URL.revokeObjectURL(objUrl);
+}
+
+/** 주일 그림 한 장 → 시간대 5종 (verseBg/sunday-{slot}) */
+async function gradeSundayFromImage(
+  img: HTMLImageElement,
+  onStatus?: (msg: string) => void,
+): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('캔버스를 만들 수 없습니다.');
+
+  const LABEL: Record<BgSlot, string> = {
+    dawn: '새벽(해돋이)',
+    morning: '아침',
+    afternoon: '오후',
+    evening: '저녁(노을)',
+    night: '밤(달·별)',
+  };
+
+  for (const slot of BG_SLOTS) {
+    onStatus?.(`주일 ${LABEL[slot]} 만드는 중…`);
+    ctx.clearRect(0, 0, W, H);
+    gradeSlot(ctx, img, slot);
+    // 글씨 색은 만들어진 그림의 밝기로 정한다 (밤은 어둡고 아침은 밝다)
+    let dark = true;
+    const small = document.createElement('canvas');
+    small.width = 64;
+    small.height = 32;
+    const sctx = small.getContext('2d');
+    if (sctx) {
+      sctx.drawImage(canvas, 0, 0, 64, 32);
+      const d = sctx.getImageData(0, 0, 64, 32).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      }
+      dark = sum / (d.length / 4) < 115;
+    }
+    let dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+    if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+    await setDoc(doc(db, 'verseBg', `sunday-${slot}`), {
+      image: dataUrl,
+      dark,
+      updatedAt: new Date().toISOString(),
+    });
+    sundayCache[slot] = { uri: dataUrl, dark };
+    if (slot === currentSlot()) writeDeviceSunday(slot, { uri: dataUrl, dark });
+  }
+  onStatus?.('완료 — 주일 카드가 시간대에 따라 바뀝니다.');
+}
+
+/**
+ * 이미 올려둔 주일 그림으로 시간대 5종을 다시 만든다.
+ * 그림을 다시 올릴 필요 없이 버튼 한 번이면 된다.
+ */
+export async function regradeSundayBg(onStatus?: (msg: string) => void): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+  const snap = await getDoc(doc(db, 'verseBg', 'sunday'));
+  const src = snap.exists() ? String(snap.get('image') ?? '') : '';
+  if (!src) throw new Error('등록된 주일 배경이 없습니다. 그림을 먼저 올려주세요.');
+  const img = await loadImage(src);
+  await gradeSundayFromImage(img, onStatus);
 }
 
 /** 주일 전용 배경 삭제 — 시간대 배경으로 복귀 */
@@ -433,8 +516,11 @@ export async function clearSundayBg(): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('데이터베이스 연결이 없습니다.');
   await deleteDoc(doc(db, 'verseBg', 'sunday')).catch(() => {});
-  sundayCache.v = null;
-  writeDeviceSunday(null);
+  for (const slot of BG_SLOTS) {
+    await deleteDoc(doc(db, 'verseBg', `sunday-${slot}`)).catch(() => {});
+    sundayCache[slot] = null;
+  }
+  writeDeviceSunday(currentSlot(), null);
 }
 
 /** 관리자 업로드를 지우고 내장 기본 그림으로 되돌린다 */
