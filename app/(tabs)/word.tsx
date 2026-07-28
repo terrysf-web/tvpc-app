@@ -203,7 +203,7 @@ export default function WordScreen() {
         {tab === 'text' && (
           <>
             <Text style={styles.hlHint}>
-              구절을 누르면 형광펜으로 표시되고, 메모 탭에 담겨 바로 적을 수 있습니다
+              구절을 누르면 형광펜으로 표시되고 메모에 담깁니다
             </Text>
             {verse.passage.map((p) => (
               <Pressable
@@ -370,13 +370,13 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.card,
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   headerTitle: { fontFamily: font.bold, fontSize: 17, color: colors.title },
 
-  hero: { height: 154, justifyContent: 'flex-end' },
-  heroBottom: { padding: 16 },
-  heroRef: { fontFamily: font.extraBold, fontSize: 18, color: '#FFFFFF', ...textShadow },
+  hero: { height: 112, justifyContent: 'flex-end' },
+  heroBottom: { padding: 10 },
+  heroRef: { fontFamily: font.extraBold, fontSize: 16.5, color: '#FFFFFF', ...textShadow },
   heroDate: {
     marginTop: 3,
     fontFamily: font.medium,
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   },
 
   body: { flex: 1 },
-  bodyContent: { padding: 16, paddingBottom: 28 },
+  bodyContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28 },
   verseRow: {
     flexDirection: 'row',
     gap: 10,
@@ -419,8 +419,9 @@ const styles = StyleSheet.create({
   hlHint: {
     fontFamily: font.regular,
     fontSize: 11.5,
+    lineHeight: 16,
     color: colors.faint,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   noteWrap: { marginTop: 18 },
   verseNum: {
