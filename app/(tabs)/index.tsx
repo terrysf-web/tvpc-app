@@ -110,6 +110,12 @@ export default function HomeScreen() {
     : 0;
   const ddayLabel = ddayNum <= 0 ? 'D-DAY' : `D-${ddayNum}`;
 
+  // 유튜브 섬네일 — 없으면 null(그림 대신 색으로 채워짐)
+  const thumb = featured ? sermonThumb(featured) : null;
+  // 섬네일을 못 불러오면(통신 끊김 등) 카드가 텅 비지 않도록 제목을 대신 보여준다
+  const [thumbFailed, setThumbFailed] = React.useState(false);
+  React.useEffect(() => setThumbFailed(false), [thumb]);
+  const showSermonText = !thumb || thumbFailed;
   // 최신 주보 — 교인·관리자는 앱 안 이미지 주보, 그 외는 홈페이지 게시글로 (뷰어에서 분기)
   const openBulletin = () => router.push('/bulletin');
 
@@ -408,26 +414,39 @@ export default function HomeScreen() {
       {featured && !isSunday && (
         <FadeInUp delay={160}>
           <Text style={styles.sectionTitle}>최근 설교</Text>
-          <View style={[styles.sermonWrap, shadows.imageCard]}>
-            <PhotoSlot uri={sermonThumb(featured)} alt={featured.title} tone="deep" style={styles.sermonCard}>
-              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
-              <Pressable
-                style={styles.playBtn}
-                onPress={() => playSermon(featured)}
-                hitSlop={8}
-              >
-                <Play size={20} color={colors.primary} fill={colors.primary} strokeWidth={0} />
-              </Pressable>
-              <View style={styles.sermonBottom}>
-                <Text style={styles.sermonTitle} numberOfLines={2}>
-                  {featured.title}
-                </Text>
-                <Text style={styles.sermonMeta}>
-                  {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
-                </Text>
+          <Pressable
+            style={[styles.sermonWrap, shadows.imageCard]}
+            onPress={() => playSermon(featured)}
+          >
+            <PhotoSlot
+              uri={thumb}
+              alt={featured.title}
+              tone="deep"
+              style={styles.sermonCard}
+              onError={() => setThumbFailed(true)}
+            >
+              {/* 유튜브 섬네일에 이미 설교 제목·강사가 박혀 있어 글씨를 덧씌우지
+                  않는다. 섬네일이 없어 그림이 대신 나올 때만 제목을 보여준다. */}
+              {showSermonText && (
+                <>
+                  <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+                  <View style={styles.sermonBottom}>
+                    <Text style={styles.sermonTitle} numberOfLines={2}>
+                      {featured.title}
+                    </Text>
+                    <Text style={styles.sermonMeta}>
+                      {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                </>
+              )}
+              {/* 섬네일 오른쪽에 제목·강사가 들어가므로 왼쪽 아래 구석에 작게 —
+                  제목을 대신 얹는 경우에는 그 글씨를 피해 오른쪽으로 */}
+              <View style={[styles.playBtn, showSermonText ? styles.playBtnRight : styles.playBtnLeft]}>
+                <Play size={17} color={colors.primary} fill={colors.primary} strokeWidth={0} />
               </View>
             </PhotoSlot>
-          </View>
+          </Pressable>
         </FadeInUp>
       )}
     </ScrollView>
@@ -506,8 +525,8 @@ const styles = StyleSheet.create({
   },
   heroVerse: {
     fontFamily: font.extraBold,
-    fontSize: 22.5,
-    lineHeight: 32,
+    fontSize: 21.5,
+    lineHeight: 31,
     color: '#FFFFFF',
     marginBottom: 16,
     ...textShadow,
@@ -646,17 +665,18 @@ const styles = StyleSheet.create({
   sermonCard: { borderRadius: 18, height: 126, justifyContent: 'flex-end' },
   playBtn: {
     position: 'absolute',
-    right: 18,
-    top: '50%',
-    marginTop: -34,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    bottom: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 3,
+    paddingLeft: 2,
   },
+  // 섬네일이 보일 때는 글씨가 없는 왼쪽(인물 쪽), 제목을 대신 얹을 때는 반대쪽
+  playBtnLeft: { left: 12 },
+  playBtnRight: { right: 12 },
   sermonBottom: { padding: 16 },
   sermonTitle: { fontFamily: font.extraBold, fontSize: 15.5, color: '#FFFFFF', ...textShadow },
   sermonMeta: {

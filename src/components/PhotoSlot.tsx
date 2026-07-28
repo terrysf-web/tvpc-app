@@ -14,6 +14,8 @@ interface Props {
   tone?: 'deep' | 'light';
   /** 스크린리더·검색엔진용 그림 설명 (웹에서는 alt 속성이 된다) */
   alt?: string;
+  /** 그림을 못 불러왔을 때 — 부모가 대신 글씨를 보여줄 수 있게 알려준다 */
+  onError?: () => void;
   children?: React.ReactNode;
 }
 
@@ -22,10 +24,16 @@ interface Props {
  * URL이 없거나 로딩 중이면 그라데이션 배경을 보여준다.
  * deep 톤은 단색 대신 빛 번짐·링 장식을 얹은 레이어드 배경.
  */
-export function PhotoSlot({ uri, style, tone = 'light', alt, children }: Props) {
+export function PhotoSlot({ uri, style, tone = 'light', alt, onError, children }: Props) {
+  // 주소는 있는데 그림을 못 불러온 경우(통신 끊김·삭제된 썸네일)에도
+  // 빈 네모가 남지 않도록, 아래 그라데이션 배경으로 되돌린다.
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => setFailed(false), [uri]);
+  const showImage = !!uri && !failed;
+
   return (
     <View style={[styles.base, style]}>
-      {uri ? (
+      {showImage ? (
         <Image
           source={{ uri }}
           style={StyleSheet.absoluteFill}
@@ -34,6 +42,10 @@ export function PhotoSlot({ uri, style, tone = 'light', alt, children }: Props) 
           placeholder={null}
           alt={alt ?? ''}
           accessibilityLabel={alt}
+          onError={() => {
+            setFailed(true);
+            onError?.();
+          }}
         />
       ) : tone === 'deep' ? (
         <>
