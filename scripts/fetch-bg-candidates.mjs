@@ -18,16 +18,16 @@ const H = 730;
 const OUT = 'preview/bg-candidates';
 mkdirSync(OUT, { recursive: true });
 
-// 교회 안의 빛 — 스테인드글라스·창으로 드는 빛·촛불
+// 넓은 하늘과 들판 — 여백이 많아 글씨가 편히 얹히는 장면
 const QUERIES = [
-  'church sanctuary interior light',
-  'church interior sunbeam pews',
-  'sunlight through window sanctuary',
-  'chapel light interior calm',
-  'cross light church wall',
-  'stained glass light on floor',
-  'church window morning light',
-  'worship hall light empty',
+  'green field blue sky clouds',
+  'grass meadow horizon sky',
+  'wheat field sky horizon',
+  'open field sky minimal',
+  'sky clouds horizon calm',
+  'meadow sunlight wide sky',
+  'hill grass sky clouds',
+  'field horizon morning light',
 ];
 
 const picked = [];
