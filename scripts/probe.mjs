@@ -36,7 +36,23 @@ try {
 }
 console.log(`HTTP ${res.status}, ${buf.length}B, charset=${charset || 'utf-8'}, 최종주소 ${res.url}`);
 
-if (mode === 'raw') {
+if (mode === 'youtube') {
+  // 유튜브 채널/목록 페이지에서 영상 제목·길이·올린 시점만 뽑는다
+  const seen = new Set();
+  let n = 0;
+  for (const m of html.matchAll(/"videoId":"([\w-]{11})"/g)) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    const around = html.slice(m.index, m.index + 2500);
+    const title = around.match(/"title":\{"runs":\[\{"text":"([^"]{1,120})"/)?.[1] ?? '';
+    const len = around.match(/"lengthText":\{[^}]*"simpleText":"([\d:]+)"/)?.[1] ?? '';
+    const when = around.match(/"publishedTimeText":\{"simpleText":"([^"]{1,30})"/)?.[1] ?? '';
+    if (!title) continue;
+    console.log(`${(len || '(생중계/예정)').padStart(10)}  ${when.padEnd(14)} ${title}`);
+    if (++n >= 15) break;
+  }
+  console.log(`(영상 ${n}건)`);
+} else if (mode === 'raw') {
   console.log(html.replace(/\s+/g, ' '));
 } else if (mode === 'links') {
   const seen = new Set();
