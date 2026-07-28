@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import { Image, type ImageProps } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
@@ -16,6 +16,8 @@ interface Props {
   alt?: string;
   /** 그림을 못 불러왔을 때 — 부모가 대신 글씨를 보여줄 수 있게 알려준다 */
   onError?: () => void;
+  /** 잘라 채울 때 어느 쪽에 맞출지 (기본 가운데) */
+  contentPosition?: ImageProps['contentPosition'];
   children?: React.ReactNode;
 }
 
@@ -24,7 +26,7 @@ interface Props {
  * URL이 없거나 로딩 중이면 그라데이션 배경을 보여준다.
  * deep 톤은 단색 대신 빛 번짐·링 장식을 얹은 레이어드 배경.
  */
-export function PhotoSlot({ uri, style, tone = 'light', alt, onError, children }: Props) {
+export function PhotoSlot({ uri, style, tone = 'light', alt, onError, contentPosition, children }: Props) {
   // 주소는 있는데 그림을 못 불러온 경우(통신 끊김·삭제된 썸네일)에도
   // 빈 네모가 남지 않도록, 아래 그라데이션 배경으로 되돌린다.
   const [failed, setFailed] = React.useState(false);
@@ -38,6 +40,7 @@ export function PhotoSlot({ uri, style, tone = 'light', alt, onError, children }
           source={{ uri }}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
+          contentPosition={contentPosition}
           transition={200}
           placeholder={null}
           alt={alt ?? ''}

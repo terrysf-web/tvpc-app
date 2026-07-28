@@ -116,7 +116,7 @@ export default function MediaScreen() {
                   style={[styles.card, shadows.imageCard]}
                   onPress={() => openVideo(v)}
                 >
-                  <PhotoSlot uri={sermonThumb(v)} alt={v.title} tone="deep" style={styles.cover}>
+                  <PhotoSlot uri={sermonThumb(v)} alt={v.title} tone="deep" style={styles.coverVideo}>
                     <View style={styles.playBtn}>
                       <Play size={17} color={colors.primary} fill={colors.primary} strokeWidth={0} />
                     </View>
@@ -153,6 +153,9 @@ const styles = StyleSheet.create({
   },
   emptyCard: { alignItems: 'center', paddingVertical: 30 },
   cover: { width: '100%', aspectRatio: 16 / 10 },
+  // 유튜브 섬네일은 4:3에 검은 띠가 있는 그림이라, 16:9로 두면 띠만
+  // 정확히 잘려 나가고 영상은 하나도 안 잘린다
+  coverVideo: { width: '100%', aspectRatio: 16 / 9 },
   coverIcon: {
     position: 'absolute',
     top: 0,

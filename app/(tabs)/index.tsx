@@ -26,6 +26,15 @@ import { openLiveWorship, openWorshipReplay, playSermon, sermonThumb } from '../
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
 
+/**
+ * 유튜브 섬네일(hqdefault)은 480×360, 곧 16:9 영상 위아래에 검은 띠를 덧댄
+ * 4:3 그림이다. 카드에 맞춰 가운데를 자르면 띠 두께만큼 영상 윗부분이
+ * 함께 잘려 설교자 머리가 날아간다. 아래 값은 '영상의 맨 윗줄'을 카드
+ * 위끝에 맞추는 세로 위치 — 카드를 비율(2.4:1)로 고정했기에 화면 폭이
+ * 달라져도 그대로다.  띠높이 0.125·0.75W ÷ (0.75W − W/2.4) = 0.281
+ */
+const YT_TOP = { top: '28.1%', left: '50%' } as const;
+
 /** 시간대 — 아침(6~12) · 오후(12~18) · 저녁(18~20) · 밤(20~24) · 새벽(0~6) */
 function timeSlot(): 'morning' | 'afternoon' | 'evening' | 'night' | 'dawn' {
   const h = new Date().getHours();
@@ -212,7 +221,7 @@ export default function HomeScreen() {
       style={styles.screen}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: Math.max(insets.top, 28) + 24 },
+        { paddingTop: Math.max(insets.top, 28) + 12 },
       ]}
       showsVerticalScrollIndicator={false}
     >
@@ -424,6 +433,7 @@ export default function HomeScreen() {
               tone="deep"
               style={styles.sermonCard}
               onError={() => setThumbFailed(true)}
+              contentPosition={YT_TOP}
             >
               {/* 유튜브 섬네일에 이미 설교 제목·강사가 박혀 있어 글씨를 덧씌우지
                   않는다. 섬네일이 없어 그림이 대신 나올 때만 제목을 보여준다. */}
@@ -493,7 +503,7 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
   },
 
-  heroWrap: { borderRadius: 22, marginBottom: 15 },
+  heroWrap: { borderRadius: 22, marginBottom: 12 },
   hero: { borderRadius: 22, minHeight: 222, padding: 18, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
@@ -602,7 +612,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   quickCard: {
     flex: 1,
     backgroundColor: colors.card,
@@ -628,7 +638,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 10,
-    marginBottom: 13,
+    marginBottom: 11,
   },
   eventDateBox: {
     width: 42,
@@ -662,7 +672,7 @@ const styles = StyleSheet.create({
   eventDetailDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
 
   sermonWrap: { borderRadius: 18 },
-  sermonCard: { borderRadius: 18, height: 126, justifyContent: 'flex-end' },
+  sermonCard: { borderRadius: 18, aspectRatio: 2.4, justifyContent: 'flex-end' },
   playBtn: {
     position: 'absolute',
     bottom: 12,

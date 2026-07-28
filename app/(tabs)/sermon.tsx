@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
@@ -46,6 +46,11 @@ export default function SermonScreen() {
   const podcasts = all.filter((s) => s.category === 'podcast');
 
   const featured = sermons.find((s) => s.featured) ?? sermons[0];
+  // 섬네일을 못 불러오면 카드가 텅 비지 않도록 제목을 대신 보여준다
+  const featuredThumb = featured ? sermonThumb(featured) : null;
+  const [featuredFailed, setFeaturedFailed] = useState(false);
+  useEffect(() => setFeaturedFailed(false), [featuredThumb]);
+  const showFeaturedText = !featuredThumb || featuredFailed;
   const rest = sermons.filter((s) => s !== featured);
 
   /** 말씀별 탭 — 성경책별 그룹 */
@@ -96,27 +101,44 @@ export default function SermonScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {tab === 'recent' && featured && (
-          <View style={[styles.featuredWrap, shadows.imageCard]}>
-            <PhotoSlot uri={sermonThumb(featured)} alt={featured.title} tone="deep" style={styles.featured}>
-              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
-              <Pressable style={styles.playBtn} onPress={() => playSermon(featured)} hitSlop={8}>
-                <Play size={22} color={colors.primary} fill={colors.primary} strokeWidth={0} />
-              </Pressable>
+          <Pressable
+            style={[styles.featuredWrap, shadows.imageCard]}
+            onPress={() => playSermon(featured)}
+          >
+            <PhotoSlot
+              uri={featuredThumb}
+              alt={featured.title}
+              tone="deep"
+              style={styles.featured}
+              onError={() => setFeaturedFailed(true)}
+            >
+              {/* 섬네일에 이미 제목·강사가 박혀 있어 같은 글씨를 덧씌우지 않는다.
+                  섬네일이 없거나 못 불러왔을 때만 제목을 대신 보여준다. */}
+              {showFeaturedText && (
+                <>
+                  <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+                  <View style={styles.featuredBottom}>
+                    <Text style={styles.featuredTitle} numberOfLines={2}>
+                      {featured.title}
+                    </Text>
+                    <Text style={styles.featuredMeta}>
+                      {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                </>
+              )}
               {featured.duration ? (
                 <View style={styles.durationBadge}>
                   <Text style={styles.durationText}>{featured.duration}</Text>
                 </View>
               ) : null}
-              <View style={styles.featuredBottom}>
-                <Text style={styles.featuredTitle} numberOfLines={2}>
-                  {featured.title}
-                </Text>
-                <Text style={styles.featuredMeta}>
-                  {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
-                </Text>
+              <View
+                style={[styles.playBtn, showFeaturedText ? styles.playBtnRight : styles.playBtnLeft]}
+              >
+                <Play size={19} color={colors.primary} fill={colors.primary} strokeWidth={0} />
               </View>
             </PhotoSlot>
-          </View>
+          </Pressable>
         )}
 
         {tab === 'recent' && rest.map(listItem)}
@@ -151,23 +173,28 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 28 },
 
   featuredWrap: { borderRadius: 18, marginBottom: 4 },
-  featured: { borderRadius: 18, height: 176, justifyContent: 'flex-end' },
+  // 유튜브 섬네일(4:3에 검은 띠)을 16:9로 담으면 띠만 잘리고 영상은 온전히 보인다
+  featured: { borderRadius: 18, aspectRatio: 16 / 9, justifyContent: 'flex-end' },
+  // 섬네일 글씨를 가리지 않게 아래 구석에 — 섬네일이 보일 때는 인물 쪽인
+  // 왼쪽, 제목을 대신 얹을 때는 그 글씨를 피해 오른쪽
   playBtn: {
     position: 'absolute',
-    alignSelf: 'center',
-    top: 88 - 27 - 14,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#FFFFFF',
+    bottom: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 3,
   },
+  playBtnLeft: { left: 12 },
+  playBtnRight: { right: 12 },
+  // 재생 단추(아래 구석)·제목과 겹치지 않게 위쪽 구석으로
   durationBadge: {
     position: 'absolute',
     right: 12,
-    bottom: 58,
+    top: 12,
     backgroundColor: 'rgba(10,20,38,0.72)',
     borderRadius: 6,
     paddingHorizontal: 7,
@@ -208,7 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 0,
   },
-  thumb: { width: 96, height: 60, borderRadius: 10 },
+  thumb: { width: 96, height: 54, borderRadius: 10 },
   thumbBadge: {
     position: 'absolute',
     right: 5,
