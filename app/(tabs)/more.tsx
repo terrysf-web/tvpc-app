@@ -3,6 +3,7 @@ import {
   BellRing,
   Building2,
   ChevronRight,
+  CircleQuestionMark,
   Clock,
   Download,
   HeartHandshake,
@@ -49,6 +50,7 @@ const MENU = [
   { key: 'restore', label: '메모 가져오기 (백업 복원)', icon: Upload },
   { key: 'install', label: '홈 화면에 추가하기', icon: SquarePlus },
   { key: 'share', label: '앱 공유하기', icon: Share2 },
+  { key: 'help', label: '앱 사용 도움말', icon: CircleQuestionMark },
   { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;
 
@@ -128,6 +130,10 @@ export default function MoreScreen() {
         message:
           '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요.\nhttps://app.tvpc.church',
       }).catch(() => {});
+      return;
+    }
+    if (key === 'help') {
+      router.push('/help');
       return;
     }
     if (key === 'album') {
