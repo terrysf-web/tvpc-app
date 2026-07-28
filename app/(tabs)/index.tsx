@@ -128,6 +128,9 @@ export default function HomeScreen() {
   const liveEnded = isSunday && phase !== 'live';
   // 월요일은 예배로 나아가는 날이 아니라, 주일의 은혜가 남아 있는 날
   const isMonday = phase === 'monday';
+  // 최근 설교와 다가오는 일정을 반반으로 나란히 놓을 수 있는 상황인지 —
+  // 주일·월요일에는 위 예배 카드와 겹쳐 설교 칸을 접으므로 일정이 폭을 다 쓴다.
+  const twoCol = !!featured && !isSunday;
   // 어떤 내용·배경이 정답인지 확정되기 전에는 히어로를 그리지 않는다 —
   // 옛 구절이나 기본 그림이 번쩍였다가 바뀌면 혼란스럽기 때문.
   const heroReady = isSunday
@@ -356,76 +359,90 @@ export default function HomeScreen() {
         </View>
       </FadeInUp>
 
-      {/* 4. 다가오는 일정 */}
-      {nextEvent && (
-        <FadeInUp delay={120}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>다가오는 일정</Text>
-            <Pressable hitSlop={8} onPress={() => router.push('/calendar')}>
-              <Text style={styles.sectionLink}>전체 달력 ›</Text>
-            </Pressable>
-          </View>
-          {/* 배경 없이 날짜 박스 + D-day 배지의 깔끔한 카드 */}
-          <Pressable
-            style={[styles.eventPlain, shadows.card]}
-            onPress={() => {
-              // 일정이 하나이고 상세 링크가 있으면 바로 열고, 여러 개면 달력으로
-              if (nextDayEvents.length === 1 && nextEvent.url) {
-                router.push({
-                  pathname: '/browser',
-                  params: { url: nextEvent.url, t: nextEvent.title },
-                });
-              } else {
-                router.push('/calendar');
-              }
-            }}
-          >
-            <View style={styles.eventDateBox}>
-              <Text style={styles.eventDateBoxMonth}>{nextMonth}월</Text>
-              <Text style={styles.eventDateBoxDay}>{nextDay}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eventPlainCaption}>{nextWeekday}요일</Text>
-              {nextDayEvents.map((e) => (
-                <View key={e.id} style={styles.eventRow}>
-                  <Text style={styles.eventPlainTitle}>{e.title}</Text>
-                  {!!e.detail && <Text style={styles.eventPlainDetail}>{e.detail}</Text>}
-                </View>
-              ))}
-            </View>
-            <View style={styles.ddayChip}>
-              <Text style={styles.ddayChipText}>{ddayLabel}</Text>
-            </View>
-          </Pressable>
-        </FadeInUp>
-      )}
-
-      {/* 5. 최근 설교 — 주일에는 예배(온라인 예배)와 겹쳐 보여 숨긴다 */}
-      {featured && !isSunday && (
-        <FadeInUp delay={160}>
-          <Text style={styles.sectionTitle}>최근 설교</Text>
-          <View style={[styles.sermonWrap, shadows.imageCard]}>
-            <PhotoSlot uri={sermonThumb(featured)} alt={featured.title} tone="deep" style={styles.sermonCard}>
-              <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+      {/* 4. 최근 설교(왼쪽) · 다가오는 일정(오른쪽) — 나란히 둬서 둘 다 한눈에 */}
+      <FadeInUp delay={120}>
+        <View style={styles.duoRow}>
+          {/* 최근 설교 — 주일·월요일에는 위 예배 카드와 겹쳐 숨긴다 */}
+          {twoCol && featured && (
+            <View style={styles.duoCol}>
+              <Text style={styles.sectionTitle}>최근 설교</Text>
               <Pressable
-                style={styles.playBtn}
+                style={[styles.sermonWrap, shadows.imageCard]}
                 onPress={() => playSermon(featured)}
-                hitSlop={8}
               >
-                <Play size={20} color={colors.primary} fill={colors.primary} strokeWidth={0} />
+                <PhotoSlot
+                  uri={sermonThumb(featured)}
+                  alt={featured.title}
+                  tone="deep"
+                  style={styles.sermonCard}
+                >
+                  <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
+                  <View style={styles.playBtnSmall}>
+                    <Play size={16} color={colors.primary} fill={colors.primary} strokeWidth={0} />
+                  </View>
+                  <View style={styles.sermonBottom}>
+                    <Text style={styles.sermonTitle} numberOfLines={2}>
+                      {featured.title}
+                    </Text>
+                    <Text style={styles.sermonMeta} numberOfLines={1}>
+                      {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                </PhotoSlot>
               </Pressable>
-              <View style={styles.sermonBottom}>
-                <Text style={styles.sermonTitle} numberOfLines={2}>
-                  {featured.title}
-                </Text>
-                <Text style={styles.sermonMeta}>
-                  {[featured.subtitle, featured.preacher].filter(Boolean).join(' · ')}
-                </Text>
+            </View>
+          )}
+
+          {/* 다가오는 일정 */}
+          {nextEvent && (
+            <View style={styles.duoCol}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>다가오는 일정</Text>
+                <Pressable hitSlop={8} onPress={() => router.push('/calendar')}>
+                  <Text style={styles.sectionLink}>달력 ›</Text>
+                </Pressable>
               </View>
-            </PhotoSlot>
-          </View>
-        </FadeInUp>
-      )}
+              <Pressable
+                style={[styles.eventCol, !twoCol && styles.eventColWide, shadows.card]}
+                onPress={() => {
+                  // 일정이 하나이고 상세 링크가 있으면 바로 열고, 여러 개면 달력으로
+                  if (nextDayEvents.length === 1 && nextEvent.url) {
+                    router.push({
+                      pathname: '/browser',
+                      params: { url: nextEvent.url, t: nextEvent.title },
+                    });
+                  } else {
+                    router.push('/calendar');
+                  }
+                }}
+              >
+                <View style={styles.eventColTop}>
+                  <View style={styles.eventDateBox}>
+                    <Text style={styles.eventDateBoxMonth}>{nextMonth}월</Text>
+                    <Text style={styles.eventDateBoxDay}>{nextDay}</Text>
+                  </View>
+                  <View style={styles.ddayChip}>
+                    <Text style={styles.ddayChipText}>{ddayLabel}</Text>
+                  </View>
+                </View>
+                <Text style={styles.eventPlainCaption}>{nextWeekday}요일</Text>
+                {nextDayEvents.slice(0, 2).map((e) => (
+                  <View key={e.id} style={styles.eventRow}>
+                    <Text style={styles.eventPlainTitle} numberOfLines={1}>
+                      {e.title}
+                    </Text>
+                    {!!e.detail && (
+                      <Text style={styles.eventPlainDetail} numberOfLines={1}>
+                        {e.detail}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </FadeInUp>
     </ScrollView>
   );
 }
@@ -471,7 +488,7 @@ const styles = StyleSheet.create({
   },
 
   heroWrap: { borderRadius: 22, marginBottom: 15 },
-  hero: { borderRadius: 22, minHeight: 196, padding: 16, justifyContent: 'space-between' },
+  hero: { borderRadius: 22, minHeight: 224, padding: 16, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
     backgroundColor: 'rgba(10,26,52,0.45)',
@@ -492,7 +509,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...textShadow,
   },
-  heroBottom: { marginTop: 14 },
+  heroBottom: { marginTop: 18 },
   heroRef: {
     fontFamily: font.bold,
     fontSize: 13,
@@ -502,10 +519,10 @@ const styles = StyleSheet.create({
   },
   heroVerse: {
     fontFamily: font.extraBold,
-    fontSize: 21,
-    lineHeight: 30,
+    fontSize: 22,
+    lineHeight: 32,
     color: '#FFFFFF',
-    marginBottom: 12,
+    marginBottom: 14,
     ...textShadow,
   },
   heroBtn: {
@@ -571,7 +588,7 @@ const styles = StyleSheet.create({
     fontFamily: font.extraBold,
     fontSize: 15.5,
     color: colors.title,
-    marginBottom: 9,
+    marginBottom: 10,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -579,37 +596,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   quickCard: {
     flex: 1,
     backgroundColor: colors.card,
     borderRadius: 15,
-    paddingVertical: 11,
+    paddingVertical: 14,
     alignItems: 'center',
     gap: 6,
   },
   quickChip: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickLabel: { fontFamily: font.medium, fontSize: 12, color: colors.body },
 
-  eventWrap: { borderRadius: 18, marginBottom: 22 },
-  eventPlain: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+  duoRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  duoCol: { flex: 1 },
+  eventCol: {
     backgroundColor: colors.card,
     borderRadius: 16,
-    padding: 12,
-    marginBottom: 15,
+    padding: 13,
+    height: 152,
+    justifyContent: 'flex-start',
   },
+  // 설교 카드가 없는 주일에는 폭이 넓어지므로 높이를 내용에 맞춘다
+  eventColWide: { height: 'auto' },
+  eventColTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+
   eventDateBox: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -618,7 +643,7 @@ const styles = StyleSheet.create({
   eventDateBoxMonth: { fontFamily: font.bold, fontSize: 11, color: 'rgba(255,255,255,0.85)' },
   eventDateBoxDay: { fontFamily: font.extraBold, fontSize: 20, color: '#FFFFFF', marginTop: 1 },
   eventPlainCaption: { fontFamily: font.medium, fontSize: 12, color: colors.muted },
-  eventPlainTitle: { fontFamily: font.extraBold, fontSize: 15.5, color: colors.title, marginTop: 2 },
+  eventPlainTitle: { fontFamily: font.extraBold, fontSize: 14.5, color: colors.title, marginTop: 2 },
   eventPlainDetail: { fontFamily: font.regular, fontSize: 12.5, color: colors.muted, marginTop: 2 },
   ddayChip: {
     backgroundColor: colors.tagBlueBg,
@@ -627,34 +652,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   ddayChipText: { fontFamily: font.bold, fontSize: 11.5, color: colors.primary },
-  eventCard: { borderRadius: 18, minHeight: 100, justifyContent: 'center' },
-  eventTextCol: { paddingHorizontal: 18, paddingVertical: 16, gap: 2 },
   eventRow: { marginTop: 5 },
-  eventDate: { fontFamily: font.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)', ...textShadow },
-  eventTitle: { fontFamily: font.extraBold, fontSize: 16.5, color: '#FFFFFF', ...textShadow },
-  eventDetail: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.85)', ...textShadow },
-  // 밝은 기본 배경용 — 진한 남색 글씨
-  eventDateDark: { color: '#1D5C9E', textShadowColor: 'transparent', textShadowRadius: 0 },
-  eventTitleDark: { color: '#122B4F', textShadowColor: 'transparent', textShadowRadius: 0 },
-  eventDetailDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
-
-  sermonWrap: { borderRadius: 18 },
-  sermonCard: { borderRadius: 18, height: 126, justifyContent: 'flex-end' },
-  playBtn: {
+  sermonWrap: { borderRadius: 16 },
+  sermonCard: { borderRadius: 16, height: 152, justifyContent: 'flex-end' },
+  // 반쪽 너비 카드라 재생 단추는 작게, 제목과 겹치지 않게 오른쪽 위에 둔다
+  playBtnSmall: {
     position: 'absolute',
-    right: 18,
-    top: '50%',
-    marginTop: -34,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    right: 10,
+    top: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 3,
+    paddingLeft: 2,
   },
-  sermonBottom: { padding: 16 },
-  sermonTitle: { fontFamily: font.extraBold, fontSize: 15.5, color: '#FFFFFF', ...textShadow },
+  sermonBottom: { padding: 11 },
+  sermonTitle: { fontFamily: font.extraBold, fontSize: 14, lineHeight: 19, color: '#FFFFFF', ...textShadow },
   sermonMeta: {
     marginTop: 4,
     fontFamily: font.medium,
