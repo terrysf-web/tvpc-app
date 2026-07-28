@@ -8,5 +8,25 @@
     "page": "https://commons.wikimedia.org/w/index.php?curid=194749304",
     "calm": 38,
     "lum": 107
+  },
+  {
+    "name": "cand-02",
+    "term": "calm lake sunrise mist",
+    "title": "Low tide on the river Minho estuary in the evening during sunset, Caminha, Viana do Castelo, Portugal, January 2024 (53449791274)",
+    "license": "BY 2.0",
+    "author": "Sergei Gussev",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=176548865",
+    "calm": 68,
+    "lum": 123
+  },
+  {
+    "name": "cand-03",
+    "term": "sunrise over sea calm",
+    "title": "A tranquil beach scene at sunrise, with a partially cloudy sky. The sun is low on the horizon, casting a soft glow over the calm sea. Two small boats are silhouetted in the distance, and a few people are walking along the beach",
+    "license": "CC0 1.0",
+    "author": "Shakil Mollah",
+    "page": "https://wordpress.org/photos/photo/596779dfa2/",
+    "calm": 37,
+    "lum": 136
   }
 ]
