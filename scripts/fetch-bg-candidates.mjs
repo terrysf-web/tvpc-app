@@ -18,18 +18,14 @@ const H = 730;
 const OUT = 'preview/bg-candidates';
 mkdirSync(OUT, { recursive: true });
 
-// 말씀·묵상에 어울리는 장면
+// 교회 안의 빛 — 스테인드글라스·창으로 드는 빛·촛불
 const QUERIES = [
-  'open bible sunlight',
-  'bible pages light',
-  'wheat field golden hour',
-  'sunbeam forest morning',
-  'calm lake sunrise mist',
-  'mountain sunrise clouds',
-  'sunrise over sea calm',
-  'light rays clouds sky',
-  'church window light',
-  'path meadow morning light',
+  'stained glass window light church',
+  'church interior sunbeam light',
+  'cathedral window light rays',
+  'chapel morning light interior',
+  'church cross light silhouette',
+  'candle light church altar',
 ];
 
 const picked = [];
