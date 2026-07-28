@@ -319,7 +319,10 @@ export default function HomeScreen() {
                 <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
                   {verse.reference}
                 </Text>
-                <Text style={[styles.heroVerse, !verse.imageUrl && !bg.dark && styles.heroVerseDark]}>
+                <Text
+                  style={[styles.heroVerse, !verse.imageUrl && !bg.dark && styles.heroVerseDark]}
+                  numberOfLines={2}
+                >
                   {verse.heroText}
                 </Text>
                 <Pressable
@@ -431,7 +434,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
 
-  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   greetingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   greetingTitle: {
     fontFamily: font.extraBold,
@@ -467,8 +470,8 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
   },
 
-  heroWrap: { borderRadius: 22, marginBottom: 22 },
-  hero: { borderRadius: 22, minHeight: 222, padding: 18, justifyContent: 'space-between' },
+  heroWrap: { borderRadius: 22, marginBottom: 15 },
+  hero: { borderRadius: 22, minHeight: 196, padding: 16, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
     backgroundColor: 'rgba(10,26,52,0.45)',
@@ -489,7 +492,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...textShadow,
   },
-  heroBottom: { marginTop: 26 },
+  heroBottom: { marginTop: 14 },
   heroRef: {
     fontFamily: font.bold,
     fontSize: 13,
@@ -499,10 +502,10 @@ const styles = StyleSheet.create({
   },
   heroVerse: {
     fontFamily: font.extraBold,
-    fontSize: 22.5,
-    lineHeight: 32,
+    fontSize: 21,
+    lineHeight: 30,
     color: '#FFFFFF',
-    marginBottom: 16,
+    marginBottom: 12,
     ...textShadow,
   },
   heroBtn: {
@@ -566,9 +569,9 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontFamily: font.extraBold,
-    fontSize: 16,
+    fontSize: 15.5,
     color: colors.title,
-    marginBottom: 12,
+    marginBottom: 9,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -576,19 +579,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 11, marginBottom: 22 },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
   quickCard: {
     flex: 1,
     backgroundColor: colors.card,
     borderRadius: 15,
-    paddingVertical: 14,
+    paddingVertical: 11,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   quickChip: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -598,15 +601,15 @@ const styles = StyleSheet.create({
   eventPlain: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 14,
+    gap: 12,
     backgroundColor: colors.card,
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 22,
+    padding: 12,
+    marginBottom: 15,
   },
   eventDateBox: {
-    width: 54,
-    height: 54,
+    width: 48,
+    height: 48,
     borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -636,7 +639,7 @@ const styles = StyleSheet.create({
   eventDetailDark: { color: '#17406E', textShadowColor: 'transparent', textShadowRadius: 0 },
 
   sermonWrap: { borderRadius: 18 },
-  sermonCard: { borderRadius: 18, height: 164, justifyContent: 'flex-end' },
+  sermonCard: { borderRadius: 18, height: 126, justifyContent: 'flex-end' },
   playBtn: {
     position: 'absolute',
     right: 18,
