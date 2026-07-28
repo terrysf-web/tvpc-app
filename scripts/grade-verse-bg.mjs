@@ -72,45 +72,43 @@ await sharp(base)
       input: svgOverlay(`
         <linearGradient id="d" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#3D4C7E" stop-opacity="0.55"/>
-          <stop offset="0.45" stop-color="#8A6E8C" stop-opacity="0.35"/>
-          <stop offset="0.62" stop-color="#F5A65E" stop-opacity="0.35"/>
-          <stop offset="1" stop-color="#2E3A5C" stop-opacity="0.35"/>
+          <stop offset="0.45" stop-color="#8A6E8C" stop-opacity="0.32"/>
+          <stop offset="0.72" stop-color="#F5B478" stop-opacity="0.3"/>
+          <stop offset="1" stop-color="#2E3A5C" stop-opacity="0.4"/>
         </linearGradient>
         <rect width="${W}" height="${H}" fill="url(#d)"/>
-        <radialGradient id="g" cx="0.80" cy="0.32" r="0.34">
-          <stop offset="0" stop-color="#FFE9B0" stop-opacity="0.95"/>
-          <stop offset="0.35" stop-color="#FFC97E" stop-opacity="0.45"/>
-          <stop offset="0.8" stop-color="#FFC97E" stop-opacity="0"/>
+        <radialGradient id="g" cx="0.86" cy="0.14" r="0.6">
+          <stop offset="0" stop-color="#FFE2B4" stop-opacity="0.45"/>
+          <stop offset="0.45" stop-color="#FFCD96" stop-opacity="0.14"/>
+          <stop offset="1" stop-color="#FFCD96" stop-opacity="0"/>
         </radialGradient>
-        <rect width="${W}" height="${H}" fill="url(#g)"/>
-        <circle cx="${W * 0.8}" cy="${H * 0.32}" r="40" fill="#FFF3CE"/>`),
+        <rect width="${W}" height="${H}" fill="url(#g)"/>`),
       blend: 'over',
     },
   ])
   .jpeg({ quality: 88 })
   .toFile('public/verse-bg-dawn.jpg');
-console.log('✓ dawn (해돋이)');
+console.log('✓ dawn (여명)');
 
 // 저녁 — 노을
 await sharp(base)
-  .modulate({ brightness: 0.82, saturation: 0.95 })
+  .modulate({ brightness: 0.86, saturation: 1.06 })
   .composite([
     {
       input: svgOverlay(`
         <linearGradient id="e" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#4A4478" stop-opacity="0.45"/>
-          <stop offset="0.4" stop-color="#B06188" stop-opacity="0.4"/>
-          <stop offset="0.7" stop-color="#F08A50" stop-opacity="0.45"/>
-          <stop offset="1" stop-color="#8A4A3C" stop-opacity="0.4"/>
+          <stop offset="0" stop-color="#4A4478" stop-opacity="0.5"/>
+          <stop offset="0.45" stop-color="#B06188" stop-opacity="0.34"/>
+          <stop offset="0.78" stop-color="#E8834C" stop-opacity="0.34"/>
+          <stop offset="1" stop-color="#6E3A30" stop-opacity="0.46"/>
         </linearGradient>
         <rect width="${W}" height="${H}" fill="url(#e)"/>
-        <radialGradient id="g" cx="0.78" cy="0.30" r="0.3">
-          <stop offset="0" stop-color="#FFE0A0" stop-opacity="0.85"/>
-          <stop offset="0.5" stop-color="#FFC97E" stop-opacity="0.3"/>
-          <stop offset="1" stop-color="#FFC97E" stop-opacity="0"/>
+        <radialGradient id="g" cx="0.86" cy="0.16" r="0.62">
+          <stop offset="0" stop-color="#FFD79A" stop-opacity="0.5"/>
+          <stop offset="0.45" stop-color="#FFB46E" stop-opacity="0.16"/>
+          <stop offset="1" stop-color="#FFB46E" stop-opacity="0"/>
         </radialGradient>
-        <rect width="${W}" height="${H}" fill="url(#g)"/>
-        <circle cx="${W * 0.78}" cy="${H * 0.3}" r="36" fill="#FFE9B8"/>`),
+        <rect width="${W}" height="${H}" fill="url(#g)"/>`),
       blend: 'over',
     },
   ])
@@ -118,34 +116,29 @@ await sharp(base)
   .toFile('public/verse-bg-evening.jpg');
 console.log('✓ evening (노을)');
 
-// 밤 — 어두운 파랑 + 달과 별
-const stars = Array.from({ length: 14 }, (_, i) => {
-  const x = ((i * 397) % W) | 0;
-  const y = ((i * 173) % (H * 0.45)) | 0;
-  const r = 1.6 + (i % 3) * 0.6;
-  const o = 0.5 + (i % 4) * 0.12;
-  return `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFFFFF" opacity="${o}"/>`;
-}).join('');
+// 밤 — 달·별을 그리지 않고 짙은 남색과 달빛으로만
 await sharp(base)
-  .modulate({ brightness: 0.5, saturation: 0.6 })
+  .modulate({ brightness: 0.52, saturation: 0.62 })
   .composite([
     {
       input: svgOverlay(`
-        <rect width="${W}" height="${H}" fill="#12244C" opacity="0.55"/>
-        <radialGradient id="m" cx="0.79" cy="0.2" r="0.26">
-          <stop offset="0" stop-color="#E8F0FF" stop-opacity="0.4"/>
-          <stop offset="1" stop-color="#E8F0FF" stop-opacity="0"/>
+        <rect width="${W}" height="${H}" fill="#12244C" opacity="0.5"/>
+        <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
+          <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.3"/>
+          <stop offset="0.45" stop-color="#BED4FA" stop-opacity="0.1"/>
+          <stop offset="1" stop-color="#BED4FA" stop-opacity="0"/>
         </radialGradient>
         <rect width="${W}" height="${H}" fill="url(#m)"/>
-        <circle cx="${W * 0.79}" cy="${H * 0.2}" r="42" fill="#F2ECD4"/>
-        <circle cx="${W * 0.79 - 15}" cy="${H * 0.2 - 12}" r="8" fill="#DED7BC" opacity="0.6"/>
-        <circle cx="${W * 0.79 + 14}" cy="${H * 0.2 + 14}" r="5" fill="#DED7BC" opacity="0.5"/>
-        ${stars}`),
+        <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0.6" stop-color="#0A142C" stop-opacity="0.12"/>
+          <stop offset="1" stop-color="#081026" stop-opacity="0.4"/>
+        </linearGradient>
+        <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
       blend: 'over',
     },
   ])
   .jpeg({ quality: 88 })
   .toFile('public/verse-bg-night.jpg');
-console.log('✓ night (달·별)');
+console.log('✓ night (달빛)');
 
 console.log('완료 — public/verse-bg-*.jpg 5종 생성');

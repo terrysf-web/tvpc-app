@@ -158,13 +158,6 @@ function glow(
   ctx.fillRect(0, 0, W, H);
 }
 
-function circle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-}
-
 function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: BgSlot) {
   drawCover(ctx, img);
   if (slot === 'morning') {
@@ -175,48 +168,40 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     ctx.fillRect(0, 0, W, H);
     glow(ctx, W * 0.8, H * 0.15, W * 0.35, 'rgba(255,243,194,0.55)', 'rgba(255,243,194,0.2)');
   } else if (slot === 'dawn') {
-    // 해돋이 — 새벽빛 하늘 + 수평선에서 떠오르는 해
+    // 새벽 — 해 모양을 그려 넣으면 사진 위에 붙인 티가 나서, 하늘색과
+    // 오른쪽 위에서 스며드는 여명 빛으로만 표현한다.
     multiply(ctx, '#D8D2CC');
     vGradient(ctx, [
       [0, 'rgba(61,76,126,0.55)'],
-      [0.45, 'rgba(138,110,140,0.35)'],
-      [0.62, 'rgba(245,166,94,0.35)'],
-      [1, 'rgba(46,58,92,0.35)'],
+      [0.45, 'rgba(138,110,140,0.32)'],
+      [0.72, 'rgba(245,180,120,0.3)'],
+      [1, 'rgba(46,58,92,0.4)'],
     ]);
-    // 해는 글씨(왼쪽 아래)와 날짜 배지(오른쪽 맨 위)를 피해 오른쪽 위에 둔다
-    glow(ctx, W * 0.8, H * 0.32, W * 0.24, 'rgba(255,233,176,0.95)', 'rgba(255,201,126,0.4)');
-    circle(ctx, W * 0.8, H * 0.32, 40, '#FFF3CE');
+    glow(ctx, W * 0.86, H * 0.14, W * 0.6, 'rgba(255,226,180,0.45)', 'rgba(255,205,150,0.14)');
   } else if (slot === 'evening') {
-    // 노을
+    // 노을 — 위는 자주, 아래는 주황빛으로 물들이고
+    // 오른쪽 위에서 지는 햇빛이 스며들게 (해 모양은 그리지 않는다)
     multiply(ctx, '#D3C2B6');
     vGradient(ctx, [
-      [0, 'rgba(74,68,120,0.45)'],
-      [0.4, 'rgba(176,97,136,0.4)'],
-      [0.7, 'rgba(240,138,80,0.45)'],
-      [1, 'rgba(138,74,60,0.4)'],
+      [0, 'rgba(74,68,120,0.5)'],
+      [0.45, 'rgba(176,97,136,0.34)'],
+      [0.78, 'rgba(232,131,76,0.34)'],
+      [1, 'rgba(110,58,48,0.46)'],
     ]);
-    // 지는 해도 같은 이유로 오른쪽 위
-    glow(ctx, W * 0.78, H * 0.3, W * 0.2, 'rgba(255,224,160,0.85)', 'rgba(255,201,126,0.3)');
-    circle(ctx, W * 0.78, H * 0.3, 36, '#FFE9B8');
+    glow(ctx, W * 0.86, H * 0.16, W * 0.62, 'rgba(255,215,154,0.5)', 'rgba(255,180,110,0.16)');
   } else {
-    // 밤 — 어둡게 + 달과 별. 달은 카드 오른쪽 위의 날짜 글씨와 겹치지 않게
-    // 가운데 위쪽에 둔다.
+    // 밤 — 달과 별을 그려 넣으면 사진 위에 붙인 티가 나서,
+    // 짙은 남색으로 낮추고 위쪽에서 스며드는 달빛으로만 표현한다.
     multiply(ctx, '#5F6E92');
     ctx.fillStyle = 'rgba(18,36,76,0.45)';
     ctx.fillRect(0, 0, W, H);
-    const mx = W * 0.58;
-    const my = H * 0.2;
-    glow(ctx, mx, my, W * 0.16, 'rgba(232,240,255,0.4)', 'rgba(232,240,255,0.15)');
-    circle(ctx, mx, my, 40, '#F2ECD4');
-    circle(ctx, mx - 14, my - 11, 8, 'rgba(222,215,188,0.6)');
-    circle(ctx, mx + 13, my + 13, 5, 'rgba(222,215,188,0.5)');
-    for (let i = 0; i < 14; i++) {
-      const x = (i * 397) % W;
-      const y = (i * 173) % (H * 0.45);
-      // 오른쪽 위 날짜 자리와 왼쪽 위 배지 자리는 별도 피한다
-      if (y < H * 0.18 && (x > W * 0.62 || x < W * 0.3)) continue;
-      circle(ctx, x, y, 1.6 + (i % 3) * 0.6, `rgba(255,255,255,${0.5 + (i % 4) * 0.12})`);
-    }
+    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(214,230,255,0.3)', 'rgba(190,212,250,0.1)');
+    // 아래쪽을 조금 더 눌러 글씨가 또렷하게
+    vGradient(ctx, [
+      [0, 'rgba(10,20,44,0)'],
+      [0.6, 'rgba(10,20,44,0.12)'],
+      [1, 'rgba(8,16,38,0.4)'],
+    ]);
   }
 }
 
