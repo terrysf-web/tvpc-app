@@ -1,19 +1,18 @@
 import { useRouter } from 'expo-router';
 import {
   Bell,
+  BellRing,
   BookOpen,
+  Bookmark,
   CalendarDays,
   Download,
   FileText,
   HandCoins,
-  HeartHandshake,
   Home,
   Images,
-  Megaphone,
-  Play,
+  PlayCircle,
   RefreshCw,
   SquarePlus,
-  Star,
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -133,8 +132,8 @@ function FigTabs() {
 function FigSwitch() {
   return (
     <View style={styles.switchRow}>
-      <View style={[styles.chip, { backgroundColor: colors.tagBlueBg }]}>
-        <Bell size={18} color={colors.primary} strokeWidth={1.9} />
+      <View style={[styles.chip, { backgroundColor: colors.tagOrangeBg }]}>
+        <BellRing size={18} color={colors.tagOrangeText} strokeWidth={1.9} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.switchLabel}>알림 받기</Text>
@@ -197,7 +196,7 @@ export default function HelpScreen() {
       lines: [
         '구절을 한 번 누르면 형광펜이 켜지고, 그 구절이 아래 메모장으로 옮겨집니다.',
         '한 번 더 누르면 형광펜과 메모장 속 구절이 함께 지워집니다.',
-        '위쪽 별표(★)를 누르면 그 말씀이 저장됩니다. 적어둔 메모와 형광펜도 같이 보관돼요.',
+        '위쪽 책갈피 표시를 누르면 그 말씀이 저장됩니다. 적어둔 메모와 형광펜도 같이 보관돼요.',
       ],
       figure: <FigVerse />,
       figureNote: '구절을 누르면 이렇게 표시됩니다',
@@ -205,8 +204,8 @@ export default function HelpScreen() {
     },
     {
       key: 'saved',
-      icon: <Star size={20} color={colors.tagOrangeText} strokeWidth={1.9} />,
-      chipBg: colors.tagOrangeBg,
+      icon: <Bookmark size={20} color={colors.primary} strokeWidth={1.9} />,
+      chipBg: colors.tagBlueBg,
       title: '저장한 말씀 다시 보기',
       lines: [
         '말씀 화면 아래쪽 「저장한 말씀 보기」를 누르시면 그동안 별표 해두신 말씀이 모여 있습니다.',
@@ -216,7 +215,7 @@ export default function HelpScreen() {
     },
     {
       key: 'sermon',
-      icon: <Play size={20} color={colors.primary} strokeWidth={1.9} />,
+      icon: <PlayCircle size={20} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
       title: '설교 — 지난 설교 다시 보기',
       lines: [
@@ -267,7 +266,7 @@ export default function HelpScreen() {
     },
     {
       key: 'pray',
-      icon: <HeartHandshake size={20} color={colors.tagGreenText} strokeWidth={1.9} />,
+      icon: <Text style={styles.prayEmoji}>🙏</Text>,
       chipBg: colors.tagGreenBg,
       title: '함께기도해요 — 목사님께 기도 부탁드리기',
       lines: [
@@ -279,8 +278,8 @@ export default function HelpScreen() {
     },
     {
       key: 'news',
-      icon: <Megaphone size={20} color={colors.tagOrangeText} strokeWidth={1.9} />,
-      chipBg: colors.tagOrangeBg,
+      icon: <Bell size={20} color={colors.primary} strokeWidth={1.9} />,
+      chipBg: colors.tagBlueBg,
       title: '소식',
       lines: ['교회 공지와 교회 소식이 올라옵니다. 맨 아래 「소식」에서 보실 수 있어요.'],
       go: { label: '소식 보러 가기', to: '/news' },
@@ -295,8 +294,8 @@ export default function HelpScreen() {
     },
     {
       key: 'push',
-      icon: <Bell size={20} color={colors.primary} strokeWidth={1.9} />,
-      chipBg: colors.tagBlueBg,
+      icon: <BellRing size={20} color={colors.tagOrangeText} strokeWidth={1.9} />,
+      chipBg: colors.tagOrangeBg,
       title: '알림 받기',
       lines: [
         '더보기 메뉴의 「알림 받기」를 켜시면 매일 새벽예배 성경 말씀과 교회 긴급 공지를 받아보실 수 있습니다.',
@@ -433,6 +432,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 15, marginBottom: 12 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   chip: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  prayEmoji: { fontSize: 19, lineHeight: 24 },
   cardTitle: { flex: 1, fontFamily: font.extraBold, fontSize: 15.5, color: colors.title },
   lineRow: { flexDirection: 'row', gap: 7, marginTop: 6 },
   dot: { fontFamily: font.bold, fontSize: 14.5, lineHeight: 23, color: colors.faint2 },
