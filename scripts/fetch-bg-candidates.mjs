@@ -20,12 +20,12 @@ mkdirSync(OUT, { recursive: true });
 
 // 교회 안의 빛 — 스테인드글라스·창으로 드는 빛·촛불
 const QUERIES = [
-  'stained glass window light church',
-  'church interior sunbeam light',
-  'cathedral window light rays',
-  'chapel morning light interior',
-  'church cross light silhouette',
-  'candle light church altar',
+  'church interior sunlight pews',
+  'cathedral nave light empty',
+  'sunlight through church window floor',
+  'chapel warm light interior empty',
+  'church aisle morning light',
+  'stained glass light reflection wall',
 ];
 
 const picked = [];
