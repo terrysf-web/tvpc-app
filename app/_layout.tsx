@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { HelpReturnBar } from '../src/components/HelpReturnBar';
 import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
 import { colors } from '../src/theme';
@@ -56,6 +57,8 @@ export default function RootLayout() {
           {stack}
           {/* 처음 여신 분께 '홈 화면에 추가' 방법을 한 번 안내 */}
           <InstallGuide />
+          {/* 안내서에서 '바로 가기'로 떠나 있는 동안 돌아가는 단추 */}
+          <HelpReturnBar />
         </View>
       </View>
     </SafeAreaProvider>

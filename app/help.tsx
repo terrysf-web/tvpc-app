@@ -17,6 +17,7 @@ import {
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
+import { startHelpTour } from '../src/helpTour';
 import { colors, font, shadows } from '../src/theme';
 
 /* ────────────────────────────────────────────────────────────
@@ -167,7 +168,11 @@ interface Topic {
  */
 export default function HelpScreen() {
   const router = useRouter();
-  const go = (to: string) => router.push(to as never);
+  // 떠나기 전에 표시를 켜 둔다 — 어느 화면에서든 안내서로 돌아올 수 있게
+  const go = (to: string) => {
+    startHelpTour();
+    router.push(to as never);
+  };
 
   const chip = (node: React.ReactNode, bg: string) => (
     <View style={[styles.chip, { backgroundColor: bg }]}>{node}</View>
