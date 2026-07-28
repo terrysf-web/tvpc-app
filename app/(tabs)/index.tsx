@@ -283,27 +283,14 @@ export default function HomeScreen() {
                 </Text>
                 <View style={styles.heroBtnRow}>
                   {/* 1부는 온라인 중계가 없어 2부만 안내한다.
-                      예배가 끝난 주일 오후에는 유튜브에 생중계 녹화본(예배 전체)이
-                      그대로 남아 있어 '온라인예배 다시보기'로 잇고,
-                      영상 담당자가 설교만 편집해 올리는 월요일부터는 '설교 다시 보기'로 바꾼다. */}
+                      예배가 끝난 뒤(주일 오후~월요일)에는 예배 녹화본이 담긴
+                      재생목록으로 이어, 예배 전체를 다시 볼 수 있게 한다. */}
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
-                    onPress={() =>
-                      isMonday
-                        ? featured
-                          ? playSermon(featured)
-                          : router.push('/sermon')
-                        : liveEnded
-                          ? openWorshipReplay()
-                          : openLiveWorship()
-                    }
+                    onPress={() => (liveEnded ? openWorshipReplay() : openLiveWorship())}
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                      {isMonday
-                        ? '▶ 주일 설교 다시 보기'
-                        : liveEnded
-                          ? '▶ 주일 온라인예배 다시보기'
-                          : '▶ 2부 온라인예배'}
+                      {liveEnded ? '▶ 주일 온라인예배 다시보기' : '▶ 2부 온라인예배'}
                     </Text>
                   </Pressable>
                 </View>
