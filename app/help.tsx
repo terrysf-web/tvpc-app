@@ -138,7 +138,7 @@ function FigSwitch() {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.switchLabel}>알림 받기</Text>
-        <Text style={styles.switchSub}>매일 아침 말씀과 교회 긴급 공지</Text>
+        <Text style={styles.switchSub}>매일 새벽예배 성경 말씀과 교회 긴급 공지</Text>
       </View>
       <View style={styles.switchOn}>
         <View style={styles.switchKnob} />
