@@ -152,7 +152,7 @@ interface Topic {
 }
 
 /**
- * 앱 사용설명서 — 앱을 쓰시는 교인들이 보는 안내.
+ * 앱 사용 안내서 — 앱을 쓰시는 교인들이 보는 안내.
  * 어르신도 따라 하실 수 있도록 누를 곳 이름을 그대로 적고,
  * 헷갈리기 쉬운 곳은 그림으로 보여준다. 새 기능이 생기면 한 꼭지를 더한다.
  */
@@ -330,7 +330,7 @@ export default function HelpScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="앱 사용설명서" />
+      <OverlayHeader title="앱 사용 안내서" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* 처음 여신 분을 위한 세 걸음 */}
         <View style={[styles.startCard, shadows.card]}>
@@ -373,7 +373,7 @@ export default function HelpScreen() {
           </View>
         ))}
 
-        {/* 설명서로도 안 풀리면 사람에게 */}
+        {/* 안내서로도 안 풀리면 사람에게 */}
         <Pressable
           style={[styles.askCard, shadows.card]}
           onPress={() => router.push('/info/contact')}
