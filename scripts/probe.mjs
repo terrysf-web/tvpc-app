@@ -43,7 +43,8 @@ if (mode === 'youtube') {
   for (const m of html.matchAll(/"videoId":"([\w-]{11})"/g)) {
     if (seen.has(m[1])) continue;
     seen.add(m[1]);
-    const around = html.slice(m.index, m.index + 2500);
+    // 제목·길이는 videoId 앞뒤 어디에나 올 수 있어 양쪽을 함께 본다
+    const around = html.slice(Math.max(0, m.index - 3000), m.index + 3000);
     const title = around.match(/"title":\{"runs":\[\{"text":"([^"]{1,120})"/)?.[1] ?? '';
     const len = around.match(/"lengthText":\{[^}]*"simpleText":"([\d:]+)"/)?.[1] ?? '';
     const when = around.match(/"publishedTimeText":\{"simpleText":"([^"]{1,30})"/)?.[1] ?? '';
