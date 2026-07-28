@@ -272,7 +272,7 @@ export default function HelpScreen() {
       icon: <Megaphone size={20} color={colors.tagOrangeText} strokeWidth={1.9} />,
       chipBg: colors.tagOrangeBg,
       title: '소식',
-      lines: ['교회 공지와 선교 소식이 올라옵니다. 맨 아래 「소식」에서 보실 수 있어요.'],
+      lines: ['교회 공지와 교회 소식이 올라옵니다. 맨 아래 「소식」에서 보실 수 있어요.'],
       go: { label: '소식 보러 가기', to: '/news' },
     },
     {
