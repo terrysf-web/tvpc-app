@@ -22,10 +22,14 @@ mkdirSync(OUT, { recursive: true });
 const QUERIES = [
   'open bible sunlight',
   'bible pages light',
-  'sunrise wheat field',
+  'wheat field golden hour',
   'sunbeam forest morning',
   'calm lake sunrise mist',
   'mountain sunrise clouds',
+  'sunrise over sea calm',
+  'light rays clouds sky',
+  'church window light',
+  'path meadow morning light',
 ];
 
 const picked = [];
@@ -40,7 +44,7 @@ async function search(term) {
       aspect_ratio: 'wide',
       size: 'large',
       mature: 'false',
-      page_size: '8',
+      page_size: '12',
     });
   const res = await fetch(url, { headers: { 'user-agent': 'tvpc-app-bg-picker/1.0' } });
   if (!res.ok) {
@@ -60,14 +64,15 @@ async function looksCalm(buf) {
   let variance = 0;
   for (const v of small) variance += (v - mean) ** 2;
   const sd = Math.sqrt(variance / small.length);
-  return { ok: sd < 62, sd: Math.round(sd), lum: Math.round(mean) };
+  return { ok: sd < 78, sd: Math.round(sd), lum: Math.round(mean) };
 }
 
 for (const term of QUERIES) {
   const results = await search(term);
+  await new Promise((r) => setTimeout(r, 600)); // 검색 서버 배려
   let kept = 0;
   for (const r of results) {
-    if (kept >= 2) break;
+    if (kept >= 3) break;
     const src = r.url;
     if (!src) continue;
     try {
@@ -75,7 +80,7 @@ for (const term of QUERIES) {
       if (!img.ok) continue;
       const raw = Buffer.from(await img.arrayBuffer());
       const meta = await sharp(raw).metadata();
-      if ((meta.width ?? 0) < 1400) continue;
+      if ((meta.width ?? 0) < 1200) continue;
       const buf = await sharp(raw).resize(W, H, { fit: 'cover' }).jpeg({ quality: 82 }).toBuffer();
       const calm = await looksCalm(buf);
       if (!calm.ok) {
