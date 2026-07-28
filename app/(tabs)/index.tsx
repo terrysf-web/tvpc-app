@@ -192,11 +192,11 @@ export default function HomeScreen() {
       onPress: openBulletin,
     },
     {
-      key: 'photos',
-      label: '교회 사진',
+      key: 'media',
+      label: '교회 미디어',
       icon: <Images size={21} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
-      onPress: () => router.push('/photos'),
+      onPress: () => router.push('/media'),
     },
     {
       key: 'offering',
