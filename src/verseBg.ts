@@ -158,6 +158,22 @@ function glow(
   ctx.fillRect(0, 0, W, H);
 }
 
+/** 지금 캔버스에 그려진 그림의 평균 밝기(0~255) */
+function canvasLum(ctx: CanvasRenderingContext2D): number {
+  const small = document.createElement('canvas');
+  small.width = 64;
+  small.height = 32;
+  const sctx = small.getContext('2d');
+  if (!sctx) return 140;
+  sctx.drawImage(ctx.canvas, 0, 0, 64, 32);
+  const d = sctx.getImageData(0, 0, 64, 32).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  }
+  return sum / (d.length / 4);
+}
+
 function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: BgSlot) {
   drawCover(ctx, img);
   if (slot === 'morning') {
@@ -190,17 +206,20 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     ]);
     glow(ctx, W * 0.86, H * 0.16, W * 0.62, 'rgba(255,215,154,0.5)', 'rgba(255,180,110,0.16)');
   } else {
-    // 밤 — 달과 별을 그려 넣으면 사진 위에 붙인 티가 나서,
-    // 짙은 남색으로 낮추고 위쪽에서 스며드는 달빛으로만 표현한다.
-    multiply(ctx, '#5F6E92');
-    ctx.fillStyle = 'rgba(18,36,76,0.45)';
+    // 밤 — 달과 별을 그려 넣으면 사진 위에 붙인 티가 나서, 남색과 달빛으로만
+    // 표현한다. 원본이 이미 어두우면 덜 눌러서 무슨 그림인지 보이게 한다.
+    const lum = canvasLum(ctx);
+    const f = Math.max(0.45, Math.min(1, 103 / Math.max(1, lum)));
+    const v = Math.round(255 * f);
+    multiply(ctx, `rgb(${v}, ${v}, ${Math.min(255, Math.round(v * 1.08))})`);
+    ctx.fillStyle = 'rgba(18,36,76,0.3)';
     ctx.fillRect(0, 0, W, H);
-    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(214,230,255,0.3)', 'rgba(190,212,250,0.1)');
+    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(214,230,255,0.28)', 'rgba(190,212,250,0.1)');
     // 아래쪽을 조금 더 눌러 글씨가 또렷하게
     vGradient(ctx, [
       [0, 'rgba(10,20,44,0)'],
-      [0.6, 'rgba(10,20,44,0.12)'],
-      [1, 'rgba(8,16,38,0.4)'],
+      [0.55, 'rgba(10,20,44,0.1)'],
+      [1, 'rgba(8,16,38,0.34)'],
     ]);
   }
 }

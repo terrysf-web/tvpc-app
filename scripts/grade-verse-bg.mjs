@@ -116,22 +116,29 @@ await sharp(base)
   .toFile('public/verse-bg-evening.jpg');
 console.log('✓ evening (노을)');
 
-// 밤 — 달·별을 그리지 않고 짙은 남색과 달빛으로만
+// 밤 — 달·별을 그리지 않고 남색과 달빛으로만.
+// 원본이 이미 어두우면 덜 눌러 그림이 보이게 한다.
+const { data: nd } = await sharp(base).resize(64, 32).raw().toBuffer({ resolveWithObject: true });
+let nsum = 0;
+for (let i = 0; i < nd.length; i += 3) {
+  nsum += 0.299 * nd[i] + 0.587 * nd[i + 1] + 0.114 * nd[i + 2];
+}
+const nightF = Math.max(0.45, Math.min(1.05, 103 / Math.max(1, nsum / (nd.length / 3))));
 await sharp(base)
-  .modulate({ brightness: 0.52, saturation: 0.62 })
+  .modulate({ brightness: nightF, saturation: 0.72 })
   .composite([
     {
       input: svgOverlay(`
-        <rect width="${W}" height="${H}" fill="#12244C" opacity="0.5"/>
+        <rect width="${W}" height="${H}" fill="#12244C" opacity="0.3"/>
         <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
-          <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.3"/>
+          <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.28"/>
           <stop offset="0.45" stop-color="#BED4FA" stop-opacity="0.1"/>
           <stop offset="1" stop-color="#BED4FA" stop-opacity="0"/>
         </radialGradient>
         <rect width="${W}" height="${H}" fill="url(#m)"/>
         <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0.6" stop-color="#0A142C" stop-opacity="0.12"/>
-          <stop offset="1" stop-color="#081026" stop-opacity="0.4"/>
+          <stop offset="0.55" stop-color="#0A142C" stop-opacity="0.1"/>
+          <stop offset="1" stop-color="#081026" stop-opacity="0.34"/>
         </linearGradient>
         <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
       blend: 'over',

@@ -36,8 +36,21 @@ const db = getFirestore();
 const svg = (inner) =>
   Buffer.from(`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`);
 
-/** 한 시간대 그림 만들기 — 원본 판(base)에 빛과 색만 입힌다 */
-function gradeSlot(base, slot) {
+/** 그림의 평균 밝기(0~255) */
+async function lumOf(buf) {
+  const { data } = await sharp(buf).resize(64, 32).raw().toBuffer({ resolveWithObject: true });
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 3) {
+    sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  return sum / (data.length / 3);
+}
+
+/**
+ * 한 시간대 그림 만들기 — 원본 판(base)에 빛과 색만 입힌다.
+ * 밤은 원본이 이미 어두우면 덜 누른다(그러지 않으면 무슨 그림인지 안 보인다).
+ */
+function gradeSlot(base, slot, srcLum = 140) {
   if (slot === 'morning') {
     return sharp(base).modulate({ brightness: 1.04, saturation: 1.08 });
   }
@@ -103,21 +116,22 @@ function gradeSlot(base, slot) {
         },
       ]);
   }
+  const f = Math.max(0.45, Math.min(1.05, 103 / Math.max(1, srcLum)));
   return sharp(base)
-    .modulate({ brightness: 0.52, saturation: 0.62 })
+    .modulate({ brightness: f, saturation: 0.72 })
     .composite([
       {
         input: svg(`
-          <rect width="${W}" height="${H}" fill="#12244C" opacity="0.5"/>
+          <rect width="${W}" height="${H}" fill="#12244C" opacity="0.3"/>
           <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
-            <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.3"/>
+            <stop offset="0" stop-color="#D6E6FF" stop-opacity="0.28"/>
             <stop offset="0.45" stop-color="#BED4FA" stop-opacity="0.1"/>
             <stop offset="1" stop-color="#BED4FA" stop-opacity="0"/>
           </radialGradient>
           <rect width="${W}" height="${H}" fill="url(#m)"/>
           <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0.6" stop-color="#0A142C" stop-opacity="0.12"/>
-            <stop offset="1" stop-color="#081026" stop-opacity="0.4"/>
+            <stop offset="0.55" stop-color="#0A142C" stop-opacity="0.1"/>
+            <stop offset="1" stop-color="#081026" stop-opacity="0.34"/>
           </linearGradient>
           <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
         blend: 'over',
@@ -161,9 +175,11 @@ async function grade(sourceId, targetPrefix) {
     return 0;
   }
   const base = await sharp(src).resize(W, H, { fit: 'cover' }).toBuffer();
+  const srcLum = await lumOf(base);
+  console.log(`  · 원본 밝기 ${Math.round(srcLum)}`);
   let n = 0;
   for (const slot of SLOTS) {
-    const { url, buf } = await toDataUrl(gradeSlot(base, slot));
+    const { url, buf } = await toDataUrl(gradeSlot(base, slot, srcLum));
     const dark = await isDark(buf);
     const id = targetPrefix ? `${targetPrefix}-${slot}` : slot;
     await db.doc(`verseBg/${id}`).set({
