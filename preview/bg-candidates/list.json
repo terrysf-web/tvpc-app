@@ -1,0 +1,82 @@
+[
+  {
+    "name": "cand-01",
+    "term": "green field blue sky clouds",
+    "title": "Green Field Blue Sky Clouds",
+    "license": "BY-SA 4.0",
+    "author": "Sjgdzn",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=61425001",
+    "calm": 39,
+    "lum": 126
+  },
+  {
+    "name": "cand-02",
+    "term": "green field blue sky clouds",
+    "title": "R Coronae Australis region",
+    "license": "BY 3.0",
+    "author": "ESO",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=10831490",
+    "calm": 48,
+    "lum": 68
+  },
+  {
+    "name": "cand-03",
+    "term": "wheat field sky horizon",
+    "title": "Wheat fields and lens flare",
+    "license": "CC0 1.0",
+    "author": "Chuck Grimmett",
+    "page": "https://wordpress.org/photos/photo/27461ffbf8/",
+    "calm": 58,
+    "lum": 157
+  },
+  {
+    "name": "cand-04",
+    "term": "wheat field sky horizon",
+    "title": "The edge of an Alberta wheat field after harvest under a clear blue sky with a few small high altitude clouds.",
+    "license": "CC0 1.0",
+    "author": "Dan Knauss",
+    "page": "https://wordpress.org/photos/photo/96067a78b2/",
+    "calm": 38,
+    "lum": 139
+  },
+  {
+    "name": "cand-05",
+    "term": "wheat field sky horizon",
+    "title": "Harvested wheat field in Castilla (Spain) with a blue sky crossed by altocumulus undulatus clouds",
+    "license": "CC0 1.0",
+    "author": "Pablo Moratinos",
+    "page": "https://wordpress.org/photos/photo/688679d0d7/",
+    "calm": 15,
+    "lum": 128
+  },
+  {
+    "name": "cand-06",
+    "term": "wheat field sky horizon",
+    "title": "The expansive wheat field under a clear blue sky adorned with wispy clouds.",
+    "license": "CC0 1.0",
+    "author": "Satyam Vishwakarma (Satya)",
+    "page": "https://wordpress.org/photos/photo/553661501f/",
+    "calm": 37,
+    "lum": 177
+  },
+  {
+    "name": "cand-07",
+    "term": "field horizon morning light",
+    "title": "Soft sunset hues light up a serene wetland field surrounded by trees and palms. Peaceful evening sky at Cherupa, Kozhikode, Kerala.",
+    "license": "CC0 1.0",
+    "author": "Bigul Malayi",
+    "page": "https://wordpress.org/photos/photo/8466909c59/",
+    "calm": 85,
+    "lum": 117
+  },
+  {
+    "name": "cand-08",
+    "term": "field horizon morning light",
+    "title": "A golden sunrise over an open field, with the sun rising behind low hills and trees. Tall metal towers stand in the landscape, while grasses and tree silhouettes frame the warm morning light.",
+    "license": "CC0 1.0",
+    "author": "Pablo Jimenez",
+    "page": "https://wordpress.org/photos/photo/716a259879/",
+    "calm": 86,
+    "lum": 132
+  }
+]
