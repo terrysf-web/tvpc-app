@@ -30,7 +30,7 @@ const chip = (node: React.ReactNode, bg: string) => (
 );
 
 /**
- * 앱 사용 도움말 — 어르신도 따라 하실 수 있도록 화면 이름과 누를 곳을
+ * 앱 사용설명서 — 어르신도 따라 하실 수 있도록 화면 이름과 누를 곳을
  * 그대로 적는다. 새 기능이 생기면 여기에 한 꼭지를 더한다.
  */
 export default function HelpScreen() {
@@ -154,7 +154,7 @@ export default function HelpScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="앱 사용 도움말" />
+      <OverlayHeader title="앱 사용설명서" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.lead}>
           궁금하신 것을 찾아보세요. 아래 내용대로 눌러보시면 됩니다.
