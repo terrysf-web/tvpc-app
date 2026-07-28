@@ -28,6 +28,9 @@ export interface PrayerRequest {
   status: 'new' | 'prayed';
   /** 목사님이 '기도 시작했어요'를 누른 때 */
   prayedAt?: number | null;
+  /** 보낸 분이 나중에 전해온 응답 나눔 */
+  answer?: string | null;
+  answeredAt?: number | null;
 }
 
 /** 이 기기에서 보낸 기도 — 보낸 분에게만 보이는 내 기록 */
@@ -38,6 +41,8 @@ export interface MyPrayer {
   createdAt: number;
   status: 'new' | 'prayed';
   prayedAt: number | null;
+  answer: string | null;
+  answeredAt: number | null;
 }
 
 const MINE_KEY = 'tvpc.myPrayers';
@@ -77,13 +82,15 @@ export async function refreshMyPrayers(): Promise<MyPrayer[]> {
     await ensureAnonymousAuth();
     const updated = await Promise.all(
       mine.map(async (m) => {
-        if (m.status === 'prayed') return m;
+        if (m.status === 'prayed' && m.answer) return m;
         try {
           const snap = await getDoc(doc(db, 'prayerRequests', m.id));
           if (!snap.exists()) return m;
           const status = (snap.get('status') as MyPrayer['status']) ?? 'new';
           const prayedAt = (snap.get('prayedAt') as number | null) ?? null;
-          return { ...m, status, prayedAt };
+          const answer = (snap.get('answer') as string | null) ?? null;
+          const answeredAt = (snap.get('answeredAt') as number | null) ?? null;
+          return { ...m, status, prayedAt, answer, answeredAt };
         } catch {
           return m;
         }
@@ -121,10 +128,32 @@ export async function submitPrayerRequest(name: string, text: string): Promise<s
     deviceToken: savedPushToken(),
   });
   writeMine([
-    { id, name: cleanName, text: cleanText, createdAt, status: 'new', prayedAt: null },
+    {
+      id,
+      name: cleanName,
+      text: cleanText,
+      createdAt,
+      status: 'new',
+      prayedAt: null,
+      answer: null,
+      answeredAt: null,
+    },
     ...readMine(),
   ]);
   return id;
+}
+
+/**
+ * 응답 나눔 — 보낸 분이 나중에 "이렇게 응답받았습니다"를 원래 기도에 이어 붙인다.
+ * 요청 아이디는 보낸 기기에만 있으므로 자기 기도에만 적을 수 있다.
+ */
+export async function submitPrayerAnswer(id: string, text: string): Promise<void> {
+  const db = requireDb();
+  await ensureAnonymousAuth();
+  const answer = text.trim().slice(0, 2000);
+  const answeredAt = Date.now();
+  await updateDoc(doc(db, 'prayerRequests', id), { answer, answeredAt });
+  writeMine(readMine().map((m) => (m.id === id ? { ...m, answer, answeredAt } : m)));
 }
 
 export async function getPrayerRequests(count = 100): Promise<PrayerRequest[]> {

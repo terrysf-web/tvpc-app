@@ -181,3 +181,38 @@ export const notifyPrayerStarted = onDocumentUpdated(
     }
   },
 );
+
+/** 응답 나눔이 도착하면 목회자에게 알린다 (교인 전체 발송이 아니다) */
+export const notifyPrayerAnswer = onDocumentUpdated(
+  { document: 'prayerRequests/{id}', memory: '256MiB', timeoutSeconds: 60, retry: false },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.answer || !after.answer) return;
+
+    const db = getFirestore();
+    const pastorsSnap = await db.collection('admins').where('role', '==', 'pastor').get();
+    const emails = pastorsSnap.docs
+      .map((d) => String(d.data().email || d.id).toLowerCase())
+      .slice(0, 30);
+    if (emails.length === 0) return;
+    const tokensSnap = await db.collection('pushTokens').where('email', 'in', emails).get();
+    const tokens = tokensSnap.docs.map((d) => d.id);
+    if (tokens.length === 0) return;
+
+    const name = String(after.name || '').trim();
+    const res = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: '🌱 기도 응답 나눔',
+        body: name ? `${name}님이 응답 소식을 전해왔습니다.` : '응답 소식이 도착했습니다.',
+      },
+      webpush: {
+        notification: { icon: '/icon-192.png', tag: `pray-answer-${event.params.id}` },
+        fcmOptions: { link: 'https://app.tvpc.church/pray-inbox' },
+      },
+    });
+    console.log(`응답 나눔 알림: 목회자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
+  },
+);

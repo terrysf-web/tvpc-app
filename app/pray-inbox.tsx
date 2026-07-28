@@ -81,12 +81,28 @@ export default function PrayInboxScreen() {
           </View>
         ) : (
           (rows ?? []).map((r) => (
-            <View key={r.id} style={[styles.card, shadows.card, r.status === 'prayed' && { opacity: 0.65 }]}>
+            <View
+              key={r.id}
+              style={[
+                styles.card,
+                shadows.card,
+                r.status === 'prayed' && !r.answer && { opacity: 0.65 },
+              ]}
+            >
               <View style={styles.headRow}>
                 <Text style={styles.name}>{r.name || '익명'}</Text>
                 <Text style={styles.when}>{fmtWhen(r.createdAt)}</Text>
               </View>
               <Text style={styles.body}>{r.text}</Text>
+              {r.answer ? (
+                <View style={styles.answerBox}>
+                  <Text style={styles.answerLabel}>🌱 응답 나눔이 도착했습니다</Text>
+                  <Text style={styles.answerText}>{r.answer}</Text>
+                  {r.answeredAt ? (
+                    <Text style={styles.answerWhen}>{fmtWhen(r.answeredAt)}</Text>
+                  ) : null}
+                </View>
+              ) : null}
               <View style={styles.btnRow}>
                 <Pressable
                   style={[styles.prayBtn, r.status === 'prayed' && styles.prayBtnDone]}
@@ -114,6 +130,24 @@ export default function PrayInboxScreen() {
 }
 
 const styles = StyleSheet.create({
+  answerBox: {
+    marginTop: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.tagGreenText,
+    backgroundColor: colors.tagGreenBg,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+    padding: 12,
+  },
+  answerLabel: { fontFamily: font.bold, fontSize: 12, color: colors.tagGreenText },
+  answerText: {
+    fontFamily: font.regular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.body,
+    marginTop: 6,
+  },
+  answerWhen: { fontFamily: font.regular, fontSize: 11.5, color: colors.muted2, marginTop: 7 },
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { padding: 16, paddingBottom: 40 },
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12 },

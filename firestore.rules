@@ -166,10 +166,19 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 40
         && request.resource.data.status == 'new';
+      // 목회자: 기도 시작 표시
       allow update: if request.auth != null
         && request.auth.token.email != null
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'prayedAt']);
+      // 보낸 분: 나중에 응답 나눔만 이어 붙일 수 있다.
+      // 아이디를 아는 기기(=보낸 기기)만 가능하며 기도 내용·상태는 건드리지 못한다.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'answeredAt'])
+        && request.resource.data.answer is string
+        && request.resource.data.answer.size() > 0
+        && request.resource.data.answer.size() <= 2000
+        && request.resource.data.answeredAt is number;
       allow delete: if request.auth != null
         && request.auth.token.email != null
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor';

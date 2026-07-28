@@ -15,6 +15,7 @@ import {
   type MyPrayer,
   getMyPrayers,
   refreshMyPrayers,
+  submitPrayerAnswer,
   submitPrayerRequest,
 } from '../src/data/prayerRequests';
 import { colors, font, shadows } from '../src/theme';
@@ -38,6 +39,31 @@ export default function PrayRequestScreen() {
   useEffect(() => {
     refreshMyPrayers().then(setMine);
   }, []);
+  // 응답 나눔 적기 — 어떤 기도의 응답인지 들고 연다
+  const [answering, setAnswering] = useState<MyPrayer | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const [answerBusy, setAnswerBusy] = useState(false);
+  const [answerErr, setAnswerErr] = useState<string | null>(null);
+
+  const sendAnswer = async () => {
+    if (!answering) return;
+    if (!answerText.trim()) {
+      setAnswerErr('어떻게 응답받으셨는지 한 줄만 적어주세요.');
+      return;
+    }
+    setAnswerErr(null);
+    setAnswerBusy(true);
+    try {
+      await submitPrayerAnswer(answering.id, answerText);
+      setMine(getMyPrayers());
+      setAnswering(null);
+      setAnswerText('');
+    } catch {
+      setAnswerErr('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setAnswerBusy(false);
+    }
+  };
 
   const send = async () => {
     if (!text.trim()) {
@@ -129,6 +155,26 @@ export default function PrayRequestScreen() {
                     {m.prayedAt ? ` · ${fmtWhen(m.prayedAt)}` : ''}
                   </Text>
                 )}
+                {m.answer ? (
+                  <View style={styles.answerBox}>
+                    <Text style={styles.answerLabel}>내가 전한 응답</Text>
+                    <Text style={styles.answerText}>{m.answer}</Text>
+                    <Text style={styles.answerWhen}>
+                      {m.answeredAt ? `${fmtWhen(m.answeredAt)} · 목사님께 전해졌습니다` : ''}
+                    </Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.answerBtn}
+                    onPress={() => {
+                      setAnswering(m);
+                      setAnswerText('');
+                      setAnswerErr(null);
+                    }}
+                  >
+                    <Text style={styles.answerBtnText}>기도 응답 받았어요</Text>
+                  </Pressable>
+                )}
               </View>
             ))}
             <Text style={styles.mineFoot}>
@@ -137,6 +183,43 @@ export default function PrayRequestScreen() {
           </View>
         )}
       </ScrollView>
+
+      {answering && (
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setAnswering(null)} />
+          <View style={[styles.sheet, shadows.card]}>
+            <Text style={styles.sheetTitle}>어떻게 응답되었나요?</Text>
+            <Text style={styles.sheetSub}>
+              짧게 적으셔도 좋습니다. 목사님께만 전해집니다.
+            </Text>
+            <View style={styles.quoteBox}>
+              <Text style={styles.quoteWhen}>{fmtWhen(answering.createdAt)}에 보내신 기도</Text>
+              <Text style={styles.quoteText}>{answering.text}</Text>
+            </View>
+            <TextInput
+              style={[styles.input, styles.inputMulti]}
+              value={answerText}
+              onChangeText={setAnswerText}
+              placeholder="예: 수술이 잘 끝났고 어제 퇴원하셨습니다."
+              placeholderTextColor={colors.faint}
+              multiline
+            />
+            {answerErr ? <Text style={styles.error}>{answerErr}</Text> : null}
+            <Pressable
+              style={[styles.sendBtn, answerBusy && { opacity: 0.6 }]}
+              onPress={sendAnswer}
+              disabled={answerBusy}
+            >
+              <Text style={styles.sendBtnText}>
+                {answerBusy ? '보내는 중…' : '응답 나눔 보내기'}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.sheetCancel} onPress={() => setAnswering(null)} hitSlop={6}>
+              <Text style={styles.sheetCancelText}>나중에</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -175,6 +258,69 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.divider,
   },
+  answerBtn: {
+    marginTop: 11,
+    borderRadius: 11,
+    backgroundColor: colors.tagBlueBg,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  answerBtnText: { fontFamily: font.bold, fontSize: 14, color: colors.primary },
+  answerBox: {
+    marginTop: 11,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.tagGreenText,
+    backgroundColor: colors.tagGreenBg,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+    padding: 11,
+  },
+  answerLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.tagGreenText },
+  answerText: {
+    fontFamily: font.regular,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: colors.body,
+    marginTop: 5,
+  },
+  answerWhen: { fontFamily: font.regular, fontSize: 11.5, color: colors.muted2, marginTop: 6 },
+  sheetOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 40,
+  },
+  sheetBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(12, 26, 46, 0.42)',
+  },
+  sheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 28,
+  },
+  sheetTitle: { fontFamily: font.extraBold, fontSize: 17, color: colors.title },
+  sheetSub: {
+    fontFamily: font.regular,
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  quoteBox: { backgroundColor: colors.screenBg, borderRadius: 12, padding: 12, marginBottom: 12 },
+  quoteWhen: { fontFamily: font.medium, fontSize: 11.5, color: colors.faint, marginBottom: 4 },
+  quoteText: { fontFamily: font.regular, fontSize: 13.5, lineHeight: 20, color: colors.body },
+  sheetCancel: { alignSelf: 'center', marginTop: 12, padding: 6 },
+  sheetCancelText: { fontFamily: font.medium, fontSize: 14, color: colors.muted2 },
   mineFoot: {
     fontFamily: font.regular,
     fontSize: 11.5,
