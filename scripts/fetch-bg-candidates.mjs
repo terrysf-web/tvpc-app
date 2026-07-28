@@ -20,12 +20,14 @@ mkdirSync(OUT, { recursive: true });
 
 // 교회 안의 빛 — 스테인드글라스·창으로 드는 빛·촛불
 const QUERIES = [
-  'church interior sunlight pews',
-  'cathedral nave light empty',
-  'sunlight through church window floor',
-  'chapel warm light interior empty',
-  'church aisle morning light',
-  'stained glass light reflection wall',
+  'church sanctuary interior light',
+  'church interior sunbeam pews',
+  'sunlight through window sanctuary',
+  'chapel light interior calm',
+  'cross light church wall',
+  'stained glass light on floor',
+  'church window morning light',
+  'worship hall light empty',
 ];
 
 const picked = [];
@@ -60,7 +62,7 @@ async function looksCalm(buf) {
   let variance = 0;
   for (const v of small) variance += (v - mean) ** 2;
   const sd = Math.sqrt(variance / small.length);
-  return { ok: sd < 78, sd: Math.round(sd), lum: Math.round(mean) };
+  return { ok: sd < 95, sd: Math.round(sd), lum: Math.round(mean) };
 }
 
 for (const term of QUERIES) {
@@ -68,7 +70,7 @@ for (const term of QUERIES) {
   await new Promise((r) => setTimeout(r, 600)); // 검색 서버 배려
   let kept = 0;
   for (const r of results) {
-    if (kept >= 3) break;
+    if (kept >= 4) break;
     const src = r.url;
     if (!src) continue;
     try {
@@ -106,3 +108,25 @@ for (const term of QUERIES) {
 
 writeFileSync(`${OUT}/list.json`, JSON.stringify(picked, null, 2));
 console.log(`완료 — 후보 ${picked.length}장`);
+
+// 한눈에 고르도록 후보를 격자로 붙인 대조표도 만든다
+{
+  const cols = 3;
+  const tw = 520;
+  const th = Math.round((tw * H) / W);
+  const rows = Math.ceil(picked.length / cols);
+  if (rows > 0) {
+    const tiles = [];
+    for (let i = 0; i < picked.length; i++) {
+      const buf = await sharp(`${OUT}/${picked[i].name}.jpg`).resize(tw, th).toBuffer();
+      tiles.push({ input: buf, left: (i % cols) * tw, top: Math.floor(i / cols) * th });
+    }
+    await sharp({
+      create: { width: cols * tw, height: rows * th, channels: 3, background: '#222' },
+    })
+      .composite(tiles)
+      .jpeg({ quality: 72 })
+      .toFile(`${OUT}/contact-sheet.jpg`);
+    console.log(`대조표 저장: ${cols}열 × ${rows}행`);
+  }
+}
