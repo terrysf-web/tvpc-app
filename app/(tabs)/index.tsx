@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
 
-  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
+  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   headBtns: { flexDirection: 'row', gap: 8 },
   greetingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   greetingTitle: {
@@ -499,6 +499,9 @@ const styles = StyleSheet.create({
     fontFamily: font.medium,
     fontSize: 13.5,
     lineHeight: 18,
+    // 문구가 한 줄이어도 두 줄 자리를 잡아 둔다 — 시간대마다 카드가
+    // 오르락내리락하지 않고 늘 같은 위치에 있게
+    minHeight: 36,
     color: colors.muted,
   },
   bellBtn: {
@@ -557,7 +560,7 @@ const styles = StyleSheet.create({
     fontSize: 21.5,
     lineHeight: 31,
     color: '#FFFFFF',
-    marginBottom: 11,
+    marginBottom: 9,
     ...textShadow,
   },
   heroBtn: {
@@ -623,7 +626,7 @@ const styles = StyleSheet.create({
     fontFamily: font.extraBold,
     fontSize: 15.5,
     color: colors.title,
-    marginBottom: 8,
+    marginBottom: 7,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -636,7 +639,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.card,
     borderRadius: 15,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
     gap: 6,
   },
