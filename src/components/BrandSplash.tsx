@@ -17,6 +17,8 @@ const RESUME_AFTER_HIDDEN_MS = 1500;
 /** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
 const RESUME_SHOW_MS = 2000;
 const FADE_MS = 260;
+/** 표어를 이 시간 안에 못 받아오면 로고만이라도 보여준다 — 로고가 표어보다 먼저 뜨는 걸 막는 최대 대기 */
+const CONTENT_WAIT_MS = 700;
 
 /**
  * 브랜드 스플래시 — 로고와 슬로건.
@@ -26,9 +28,27 @@ const FADE_MS = 260;
 export function BrandSplash() {
   const [gone, setGone] = useState(Platform.OS !== 'web');
   const fade = useRef(new Animated.Value(1)).current;
+  const contentFade = useRef(new Animated.Value(0)).current;
   const born = useRef(Date.now());
   const insets = useSafeAreaInsets();
   const motto = useCurrentMotto();
+
+  // 로고와 표어가 따로 뜨지 않도록 — 표어가 준비되거나(대부분) 늦어지면 최대 대기 후 함께 보여준다
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    let done = false;
+    const reveal = () => {
+      if (done) return;
+      done = true;
+      Animated.timing(contentFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    };
+    if (motto) {
+      reveal();
+      return;
+    }
+    const t = setTimeout(reveal, CONTENT_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [motto, contentFade]);
 
   useEffect(() => {
     if (gone) return;
@@ -89,26 +109,26 @@ export function BrandSplash() {
         locations={[0, 0.34, 0.68, 1]}
         style={StyleSheet.absoluteFill}
       />
-      {motto ? (
-        <View style={[styles.mottoRow, { top: Math.max(insets.top, 24) + 16 }]}>
-          <View style={styles.mottoBadge}>
-            <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.center, { opacity: contentFade }]}>
+        {motto ? (
+          <View style={[styles.mottoRow, { top: Math.max(insets.top, 24) + 16 }]}>
+            <View style={styles.mottoBadge}>
+              <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
+            </View>
+            <Text style={styles.mottoTitle}>{motto.title}</Text>
+            <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
+            <Text style={styles.mottoVerse}>{motto.verse}</Text>
+            <Text style={styles.mottoReference}>{motto.reference}</Text>
           </View>
-          <Text style={styles.mottoTitle}>{motto.title}</Text>
-          <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
-          <Text style={styles.mottoVerse}>{motto.verse}</Text>
-          <Text style={styles.mottoReference}>{motto.reference}</Text>
-        </View>
-      ) : null}
-      <View style={styles.center}>
+        ) : null}
         <View style={styles.logoChip}>
           {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
           <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
         </View>
         <Text style={styles.name}>트라이밸리{'\n'}장로교회</Text>
         <Text style={styles.slogan}>{churchInfo.slogan}</Text>
-      </View>
-      <Text style={styles.foot}>© 2026 {churchInfo.nameEn}</Text>
+        <Text style={styles.foot}>© 2026 {churchInfo.nameEn}</Text>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -150,7 +170,7 @@ const styles = StyleSheet.create({
     color: '#7590B5',
     marginTop: 4,
   },
-  center: { alignItems: 'center' },
+  center: { alignItems: 'center', justifyContent: 'center' },
   logoChip: {
     width: 92,
     height: 92,
