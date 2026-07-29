@@ -7,14 +7,19 @@ import { isAppReady, onAppReady } from '../appBoot';
 import { font } from '../theme';
 
 /** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간 */
-const MIN_SHOW_MS = 400;
+const MIN_SHOW_MS = 900;
 /** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
 const MAX_SHOW_MS = 2500;
+/** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
+const RESUME_AFTER_HIDDEN_MS = 1500;
+/** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
+const RESUME_SHOW_MS = 700;
+const FADE_MS = 260;
 
 /**
  * 브랜드 스플래시 — 로고와 슬로건.
- * 인위적인 지연 없이, 앱이 첫 그림(말씀·배경)을 준비하는 동안만 보인다.
- * 빠른 기기에서는 잠깐 스치고, 느린 통신에서는 빈 화면 대신 이 화면이 보인다.
+ * 처음 열 때는 앱이 첫 그림(말씀·배경)을 준비하는 동안 보이고,
+ * 이미 떠 있는 앱을 홈 화면 아이콘으로 다시 열 때도(한참 뒤였다면) 잠깐 다시 보인다.
  */
 export function BrandSplash() {
   const [gone, setGone] = useState(Platform.OS !== 'web');
@@ -27,7 +32,7 @@ export function BrandSplash() {
     const hide = () => {
       const wait = Math.max(0, MIN_SHOW_MS - (Date.now() - born.current));
       hideTimer = setTimeout(() => {
-        Animated.timing(fade, { toValue: 0, duration: 260, useNativeDriver: true }).start(() =>
+        Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(() =>
           setGone(true),
         );
       }, wait);
@@ -45,6 +50,31 @@ export function BrandSplash() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 앱이 뜬 채로 홈 화면 아이콘을 다시 눌러도(=탭이 앞으로 돌아옴) 표시되게
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    let hiddenAt: number | null = null;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (hiddenAt != null && Date.now() - hiddenAt >= RESUME_AFTER_HIDDEN_MS) {
+        born.current = Date.now();
+        fade.setValue(1);
+        setGone(false);
+        setTimeout(() => {
+          Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(() =>
+            setGone(true),
+          );
+        }, RESUME_SHOW_MS);
+      }
+      hiddenAt = null;
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [fade]);
 
   if (gone) return null;
 
