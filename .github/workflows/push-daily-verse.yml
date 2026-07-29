@@ -4,8 +4,11 @@ name: Push daily verse
 
 on:
   schedule:
-    # 매일 06:00 태평양 시간(PT) 무렵 — 13:00 UTC
-    - cron: '0 13 * * *'
+    # 목표는 매일 아침 9시(태평양). 깃허브 예약 실행은 공용 대기줄이라
+    # 1시간 반~2시간 반씩 늦게 시작하는 일이 잦다(실측). 그래서 넉넉히
+    # 일찍(13:05 UTC = 태평양 6:05) 깨어난 뒤, 아래 '9시까지 대기'
+    # 단계에서 시각을 정확히 맞춰 보낸다.
+    - cron: '5 13 * * *'
   workflow_dispatch:
 
 jobs:
@@ -30,6 +33,21 @@ jobs:
       - name: Install firebase-admin
         if: env.skip != 'true'
         run: npm install --no-save firebase-admin
+
+      # 예약 실행이 얼마나 늦게 시작하든 발송은 태평양 9:00 정각에 —
+      # 이미 9시가 지나 시작했다면 그냥 바로 보낸다.
+      # (손으로 돌리는 workflow_dispatch 는 기다리지 않는다)
+      - name: Wait until 9:00 AM Pacific
+        if: env.skip != 'true' && github.event_name == 'schedule'
+        run: |
+          target=$(TZ=America/Los_Angeles date -d '09:00' +%s)
+          now=$(date +%s)
+          if [ "$now" -lt "$target" ]; then
+            echo "태평양 9시까지 $(( (target - now) / 60 ))분 대기"
+            sleep $((target - now))
+          else
+            echo "이미 태평양 9시가 지나 바로 보냅니다"
+          fi
 
       - name: Send push
         if: env.skip != 'true'
