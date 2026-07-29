@@ -109,25 +109,31 @@ export function BrandSplash() {
         locations={[0, 0.34, 0.68, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <Animated.View style={[StyleSheet.absoluteFill, styles.center, { opacity: contentFade }]}>
-        {motto ? (
-          <View style={[styles.mottoRow, { top: Math.max(insets.top, 24) + 16 }]}>
-            <View style={styles.mottoBadge}>
-              <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.contentWrap, { opacity: contentFade }]}>
+        <View style={{ flex: 1.3 }} />
+        <View style={styles.center}>
+          {motto ? (
+            <View style={styles.mottoRow}>
+              <View style={styles.mottoBadge}>
+                <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
+              </View>
+              <Text style={styles.mottoTitle}>{motto.title}</Text>
+              <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
+              <Text style={styles.mottoVerse}>{motto.verse}</Text>
+              <Text style={styles.mottoReference}>{motto.reference}</Text>
             </View>
-            <Text style={styles.mottoTitle}>{motto.title}</Text>
-            <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
-            <Text style={styles.mottoVerse}>{motto.verse}</Text>
-            <Text style={styles.mottoReference}>{motto.reference}</Text>
+          ) : null}
+          <View style={styles.logoChip}>
+            {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
+            <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
           </View>
-        ) : null}
-        <View style={styles.logoChip}>
-          {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
-          <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
+          <Text style={styles.name}>트라이밸리{'\n'}장로교회</Text>
+          <Text style={styles.slogan}>{churchInfo.slogan}</Text>
         </View>
-        <Text style={styles.name}>트라이밸리{'\n'}장로교회</Text>
-        <Text style={styles.slogan}>{churchInfo.slogan}</Text>
-        <Text style={styles.foot}>© 2026 {churchInfo.nameEn}</Text>
+        <View style={{ flex: 1 }} />
+        <Text style={[styles.foot, { marginBottom: Math.max(insets.bottom, 12) + 12 }]}>
+          © 2026 {churchInfo.nameEn}
+        </Text>
       </Animated.View>
     </Animated.View>
   );
@@ -135,7 +141,8 @@ export function BrandSplash() {
 
 const styles = StyleSheet.create({
   wrap: { zIndex: 100, alignItems: 'center', justifyContent: 'center' },
-  mottoRow: { position: 'absolute', alignItems: 'center', paddingHorizontal: 24 },
+  contentWrap: { alignItems: 'stretch' },
+  mottoRow: { alignItems: 'center', paddingHorizontal: 24, marginBottom: 26 },
   mottoBadge: {
     backgroundColor: 'rgba(18,50,91,0.78)',
     borderRadius: 20,
@@ -193,8 +200,7 @@ const styles = StyleSheet.create({
   },
   slogan: { fontFamily: font.bold, fontSize: 14.5, color: '#1E5AA8' },
   foot: {
-    position: 'absolute',
-    bottom: 24,
+    alignSelf: 'center',
     fontFamily: font.regular,
     fontSize: 10.5,
     color: '#8FA0B5',
