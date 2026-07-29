@@ -56,14 +56,14 @@ const GREETING_TEXT = {
 
 /**
  * 인사말 아래 문구 — 시간대에 맞게.
- * 폭 262에서 한 줄로 끝나야 한다(대략 19자). 두 줄이 되면 그만큼
- * 아래가 밀려 최근 설교 카드가 탭 막대에 잘린다.
+ * 폭 262에서 한 줄이면 22자쯤. 두 줄까지는 감당한다(그만큼 말씀 카드
+ * 높이를 낮춰 뒀다). 세 줄이 되면 최근 설교 카드가 탭 막대에 잘린다.
  */
 const GREETING_SUB = {
   dawn: '고요한 새벽, 주님과 함께 시작해요',
   morning: '주님의 은혜가 함께하는 하루 되세요',
   afternoon: '오후에도 주님의 평안이 함께하길 빕니다',
-  evening: '수고 많으셨어요. 주님 안에서 쉬세요',
+  evening: '수고 많으셨어요. 주님의 평강이 가득한 저녁 되세요',
   night: '주님의 평안 속에 편안한 밤 되세요',
 } as const;
 
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
 
   heroWrap: { borderRadius: 22, marginBottom: 8 },
-  hero: { borderRadius: 22, minHeight: 222, padding: 18, justifyContent: 'space-between' },
+  hero: { borderRadius: 22, minHeight: 203, padding: 18, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
     backgroundColor: 'rgba(10,26,52,0.45)',
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...textShadow,
   },
-  heroBottom: { marginTop: 26 },
+  heroBottom: { marginTop: 12 },
   heroRef: {
     fontFamily: font.bold,
     fontSize: 13,
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
     fontSize: 21.5,
     lineHeight: 31,
     color: '#FFFFFF',
-    marginBottom: 16,
+    marginBottom: 11,
     ...textShadow,
   },
   heroBtn: {
