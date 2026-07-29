@@ -53,8 +53,8 @@ export function WelcomeScreen() {
 }
 
 const glow = {
-  textShadowColor: 'rgba(255,255,255,0.9)',
-  textShadowRadius: 10,
+  textShadowColor: 'rgba(255,255,255,0.95)',
+  textShadowRadius: 16,
   textShadowOffset: { width: 0, height: 1 },
 } as const;
 
@@ -84,15 +84,15 @@ const styles = StyleSheet.create({
     ...glow,
   },
   verse: {
-    fontFamily: font.medium,
+    fontFamily: font.bold,
     fontSize: 13.5,
     lineHeight: 24,
     textAlign: 'center',
-    color: '#17406E',
+    color: '#0E2647',
     marginTop: 22,
     ...glow,
   },
-  reference: { fontFamily: font.bold, fontSize: 12, color: '#5B7BA6', marginTop: 6, ...glow },
+  reference: { fontFamily: font.bold, fontSize: 12, color: '#28457A', marginTop: 6, ...glow },
   bottom: { paddingHorizontal: 24, alignItems: 'center' },
   startBtn: {
     alignSelf: 'stretch',
