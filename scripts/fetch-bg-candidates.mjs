@@ -13,13 +13,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 
-const W = 1600;
-const H = 730;
-const OUT = 'preview/bg-candidates';
+// 환경변수로 용도를 바꿀 수 있다 — 기본은 말씀카드(가로), 웰컴 화면은 세로
+const W = Number(process.env.BG_W || 1600);
+const H = Number(process.env.BG_H || 730);
+const OUT = process.env.BG_OUT || 'preview/bg-candidates';
 mkdirSync(OUT, { recursive: true });
 
 // 넓은 하늘과 들판 — 여백이 많아 글씨가 편히 얹히는 장면
-const QUERIES = [
+const DEFAULT_QUERIES = [
   'green field blue sky clouds',
   'grass meadow horizon sky',
   'wheat field sky horizon',
@@ -29,6 +30,11 @@ const QUERIES = [
   'hill grass sky clouds',
   'field horizon morning light',
 ];
+const QUERIES = process.env.BG_QUERIES
+  ? process.env.BG_QUERIES.split(';').map((s) => s.trim()).filter(Boolean)
+  : DEFAULT_QUERIES;
+const ASPECT = process.env.BG_ASPECT || 'wide';
+const MAX_SD = Number(process.env.BG_MAXSD || 95);
 
 const picked = [];
 let n = 0;
@@ -39,7 +45,7 @@ async function search(term) {
     new URLSearchParams({
       q: term,
       license: 'cc0,by,by-sa',
-      aspect_ratio: 'wide',
+      aspect_ratio: ASPECT,
       size: 'large',
       mature: 'false',
       page_size: '12',
@@ -62,7 +68,7 @@ async function looksCalm(buf) {
   let variance = 0;
   for (const v of small) variance += (v - mean) ** 2;
   const sd = Math.sqrt(variance / small.length);
-  return { ok: sd < 95, sd: Math.round(sd), lum: Math.round(mean) };
+  return { ok: sd < MAX_SD, sd: Math.round(sd), lum: Math.round(mean) };
 }
 
 for (const term of QUERIES) {
@@ -112,7 +118,7 @@ console.log(`완료 — 후보 ${picked.length}장`);
 // 한눈에 고르도록 후보를 격자로 붙인 대조표도 만든다
 {
   const cols = 3;
-  const tw = 520;
+  const tw = H > W ? 300 : 520;
   const th = Math.round((tw * H) / W);
   const rows = Math.ceil(picked.length / cols);
   if (rows > 0) {

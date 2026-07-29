@@ -3,6 +3,28 @@ name: Fetch background candidates
 
 on:
   workflow_dispatch:
+    inputs:
+      queries:
+        description: '검색어 (세미콜론으로 구분, 비우면 기본 들판·하늘)'
+        required: false
+        default: ''
+      aspect:
+        description: '사진 방향'
+        type: choice
+        options: [wide, tall, square]
+        default: wide
+      out:
+        description: '저장 폴더'
+        required: false
+        default: 'preview/bg-candidates'
+      size:
+        description: '자를 크기 WxH (비우면 1600x730)'
+        required: false
+        default: ''
+      maxsd:
+        description: '복잡함 허용치 (기본 95, 높일수록 관대)'
+        required: false
+        default: '95'
 
 permissions:
   contents: write
@@ -23,13 +45,24 @@ jobs:
         run: npm install --no-save sharp
 
       - name: Fetch candidates
-        run: node scripts/fetch-bg-candidates.mjs
+        env:
+          BG_QUERIES: ${{ inputs.queries }}
+          BG_ASPECT: ${{ inputs.aspect }}
+          BG_OUT: ${{ inputs.out }}
+          BG_MAXSD: ${{ inputs.maxsd }}
+        run: |
+          if [ -n "${{ inputs.size }}" ]; then
+            export BG_W="${{ inputs.size }}"
+            export BG_W="${BG_W%x*}" BG_H="${{ inputs.size }}"
+            export BG_H="${BG_H#*x}"
+          fi
+          node scripts/fetch-bg-candidates.mjs
 
       - name: Commit
         run: |
           git config user.name "bg-picker-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add preview/bg-candidates
+          git add preview/
           if git diff --cached --quiet; then
             echo "변경 없음"
           else
