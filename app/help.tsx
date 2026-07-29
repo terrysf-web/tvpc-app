@@ -13,6 +13,7 @@ import {
   PlayCircle,
   RefreshCw,
   SquarePlus,
+  X,
 } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -356,7 +357,19 @@ export default function HelpScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="앱 사용 안내서" />
+      <OverlayHeader
+        title="앱 사용 안내서"
+        right={
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="안내서 닫기"
+          >
+            <X size={22} color={colors.title} strokeWidth={2.1} />
+          </Pressable>
+        }
+      />
       <ScrollView
         ref={scroller}
         contentContainerStyle={styles.content}
