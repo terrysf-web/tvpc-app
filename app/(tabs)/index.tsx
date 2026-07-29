@@ -56,15 +56,16 @@ const GREETING_TEXT = {
 
 /**
  * 인사말 아래 문구 — 시간대에 맞게.
- * 폭 262에서 한 줄이면 22자쯤. 두 줄까지는 감당한다(그만큼 말씀 카드
- * 높이를 낮춰 뒀다). 세 줄이 되면 최근 설교 카드가 탭 막대에 잘린다.
+ * 오른쪽 단추를 피해 폭 262를 쓰므로 한 줄 23자, 두 줄까지 45자.
+ * 두 줄까지는 감당한다(그만큼 말씀 카드 높이를 낮춰 뒀다).
+ * 세 줄이 되면 최근 설교 카드가 탭 막대에 잘린다.
  */
 const GREETING_SUB = {
-  dawn: '고요한 새벽, 주님과 함께 시작해요',
-  morning: '주님의 은혜가 함께하는 하루 되세요',
-  afternoon: '오후에도 주님의 평안이 함께하길 빕니다',
-  evening: '수고 많으셨어요. 주님의 평강이 가득한 저녁 되세요',
-  night: '주님의 평안 속에 편안한 밤 되세요',
+  dawn: '고요한 새벽, 주님과 함께 하루를 시작해 볼까요?',
+  morning: '좋은 아침이에요. 오늘도 주님의 은혜 안에서 함께 걸어요.',
+  afternoon: '바쁜 오후네요. 주님이 주시는 평안 속에서 잠시 쉬어가세요.',
+  evening: '오늘도 애쓰셨습니다. 주님의 평안 가운데 깊이 누리시는 저녁 되시길 바랍니다.',
+  night: '하루의 끝자락, 주님의 평강 속에 모든 것을 내려놓으세요.',
 } as const;
 
 function todayLabel(): string {
@@ -251,9 +252,9 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.greetingSub}>
               {isMonday
-                ? '주일에 받은 은혜가\n이번 한 주도 함께하기를'
+                ? '주일의 은혜를 품고, 새로운 한 주를 힘차게 시작해 봐요.'
                 : isSunday
-                  ? '복된 주일입니다\n예배로 함께 나아가요'
+                  ? '복된 주일입니다. 기쁜 마음으로 예배의 자리로 나아가요.'
                   : GREETING_SUB[timeSlot()]}
             </Text>
           </View>
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
 
-  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
   headBtns: { flexDirection: 'row', gap: 8 },
   greetingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   greetingTitle: {
@@ -497,7 +498,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: font.regular,
     fontSize: 13.5,
-    lineHeight: 19,
+    lineHeight: 18,
     color: colors.muted,
   },
   bellBtn: {
@@ -543,7 +544,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...textShadow,
   },
-  heroBottom: { marginTop: 12 },
+  heroBottom: { marginTop: 9 },
   heroRef: {
     fontFamily: font.bold,
     fontSize: 13,
