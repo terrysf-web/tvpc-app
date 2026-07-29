@@ -222,24 +222,15 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'rgba(12,27,62,0.33)';
     ctx.fillRect(0, 0, W, H);
-    glow(ctx, W * 0.7, H * 0.08, W * 0.5, 'rgba(220,235,255,0.34)', 'rgba(185,208,245,0.12)');
-    // 달빛 줄기 — 위쪽 배지와 본문 글씨 사이를 지나 아래로 퍼진다.
-    // 흐리게 번지게 해서 그려 넣은 물건이 아니라 빛으로 보이게 한다.
-    ctx.save();
-    ctx.filter = 'blur(26px)';
-    const beam = ctx.createLinearGradient(0, 0, 0, H * 0.62);
-    beam.addColorStop(0, 'rgba(230,241,255,0.34)');
-    beam.addColorStop(0.5, 'rgba(207,226,255,0.153)');
-    beam.addColorStop(1, 'rgba(207,226,255,0)');
-    ctx.fillStyle = beam;
-    ctx.beginPath();
-    ctx.moveTo(W * 0.63, 0);
-    ctx.lineTo(W * 0.73, 0);
-    ctx.lineTo(W * 0.93, H * 0.62);
-    ctx.lineTo(W * 0.45, H * 0.62);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    // 위쪽을 조금 밝게 — 달빛이 비치는 밤하늘
+    vGradient(ctx, [
+      [0, 'rgba(214,231,255,0.14)'],
+      [0.42, 'rgba(214,231,255,0.042)'],
+      [0.75, 'rgba(214,231,255,0)'],
+      [1, 'rgba(214,231,255,0)'],
+    ]);
+    // 달무리 — 테두리 없이 번지기만 해서 조명처럼 보이지 않게
+    glow(ctx, W * 0.72, H * 0.05, W * 0.66, 'rgba(220,235,255,0.24)', 'rgba(195,216,248,0.084)');
     vGradient(ctx, [
       [0, 'rgba(6,13,34,0)'],
       [0.5, 'rgba(6,13,34,0.06)'],

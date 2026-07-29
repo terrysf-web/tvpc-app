@@ -126,27 +126,21 @@ function gradeSlot(base, slot, srcLum = 140) {
     .composite([
       {
         input: svg(`
-          <defs>
-            <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#E6F1FF" stop-opacity="0.34"/>
-              <stop offset="0.5" stop-color="#CFE2FF" stop-opacity="0.153"/>
-              <stop offset="1" stop-color="#CFE2FF" stop-opacity="0"/>
-            </linearGradient>
-            <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="26"/>
-            </filter>
-          </defs>
           <rect width="${W}" height="${H}" fill="#0C1B3E" opacity="0.33"/>
-          <radialGradient id="m" cx="0.7" cy="0.08" r="0.5">
-            <stop offset="0" stop-color="#DCEBFF" stop-opacity="0.34"/>
-            <stop offset="0.45" stop-color="#B9D0F5" stop-opacity="0.12"/>
-            <stop offset="1" stop-color="#B9D0F5" stop-opacity="0"/>
+          <!-- 위쪽을 조금 밝게 — 달빛이 비치는 밤하늘 -->
+          <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#D6E7FF" stop-opacity="0.14"/>
+            <stop offset="0.42" stop-color="#D6E7FF" stop-opacity="0.042"/>
+            <stop offset="0.75" stop-color="#D6E7FF" stop-opacity="0"/>
+          </linearGradient>
+          <rect width="${W}" height="${H}" fill="url(#top)"/>
+          <!-- 달무리 — 테두리 없이 번지기만 해서 조명처럼 보이지 않게 -->
+          <radialGradient id="halo" cx="0.72" cy="0.05" r="0.66">
+            <stop offset="0" stop-color="#DCEBFF" stop-opacity="0.24"/>
+            <stop offset="0.4" stop-color="#C3D8F8" stop-opacity="0.084"/>
+            <stop offset="1" stop-color="#C3D8F8" stop-opacity="0"/>
           </radialGradient>
-          <rect width="${W}" height="${H}" fill="url(#m)"/>
-          <!-- 달빛 줄기 — 위쪽 배지와 본문 글씨 사이를 지나 아래로 퍼진다.
-               흐리게 번지게 해서 그려 넣은 물건이 아니라 빛으로 보이게 한다 -->
-          <polygon points="${0.63 * W},0 ${0.73 * W},0 ${0.93 * W},${0.62 * H} ${0.45 * W},${0.62 * H}"
-                   fill="url(#beam)" filter="url(#soft)"/>
+          <rect width="${W}" height="${H}" fill="url(#halo)"/>
           <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0.5" stop-color="#060D22" stop-opacity="0.06"/>
             <stop offset="1" stop-color="#060D22" stop-opacity="0.34"/>
