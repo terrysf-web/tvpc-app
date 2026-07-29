@@ -209,24 +209,41 @@ function gradeSlot(ctx: CanvasRenderingContext2D, img: HTMLImageElement, slot: B
     // 밤 — 밝기를 낮추고 푸른 달빛 색조를 입힌다. 어둡게만 하면 검은 판이 되고,
     // 색조가 없으면 낮처럼 보인다. 원본이 이미 어두우면 덜 누른다.
     const lum = canvasLum(ctx);
-    const f = Math.max(0.46, Math.min(0.92, 56 / Math.max(1, lum)));
+    const f = Math.max(0.48, Math.min(0.95, 62 / Math.max(1, lum)));
     const v = Math.round(255 * f);
     multiply(ctx, `rgb(${v}, ${v}, ${v})`);
     // 어두운 부분을 살짝 들어 형태를 남긴다
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
     ctx.fillRect(0, 0, W, H);
     // 밝기는 유지한 채 색만 푸르게 (sharp의 tint와 같은 효과)
     ctx.globalCompositeOperation = 'color';
     ctx.fillStyle = 'rgb(145, 173, 232)';
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(12,27,62,0.38)';
+    ctx.fillStyle = 'rgba(12,27,62,0.33)';
     ctx.fillRect(0, 0, W, H);
-    glow(ctx, W * 0.7, H * 0.1, W * 0.62, 'rgba(207,226,255,0.32)', 'rgba(185,208,245,0.11)');
+    glow(ctx, W * 0.7, H * 0.08, W * 0.5, 'rgba(220,235,255,0.34)', 'rgba(185,208,245,0.12)');
+    // 달빛 줄기 — 위쪽 배지와 본문 글씨 사이를 지나 아래로 퍼진다.
+    // 흐리게 번지게 해서 그려 넣은 물건이 아니라 빛으로 보이게 한다.
+    ctx.save();
+    ctx.filter = 'blur(26px)';
+    const beam = ctx.createLinearGradient(0, 0, 0, H * 0.62);
+    beam.addColorStop(0, 'rgba(230,241,255,0.34)');
+    beam.addColorStop(0.5, 'rgba(207,226,255,0.153)');
+    beam.addColorStop(1, 'rgba(207,226,255,0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(W * 0.63, 0);
+    ctx.lineTo(W * 0.73, 0);
+    ctx.lineTo(W * 0.93, H * 0.62);
+    ctx.lineTo(W * 0.45, H * 0.62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
     vGradient(ctx, [
       [0, 'rgba(6,13,34,0)'],
-      [0.48, 'rgba(6,13,34,0.09)'],
-      [1, 'rgba(6,13,34,0.38)'],
+      [0.5, 'rgba(6,13,34,0.06)'],
+      [1, 'rgba(6,13,34,0.34)'],
     ]);
   }
 }

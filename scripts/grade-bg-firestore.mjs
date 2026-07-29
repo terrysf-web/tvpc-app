@@ -118,24 +118,38 @@ function gradeSlot(base, slot, srcLum = 140) {
   }
   // 밤 — 밝기를 낮추고 푸른 달빛 색조를 입힌다. 색조 없이 어둡게만 하면
   // 검은 판이 되고, 색조 없이 밝게 두면 낮처럼 보인다.
-  const f = Math.max(0.46, Math.min(0.92, 56 / Math.max(1, srcLum)));
+  const f = Math.max(0.48, Math.min(0.95, 62 / Math.max(1, srcLum)));
   return sharp(base)
-    .modulate({ brightness: f, saturation: 0.52 })
-    .linear(0.91, 13) // 대비를 살짝 낮추고 어두운 부분을 들어 형태를 남긴다
+    .modulate({ brightness: f, saturation: 0.54 })
+    .linear(0.91, 15) // 대비를 살짝 낮추고 어두운 부분을 들어 형태를 남긴다
     .tint({ r: 145, g: 173, b: 232 })
     .composite([
       {
         input: svg(`
-          <rect width="${W}" height="${H}" fill="#0C1B3E" opacity="0.38"/>
-          <radialGradient id="m" cx="0.7" cy="0.1" r="0.62">
-            <stop offset="0" stop-color="#CFE2FF" stop-opacity="0.32"/>
-            <stop offset="0.45" stop-color="#B9D0F5" stop-opacity="0.11"/>
+          <defs>
+            <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#E6F1FF" stop-opacity="0.34"/>
+              <stop offset="0.5" stop-color="#CFE2FF" stop-opacity="0.153"/>
+              <stop offset="1" stop-color="#CFE2FF" stop-opacity="0"/>
+            </linearGradient>
+            <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="26"/>
+            </filter>
+          </defs>
+          <rect width="${W}" height="${H}" fill="#0C1B3E" opacity="0.33"/>
+          <radialGradient id="m" cx="0.7" cy="0.08" r="0.5">
+            <stop offset="0" stop-color="#DCEBFF" stop-opacity="0.34"/>
+            <stop offset="0.45" stop-color="#B9D0F5" stop-opacity="0.12"/>
             <stop offset="1" stop-color="#B9D0F5" stop-opacity="0"/>
           </radialGradient>
           <rect width="${W}" height="${H}" fill="url(#m)"/>
+          <!-- 달빛 줄기 — 위쪽 배지와 본문 글씨 사이를 지나 아래로 퍼진다.
+               흐리게 번지게 해서 그려 넣은 물건이 아니라 빛으로 보이게 한다 -->
+          <polygon points="${0.63 * W},0 ${0.73 * W},0 ${0.93 * W},${0.62 * H} ${0.45 * W},${0.62 * H}"
+                   fill="url(#beam)" filter="url(#soft)"/>
           <linearGradient id="nv" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0.48" stop-color="#060D22" stop-opacity="0.09"/>
-            <stop offset="1" stop-color="#060D22" stop-opacity="0.38"/>
+            <stop offset="0.5" stop-color="#060D22" stop-opacity="0.06"/>
+            <stop offset="1" stop-color="#060D22" stop-opacity="0.34"/>
           </linearGradient>
           <rect width="${W}" height="${H}" fill="url(#nv)"/>`),
         blend: 'over',
