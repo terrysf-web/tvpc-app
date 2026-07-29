@@ -37,8 +37,10 @@ export function WelcomeScreen() {
         </View>
         <Text style={styles.title}>{motto.title}</Text>
         <Text style={styles.subtitle}>{motto.subtitle}</Text>
-        <Text style={styles.verse}>{motto.verse}</Text>
-        <Text style={styles.reference}>{motto.reference}</Text>
+        <View style={styles.verseCard}>
+          <Text style={styles.verse}>{motto.verse}</Text>
+          <Text style={styles.reference}>{motto.reference}</Text>
+        </View>
       </View>
       <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
         <Pressable style={styles.startBtn} onPress={dismiss}>
@@ -83,16 +85,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     ...glow,
   },
+  verseCard: {
+    marginTop: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+  },
   verse: {
     fontFamily: font.bold,
     fontSize: 13.5,
     lineHeight: 24,
     textAlign: 'center',
     color: '#0E2647',
-    marginTop: 22,
-    ...glow,
   },
-  reference: { fontFamily: font.bold, fontSize: 12, color: '#28457A', marginTop: 6, ...glow },
+  reference: {
+    fontFamily: font.bold,
+    fontSize: 12,
+    color: '#28457A',
+    marginTop: 6,
+    textAlign: 'center',
+  },
   bottom: { paddingHorizontal: 24, alignItems: 'center' },
   startBtn: {
     alignSelf: 'stretch',
