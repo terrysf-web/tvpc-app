@@ -2,18 +2,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../churchInfo';
+import { useCurrentMotto } from '../data/welcome';
 import { isAppReady, onAppReady } from '../appBoot';
 import { font } from '../theme';
 
 /** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간 */
-const MIN_SHOW_MS = 1400;
+const MIN_SHOW_MS = 2000;
 /** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
-const MAX_SHOW_MS = 2500;
+const MAX_SHOW_MS = 3200;
 /** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
 const RESUME_AFTER_HIDDEN_MS = 1500;
 /** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
-const RESUME_SHOW_MS = 1000;
+const RESUME_SHOW_MS = 1400;
 const FADE_MS = 260;
 
 /**
@@ -25,6 +27,8 @@ export function BrandSplash() {
   const [gone, setGone] = useState(Platform.OS !== 'web');
   const fade = useRef(new Animated.Value(1)).current;
   const born = useRef(Date.now());
+  const insets = useSafeAreaInsets();
+  const motto = useCurrentMotto();
 
   useEffect(() => {
     if (gone) return;
@@ -85,6 +89,14 @@ export function BrandSplash() {
         locations={[0, 0.34, 0.68, 1]}
         style={StyleSheet.absoluteFill}
       />
+      {motto ? (
+        <View style={[styles.mottoRow, { top: Math.max(insets.top, 24) + 16 }]}>
+          <View style={styles.mottoBadge}>
+            <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
+          </View>
+          <Text style={styles.mottoTitle}>{motto.title}</Text>
+        </View>
+      ) : null}
       <View style={styles.center}>
         <View style={styles.logoChip}>
           {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
@@ -100,6 +112,21 @@ export function BrandSplash() {
 
 const styles = StyleSheet.create({
   wrap: { zIndex: 100, alignItems: 'center', justifyContent: 'center' },
+  mottoRow: { position: 'absolute', alignItems: 'center', paddingHorizontal: 24 },
+  mottoBadge: {
+    backgroundColor: 'rgba(18,50,91,0.78)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  mottoBadgeText: { fontFamily: font.bold, fontSize: 12, color: '#FFFFFF' },
+  mottoTitle: {
+    fontFamily: font.extraBold,
+    fontSize: 19,
+    letterSpacing: -0.3,
+    color: '#122B4F',
+  },
   center: { alignItems: 'center' },
   logoChip: {
     width: 92,

@@ -39,6 +39,23 @@ export function markWelcomeSeen(version: string) {
   }
 }
 
+async function fetchMottoDoc(): Promise<WelcomeMotto | null> {
+  const db = getDb();
+  if (!db) return null;
+  await ensureAnonymousAuth();
+  const snap = await getDoc(doc(db, 'welcome', 'motto'));
+  if (!snap.exists()) return null;
+  const m: WelcomeMotto = {
+    version: String(snap.get('version') ?? ''),
+    badge: String(snap.get('badge') ?? ''),
+    title: String(snap.get('title') ?? ''),
+    subtitle: String(snap.get('subtitle') ?? ''),
+    verse: String(snap.get('verse') ?? ''),
+    reference: String(snap.get('reference') ?? ''),
+  };
+  return m.version && m.title ? m : null;
+}
+
 export function useWelcome(): {
   show: boolean;
   motto: WelcomeMotto | null;
@@ -60,20 +77,10 @@ export function useWelcome(): {
           setShow(true);
           return;
         }
+        const m = await fetchMottoDoc();
+        if (!m || seenVersion() === m.version) return;
         const db = getDb();
         if (!db) return;
-        await ensureAnonymousAuth();
-        const snap = await getDoc(doc(db, 'welcome', 'motto'));
-        if (!snap.exists()) return;
-        const m: WelcomeMotto = {
-          version: String(snap.get('version') ?? ''),
-          badge: String(snap.get('badge') ?? ''),
-          title: String(snap.get('title') ?? ''),
-          subtitle: String(snap.get('subtitle') ?? ''),
-          verse: String(snap.get('verse') ?? ''),
-          reference: String(snap.get('reference') ?? ''),
-        };
-        if (!m.version || !m.title || seenVersion() === m.version) return;
         // 아직 안 본 표어 — 그림까지 받아서 함께 보여준다
         const img = await getDoc(doc(db, 'welcome', 'image'));
         const url = img.exists() ? String(img.get('image') ?? '') : '';
@@ -99,4 +106,34 @@ export function useWelcome(): {
       setShow(false);
     },
   };
+}
+
+/**
+ * 스플래시에 늘 띄우는 표어 배지 — 웰컴 화면과 달리 '본 적 있는지'와
+ * 무관하게 열 때마다 가져온다. 평소에는 이것만이 표어를 보여주는 자리다.
+ */
+export function useCurrentMotto(): { badge: string; title: string } | null {
+  const [motto, setMotto] = useState<{ badge: string; title: string } | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    let on = true;
+    (async () => {
+      try {
+        if (localStorage.getItem('welcomeStub') === '1') { // STUB
+          setMotto({ badge: '2026 교회 표어', title: '담장을 넘어' });
+          return;
+        }
+        const m = await fetchMottoDoc();
+        if (on && m) setMotto({ badge: m.badge, title: m.title });
+      } catch {
+        /* 무시 — 배지 없이 로고만 보여준다 */
+      }
+    })();
+    return () => {
+      on = false;
+    };
+  }, []);
+
+  return motto;
 }
