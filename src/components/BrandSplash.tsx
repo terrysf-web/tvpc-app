@@ -9,13 +9,13 @@ import { isAppReady, onAppReady } from '../appBoot';
 import { font } from '../theme';
 
 /** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간 */
-const MIN_SHOW_MS = 2000;
+const MIN_SHOW_MS = 2600;
 /** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
-const MAX_SHOW_MS = 3200;
+const MAX_SHOW_MS = 3800;
 /** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
 const RESUME_AFTER_HIDDEN_MS = 1500;
 /** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
-const RESUME_SHOW_MS = 1400;
+const RESUME_SHOW_MS = 2000;
 const FADE_MS = 260;
 
 /**
@@ -95,6 +95,9 @@ export function BrandSplash() {
             <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
           </View>
           <Text style={styles.mottoTitle}>{motto.title}</Text>
+          <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
+          <Text style={styles.mottoVerse}>{motto.verse}</Text>
+          <Text style={styles.mottoReference}>{motto.reference}</Text>
         </View>
       ) : null}
       <View style={styles.center}>
@@ -126,6 +129,26 @@ const styles = StyleSheet.create({
     fontSize: 19,
     letterSpacing: -0.3,
     color: '#122B4F',
+  },
+  mottoSubtitle: {
+    fontFamily: font.bold,
+    fontSize: 14,
+    color: '#1E5AA8',
+    marginTop: 2,
+  },
+  mottoVerse: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: '#3A5A85',
+    marginTop: 14,
+  },
+  mottoReference: {
+    fontFamily: font.bold,
+    fontSize: 11,
+    color: '#7590B5',
+    marginTop: 4,
   },
   center: { alignItems: 'center' },
   logoChip: {

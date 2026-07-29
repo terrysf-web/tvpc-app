@@ -108,12 +108,14 @@ export function useWelcome(): {
   };
 }
 
+export type CurrentMotto = Pick<WelcomeMotto, 'badge' | 'title' | 'subtitle' | 'verse' | 'reference'>;
+
 /**
- * 스플래시에 늘 띄우는 표어 배지 — 웰컴 화면과 달리 '본 적 있는지'와
+ * 스플래시에 늘 띄우는 표어 — 웰컴 화면과 달리 '본 적 있는지'와
  * 무관하게 열 때마다 가져온다. 평소에는 이것만이 표어를 보여주는 자리다.
  */
-export function useCurrentMotto(): { badge: string; title: string } | null {
-  const [motto, setMotto] = useState<{ badge: string; title: string } | null>(null);
+export function useCurrentMotto(): CurrentMotto | null {
+  const [motto, setMotto] = useState<CurrentMotto | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -121,11 +123,25 @@ export function useCurrentMotto(): { badge: string; title: string } | null {
     (async () => {
       try {
         if (localStorage.getItem('welcomeStub') === '1') { // STUB
-          setMotto({ badge: '2026 교회 표어', title: '담장을 넘어' });
+          setMotto({
+            badge: '2026 교회 표어',
+            title: '담장을 넘어',
+            subtitle: 'Over the Wall',
+            verse: '요셉은 무성한 가지 곧 샘 곁의 무성한 가지라\n그 가지가 담을 넘었도다',
+            reference: '(창세기 49장 22절)',
+          });
           return;
         }
         const m = await fetchMottoDoc();
-        if (on && m) setMotto({ badge: m.badge, title: m.title });
+        if (on && m) {
+          setMotto({
+            badge: m.badge,
+            title: m.title,
+            subtitle: m.subtitle,
+            verse: m.verse,
+            reference: m.reference,
+          });
+        }
       } catch {
         /* 무시 — 배지 없이 로고만 보여준다 */
       }
