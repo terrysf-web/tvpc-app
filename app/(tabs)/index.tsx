@@ -54,12 +54,16 @@ const GREETING_TEXT = {
   night: '좋은 밤입니다',
 } as const;
 
-/** 인사말 아래 문구 — 시간대에 맞게 */
+/**
+ * 인사말 아래 문구 — 시간대에 맞게.
+ * 폭 262에서 한 줄로 끝나야 한다(대략 19자). 두 줄이 되면 그만큼
+ * 아래가 밀려 최근 설교 카드가 탭 막대에 잘린다.
+ */
 const GREETING_SUB = {
   dawn: '고요한 새벽, 주님과 함께 시작해요',
-  morning: '오늘도 주님의 은혜가 함께하는 하루 되세요',
+  morning: '주님의 은혜가 함께하는 하루 되세요',
   afternoon: '오후에도 주님의 평안이 함께하길 빕니다',
-  evening: '오늘 하루도 수고 많으셨어요. 주님 안에서 쉼을 누리세요',
+  evening: '수고 많으셨어요. 주님 안에서 쉬세요',
   night: '주님의 평안 속에 편안한 밤 되세요',
 } as const;
 
@@ -222,7 +226,7 @@ export default function HomeScreen() {
       style={styles.screen}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: Math.max(insets.top, 28) + 12 },
+        { paddingTop: Math.max(insets.top, 28) + 2 },
       ]}
       showsVerticalScrollIndicator={false}
     >
@@ -480,7 +484,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
 
-  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
   headBtns: { flexDirection: 'row', gap: 8 },
   greetingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   greetingTitle: {
@@ -490,10 +494,10 @@ const styles = StyleSheet.create({
     color: colors.title,
   },
   greetingSub: {
-    marginTop: 6,
+    marginTop: 4,
     fontFamily: font.regular,
     fontSize: 13.5,
-    lineHeight: 20,
+    lineHeight: 19,
     color: colors.muted,
   },
   bellBtn: {
@@ -517,7 +521,7 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
   },
 
-  heroWrap: { borderRadius: 22, marginBottom: 10 },
+  heroWrap: { borderRadius: 22, marginBottom: 8 },
   hero: { borderRadius: 22, minHeight: 222, padding: 18, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
@@ -618,7 +622,7 @@ const styles = StyleSheet.create({
     fontFamily: font.extraBold,
     fontSize: 15.5,
     color: colors.title,
-    marginBottom: 9,
+    marginBottom: 8,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -626,12 +630,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   quickCard: {
     flex: 1,
     backgroundColor: colors.card,
     borderRadius: 15,
-    paddingVertical: 11,
+    paddingVertical: 10,
     alignItems: 'center',
     gap: 6,
   },
@@ -651,8 +655,8 @@ const styles = StyleSheet.create({
     gap: 11,
     backgroundColor: colors.card,
     borderRadius: 14,
-    padding: 10,
-    marginBottom: 9,
+    padding: 9,
+    marginBottom: 8,
   },
   eventDateBox: {
     width: 42,
