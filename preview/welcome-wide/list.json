@@ -1,0 +1,32 @@
+[
+  {
+    "name": "cand-01",
+    "term": "vine growing over stone wall",
+    "title": "A lush green wall of cascading vines with vibrant yellow flowers, growing over a stone wall.",
+    "license": "CC0 1.0",
+    "author": "mujuonly",
+    "page": "https://wordpress.org/photos/photo/91767f4a7a/",
+    "calm": 35,
+    "lum": 109
+  },
+  {
+    "name": "cand-02",
+    "term": "dry stone wall green hills",
+    "title": "Dry Stone Wall at Green Hill - geograph.org.uk - 4600763",
+    "license": "BY-SA 2.0",
+    "author": "Peter Wood",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=130386048",
+    "calm": 41,
+    "lum": 141
+  },
+  {
+    "name": "cand-03",
+    "term": "stone wall golden light",
+    "title": "Monmouth Library - The Rolls Hall - Whitecross Street, Monmouth - foundation stone (19160381911)",
+    "license": "BY-SA 2.0",
+    "author": "Elliott Brown from Birmingham, United Kingdom",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=79397521",
+    "calm": 7,
+    "lum": 156
+  }
+]
