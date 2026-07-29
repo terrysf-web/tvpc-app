@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   },
   greetingSub: {
     marginTop: 4,
-    fontFamily: font.regular,
+    fontFamily: font.medium,
     fontSize: 13.5,
     lineHeight: 18,
     color: colors.muted,

@@ -24,19 +24,21 @@ export const colors = {
   badge: '#DC4B3E',
   sun: '#F5A623',
 
+  // 텍스트 — 작은 글씨가 흐려 보이지 않게 회색 계열을 한 단계씩 진하게 잡았다.
+  // (옅은 회색 배경 위에서 muted 5.8 : 1, faint 3.9 : 1)
   // 텍스트
   title: '#18202B',
   titleAlt: '#1B2430',
   body: '#2F3944',
   bodyAlt: '#39424E',
-  muted: '#6B7280',
-  muted2: '#7A828D',
-  muted3: '#8A919B',
-  faint: '#9AA1AB',
-  faint2: '#C3C9D1',
+  muted: '#545D6B',
+  muted2: '#616A77',
+  muted3: '#6C7480',
+  faint: '#6F7884',
+  faint2: '#A6AEBA',
 
-  tabInactive: '#9AA0A8',
-  segInactive: '#8B9099',
+  tabInactive: '#7A828C',
+  segInactive: '#727A85',
 
   // 배경/구분선 — 배경을 살짝 푸른 회색으로 둬 흰 카드가 또렷이 떠 보이게
   screenBg: '#EBEFF5',
