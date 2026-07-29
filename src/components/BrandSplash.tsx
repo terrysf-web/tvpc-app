@@ -112,17 +112,20 @@ export function BrandSplash() {
       <Animated.View style={[StyleSheet.absoluteFill, styles.contentWrap, { opacity: contentFade }]}>
         <View style={{ flex: 1.3 }} />
         <View style={styles.center}>
-          {motto ? (
-            <View style={styles.mottoRow}>
-              <View style={styles.mottoBadge}>
-                <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
-              </View>
-              <Text style={styles.mottoTitle}>{motto.title}</Text>
-              <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
-              <Text style={styles.mottoVerse}>{motto.verse}</Text>
-              <Text style={styles.mottoReference}>{motto.reference}</Text>
-            </View>
-          ) : null}
+          {/* motto 도착 전에도 자리를 미리 잡아둔다 — 나중에 팝업되며 로고를 밀어내리지 않게 */}
+          <View style={styles.mottoRow}>
+            {motto ? (
+              <>
+                <View style={styles.mottoBadge}>
+                  <Text style={styles.mottoBadgeText}>{motto.badge}</Text>
+                </View>
+                <Text style={styles.mottoTitle}>{motto.title}</Text>
+                <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
+                <Text style={styles.mottoVerse}>{motto.verse}</Text>
+                <Text style={styles.mottoReference}>{motto.reference}</Text>
+              </>
+            ) : null}
+          </View>
           <View style={styles.logoChip}>
             {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
             <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
@@ -142,7 +145,7 @@ export function BrandSplash() {
 const styles = StyleSheet.create({
   wrap: { zIndex: 100, alignItems: 'center', justifyContent: 'center' },
   contentWrap: { alignItems: 'stretch' },
-  mottoRow: { alignItems: 'center', paddingHorizontal: 24, marginBottom: 26 },
+  mottoRow: { alignItems: 'center', paddingHorizontal: 24, marginBottom: 26, minHeight: 190, justifyContent: 'center' },
   mottoBadge: {
     backgroundColor: 'rgba(18,50,91,0.78)',
     borderRadius: 20,
