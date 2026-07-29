@@ -1,52 +1,92 @@
 [
   {
     "name": "cand-01",
-    "term": "stone wall path countryside",
-    "title": "Culross West Kirk - Flickr - Neillwphoto",
-    "license": "BY-SA 2.0",
-    "author": "Neil Williamson from Dundee, Scotland",
-    "page": "https://commons.wikimedia.org/w/index.php?curid=92838205",
-    "calm": 40,
-    "lum": 83
+    "term": "vineyard stone wall",
+    "title": "File:Old woman in Lahic.jpg",
+    "license": "BY 2.0",
+    "author": "Walter Callens",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=15297498",
+    "calm": 57,
+    "lum": 111
   },
   {
     "name": "cand-02",
-    "term": "stone wall path countryside",
-    "title": "Georgia, Abkhasia, Akhali Atoni, Новый Афон - Отель «Орлиное гнездо» WMID7496003",
-    "license": "BY-SA 3.0",
-    "author": "timson_rootina",
-    "page": "https://commons.wikimedia.org/w/index.php?curid=181895580",
-    "calm": 30,
-    "lum": 70
+    "term": "vineyard stone wall",
+    "title": "Beringer Vineyards, Napa Valley, California, USA (7612834750)",
+    "license": "BY 2.0",
+    "author": "Jim G from Silicon Valley, CA, USA",
+    "page": "https://commons.wikimedia.org/w/index.php?curid=25375917",
+    "calm": 50,
+    "lum": 143
   },
   {
     "name": "cand-03",
-    "term": "footpath stone wall hills",
-    "title": "Drogheda - St. Laurences Gate (5638818100)",
-    "license": "BY-SA 2.0",
-    "author": "William Murphy from Dublin, Ireland",
-    "page": "https://commons.wikimedia.org/w/index.php?curid=24726338",
-    "calm": 48,
-    "lum": 106
+    "term": "ivy covered wall green",
+    "title": "A white stucco house with green shutters, covered in ivy, features potted plants by the door and two bicycles parked on a cobblestone street.",
+    "license": "CC0 1.0",
+    "author": "katiejrichards",
+    "page": "https://wordpress.org/photos/photo/347684162b/",
+    "calm": 63,
+    "lum": 147
   },
   {
     "name": "cand-04",
-    "term": "tree branch over fence sky",
-    "title": "In Lincoln, New Hampshire, a woman in a purple winter jacket stands on a wooden suspension bridge over the East Branch Pemigewasset River in the rain.",
+    "term": "ivy covered wall green",
+    "title": "A long wall covered in green ivy with a row of dormer windows and a red-tiled roofline. The wall runs along a paved path, and there are trees and greenery on both sides. Captured from Munich, Germany.",
     "license": "CC0 1.0",
-    "author": "Jonathan Desrosiers",
-    "page": "https://wordpress.org/photos/photo/66865a6a14/",
-    "calm": 38,
-    "lum": 81
+    "author": "Bigul Malayi",
+    "page": "https://wordpress.org/photos/photo/20567d9486/",
+    "calm": 47,
+    "lum": 124
   },
   {
     "name": "cand-05",
-    "term": "old stone wall field",
-    "title": "A decorative temple donation box (Daan Peti, Hundi, or Undiyal) with golden floral patterns stands against an old stone wall, creating a rustic and artistic look. The shallow depth of field highlights the details nicely. Captured at Varikkasseri Mana, Vaniyamkulam, Palakkad.",
+    "term": "ivy covered wall green",
+    "title": "An old wooden water wheel turns beside fast-flowing water and green ivy-covered walls. This charming scene reflects the historic beauty near Rhine Falls, Switzerland.",
     "license": "CC0 1.0",
     "author": "Bigul Malayi",
-    "page": "https://wordpress.org/photos/photo/7356a184f1/",
-    "calm": 33,
-    "lum": 78
+    "page": "https://wordpress.org/photos/photo/8946a0c25f/",
+    "calm": 50,
+    "lum": 88
+  },
+  {
+    "name": "cand-06",
+    "term": "garden stone wall flowers",
+    "title": "Rose Garden in Portland with bright red and pink roses. Large trees are visible in the background. The sky is cloudy and grey.",
+    "license": "CC0 1.0",
+    "author": "agrigunaite",
+    "page": "https://wordpress.org/photos/photo/49866e9b94/",
+    "calm": 27,
+    "lum": 84
+  },
+  {
+    "name": "cand-07",
+    "term": "garden stone wall flowers",
+    "title": "A vibrant cluster of petunias in various shades of deep and light purple blooms amidst a backdrop of lush green foliage. The flowers are set against a rustic, textured stone wall that provides a natural, earthy contrast to the vivid petals.",
+    "license": "CC0 1.0",
+    "author": "Uttkrista Chhetri",
+    "page": "https://wordpress.org/photos/photo/69569d790f/",
+    "calm": 46,
+    "lum": 109
+  },
+  {
+    "name": "cand-08",
+    "term": "garden stone wall flowers",
+    "title": "A vibrant array of flowering plants in various colors, including pink, orange, yellow, and white, is arranged in pots along a stone wall.",
+    "license": "CC0 1.0",
+    "author": "Manjil Aryal",
+    "page": "https://wordpress.org/photos/photo/579696641e/",
+    "calm": 46,
+    "lum": 111
+  },
+  {
+    "name": "cand-09",
+    "term": "garden stone wall flowers",
+    "title": "Vibrant purple petunias bloom beside a stone wall with green leaves and pink flowers in Pokhara.",
+    "license": "CC0 1.0",
+    "author": "Gaurab",
+    "page": "https://wordpress.org/photos/photo/896a0b3976/",
+    "calm": 40,
+    "lum": 80
   }
 ]
