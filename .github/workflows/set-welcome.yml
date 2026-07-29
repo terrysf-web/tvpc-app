@@ -1,0 +1,33 @@
+# 웰컴(교회 표어) 등록 — scripts/set-welcome.mjs 의 문구와 assets/ 그림을
+# Firestore에 올린다. 새해 표어로 바꿀 때 값 수정 후 Run workflow.
+name: Set welcome motto
+
+on:
+  workflow_dispatch:
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/react-native-firebase-app-e0vg1r
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없습니다."
+            exit 1
+          fi
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+
+      - name: Set welcome
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/set-welcome.mjs

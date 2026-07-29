@@ -31,6 +31,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /welcome/{id} {
+      // 첫 화면 표어·배경 — 누구나 읽기, 등록은 관리자만
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /verseBg/{slot} {
       // 말씀카드 시간대별 배경 — 누구나 읽기, 등록은 관리자만
       allow read: if true;

@@ -26,6 +26,7 @@ import { sundayPhase } from '../../src/churchTime';
 import { openLiveWorship, openWorshipReplay, playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
+import { setAppReady } from '../../src/appBoot';
 
 /**
  * 유튜브 섬네일(hqdefault)은 480×360, 곧 16:9 영상 위아래에 검은 띠를 덧댄
@@ -154,6 +155,10 @@ export default function HomeScreen() {
   const heroReady = isSunday
     ? sunday.ready && (sunday.bg != null || bg.ready)
     : verseReady && (verse.imageUrl ? true : bg.ready);
+  // 첫 그림이 확정되면 브랜드 스플래시를 내린다
+  React.useEffect(() => {
+    if (heroReady) setAppReady();
+  }, [heroReady]);
   const sundayTimes = churchInfo.services
     .filter((s) => s.name.startsWith('주일예배'))
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
