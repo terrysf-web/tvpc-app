@@ -65,7 +65,7 @@ const GREETING_SUB = {
   morning: '좋은 아침이에요. 오늘도 주님의 은혜 안에서 함께 걸어요.',
   afternoon: '바쁜 오후네요. 주님이 주시는 평안 속에서 잠시 쉬어가세요.',
   evening: '오늘도 애쓰셨습니다. 주님의 평안 가운데 깊이 누리시는 저녁 되시길 바랍니다.',
-  night: '하루의 끝자락, 주님의 평강 속에 모든 것을 내려놓으세요.',
+  night: '하루의 끝자락, 주님의 평강 속에 모든 것을 내려놓으시고 편히 쉬세요',
 } as const;
 
 function todayLabel(): string {
