@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     fontFamily: font.extraBold,
     fontSize: 34,
     letterSpacing: -0.5,
-    color: '#122B4F',
+    color: '#0A1830',
     ...glow,
   },
   subtitle: {
