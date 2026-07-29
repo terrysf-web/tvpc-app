@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
   },
 
-  heroWrap: { borderRadius: 22, marginBottom: 12 },
+  heroWrap: { borderRadius: 22, marginBottom: 10 },
   hero: { borderRadius: 22, minHeight: 222, padding: 18, justifyContent: 'space-between' },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroBadge: {
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   quickCard: {
     flex: 1,
     backgroundColor: colors.card,
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 10,
-    marginBottom: 11,
+    marginBottom: 9,
   },
   eventDateBox: {
     width: 42,
