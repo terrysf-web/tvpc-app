@@ -44,7 +44,7 @@ export function WelcomeScreen() {
       </View>
       <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
         <Pressable style={styles.startBtn} onPress={dismiss}>
-          <Text style={styles.startText}>시작하기</Text>
+          <Text style={styles.startText}>앱 시작하기</Text>
         </Pressable>
         <Pressable style={styles.guideBtn} onPress={openGuide} hitSlop={6}>
           <Text style={styles.guideText}>앱 사용 안내서 보기</Text>
