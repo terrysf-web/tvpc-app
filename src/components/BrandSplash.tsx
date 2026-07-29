@@ -7,13 +7,13 @@ import { isAppReady, onAppReady } from '../appBoot';
 import { font } from '../theme';
 
 /** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간 */
-const MIN_SHOW_MS = 900;
+const MIN_SHOW_MS = 1400;
 /** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
 const MAX_SHOW_MS = 2500;
 /** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
 const RESUME_AFTER_HIDDEN_MS = 1500;
 /** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
-const RESUME_SHOW_MS = 700;
+const RESUME_SHOW_MS = 1000;
 const FADE_MS = 260;
 
 /**
