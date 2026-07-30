@@ -288,6 +288,25 @@ async function gradeFromImage(
 }
 
 /**
+ * 사진 출처 표기 — 자유 형식(예: "Canva", "Openverse · 홍길동 (CC-BY)").
+ * 라이선스별 요구사항이 달라(CC-BY는 저작자 표시 필수, Canva는 보통 불필요)
+ * 구조화하지 않고 문구 그대로 저장해, 더보기 › 사진 출처 화면에 보여준다.
+ */
+export async function getBgCredit(which: 'original' | 'sunday'): Promise<string> {
+  const db = getDb();
+  if (!db) return '';
+  const snap = await getDoc(doc(db, 'verseBg', which));
+  return snap.exists() ? String(snap.get('credit') ?? '') : '';
+}
+
+/** 그림을 새로 올리지 않고 출처 문구만 고칠 때 */
+export async function saveBgCreditOnly(which: 'original' | 'sunday', credit: string): Promise<void> {
+  const db = getDb();
+  if (!db) throw new Error('데이터베이스 연결이 없습니다.');
+  await setDoc(doc(db, 'verseBg', which), { credit: credit.trim() }, { merge: true });
+}
+
+/**
  * 관리자 화면에서 사용 — 밝은 낮 풍경 그림 한 장을 받아
  * 시간대별 5종으로 변환해 Firestore에 저장한다. (웹 전용)
  * 원본도 함께 저장해, 변환 규칙이 바뀌면 그림을 다시 올리지 않고
@@ -295,6 +314,7 @@ async function gradeFromImage(
  */
 export async function gradeAndSaveVerseBg(
   file: File,
+  credit: string,
   onStatus?: (msg: string) => void,
 ): Promise<void> {
   const db = getDb();
@@ -314,6 +334,7 @@ export async function gradeAndSaveVerseBg(
     if (dataUrl.length > 900_000) dataUrl = canvas.toDataURL('image/jpeg', 0.7);
     await setDoc(doc(db, 'verseBg', 'original'), {
       image: dataUrl,
+      credit: credit.trim(),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -423,6 +444,7 @@ export function useSundayBg(): { bg: { uri: string; dark: boolean } | null; read
  */
 export async function saveSundayBg(
   file: File,
+  credit: string,
   onStatus?: (msg: string) => void,
 ): Promise<void> {
   const db = getDb();
@@ -457,6 +479,7 @@ export async function saveSundayBg(
   await setDoc(doc(db, 'verseBg', 'sunday'), {
     image: dataUrl,
     dark,
+    credit: credit.trim(),
     updatedAt: new Date().toISOString(),
   });
   // 평일 말씀 배경과 같은 방식으로 시간대 5종을 함께 만든다

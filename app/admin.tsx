@@ -49,8 +49,10 @@ import {
   clearSundayBg,
   regradeSundayBg,
   gradeAndSaveVerseBg,
+  getBgCredit,
   regradeVerseBg,
   resetVerseBg,
+  saveBgCreditOnly,
   saveSundayBg,
 } from '../src/verseBg';
 
@@ -150,6 +152,14 @@ export default function AdminScreen() {
   const [bPages, setBPages] = useState<BulletinPage[]>([]);
   const [bStatus, setBStatus] = useState<string | null>(null);
   const [bgStatus, setBgStatus] = useState<string | null>(null);
+
+  // 배경 사진 출처 — 그림을 새로 올릴 때 함께 저장, 화면 열릴 때 현재 값을 불러와 보여준다
+  const [vBgCredit, setVBgCredit] = useState('');
+  const [vSundayCredit, setVSundayCredit] = useState('');
+  useEffect(() => {
+    getBgCredit('original').then(setVBgCredit).catch(() => {});
+    getBgCredit('sunday').then(setVSundayCredit).catch(() => {});
+  }, []);
 
   // 주보 자동 동기화 상태 — 토요일 저녁 자동 확인이 잘 돌았는지 표시
   const [syncInfo, setSyncInfo] = useState<string | null>(null);
@@ -339,7 +349,7 @@ export default function AdminScreen() {
       setBusy(true);
       setMsg(null);
       try {
-        await saveSundayBg(file, setMsg);
+        await saveSundayBg(file, vSundayCredit, setMsg);
         setMsg('주일 카드 배경이 등록됐습니다. 시간대(아침·오후·노을·밤)에 따라 바뀝니다.');
       } catch (e) {
         setMsg(`저장 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
@@ -364,7 +374,7 @@ export default function AdminScreen() {
       setBusy(true);
       setMsg(null);
       try {
-        await gradeAndSaveVerseBg(file, setBgStatus);
+        await gradeAndSaveVerseBg(file, vBgCredit, setBgStatus);
         setMsg('배경이 등록됐습니다. 시간대에 따라 자동으로 바뀝니다.');
       } catch (e) {
         setBgStatus(null);
@@ -562,6 +572,12 @@ export default function AdminScreen() {
               밝은 낮 풍경 그림 한 장을 올리면 새벽(해돋이)·아침·오후·저녁(노을)·밤(달과 별)
               5가지 시간대 버전을 자동으로 만들어 앱 전체에 적용합니다.
             </Text>
+            <Field
+              label="사진 출처 (예: Canva, Openverse · 작가명)"
+              value={vBgCredit}
+              onChange={setVBgCredit}
+              placeholder="Canva"
+            />
             <Pressable
               style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
               onPress={pickVerseBgImage}
@@ -579,6 +595,17 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.secondaryBtnText}>저장된 원본으로 다시 변환</Text>
+            </Pressable>
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={() =>
+                submit(async () => {
+                  await saveBgCreditOnly('original', vBgCredit);
+                }, '사진 출처를 저장했습니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.ghostBtnText}>그림은 그대로, 출처만 저장</Text>
             </Pressable>
             {bgStatus ? <Text style={styles.bgStatus}>{bgStatus}</Text> : null}
             <Pressable
@@ -603,6 +630,12 @@ export default function AdminScreen() {
               보는 시간에 맞는 그림이 나옵니다. 글씨 색도 그림 밝기에 맞춰 자동으로
               정해집니다. 등록하지 않으면 평일과 같은 시간대 배경을 씁니다.
             </Text>
+            <Field
+              label="사진 출처 (예: Canva, Openverse · 작가명)"
+              value={vSundayCredit}
+              onChange={setVSundayCredit}
+              placeholder="Canva"
+            />
             <Pressable
               style={[styles.secondaryBtn, busy && { opacity: 0.6 }]}
               onPress={pickSundayBgImage}
@@ -623,6 +656,17 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.secondaryBtnText}>올려둔 주일 그림으로 시간대 만들기</Text>
+            </Pressable>
+            <Pressable
+              style={styles.ghostBtn}
+              onPress={() =>
+                submit(async () => {
+                  await saveBgCreditOnly('sunday', vSundayCredit);
+                }, '사진 출처를 저장했습니다.')
+              }
+              disabled={busy}
+            >
+              <Text style={styles.ghostBtnText}>그림은 그대로, 출처만 저장</Text>
             </Pressable>
             <Pressable
               style={styles.ghostBtn}

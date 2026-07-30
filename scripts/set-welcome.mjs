@@ -22,6 +22,8 @@ const MOTTO = {
   reference: '(창세기 49장 22절)',
 };
 const IMAGE_FILE = 'assets/welcome-2026.jpg';
+/** 더보기 › 사진 출처 화면에 그대로 보여줄 문구 */
+const IMAGE_CREDIT = '자체 제작 (AI 생성 이미지)';
 
 const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!saRaw) {
@@ -40,7 +42,7 @@ if (dataUrl.length > 950_000) {
 
 const now = new Date().toISOString();
 await db.doc('welcome/motto').set({ ...MOTTO, updatedAt: now });
-await db.doc('welcome/image').set({ image: dataUrl, updatedAt: now });
+await db.doc('welcome/image').set({ image: dataUrl, credit: IMAGE_CREDIT, updatedAt: now });
 console.log(
   `등록 완료 — ${MOTTO.badge} "${MOTTO.title}" / 그림 ${Math.round(dataUrl.length / 1024)}KB`,
 );

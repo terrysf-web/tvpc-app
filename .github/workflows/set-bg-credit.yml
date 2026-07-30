@@ -1,0 +1,43 @@
+# 배경 사진 출처 문구만 저장 (그림은 그대로) — scripts/set-bg-credit.mjs
+name: Set background photo credit
+
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: '어느 배경'
+        type: choice
+        options: [original, sunday]
+        default: original
+      credit:
+        description: '출처 문구 (예: Canva)'
+        required: true
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/react-native-firebase-app-e0vg1r
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없습니다."
+            exit 1
+          fi
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+
+      - name: Set credit
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          WHICH: ${{ inputs.which }}
+          CREDIT: ${{ inputs.credit }}
+        run: node scripts/set-bg-credit.mjs

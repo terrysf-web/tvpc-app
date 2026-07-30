@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleQuestionMark,
   Clock,
+  Copyright,
   Download,
   HeartHandshake,
   Images,
@@ -51,6 +52,7 @@ const MENU = [
   { key: 'install', label: '홈 화면에 추가하기', icon: SquarePlus },
   { key: 'share', label: '앱 공유하기', icon: Share2 },
   { key: 'help', label: '앱 사용 안내서', icon: CircleQuestionMark },
+  { key: 'credits', label: '사진 출처', icon: Copyright },
   { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;
 
@@ -138,6 +140,10 @@ export default function MoreScreen() {
     }
     if (key === 'album') {
       router.push('/album');
+      return;
+    }
+    if (key === 'credits') {
+      router.push('/credits');
       return;
     }
     const pages: Record<string, string> = {
