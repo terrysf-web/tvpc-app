@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,17 +8,21 @@ import { useCurrentMotto } from '../data/welcome';
 import { isAppReady, onAppReady } from '../appBoot';
 import { font } from '../theme';
 
-/** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간 */
-const MIN_SHOW_MS = 2600;
-/** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
-const MAX_SHOW_MS = 3800;
+/**
+ * 표어(Firestore)를 이 시간 안에 못 받아오면 포기하고 로고만이라도 보여준다.
+ * 셀룰러 환경에서는 익명 로그인+조회에 700ms 넘게 걸리는 일이 흔해서,
+ * 예전처럼 짧게 잡으면 로고가 먼저 뜨고 표어가 뒤늦게 팝업되는 것처럼 보인다.
+ */
+const CONTENT_WAIT_MS = 2200;
+/** 로고+표어가 실제로 화면에 뜬 시점부터, 최소 이만큼은 보여준다(늦게 떴어도 읽을 시간은 보장) */
+const MIN_CONTENT_SHOW_MS = 2200;
+/** 무슨 신호도 안 와도(버그·통신 두절) 마운트 후 이 시간이 지나면 강제로 정리 */
+const MAX_SHOW_MS = 5200;
 /** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
 const RESUME_AFTER_HIDDEN_MS = 1500;
 /** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
 const RESUME_SHOW_MS = 2000;
 const FADE_MS = 260;
-/** 표어를 이 시간 안에 못 받아오면 로고만이라도 보여준다 — 로고가 표어보다 먼저 뜨는 걸 막는 최대 대기 */
-const CONTENT_WAIT_MS = 700;
 
 /**
  * 브랜드 스플래시 — 로고와 슬로건.
@@ -30,8 +34,27 @@ export function BrandSplash() {
   const fade = useRef(new Animated.Value(1)).current;
   const contentFade = useRef(new Animated.Value(0)).current;
   const born = useRef(Date.now());
+  // 콘텐츠(로고+표어)가 실제로 화면에 뜬 시각 — 최소 표시 시간을 여기서부터 잰다
+  const revealedAt = useRef<number | null>(null);
+  const appReadyRef = useRef(false);
+  const hiddenRef = useRef(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
   const motto = useCurrentMotto();
+
+  // 콘텐츠가 뜬 지 MIN_CONTENT_SHOW_MS가 지났고, 앱도 준비됐으면 스플래시를 치운다.
+  // 두 조건 중 늦게 채워지는 쪽 시점부터 계산되므로, 표어가 늦게 와도 읽을 시간을 뺏기지 않는다.
+  const tryHide = useCallback(() => {
+    if (hiddenRef.current || revealedAt.current == null || !appReadyRef.current) return;
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    const wait = Math.max(0, MIN_CONTENT_SHOW_MS - (Date.now() - revealedAt.current));
+    hideTimer.current = setTimeout(() => {
+      hiddenRef.current = true;
+      Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(() =>
+        setGone(true),
+      );
+    }, wait);
+  }, [fade]);
 
   // 로고와 표어가 따로 뜨지 않도록 — 표어가 준비되거나(대부분) 늦어지면 최대 대기 후 함께 보여준다
   useEffect(() => {
@@ -40,7 +63,9 @@ export function BrandSplash() {
     const reveal = () => {
       if (done) return;
       done = true;
+      revealedAt.current = Date.now();
       Animated.timing(contentFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+      tryHide();
     };
     if (motto) {
       reveal();
@@ -48,29 +73,29 @@ export function BrandSplash() {
     }
     const t = setTimeout(reveal, CONTENT_WAIT_MS);
     return () => clearTimeout(t);
-  }, [motto, contentFade]);
+  }, [motto, contentFade, tryHide]);
 
   useEffect(() => {
     if (gone) return;
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
-    const hide = () => {
-      const wait = Math.max(0, MIN_SHOW_MS - (Date.now() - born.current));
-      hideTimer = setTimeout(() => {
-        Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(() =>
-          setGone(true),
-        );
-      }, wait);
+    const onReady = () => {
+      appReadyRef.current = true;
+      tryHide();
     };
-    if (isAppReady()) {
-      hide();
-      return;
-    }
-    const off = onAppReady(hide);
-    const cap = setTimeout(hide, MAX_SHOW_MS);
+    if (isAppReady()) onReady();
+    const off = onAppReady(onReady);
+    const cap = setTimeout(() => {
+      // 안전판: 표어·appReady 신호가 끝내 안 와도 이 시간이 지나면 강제로 보여주고 치운다
+      appReadyRef.current = true;
+      if (revealedAt.current == null) {
+        revealedAt.current = Date.now();
+        Animated.timing(contentFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+      }
+      tryHide();
+    }, MAX_SHOW_MS);
     return () => {
       off();
       clearTimeout(cap);
-      if (hideTimer) clearTimeout(hideTimer);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
