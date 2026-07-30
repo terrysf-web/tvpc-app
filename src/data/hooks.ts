@@ -245,12 +245,36 @@ export function usePrayers() {
  * 시계 틱 — 1분마다, 그리고 앱을 다시 앞으로 가져올 때 값이 바뀐다.
  * 시간대별 인사말·배경처럼 '지금 시각'으로 그리는 화면이 이 훅을 쓰면
  * 앱을 켜 둔 채 시간이 흘러도(오후 → 저녁) 화면이 저절로 갱신된다.
+ *
+ * 다만 화면이 꺼지거나 뒤로 넘어가 오래(30분+) 있으면 — 예: 밤새 켜둔 채
+ * 다음 날 아침에 여는 경우 — 인사말은 새로 그려져 맞지만, 말씀·배경처럼
+ * 한 번 받아온 값을 세션 내내 기억해 두는 자료는 그대로 남아 있곤 했다
+ * ("인사말은 아침인데 카드는 어제 밤"). 오래 떠나 있었다면 아예 새로고침해
+ * 모든 화면을 확실히 다시 맞춘다.
  */
+const RELOAD_AFTER_HIDDEN_MS = 30 * 60 * 1000;
+
 export function useClockTick(): number {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
-    const onVis = () => setTick((t) => t + 1);
+    let hiddenAt: number | null = null;
+    const onVis = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (
+        hiddenAt != null &&
+        Date.now() - hiddenAt >= RELOAD_AFTER_HIDDEN_MS &&
+        typeof window !== 'undefined'
+      ) {
+        window.location.reload();
+        return;
+      }
+      hiddenAt = null;
+      setTick((t) => t + 1);
+    };
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', onVis);
     }
