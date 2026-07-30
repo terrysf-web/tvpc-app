@@ -140,3 +140,9 @@ scripts/seed.mjs      # 샘플 데이터 시드 스크립트 (npm run seed)
 
 - `npm run typecheck` — TypeScript 통과
 - `npx expo export --platform web` — 번들 빌드 통과, 전 화면 렌더링 확인 완료
+
+## 라이선스
+
+이 저장소의 모든 소스 코드·디자인·콘텐츠에 대한 권리는 **트라이밸리 장로교회**에
+있습니다. 트라이밸리 장로교회의 사전 서면 허락 없이 복제·수정·배포·재사용할 수
+없습니다. 자세한 내용은 [`LICENSE`](./LICENSE) 참고.

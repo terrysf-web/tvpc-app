@@ -265,7 +265,9 @@ export default function MoreScreen() {
         ))}
       </View>
 
-      <Text style={styles.footer}>트라이밸리 장로교회{'\n'}Tri-Valley Presbyterian Church</Text>
+      <Text style={styles.footer}>
+        트라이밸리 장로교회{'\n'}Tri-Valley Presbyterian Church{'\n'}© 2026 All rights reserved.
+      </Text>
 
       <Pressable style={styles.adminLink} onPress={() => router.push('/admin')} hitSlop={8}>
         <Text style={styles.adminLinkText}>교역자 · 관리자</Text>

@@ -1,21 +1,17 @@
-The MIT License (MIT)
+Copyright (c) 2026 Tri-Valley Presbyterian Church (트라이밸리 장로교회). All rights reserved.
 
-Copyright (c) 2015-present 650 Industries, Inc. (aka Expo)
+This software and all associated source code, design, and content in this
+repository are the property of Tri-Valley Presbyterian Church. No part of
+this software may be copied, modified, distributed, sublicensed, or used,
+in whole or in part, without the prior written permission of Tri-Valley
+Presbyterian Church.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software is provided for the exclusive use of Tri-Valley Presbyterian
+Church and its members. It is provided "as is", without warranty of any
+kind, express or implied.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+---
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+이 저장소의 모든 소스 코드·디자인·콘텐츠에 대한 저작권은 트라이밸리
+장로교회에 있습니다. 트라이밸리 장로교회의 사전 서면 허락 없이 전체나
+일부를 복제·수정·배포·재사용할 수 없습니다.
