@@ -46,7 +46,7 @@ for (let i = 0; i < tokens.length; i += 500) {
     notification: { title, body },
     webpush: {
       notification: { icon: '/icon-192.png', tag: `verse-${today}` },
-      fcmOptions: { link: 'https://app.tvpc.church' },
+      fcmOptions: { link: 'https://app.tvpc.church/word' },
     },
   });
   for (let j = 0; j < res.responses.length; j++) {
