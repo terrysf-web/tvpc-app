@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { BookOpen, Clock, ClipboardPen, Globe, Mail, MapPin, MonitorPlay, Phone, Users } from 'lucide-react-native';
 import React from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -110,7 +111,11 @@ export default function InfoScreen() {
               {churchInfo.staff.map((s) => (
                 <View key={s.name} style={styles.staffRow}>
                   <View style={styles.staffAvatar}>
-                    <Text style={styles.staffAvatarText}>{s.name.slice(0, 1)}</Text>
+                    {'photo' in s && s.photo ? (
+                      <Image source={{ uri: s.photo }} style={styles.staffPhoto} contentFit="cover" />
+                    ) : (
+                      <Text style={styles.staffAvatarText}>{s.name.slice(0, 1)}</Text>
+                    )}
                   </View>
                   <View>
                     <Text style={styles.staffName}>{s.name}</Text>
@@ -286,13 +291,15 @@ const styles = StyleSheet.create({
 
   staffRow: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 6 },
   staffAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.tagBlueBg,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  staffPhoto: { width: '100%', height: '100%' },
   staffAvatarText: { fontFamily: font.extraBold, fontSize: 18, color: colors.primary },
   staffName: { fontFamily: font.bold, fontSize: 15.5, color: colors.title },
   staffRole: { marginTop: 2, fontFamily: font.medium, fontSize: 12.5, color: colors.muted },
