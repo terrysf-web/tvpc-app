@@ -31,6 +31,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 관리자 화면에서 고치는 교회 정보(예배 시간 등) — 누구나 읽기, 등록은 관리자만
+    match /content/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /welcome/{id} {
       // 첫 화면 표어·배경 — 누구나 읽기, 등록은 관리자만
       allow read: if true;

@@ -5,6 +5,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../../src/components/OverlayHeader';
 import { churchInfo, mapsUrl } from '../../src/churchInfo';
+import { useServices } from '../../src/data/services';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -45,6 +46,7 @@ export default function InfoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { page } = useLocalSearchParams<{ page: string }>();
+  const { services } = useServices();
   const key = (
     ['about', 'staff', 'newcomer', 'worship', 'directions', 'contact'] as PageKey[]
   ).includes(page as PageKey)
@@ -166,12 +168,12 @@ export default function InfoScreen() {
         {key === 'worship' && (
           <>
             <View style={[styles.card, shadows.card]}>
-              {churchInfo.services.map((s, i) => (
+              {services.map((s, i) => (
                 <View
                   key={s.name}
                   style={[
                     styles.serviceRow,
-                    i < churchInfo.services.length - 1 && styles.serviceDivider,
+                    i < services.length - 1 && styles.serviceDivider,
                   ]}
                 >
                   <View style={styles.serviceChip}>

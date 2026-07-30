@@ -55,16 +55,18 @@ import {
   saveBgCreditOnly,
   saveSundayBg,
 } from '../src/verseBg';
+import { ServiceItem, saveServices, useServices } from '../src/data/services';
 
-type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'alert' | 'members' | 'offering';
+type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'info' | 'alert' | 'members' | 'offering';
 
 // 알림(긴급 공지)은 더보기의 전용 화면으로 이동. 주보는 토요일마다 홈페이지에서
 // 자동 동기화되고, 교인·헌금은 사용하지 않아 탭에서 제외 (코드는 유지 — 다시 넣으면 복원)
-// 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정만 관리한다.
+// 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정·교회정보를 관리한다.
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
+  { key: 'info', label: '예배시간' },
 ];
 
 /** 다가오는 주일(오늘이 주일이면 오늘) — 주보 날짜 기본값 */
@@ -146,6 +148,21 @@ export default function AdminScreen() {
   const [eDateLabel, setEDateLabel] = useState('');
   const [eTitle, setETitle] = useState('');
   const [eDetail, setEDetail] = useState('');
+
+  // 예배 시간 — 현재 값을 불러와 편집하다 저장
+  const { services: liveServices, ready: svcReady } = useServices();
+  const [svc, setSvc] = useState<ServiceItem[]>([]);
+  const [svcLoaded, setSvcLoaded] = useState(false);
+  useEffect(() => {
+    if (svcReady && !svcLoaded) {
+      setSvc(liveServices.map((s) => ({ ...s })));
+      setSvcLoaded(true);
+    }
+  }, [svcReady, svcLoaded, liveServices]);
+  const updateSvc = (i: number, key: keyof ServiceItem, v: string) =>
+    setSvc((list) => list.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)));
+  const removeSvc = (i: number) => setSvc((list) => list.filter((_, idx) => idx !== i));
+  const addSvc = () => setSvc((list) => [...list, { name: '', time: '', place: '' }]);
 
   // 주보 업로드
   const [bDate, setBDate] = useState(upcomingSunday());
@@ -977,6 +994,54 @@ export default function AdminScreen() {
             </Pressable>
           </View>
         )}
+
+        {tab === 'info' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>예배 시간 안내</Text>
+            <Text style={styles.bgHint}>
+              더보기 › 예배 시간 안내와 홈 화면(주일)에 바로 반영됩니다. 이름이
+              '주일예배'로 시작하는 줄은 홈 화면 주일 카드에도 표시됩니다.
+            </Text>
+            {svc.map((s, i) => (
+              <View key={i} style={styles.svcRow}>
+                <TextInput
+                  style={[styles.input, styles.svcInputName]}
+                  value={s.name}
+                  onChangeText={(t) => updateSvc(i, 'name', t)}
+                  placeholder="예: 주일예배 1부"
+                  placeholderTextColor={colors.faint}
+                />
+                <TextInput
+                  style={[styles.input, styles.svcInputTime]}
+                  value={s.time}
+                  onChangeText={(t) => updateSvc(i, 'time', t)}
+                  placeholder="예: 주일 오전 9:00"
+                  placeholderTextColor={colors.faint}
+                />
+                <TextInput
+                  style={[styles.input, styles.svcInputPlace]}
+                  value={s.place}
+                  onChangeText={(t) => updateSvc(i, 'place', t)}
+                  placeholder="예: 본당"
+                  placeholderTextColor={colors.faint}
+                />
+                <Pressable style={styles.svcRemoveBtn} onPress={() => removeSvc(i)} hitSlop={8}>
+                  <Text style={styles.svcRemoveText}>✕</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Pressable style={styles.ghostBtn} onPress={addSvc}>
+              <Text style={styles.ghostBtnText}>+ 줄 추가</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.primaryBtn, busy && { opacity: 0.6 }, { marginTop: 12 }]}
+              onPress={() => submit(async () => { await saveServices(svc); }, '예배 시간을 저장했습니다.')}
+              disabled={busy}
+            >
+              <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '예배 시간 저장'}</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -1026,6 +1091,13 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: colors.body,
   },
+
+  svcRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  svcInputName: { flex: 1.1, paddingHorizontal: 10, fontSize: 13 },
+  svcInputTime: { flex: 1.3, paddingHorizontal: 10, fontSize: 13 },
+  svcInputPlace: { flex: 0.8, paddingHorizontal: 10, fontSize: 13 },
+  svcRemoveBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  svcRemoveText: { fontFamily: font.bold, fontSize: 15, color: colors.faint2 },
 
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   chip: {

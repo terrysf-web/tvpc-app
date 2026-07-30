@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
+import { useServices } from '../../src/data/services';
 import { churchInfo } from '../../src/churchInfo';
 import { sundayPhase } from '../../src/churchTime';
 import { openLiveWorship, openWorshipReplay, playSermon, sermonThumb } from '../../src/links';
@@ -83,6 +84,7 @@ export default function HomeScreen() {
   const { verse, ready: verseReady } = useTodayVerse();
   const { events } = useEvents();
   const { sermons } = useSermons();
+  const { services } = useServices();
 
   // 홈 최근 설교 카드에는 실제 설교만 (팟캐스트·찬양 영상 제외)
   const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
@@ -159,7 +161,7 @@ export default function HomeScreen() {
   React.useEffect(() => {
     if (heroReady) setAppReady();
   }, [heroReady]);
-  const sundayTimes = churchInfo.services
+  const sundayTimes = services
     .filter((s) => s.name.startsWith('주일예배'))
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
     .join(' · ');
