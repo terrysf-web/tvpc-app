@@ -1,11 +1,12 @@
 # 가입 승인 대기 알림 — 새 가입 신청이 있으면 관리자 기기로 푸시.
 # 관리자 계정으로 앱에 로그인하고 "말씀 알림"을 켠 기기가 대상이다.
+#
+# 현재 앱에는 가입 신청 화면과 승인 탭이 연결되어 있지 않아(기능 미사용),
+# 매시간 자동 실행은 꺼 두었다. 나중에 교인 계정 기능을 다시 켜면
+# 아래 schedule 주석을 해제하면 된다. 그 전까지는 workflow_dispatch로만 실행.
 name: Notify pending members
 
 on:
-  schedule:
-    # 매시간 정각
-    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
