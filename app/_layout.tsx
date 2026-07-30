@@ -9,6 +9,7 @@ import { HelpReturnBar } from '../src/components/HelpReturnBar';
 import { WelcomeScreen } from '../src/components/WelcomeScreen';
 import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
+import '../src/downloadGuard';
 import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
