@@ -30,10 +30,23 @@ const db = getFirestore();
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
-async function fetchText(url) {
-  const res = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'ko,en' } });
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
-  return res.text();
+async function fetchText(url, attempts = 3) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'ko,en' } });
+      if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+      return await res.text();
+    } catch (e) {
+      lastErr = e;
+      // 유튜브 쪽 일시적 오류(레이트리밋 등) 대비 — 마지막 시도가 아니면 잠깐 쉬었다 재시도
+      if (i < attempts - 1) {
+        console.log(`  ! 요청 실패, 재시도 ${i + 1}/${attempts - 1}: ${e.message}`);
+        await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 /** @handle 페이지에서 채널 ID(UC...) 추출 */
