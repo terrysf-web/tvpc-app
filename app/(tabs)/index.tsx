@@ -170,11 +170,11 @@ export default function HomeScreen() {
   const quickMenu = isSunday
     ? [
         {
-          key: 'news',
-          label: '교회소식',
-          icon: <Megaphone size={21} color={colors.tagOrangeText} strokeWidth={1.9} />,
-          chipBg: colors.tagOrangeBg,
-          onPress: () => router.push('/news'),
+          key: 'word',
+          label: '주일말씀',
+          icon: <BookOpen size={21} color={colors.primary} strokeWidth={1.9} />,
+          chipBg: colors.tagBlueBg,
+          onPress: () => router.push('/word'),
         },
         {
           key: 'bulletin',
@@ -184,11 +184,11 @@ export default function HomeScreen() {
           onPress: openBulletin,
         },
         {
-          key: 'word',
-          label: '주일말씀',
-          icon: <BookOpen size={21} color={colors.primary} strokeWidth={1.9} />,
-          chipBg: colors.tagBlueBg,
-          onPress: () => router.push('/word'),
+          key: 'media',
+          label: '교회 미디어',
+          icon: <Images size={21} color={colors.tagOrangeText} strokeWidth={1.9} />,
+          chipBg: colors.tagOrangeBg,
+          onPress: () => router.push('/media'),
         },
         {
           key: 'offering',
