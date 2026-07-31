@@ -1,7 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { ensureAnonymousAuth, getDb } from '../firebase';
+import { getDb } from '../firebase';
 
 /**
  * 웰컴(교회 표어) 화면 자료 — 처음 실행과 표어가 바뀔 때 한 번 보여준다.
@@ -42,7 +42,8 @@ export function markWelcomeSeen(version: string) {
 async function fetchMottoDoc(): Promise<WelcomeMotto | null> {
   const db = getDb();
   if (!db) return null;
-  await ensureAnonymousAuth();
+  // welcome/*는 규칙상 로그인 없이도 읽기 허용 — 익명 로그인 왕복을 기다리지 않고 바로 읽는다
+  // (느린 통신에서 로그인 핸드셰이크가 병목이 되어 표어가 안 뜨는 문제 방지)
   const snap = await getDoc(doc(db, 'welcome', 'motto'));
   if (!snap.exists()) return null;
   const m: WelcomeMotto = {
