@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,16 +8,10 @@ import { useCurrentMotto } from '../data/welcome';
 import { isAppReady, onAppReady } from '../appBoot';
 import { font } from '../theme';
 
-/**
- * 표어(Firestore)를 이 시간 안에 못 받아오면 포기하고 로고만이라도 보여준다.
- * welcome/motto는 로그인 없이도 읽히도록 고쳤지만(익명 로그인 왕복 제거),
- * 셀룰러 환경에서는 그래도 조회 자체가 늦게 끝나는 경우가 있어 여유를 넉넉히 둔다.
- */
-const CONTENT_WAIT_MS = 3000;
-/** 로고+표어가 실제로 화면에 뜬 시점부터, 최소 이만큼은 보여준다(늦게 떴어도 읽을 시간은 보장) */
-const MIN_CONTENT_SHOW_MS = 2000;
-/** 무슨 신호도 안 와도(버그·통신 두절) 마운트 후 이 시간이 지나면 강제로 정리 */
-const MAX_SHOW_MS = 6000;
+/** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간(로고는 항상 즉시 뜨므로 마운트 시각 기준) */
+const MIN_SHOW_MS = 2000;
+/** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
+const MAX_SHOW_MS = 3400;
 /** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
 const RESUME_AFTER_HIDDEN_MS = 1500;
 /** 다시 열 때는 이미 다 준비돼 있으니 이만큼만 짧게 보여준다 */
@@ -28,74 +22,46 @@ const FADE_MS = 260;
  * 브랜드 스플래시 — 로고와 슬로건.
  * 처음 열 때는 앱이 첫 그림(말씀·배경)을 준비하는 동안 보이고,
  * 이미 떠 있는 앱을 홈 화면 아이콘으로 다시 열 때도(한참 뒤였다면) 잠깐 다시 보인다.
+ *
+ * 로고·이름·슬로건은 마운트 즉시 보인다 — 표어(Firestore 조회 필요)를
+ * 기다리느라 화면이 통째로 비어 보이는 시간이 없게 하기 위해서다.
+ * 표어는 준비되는 대로 그 자리에서 따로 살짝 페이드인한다.
  */
 export function BrandSplash() {
   const [gone, setGone] = useState(Platform.OS !== 'web');
   const fade = useRef(new Animated.Value(1)).current;
-  const contentFade = useRef(new Animated.Value(0)).current;
+  const mottoFade = useRef(new Animated.Value(0)).current;
   const born = useRef(Date.now());
-  // 콘텐츠(로고+표어)가 실제로 화면에 뜬 시각 — 최소 표시 시간을 여기서부터 잰다
-  const revealedAt = useRef<number | null>(null);
-  const appReadyRef = useRef(false);
-  const hiddenRef = useRef(false);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
   const motto = useCurrentMotto();
 
-  // 콘텐츠가 뜬 지 MIN_CONTENT_SHOW_MS가 지났고, 앱도 준비됐으면 스플래시를 치운다.
-  // 두 조건 중 늦게 채워지는 쪽 시점부터 계산되므로, 표어가 늦게 와도 읽을 시간을 뺏기지 않는다.
-  const tryHide = useCallback(() => {
-    if (hiddenRef.current || revealedAt.current == null || !appReadyRef.current) return;
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    const wait = Math.max(0, MIN_CONTENT_SHOW_MS - (Date.now() - revealedAt.current));
-    hideTimer.current = setTimeout(() => {
-      hiddenRef.current = true;
-      Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(() =>
-        setGone(true),
-      );
-    }, wait);
-  }, [fade]);
-
-  // 로고와 표어가 따로 뜨지 않도록 — 표어가 준비되거나(대부분) 늦어지면 최대 대기 후 함께 보여준다
+  // 표어는 도착하는 대로 그 자리에서 따로 페이드인 — 로고가 기다릴 필요는 없다
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    let done = false;
-    const reveal = () => {
-      if (done) return;
-      done = true;
-      revealedAt.current = Date.now();
-      Animated.timing(contentFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-      tryHide();
-    };
-    if (motto) {
-      reveal();
-      return;
-    }
-    const t = setTimeout(reveal, CONTENT_WAIT_MS);
-    return () => clearTimeout(t);
-  }, [motto, contentFade, tryHide]);
+    if (Platform.OS !== 'web' || !motto) return;
+    Animated.timing(mottoFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  }, [motto, mottoFade]);
 
   useEffect(() => {
     if (gone) return;
-    const onReady = () => {
-      appReadyRef.current = true;
-      tryHide();
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const hide = () => {
+      const wait = Math.max(0, MIN_SHOW_MS - (Date.now() - born.current));
+      hideTimer = setTimeout(() => {
+        Animated.timing(fade, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(() =>
+          setGone(true),
+        );
+      }, wait);
     };
-    if (isAppReady()) onReady();
-    const off = onAppReady(onReady);
-    const cap = setTimeout(() => {
-      // 안전판: 표어·appReady 신호가 끝내 안 와도 이 시간이 지나면 강제로 보여주고 치운다
-      appReadyRef.current = true;
-      if (revealedAt.current == null) {
-        revealedAt.current = Date.now();
-        Animated.timing(contentFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-      }
-      tryHide();
-    }, MAX_SHOW_MS);
+    if (isAppReady()) {
+      hide();
+      return;
+    }
+    const off = onAppReady(hide);
+    const cap = setTimeout(hide, MAX_SHOW_MS);
     return () => {
       off();
       clearTimeout(cap);
-      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (hideTimer) clearTimeout(hideTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -134,11 +100,11 @@ export function BrandSplash() {
         locations={[0, 0.34, 0.68, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <Animated.View style={[StyleSheet.absoluteFill, styles.contentWrap, { opacity: contentFade }]}>
+      <View style={[StyleSheet.absoluteFill, styles.contentWrap]}>
         <View style={{ flex: 1.3 }} />
         <View style={styles.center}>
-          {/* motto 도착 전에도 자리를 미리 잡아둔다 — 나중에 팝업되며 로고를 밀어내리지 않게 */}
-          <View style={styles.mottoRow}>
+          {/* motto 도착 전에도 자리를 미리 잡아둔다 — 나중에 나타나며 로고를 밀어내리지 않게 */}
+          <Animated.View style={[styles.mottoRow, { opacity: mottoFade }]}>
             {motto ? (
               <>
                 <View style={styles.mottoBadge}>
@@ -150,7 +116,7 @@ export function BrandSplash() {
                 <Text style={styles.mottoReference}>{motto.reference}</Text>
               </>
             ) : null}
-          </View>
+          </Animated.View>
           <View style={styles.logoChip}>
             {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
             <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
@@ -162,7 +128,7 @@ export function BrandSplash() {
         <Text style={[styles.foot, { marginBottom: Math.max(insets.bottom, 12) + 12 }]}>
           © 2026 {churchInfo.nameEn}
         </Text>
-      </Animated.View>
+      </View>
     </Animated.View>
   );
 }
