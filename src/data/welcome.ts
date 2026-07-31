@@ -111,12 +111,38 @@ export function useWelcome(): {
 
 export type CurrentMotto = Pick<WelcomeMotto, 'badge' | 'title' | 'subtitle' | 'verse' | 'reference'>;
 
+const MOTTO_CACHE_KEY = 'tvpc.cache.motto';
+
+/** 기기에 저장해 둔 마지막 표어 — 있으면 네트워크 응답을 기다리지 않고 첫 렌더부터 즉시 보여준다 */
+function readCachedMotto(): CurrentMotto | null {
+  try {
+    const raw = localStorage?.getItem(MOTTO_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as CurrentMotto) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedMotto(m: CurrentMotto) {
+  try {
+    localStorage?.setItem(MOTTO_CACHE_KEY, JSON.stringify(m));
+  } catch {
+    /* 무시 */
+  }
+}
+
 /**
  * 스플래시에 늘 띄우는 표어 — 웰컴 화면과 달리 '본 적 있는지'와
  * 무관하게 열 때마다 가져온다. 평소에는 이것만이 표어를 보여주는 자리다.
+ *
+ * 기기 캐시를 먼저 동기로 읽어 초기값으로 쓴다 — 두 번째 실행부터는
+ * 네트워크 응답을 기다릴 필요 없이 로고와 함께 바로 뜬다. 맨 처음 한
+ * 번(캐시가 없을 때)만 실제 조회를 기다린다.
  */
 export function useCurrentMotto(): CurrentMotto | null {
-  const [motto, setMotto] = useState<CurrentMotto | null>(null);
+  const [motto, setMotto] = useState<CurrentMotto | null>(() =>
+    Platform.OS === 'web' ? readCachedMotto() : null,
+  );
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -135,16 +161,18 @@ export function useCurrentMotto(): CurrentMotto | null {
         }
         const m = await fetchMottoDoc();
         if (on && m) {
-          setMotto({
+          const current: CurrentMotto = {
             badge: m.badge,
             title: m.title,
             subtitle: m.subtitle,
             verse: m.verse,
             reference: m.reference,
-          });
+          };
+          setMotto(current);
+          writeCachedMotto(current);
         }
       } catch {
-        /* 무시 — 배지 없이 로고만 보여준다 */
+        /* 무시 — 캐시가 있었으면 그게 이미 화면에 떠 있고, 없었으면 로고만 보여준다 */
       }
     })();
     return () => {
