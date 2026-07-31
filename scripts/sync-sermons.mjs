@@ -548,8 +548,26 @@ if (BACKFILL) {
   const missed = all.length - videos.length;
   if (missed > 0) console.log(`  ! 날짜를 정할 수 없는 ${missed}개 건너뜀`);
 } else {
-  const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-  videos = parseFeed(xml)
+  let entries;
+  try {
+    const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+    entries = parseFeed(xml);
+  } catch (e) {
+    // RSS 피드가 계속 막히면(유튜브 쪽 차단·점검 등) 업로드 목록 스캔으로 대체.
+    // 날짜는 제목의 [MM/DD/YYYY] 우선, 없으면 시청 페이지에서 읽는다(RSS와 다른 엔드포인트라 독립적).
+    console.log(`  ! RSS 피드 실패, 업로드 목록으로 대체: ${e.message}`);
+    const uploads = await fetchAllUploads(channelId);
+    entries = [];
+    for (const v of uploads) {
+      if (entries.length >= MAX_VIDEOS) break;
+      const m = v.title.match(/\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]/);
+      const published = m
+        ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+        : await fetchUploadDate(v.id);
+      if (published) entries.push({ id: v.id, title: v.title, published });
+    }
+  }
+  videos = entries
     .filter((v) => !/#?shorts/i.test(v.title))
     .slice(0, MAX_VIDEOS);
 }
