@@ -116,9 +116,6 @@ export default function HomeScreen() {
   const nextKey = nextEvent ? eventKey(nextEvent) : null;
   const nextMonth = nextKey ? Number(nextKey.slice(5, 7)) : 0;
   const nextDay = nextKey ? Number(nextKey.slice(8, 10)) : 0;
-  const nextWeekday = nextKey
-    ? ['일', '월', '화', '수', '목', '금', '토'][new Date(nextKey + 'T00:00:00').getDay()]
-    : '';
   const ddayNum = nextKey
     ? Math.round(
         (new Date(nextKey + 'T00:00:00').getTime() -
@@ -425,16 +422,15 @@ export default function HomeScreen() {
               <Text style={styles.eventDateBoxDay}>{nextDay}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              {/* 요일은 따로 한 줄 쓰지 않고 첫 일정의 시간·장소와 함께 둔다 */}
+              {/* 제목만 깔끔하게 — 요일·시간·장소 설명은 표시하지 않는다 */}
               {nextDayEvents.map((e, i) => (
-                <View key={e.id} style={i === 0 ? undefined : styles.eventRow}>
-                  <Text style={styles.eventPlainTitle} numberOfLines={1}>
-                    {e.title}
-                  </Text>
-                  <Text style={styles.eventPlainDetail} numberOfLines={1}>
-                    {[i === 0 ? `${nextWeekday}요일` : null, e.detail].filter(Boolean).join(' · ')}
-                  </Text>
-                </View>
+                <Text
+                  key={e.id}
+                  style={[styles.eventPlainTitle, i === 0 ? undefined : styles.eventRow]}
+                  numberOfLines={1}
+                >
+                  {e.title}
+                </Text>
               ))}
             </View>
             <View style={styles.ddayChip}>
@@ -681,7 +677,6 @@ const styles = StyleSheet.create({
   eventDateBoxDay: { fontFamily: font.extraBold, fontSize: 18, color: '#FFFFFF', marginTop: 0 },
   eventPlainCaption: { fontFamily: font.medium, fontSize: 11.5, color: colors.muted },
   eventPlainTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
-  eventPlainDetail: { fontFamily: font.regular, fontSize: 12, color: colors.muted, marginTop: 1 },
   ddayChip: {
     backgroundColor: colors.tagBlueBg,
     borderRadius: 8,
@@ -691,7 +686,7 @@ const styles = StyleSheet.create({
   ddayChipText: { fontFamily: font.bold, fontSize: 11.5, color: colors.primary },
   eventCard: { borderRadius: 18, minHeight: 100, justifyContent: 'center' },
   eventTextCol: { paddingHorizontal: 18, paddingVertical: 16, gap: 2 },
-  eventRow: { marginTop: 4 },
+  eventRow: { marginTop: 7 },
   eventDate: { fontFamily: font.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)', ...textShadow },
   eventTitle: { fontFamily: font.extraBold, fontSize: 16.5, color: '#FFFFFF', ...textShadow },
   eventDetail: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.85)', ...textShadow },
