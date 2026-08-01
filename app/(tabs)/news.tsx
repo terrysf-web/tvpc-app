@@ -33,7 +33,11 @@ export default function NewsScreen() {
   const banner = useNewsBanner();
   const [tab, setTab] = useState<NewsTab>('notice');
 
-  const filtered = news.filter((n) => n.category === (tab === 'event' ? 'event' : 'notice'));
+  // 공지는 최근 게시순(이미 news 쿼리가 desc) 그대로, 행사는 각 행사 날짜(date)가
+  // 게시일이 아니라 행사 자체 일자라 가까운 행사가 위로 오게 따로 오름차순 정렬한다.
+  const filtered = news
+    .filter((n) => n.category === (tab === 'event' ? 'event' : 'notice'))
+    .sort((a, b) => (tab === 'event' ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) : 0));
 
   // 일정 탭 — 교회 달력 전체(행사 페이지에 있는 행사는 행사 탭에 있으므로 제외)
   const schedule = events
