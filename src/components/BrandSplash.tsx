@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     color: '#122B4F',
     marginBottom: 12,
   },
-  slogan: { fontFamily: 'NanumBrushScript', fontSize: 24, color: '#1E5AA8' },
+  slogan: { fontFamily: 'NanumBrushScript', fontSize: 34, color: '#0F3D75' },
   foot: {
     alignSelf: 'center',
     fontFamily: font.regular,
