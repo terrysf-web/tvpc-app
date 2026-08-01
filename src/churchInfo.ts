@@ -6,7 +6,7 @@ export const churchInfo = {
   nameKo: '트라이밸리 장로교회',
   nameEn: 'Tri-Valley Presbyterian Church',
   /** 교회 슬로건 — 변하지 않는 문구라 앱에 담는다 (해마다 바뀌는 표어는 Firestore) */
-  slogan: '예수로 인해서 행복해지는 사람들',
+  slogan: '예수로 행복한 사람들',
   address: '5925 W. Las Positas Blvd, Pleasanton, CA 94588',
   phone: '925-227-0880',
   website: 'https://tvpc.church',
