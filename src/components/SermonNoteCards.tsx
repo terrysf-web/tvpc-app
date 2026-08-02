@@ -197,208 +197,249 @@ export const FillInCard = React.memo(function FillInCard({
  * 설교 메모 — 주보의 괄호 채우기·나눔 질문 답을 전화기에 적어두는 카드.
  * 내용은 이 기기(localStorage)에만 날짜별(주보 날짜)로 저장되고 서버로 가지 않는다.
  */
-interface Quote {
+interface Seg {
   id: number;
-  reference: string;
+  kind: 'q' | 'm';
+  /** kind='q'일 때만 — 구절 참조 표시(예: "빌립보서 2:5") */
+  reference?: string;
   text: string;
 }
 
-/** 형광펜 구절 저장분 — 직접 쓰는 메모(자유 텍스트)와는 다른 키에, 구조를 갖춰 보관한다 */
-function loadQuotes(date: string): Quote[] {
+const noteKey = (date: string) => `bulletinNote:${date}`;
+
+/** 저장된 메모를 세그먼트로 읽는다 — 옛 형식(순수 문자열)도 첫 메모 칸으로 허용 */
+function loadSegs(date: string): Seg[] {
+  let segs: Seg[] = [];
+  let id = 1;
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const raw = window.localStorage.getItem(`bulletinQuotes:${date}`);
-      if (raw) return JSON.parse(raw) as Quote[];
+      const raw = window.localStorage.getItem(noteKey(date));
+      if (raw) {
+        if (raw.startsWith('{"seg"')) {
+          const parsed = JSON.parse(raw) as { seg?: { k?: string; r?: string; x?: string }[] };
+          for (const s of parsed.seg ?? []) {
+            segs.push({
+              id: id++,
+              kind: s.k === 'q' ? 'q' : 'm',
+              reference: s.r,
+              text: String(s.x ?? ''),
+            });
+          }
+        } else {
+          segs = [{ id: id++, kind: 'm', text: raw }];
+        }
+      }
     }
   } catch {
-    /* 무시 */
+    segs = [];
   }
-  return [];
+  if (segs.length === 0 || segs[segs.length - 1].kind === 'q') {
+    segs.push({ id: id++, kind: 'm', text: '' });
+  }
+  return segs;
 }
 
+/**
+ * 설교 메모 — 주보의 괄호 채우기·나눔 질문 답, 그리고 형광펜으로 표시한
+ * 구절이 "구절 → 메모 → 구절 → 메모"로 번갈아 쌓이는 메모장.
+ * 구절을 표시하면 그 자리에 바로 삽입되고, 이어서 쓸 새 메모 칸으로 커서가
+ * 옮겨간다. 구절 블록은 수정할 수 없고 ✕로만 지운다.
+ * 내용은 이 기기(localStorage)에만 날짜별(주보 날짜)로 저장되고 서버로 가지 않는다.
+ * 한글 조합(IME) 안전을 위해 각 메모 칸은 비제어 입력 + 디바운스 저장.
+ */
 export const SermonNoteCard = React.memo(
   React.forwardRef<SermonNoteHandle, { date: string }>(function SermonNoteCard({ date }, ref) {
-  const key = `bulletinNote:${date}`;
-  const quoteKey = `bulletinQuotes:${date}`;
-  const [initial] = useState(() =>
-    typeof window !== 'undefined' && window.localStorage
-      ? (window.localStorage.getItem(key) ?? '')
-      : '',
-  );
-  const [quotes, setQuotes] = useState<Quote[]>(() => loadQuotes(date));
-  const nextQuoteId = useRef(Math.max(0, ...quotes.map((q) => q.id)) + 1);
-  const hostRef = useRef<View | null>(null);
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
-  const nativeRef = useRef<TextInput | null>(null);
+    const [segs, setSegs] = useState<Seg[]>(() => loadSegs(date));
+    const nextId = useRef(Math.max(0, ...segs.map((s) => s.id)) + 1);
+    const vals = useRef<Record<number, string>>(
+      Object.fromEntries(segs.filter((s) => s.kind === 'm').map((s) => [s.id, s.text])),
+    );
+    const inputs = useRef<Record<number, { focus(): void } | null>>({});
+    const pendingFocus = useRef<number | null>(null);
+    const [savedAt, setSavedAt] = useState<number | null>(null);
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 웹: React를 입력 경로에서 완전히 배제한다 — textarea를 직접 만들어
-  // 끼워 넣고 순수 DOM 이벤트로만 저장한다. React가 키 입력마다 개입해
-  // 커서가 글 처음으로 튕기는 문제를 원천 차단 (일반 웹페이지의 메모장과
-  // 100% 동일한 동작).
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const host = hostRef.current as unknown as HTMLElement | null;
-    if (!host) return;
-    const ta = document.createElement('textarea');
-    taRef.current = ta;
-    ta.value = initial;
-    ta.placeholder = '괄호 채우기와 은혜받은 말씀을 적어보세요.';
-    ta.setAttribute('autocomplete', 'off');
-    ta.setAttribute('autocorrect', 'off');
-    ta.setAttribute('autocapitalize', 'off');
-    ta.setAttribute('spellcheck', 'false');
-    Object.assign(ta.style, {
-      minHeight: '130px',
-      width: '100%',
-      boxSizing: 'border-box',
-      border: 'none',
-      outline: 'none',
-      resize: 'none',
-      overflow: 'auto',
-      borderRadius: '12px',
-      background: colors.screenBg,
-      padding: '12px 14px',
-      fontSize: '16px',
-      lineHeight: '24px',
-      color: colors.body,
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
-      webkitUserSelect: 'text',
-      userSelect: 'text',
-    });
-    host.appendChild(ta);
-    // 저장된 내용 전체가 보이게 첫 크기만 맞춘다
-    if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
-    let t: ReturnType<typeof setTimeout> | null = null;
-    let caretT: ReturnType<typeof setTimeout> | null = null;
-    const onInput = () => {
-      // 아이폰 사파리는 한글 조합 글자를 다시 그릴 때 커서를 한 글자 뒤로
-      // 1프레임 그렸다 되돌린다(브라우저 엔진 동작, 앱 코드와 무관).
-      // 타이핑하는 동안 커서를 잠깐 숨겨 그 깜빡임이 보이지 않게 하고,
-      // 손을 멈추면(0.4초) 커서를 다시 보여준다.
-      ta.style.caretColor = 'transparent';
-      if (caretT) clearTimeout(caretT);
-      caretT = setTimeout(() => {
-        ta.style.caretColor = '';
-      }, 400);
-      if (t) clearTimeout(t);
-      t = setTimeout(() => {
-        try {
-          window.localStorage.setItem(key, ta.value);
-        } catch {
-          /* 무시 */
-        }
-      }, 500);
-    };
-    const onBlur = () => {
-      ta.style.caretColor = '';
-      // 칸을 벗어난 뒤에만 내용 전체가 보이게 늘린다
-      if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
+    const serialize = (list: Seg[]) =>
+      JSON.stringify({
+        seg: list.map((s) =>
+          s.kind === 'q'
+            ? { k: 'q', r: s.reference, x: s.text }
+            : { k: 'm', x: vals.current[s.id] ?? s.text },
+        ),
+      });
+
+    const persist = (list: Seg[]) => {
       try {
-        window.localStorage.setItem(key, ta.value);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(noteKey(date), serialize(list));
+        }
       } catch {
         /* 무시 */
       }
+      setSavedAt(Date.now());
     };
-    ta.addEventListener('input', onInput);
-    ta.addEventListener('blur', onBlur);
-    return () => {
-      if (t) clearTimeout(t);
-      if (caretT) clearTimeout(caretT);
-      ta.removeEventListener('input', onInput);
-      ta.removeEventListener('blur', onBlur);
-      taRef.current = null;
-      ta.remove();
+
+    const onInput = (id: number, t: string) => {
+      vals.current[id] = t;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => persist(segs), 500);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
 
-  // 네이티브 앱용 저장 (웹은 위 순수 DOM 경로 사용)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onChange = (t: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, t);
+    // 한글 조합(IME) 중 크기 변경은 조합을 끊는다 — 타이핑 중에는 손대지 않고,
+    // 입력을 잠깐 멈췄을 때(저장 시점)와 칸을 벗어날 때만 칸을 늘린다.
+    const composing = useRef(false);
+    const lastEl = useRef<HTMLTextAreaElement | null>(null);
+    const grow = () => {
+      const el = lastEl.current;
+      if (el && !composing.current && el.scrollHeight > el.clientHeight + 2) {
+        el.style.height = `${el.scrollHeight + 2}px`;
       }
-    }, 500);
-  };
+    };
+    const onBlurInput = () => grow();
 
-  const persistQuotes = (list: Quote[]) => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(quoteKey, JSON.stringify(list));
+    // 구절 삽입 뒤 새 메모 칸으로 커서 이동
+    useEffect(() => {
+      if (pendingFocus.current != null) {
+        const id = pendingFocus.current;
+        pendingFocus.current = null;
+        setTimeout(() => inputs.current[id]?.focus(), 50);
       }
-    } catch {
-      /* 무시 */
-    }
-  };
+    }, [segs]);
 
-  const removeQuote = (id: number) => {
-    setQuotes((prev) => {
-      const next = prev.filter((q) => q.id !== id);
-      persistQuotes(next);
-      return next;
-    });
-  };
+    useImperativeHandle(ref, () => ({
+      appendQuote(reference: string, text: string) {
+        setSegs((prev) => {
+          if (prev.some((s) => s.kind === 'q' && s.reference === reference)) return prev;
+          const q: Seg = { id: nextId.current++, kind: 'q', reference, text };
+          const last = prev[prev.length - 1];
+          let next: Seg[];
+          if (last && last.kind === 'm' && !(vals.current[last.id] ?? last.text).trim()) {
+            // 맨 끝 메모 칸이 비어 있으면 그 위에 구절을 넣고 그 칸을 그대로 쓴다
+            next = [...prev.slice(0, -1), q, last];
+            pendingFocus.current = last.id;
+          } else {
+            const m: Seg = { id: nextId.current++, kind: 'm', text: '' };
+            vals.current[m.id] = '';
+            next = [...prev, q, m];
+            pendingFocus.current = m.id;
+          }
+          persist(next);
+          return next;
+        });
+      },
+    }));
 
-  useImperativeHandle(ref, () => ({
-    appendQuote(reference: string, text: string) {
-      setQuotes((prev) => {
-        if (prev.some((q) => q.reference === reference)) return prev;
-        const next = [...prev, { id: nextQuoteId.current++, reference, text }];
-        persistQuotes(next);
+    const removeQuote = (segId: number) => {
+      setSegs((prev) => {
+        const next = prev.filter((s) => s.id !== segId);
+        persist(next);
         return next;
       });
-      // 이어서 바로 쓸 수 있게 메모 칸으로 포커스를 옮긴다
-      if (Platform.OS === 'web') taRef.current?.focus();
-      else nativeRef.current?.focus();
-    },
-  }));
+    };
 
-  return (
-    <View style={[styles.noteCard, shadows.card]}>
-      <View style={styles.noteHead}>
-        <View style={styles.noteChip}>
-          <PenLine size={16} color={colors.primary} strokeWidth={2} />
-        </View>
-        <Text style={styles.noteTitle}>설교 메모</Text>
-        <Text style={styles.noteSaved}>자동 저장</Text>
-      </View>
-      {/* 형광펜으로 표시한 구절 — 내가 쓴 메모와 헷갈리지 않게 작은 글씨·다른 색으로 따로 둔다 */}
-      {quotes.length > 0 && (
-        <View style={styles.quoteList}>
-          {quotes.map((q) => (
-            <View key={q.id} style={styles.quoteRow}>
-              <Text style={styles.quoteText}>
-                “{q.text}” <Text style={styles.quoteRef}>({q.reference})</Text>
-              </Text>
-              <Pressable onPress={() => removeQuote(q.id)} hitSlop={8} style={styles.quoteX}>
-                <X size={13} color={colors.faint} strokeWidth={2} />
-              </Pressable>
-            </View>
-          ))}
-        </View>
-      )}
-      {Platform.OS === 'web' ? (
-        <View ref={hostRef} />
-      ) : (
+    const renderInput = (s: Seg, isLast: boolean) => {
+      const placeholder = isLast
+        ? '괄호 채우기와 은혜받은 말씀을 적어보세요.'
+        : '';
+      if (Platform.OS === 'web') {
+        return React.createElement('textarea', {
+          key: s.id,
+          ref: (el: HTMLTextAreaElement | null) => {
+            inputs.current[s.id] = el;
+            if (el) {
+              el.style.height = 'auto';
+              el.style.height = `${el.scrollHeight + 2}px`;
+            }
+          },
+          defaultValue: vals.current[s.id] ?? s.text,
+          placeholder,
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          autoCapitalize: 'off',
+          spellCheck: false,
+          onBlur: onBlurInput,
+          onCompositionStart: () => {
+            composing.current = true;
+          },
+          onCompositionEnd: () => {
+            composing.current = false;
+          },
+          onInput: (e: { target: HTMLTextAreaElement }) => {
+            lastEl.current = e.target;
+            onInput(s.id, e.target.value);
+          },
+          style: {
+            minHeight: isLast ? 110 : 48,
+            width: '100%',
+            boxSizing: 'border-box',
+            border: 'none',
+            outline: 'none',
+            resize: 'none',
+            overflow: 'auto',
+            background: 'transparent',
+            padding: '10px 14px',
+            fontSize: 16,
+            lineHeight: '24px',
+            color: colors.body,
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+            WebkitUserSelect: 'text',
+            userSelect: 'text',
+          },
+        } as object);
+      }
+      return (
         <TextInput
-          ref={nativeRef}
-          style={styles.noteInput}
-          defaultValue={initial}
-          onChangeText={onChange}
+          key={s.id}
+          ref={(el) => {
+            inputs.current[s.id] = el;
+          }}
+          style={[styles.noteInput, { minHeight: isLast ? 110 : 48 }]}
+          defaultValue={vals.current[s.id] ?? s.text}
+          onChangeText={(t) => onInput(s.id, t)}
+          onBlur={onBlurInput}
           multiline
-          placeholder={'괄호 채우기와 은혜받은 말씀을 적어보세요.\n예) 1. 온전한 그리스도인은 (        ) 사람입니다.'}
+          placeholder={placeholder}
           placeholderTextColor={colors.faint}
           autoComplete="off"
           autoCorrect={false}
           spellCheck={false}
         />
-      )}
-      <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
-    </View>
-  );
+      );
+    };
+
+    const lastTextId = [...segs].reverse().find((s) => s.kind === 'm')?.id;
+
+    return (
+      <View style={[styles.noteCard, shadows.card]}>
+        <View style={styles.noteHead}>
+          <View style={styles.noteChip}>
+            <PenLine size={16} color={colors.primary} strokeWidth={2} />
+          </View>
+          <Text style={styles.noteTitle}>설교 메모</Text>
+          {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
+        </View>
+        {/* 구절(고정)과 메모 칸이 번갈아 쌓인다 — 구절은 내가 쓴 메모와 헷갈리지
+            않게 작은 글씨·다른 색으로 표시 */}
+        <View style={styles.notePad}>
+          {segs.map((s) =>
+            s.kind === 'q' ? (
+              <View key={s.id} style={styles.quoteRow}>
+                <Text style={styles.quoteText}>
+                  “{s.text}” <Text style={styles.quoteRef}>({s.reference})</Text>
+                </Text>
+                <Pressable onPress={() => removeQuote(s.id)} hitSlop={8} style={styles.quoteX}>
+                  <X size={13} color={colors.faint} strokeWidth={2} />
+                </Pressable>
+              </View>
+            ) : (
+              renderInput(s, s.id === lastTextId)
+            ),
+          )}
+        </View>
+        <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
+      </View>
+    );
   }),
 );
 
@@ -410,15 +451,23 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   noteHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  quoteList: { gap: 6, marginBottom: 10 },
+  // 구절+메모 칸이 번갈아 담기는 한 판
+  notePad: {
+    backgroundColor: colors.screenBg,
+    borderRadius: 12,
+    overflow: 'hidden',
+    paddingVertical: 4,
+  },
   quoteRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
     backgroundColor: '#F0F6FD',
     borderRadius: 8,
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 10,
+    marginHorizontal: 8,
+    marginVertical: 4,
   },
   quoteText: {
     flex: 1,
@@ -440,17 +489,14 @@ const styles = StyleSheet.create({
   noteTitle: { flex: 1, fontFamily: font.extraBold, fontSize: 14.5, color: colors.title },
   noteSaved: { fontFamily: font.medium, fontSize: 11.5, color: colors.tagGreenText },
   noteInput: {
-    minHeight: 130,
-    textAlignVertical: 'top',
-    borderRadius: 12,
-    backgroundColor: colors.screenBg,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     fontFamily: font.regular,
     // iOS 사파리는 16px 미만 입력창에서 화면을 확대하므로 16 유지
     fontSize: 16,
     lineHeight: 24,
     color: colors.body,
+    textAlignVertical: 'top',
   },
   noteHint: { marginTop: 8, fontFamily: font.regular, fontSize: 11.5, color: colors.faint },
   fillLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 },
