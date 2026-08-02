@@ -1,12 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bookmark, List } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
-import { FillInCard, SermonNoteCard } from '../../src/components/SermonNoteCards';
+import {
+  FillInCard,
+  SermonNoteCard,
+  type SermonNoteHandle,
+} from '../../src/components/SermonNoteCards';
 import { useBulletinDates, useBulletinNoteLines } from '../../src/data/bulletin';
 import { useClockTick, useTodayVerse } from '../../src/data/hooks';
 import { firebaseEnabled } from '../../src/firebase';
@@ -53,16 +57,23 @@ export default function WordScreen() {
   }, [verse.date]);
 
   // 형광펜 — 구절을 누르면 켜지고, 그 구절이 형광펜으로 표시되며 설교 메모 탭으로
-  // 넘어가 바로 메모를 이어 쓸 수 있다. 표시한 구절이 있으면 저장한 말씀에도 자동 보관된다.
+  // 넘어가 그 구절이 메모 끝에 붙고 바로 이어 쓸 수 있다.
+  // 표시한 구절이 있으면 저장한 말씀에도 자동 보관된다.
   const [hls, setHls] = useState<VerseHighlight[]>([]);
   useEffect(() => {
     setHls(getHighlights(verse.date));
   }, [verse.date]);
+  const sermonNoteRef = useRef<SermonNoteHandle>(null);
+  const verseRefLabel = (v: number) =>
+    /장$/.test(verse.reference) ? verse.reference.replace(/장$/, `:${v}`) : `${verse.reference} ${v}절`;
   const onToggleHl = (p: { verse: number; text: string }) => {
     const next = toggleHighlight(verse.date, p.verse, p.text);
     const turnedOn = next.length > hls.length;
     setHls(next);
-    if (turnedOn) setTab('note');
+    if (turnedOn) {
+      setTab('note');
+      sermonNoteRef.current?.appendQuote(verseRefLabel(p.verse), p.text);
+    }
     if (next.length > 0) {
       ensureSavedVerse({
         date: verse.date,
@@ -211,7 +222,7 @@ export default function WordScreen() {
             유지되게 숨김(display:none)으로만 감춘다 */}
         <View style={{ display: tab === 'note' ? 'flex' : 'none', gap: 14 }}>
           {noteLines.length > 0 && <FillInCard date={noteDate} lines={noteLines} />}
-          <SermonNoteCard date={noteDate} />
+          <SermonNoteCard ref={sermonNoteRef} date={noteDate} />
         </View>
         {tab === 'med' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>

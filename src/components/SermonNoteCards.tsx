@@ -1,7 +1,12 @@
 import { PenLine } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, font, shadows } from '../theme';
+
+export interface SermonNoteHandle {
+  /** 형광펜으로 표시한 구절을 메모 맨 끝에 이어붙인다 */
+  appendQuote(reference: string, text: string): void;
+}
 
 /**
  * 괄호 채우기 — 주보 설교 노트의 빈칸 문장을 그대로 깔아주고,
@@ -192,7 +197,8 @@ export const FillInCard = React.memo(function FillInCard({
  * 설교 메모 — 주보의 괄호 채우기·나눔 질문 답을 전화기에 적어두는 카드.
  * 내용은 이 기기(localStorage)에만 날짜별(주보 날짜)로 저장되고 서버로 가지 않는다.
  */
-export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { date: string }) {
+export const SermonNoteCard = React.memo(
+  React.forwardRef<SermonNoteHandle, { date: string }>(function SermonNoteCard({ date }, ref) {
   const key = `bulletinNote:${date}`;
   const [initial] = useState(() =>
     typeof window !== 'undefined' && window.localStorage
@@ -200,6 +206,10 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
       : '',
   );
   const hostRef = useRef<View | null>(null);
+  // 형광펜으로 표시한 구절을 이어붙이기 위해 실제 입력칸을 붙잡아 둔다
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const nativeRef = useRef<TextInput | null>(null);
+  const nativeVal = useRef(initial);
 
   // 웹: React를 입력 경로에서 완전히 배제한다 — textarea를 직접 만들어
   // 끼워 넣고 순수 DOM 이벤트로만 저장한다. React가 키 입력마다 개입해
@@ -210,6 +220,7 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
     const host = hostRef.current as unknown as HTMLElement | null;
     if (!host) return;
     const ta = document.createElement('textarea');
+    taRef.current = ta;
     ta.value = initial;
     ta.placeholder = '괄호 채우기와 은혜받은 말씀을 적어보세요.';
     ta.setAttribute('autocomplete', 'off');
@@ -276,6 +287,7 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
       if (caretT) clearTimeout(caretT);
       ta.removeEventListener('input', onInput);
       ta.removeEventListener('blur', onBlur);
+      taRef.current = null;
       ta.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,6 +296,7 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
   // 네이티브 앱용 저장 (웹은 위 순수 DOM 경로 사용)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChange = (t: string) => {
+    nativeVal.current = t;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -291,6 +304,38 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
       }
     }, 500);
   };
+
+  useImperativeHandle(ref, () => ({
+    appendQuote(reference: string, text: string) {
+      const line = `“${text}” (${reference})`;
+      if (Platform.OS === 'web') {
+        const ta = taRef.current;
+        if (!ta) return;
+        const sep = ta.value && !ta.value.endsWith('\n') ? '\n\n' : '';
+        ta.value = `${ta.value}${sep}${line}\n`;
+        if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
+        try {
+          window.localStorage.setItem(key, ta.value);
+        } catch {
+          /* 무시 */
+        }
+        ta.focus();
+        ta.scrollTop = ta.scrollHeight;
+      } else {
+        const sep = nativeVal.current && !nativeVal.current.endsWith('\n') ? '\n\n' : '';
+        const next = `${nativeVal.current}${sep}${line}\n`;
+        nativeVal.current = next;
+        nativeRef.current?.setNativeProps({ text: next });
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, next);
+          }
+        } catch {
+          /* 무시 */
+        }
+      }
+    },
+  }));
 
   return (
     <View style={[styles.noteCard, shadows.card]}>
@@ -305,6 +350,7 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
         <View ref={hostRef} />
       ) : (
         <TextInput
+          ref={nativeRef}
           style={styles.noteInput}
           defaultValue={initial}
           onChangeText={onChange}
@@ -319,7 +365,8 @@ export const SermonNoteCard = React.memo(function SermonNoteCard({ date }: { dat
       <Text style={styles.noteHint}>메모는 이 전화기에만 저장됩니다. 주보 날짜별로 따로 보관돼요.</Text>
     </View>
   );
-});
+  }),
+);
 
 const styles = StyleSheet.create({
   noteCard: {
