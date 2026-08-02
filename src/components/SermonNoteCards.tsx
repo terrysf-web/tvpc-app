@@ -248,7 +248,10 @@ function loadSegs(date: string): Seg[] {
  * 한글 조합(IME) 안전을 위해 각 메모 칸은 비제어 입력 + 디바운스 저장.
  */
 export const SermonNoteCard = React.memo(
-  React.forwardRef<SermonNoteHandle, { date: string }>(function SermonNoteCard({ date }, ref) {
+  React.forwardRef<SermonNoteHandle, { date: string; visible?: boolean }>(function SermonNoteCard(
+    { date, visible },
+    ref,
+  ) {
     const [segs, setSegs] = useState<Seg[]>(() => loadSegs(date));
     const nextId = useRef(Math.max(0, ...segs.map((s) => s.id)) + 1);
     const vals = useRef<Record<number, string>>(
@@ -296,6 +299,24 @@ export const SermonNoteCard = React.memo(
       }
     };
     const onBlurInput = () => grow();
+
+    // 메모 칸 높이는 만들어질 때(마운트) 딱 한 번 재는데, 탭이 숨겨진(display:none)
+    // 상태에서 만들어지면 높이가 0으로 재져서 굳어버린다. React.memo라 탭을
+    // 눌러 보이게 해도 다시 그려지지 않으므로, 탭이 보일 때마다 직접 다시 잰다.
+    const growAll = () => {
+      if (Platform.OS !== 'web') return;
+      for (const el of Object.values(inputs.current)) {
+        const ta = el as unknown as HTMLTextAreaElement | null;
+        if (ta?.style) {
+          ta.style.height = 'auto';
+          ta.style.height = `${ta.scrollHeight + 2}px`;
+        }
+      }
+    };
+    useEffect(() => {
+      if (visible) growAll();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible]);
 
     // 구절 삽입 뒤 새 메모 칸으로 커서 이동
     useEffect(() => {
@@ -452,9 +473,11 @@ export const SermonNoteCard = React.memo(
 export const ShareQuestionsCard = React.memo(function ShareQuestionsCard({
   date,
   questions,
+  visible,
 }: {
   date: string;
   questions: string[];
+  visible?: boolean;
 }) {
   const key = `bulletinShare:${date}`;
   const vals = useRef<Record<number, string>>(
@@ -500,11 +523,26 @@ export const ShareQuestionsCard = React.memo(function ShareQuestionsCard({
     }
   };
 
+  // 답칸 높이는 만들어질 때 딱 한 번 재는데, 탭이 숨겨진(display:none) 상태에서
+  // 만들어지면 높이가 0으로 재져서 굳어버린다. React.memo라 탭을 눌러 보이게
+  // 해도 다시 그려지지 않으므로, 탭이 보일 때마다 직접 다시 잰다.
+  const inputs = useRef<Record<number, HTMLTextAreaElement | null>>({});
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web') return;
+    for (const el of Object.values(inputs.current)) {
+      if (el?.style) {
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight + 2}px`;
+      }
+    }
+  }, [visible]);
+
   const answerInput = (i: number) => {
     if (Platform.OS === 'web') {
       return React.createElement('textarea', {
         key: i,
         ref: (el: HTMLTextAreaElement | null) => {
+          inputs.current[i] = el;
           if (el) {
             el.style.height = 'auto';
             el.style.height = `${el.scrollHeight + 2}px`;

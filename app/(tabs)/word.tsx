@@ -228,9 +228,9 @@ export default function WordScreen() {
             유지되게 숨김(display:none)으로만 감춘다 */}
         <View style={{ display: tab === 'note' ? 'flex' : 'none', gap: 14 }}>
           {noteLines.length > 0 && <FillInCard date={noteDate} lines={noteLines} />}
-          <SermonNoteCard ref={sermonNoteRef} date={noteDate} />
+          <SermonNoteCard ref={sermonNoteRef} date={noteDate} visible={tab === 'note'} />
           {shareQuestions.length > 0 && (
-            <ShareQuestionsCard date={noteDate} questions={shareQuestions} />
+            <ShareQuestionsCard date={noteDate} questions={shareQuestions} visible={tab === 'note'} />
           )}
         </View>
         {tab === 'med' && (
