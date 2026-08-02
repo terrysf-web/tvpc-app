@@ -37,7 +37,11 @@ jobs:
 
       - name: Install deps
         if: env.skip != 'true'
-        run: npm install --no-save firebase-admin sharp
+        run: npm install --no-save firebase-admin sharp playwright
+
+      - name: Install Chromium (for login — the site now blocks non-browser requests)
+        if: env.skip != 'true'
+        run: npx playwright install --with-deps chromium
 
       - name: Sync bulletin
         if: env.skip != 'true'

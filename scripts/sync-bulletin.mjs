@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { chromium } from 'playwright';
 import sharp from 'sharp';
 
 const WEB_USER = process.env.TVPC_WEB_USER;
@@ -71,40 +72,42 @@ const unescapeHtml = (s) =>
     .replace(/&#0?39;|&apos;/g, "'")
     .replace(/&nbsp;/g, ' ');
 
-// ── 1. 로그인 ──────────────────────────────────────────────────
-console.log('[주보] 홈페이지 로그인:');
-await jfetch(`${ORIGIN}/wp/wp-login.php`); // 테스트 쿠키 수령
-
-async function tryLogin() {
-  const res = await jfetch(`${ORIGIN}/wp/wp-login.php`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      log: WEB_USER,
-      pwd: WEB_PASS,
-      rememberme: 'forever',
-      'wp-submit': 'Log In',
-      redirect_to: `${ORIGIN}/wp/jubo/`,
-      testcookie: '1',
-    }).toString(),
-  });
-  const loggedIn = [...jar.keys()].some((k) => k.startsWith('wordpress_logged_in'));
-  return { res, loggedIn };
+// ── 1. 로그인 (실제 브라우저) ──────────────────────────────────
+// 홈페이지 앞단에 봇 차단 스크립트가 붙었다(로그인 페이지가 HTTP 409로,
+// JS로 쿠키를 심고 스스로 새로고침하는 도전 페이지만 내려줌 — 일반 fetch는
+// JS를 실행하지 못해 이 관문을 절대 통과할 수 없다). 로그인만 헤드리스
+// 브라우저로 통과시켜 쿠키를 받아온 뒤, 나머지는 기존처럼 fetch로 처리한다.
+console.log('[주보] 홈페이지 로그인(브라우저):');
+{
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ userAgent: UA });
+    const page = await context.newPage();
+    await page.goto(`${ORIGIN}/wp/wp-login.php`, { waitUntil: 'domcontentloaded' });
+    try {
+      // 차단 스크립트가 쿠키를 심고 스스로 새로고침한 뒤에야 진짜 로그인 폼이 뜬다
+      await page.waitForSelector('#user_login', { timeout: 20000 });
+    } catch {
+      console.error(`  ✗ 로그인 폼을 찾지 못했습니다 (제목: ${await page.title()})`);
+      console.error(
+        `  ! 페이지 앞부분(진단용): ${(await page.content()).replace(/\s+/g, ' ').slice(0, 800)}`,
+      );
+      process.exit(1);
+    }
+    await page.fill('#user_login', WEB_USER);
+    await page.fill('#user_pass', WEB_PASS);
+    await Promise.all([
+      page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {}),
+      page.click('#wp-submit'),
+    ]);
+    for (const c of await context.cookies()) jar.set(c.name, c.value);
+  } finally {
+    await browser.close();
+  }
 }
-
-let { res: login, loggedIn } = await tryLogin();
-// 아이디/비밀번호 오류라면 보통 워드프레스가 200(로그인 페이지에 오류 문구)으로 응답한다.
-// 409처럼 워드프레스답지 않은 상태코드는 보안 플러그인·레이트리밋 등 앞단 차단일 가능성이 커서,
-// 잠깐 쉬었다 한 번 더 시도해 일시적 차단인지 구분한다.
-if (!loggedIn && login.status !== 200) {
-  console.log(`  ! 1차 로그인 실패(HTTP ${login.status}) — 15초 후 재시도`);
-  await new Promise((r) => setTimeout(r, 15000));
-  ({ res: login, loggedIn } = await tryLogin());
-}
+const loggedIn = [...jar.keys()].some((k) => k.startsWith('wordpress_logged_in'));
 if (!loggedIn) {
-  const body = await login.text().catch(() => '');
-  console.error(`  ✗ 로그인 실패 (HTTP ${login.status}) — 아이디/비밀번호를 확인해 주세요.`);
-  console.error(`  ! 응답 앞부분(진단용): ${body.replace(/\s+/g, ' ').slice(0, 800)}`);
+  console.error('  ✗ 로그인 실패 — 아이디/비밀번호를 확인해 주세요.');
   process.exit(1);
 }
 console.log('  ✓ 로그인 성공');
