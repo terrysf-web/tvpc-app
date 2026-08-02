@@ -1,6 +1,6 @@
-import { PenLine } from 'lucide-react-native';
+import { PenLine, X } from 'lucide-react-native';
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, font, shadows } from '../theme';
 
 export interface SermonNoteHandle {
@@ -197,19 +197,39 @@ export const FillInCard = React.memo(function FillInCard({
  * 설교 메모 — 주보의 괄호 채우기·나눔 질문 답을 전화기에 적어두는 카드.
  * 내용은 이 기기(localStorage)에만 날짜별(주보 날짜)로 저장되고 서버로 가지 않는다.
  */
+interface Quote {
+  id: number;
+  reference: string;
+  text: string;
+}
+
+/** 형광펜 구절 저장분 — 직접 쓰는 메모(자유 텍스트)와는 다른 키에, 구조를 갖춰 보관한다 */
+function loadQuotes(date: string): Quote[] {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(`bulletinQuotes:${date}`);
+      if (raw) return JSON.parse(raw) as Quote[];
+    }
+  } catch {
+    /* 무시 */
+  }
+  return [];
+}
+
 export const SermonNoteCard = React.memo(
   React.forwardRef<SermonNoteHandle, { date: string }>(function SermonNoteCard({ date }, ref) {
   const key = `bulletinNote:${date}`;
+  const quoteKey = `bulletinQuotes:${date}`;
   const [initial] = useState(() =>
     typeof window !== 'undefined' && window.localStorage
       ? (window.localStorage.getItem(key) ?? '')
       : '',
   );
+  const [quotes, setQuotes] = useState<Quote[]>(() => loadQuotes(date));
+  const nextQuoteId = useRef(Math.max(0, ...quotes.map((q) => q.id)) + 1);
   const hostRef = useRef<View | null>(null);
-  // 형광펜으로 표시한 구절을 이어붙이기 위해 실제 입력칸을 붙잡아 둔다
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const nativeRef = useRef<TextInput | null>(null);
-  const nativeVal = useRef(initial);
 
   // 웹: React를 입력 경로에서 완전히 배제한다 — textarea를 직접 만들어
   // 끼워 넣고 순수 DOM 이벤트로만 저장한다. React가 키 입력마다 개입해
@@ -296,7 +316,6 @@ export const SermonNoteCard = React.memo(
   // 네이티브 앱용 저장 (웹은 위 순수 DOM 경로 사용)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChange = (t: string) => {
-    nativeVal.current = t;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -305,35 +324,35 @@ export const SermonNoteCard = React.memo(
     }, 500);
   };
 
+  const persistQuotes = (list: Quote[]) => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(quoteKey, JSON.stringify(list));
+      }
+    } catch {
+      /* 무시 */
+    }
+  };
+
+  const removeQuote = (id: number) => {
+    setQuotes((prev) => {
+      const next = prev.filter((q) => q.id !== id);
+      persistQuotes(next);
+      return next;
+    });
+  };
+
   useImperativeHandle(ref, () => ({
     appendQuote(reference: string, text: string) {
-      const line = `“${text}” (${reference})`;
-      if (Platform.OS === 'web') {
-        const ta = taRef.current;
-        if (!ta) return;
-        const sep = ta.value && !ta.value.endsWith('\n') ? '\n\n' : '';
-        ta.value = `${ta.value}${sep}${line}\n`;
-        if (ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${ta.scrollHeight + 2}px`;
-        try {
-          window.localStorage.setItem(key, ta.value);
-        } catch {
-          /* 무시 */
-        }
-        ta.focus();
-        ta.scrollTop = ta.scrollHeight;
-      } else {
-        const sep = nativeVal.current && !nativeVal.current.endsWith('\n') ? '\n\n' : '';
-        const next = `${nativeVal.current}${sep}${line}\n`;
-        nativeVal.current = next;
-        nativeRef.current?.setNativeProps({ text: next });
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem(key, next);
-          }
-        } catch {
-          /* 무시 */
-        }
-      }
+      setQuotes((prev) => {
+        if (prev.some((q) => q.reference === reference)) return prev;
+        const next = [...prev, { id: nextQuoteId.current++, reference, text }];
+        persistQuotes(next);
+        return next;
+      });
+      // 이어서 바로 쓸 수 있게 메모 칸으로 포커스를 옮긴다
+      if (Platform.OS === 'web') taRef.current?.focus();
+      else nativeRef.current?.focus();
     },
   }));
 
@@ -346,6 +365,21 @@ export const SermonNoteCard = React.memo(
         <Text style={styles.noteTitle}>설교 메모</Text>
         <Text style={styles.noteSaved}>자동 저장</Text>
       </View>
+      {/* 형광펜으로 표시한 구절 — 내가 쓴 메모와 헷갈리지 않게 작은 글씨·다른 색으로 따로 둔다 */}
+      {quotes.length > 0 && (
+        <View style={styles.quoteList}>
+          {quotes.map((q) => (
+            <View key={q.id} style={styles.quoteRow}>
+              <Text style={styles.quoteText}>
+                “{q.text}” <Text style={styles.quoteRef}>({q.reference})</Text>
+              </Text>
+              <Pressable onPress={() => removeQuote(q.id)} hitSlop={8} style={styles.quoteX}>
+                <X size={13} color={colors.faint} strokeWidth={2} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
       {Platform.OS === 'web' ? (
         <View ref={hostRef} />
       ) : (
@@ -376,6 +410,25 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   noteHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  quoteList: { gap: 6, marginBottom: 10 },
+  quoteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#F0F6FD',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+  },
+  quoteText: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    lineHeight: 19,
+    color: colors.primary,
+  },
+  quoteRef: { fontFamily: font.regular, fontSize: 11, color: colors.muted },
+  quoteX: { padding: 2, marginTop: 2 },
   noteChip: {
     width: 28,
     height: 28,
