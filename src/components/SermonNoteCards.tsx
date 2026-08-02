@@ -443,6 +443,153 @@ export const SermonNoteCard = React.memo(
   }),
 );
 
+/**
+ * 나눔 질문 — 주보 설교 노트의 [나눔 질문]을 보여주고, 질문마다 답을
+ * 적을 수 있게 한다. 답은 이 기기(localStorage)에만 날짜별(주보 날짜)로
+ * 저장되고 서버로 가지 않는다. 한글 조합(IME) 안전을 위해 각 답칸은
+ * 비제어 입력 + 디바운스 저장.
+ */
+export const ShareQuestionsCard = React.memo(function ShareQuestionsCard({
+  date,
+  questions,
+}: {
+  date: string;
+  questions: string[];
+}) {
+  const key = `bulletinShare:${date}`;
+  const vals = useRef<Record<number, string>>(
+    (() => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<
+            string,
+            string
+          >;
+          const out: Record<number, string> = {};
+          questions.forEach((_, i) => {
+            out[i] = raw[i] ?? '';
+          });
+          return out;
+        }
+      } catch {
+        /* 무시 */
+      }
+      return {};
+    })(),
+  );
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const save = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, JSON.stringify(vals.current));
+        }
+      } catch {
+        /* 무시 */
+      }
+      setSavedAt(Date.now());
+    }, 500);
+  };
+
+  const composing = useRef(false);
+  const grow = (el: HTMLTextAreaElement | null) => {
+    if (el && !composing.current && el.scrollHeight > el.clientHeight + 2) {
+      el.style.height = `${el.scrollHeight + 2}px`;
+    }
+  };
+
+  const answerInput = (i: number) => {
+    if (Platform.OS === 'web') {
+      return React.createElement('textarea', {
+        key: i,
+        ref: (el: HTMLTextAreaElement | null) => {
+          if (el) {
+            el.style.height = 'auto';
+            el.style.height = `${el.scrollHeight + 2}px`;
+          }
+        },
+        defaultValue: vals.current[i] ?? '',
+        placeholder: '나의 답을 적어보세요.',
+        autoComplete: 'off',
+        autoCorrect: 'off',
+        autoCapitalize: 'off',
+        spellCheck: false,
+        onCompositionStart: () => {
+          composing.current = true;
+        },
+        onCompositionEnd: (e: { target: HTMLTextAreaElement }) => {
+          composing.current = false;
+          grow(e.target);
+        },
+        onBlur: (e: { target: HTMLTextAreaElement }) => grow(e.target),
+        onInput: (e: { target: HTMLTextAreaElement }) => {
+          vals.current[i] = e.target.value;
+          grow(e.target);
+          save();
+        },
+        style: {
+          minHeight: 48,
+          width: '100%',
+          boxSizing: 'border-box',
+          border: 'none',
+          outline: 'none',
+          resize: 'none',
+          overflow: 'auto',
+          background: 'transparent',
+          padding: '10px 14px',
+          fontSize: 16,
+          lineHeight: '24px',
+          color: colors.body,
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif',
+          WebkitUserSelect: 'text',
+          userSelect: 'text',
+        },
+      } as object);
+    }
+    return (
+      <TextInput
+        key={i}
+        style={[styles.noteInput, { minHeight: 48 }]}
+        defaultValue={vals.current[i] ?? ''}
+        onChangeText={(t) => {
+          vals.current[i] = t;
+          save();
+        }}
+        multiline
+        placeholder="나의 답을 적어보세요."
+        placeholderTextColor={colors.faint}
+        autoComplete="off"
+        autoCorrect={false}
+        spellCheck={false}
+      />
+    );
+  };
+
+  return (
+    <View style={[styles.noteCard, shadows.card]}>
+      <View style={styles.noteHead}>
+        <View style={styles.noteChip}>
+          <PenLine size={16} color={colors.primary} strokeWidth={2} />
+        </View>
+        <Text style={styles.noteTitle}>나눔 질문</Text>
+        {savedAt ? <Text style={styles.noteSaved}>자동 저장됨</Text> : null}
+      </View>
+      {questions.map((q, i) => (
+        <View key={i} style={styles.shareQBlock}>
+          <Text style={styles.shareQText}>
+            {i + 1}. {q}
+          </Text>
+          <View style={styles.notePad}>{answerInput(i)}</View>
+        </View>
+      ))}
+      <Text style={styles.noteHint}>답은 이 전화기에만 저장됩니다.</Text>
+    </View>
+  );
+});
+
 const styles = StyleSheet.create({
   noteCard: {
     alignSelf: 'stretch',
@@ -499,6 +646,15 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   noteHint: { marginTop: 8, fontFamily: font.regular, fontSize: 11.5, color: colors.faint },
+  shareQBlock: { marginBottom: 12 },
+  shareQText: {
+    fontFamily: font.medium,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.title,
+    marginBottom: 6,
+    paddingHorizontal: 2,
+  },
   fillLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 },
   fillText: { fontFamily: font.regular, fontSize: 15, lineHeight: 26, color: colors.body },
   fillInput: {

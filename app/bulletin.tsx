@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
-import { FillInCard, SermonNoteCard } from '../src/components/SermonNoteCards';
 import { useBulletin, useBulletinDates } from '../src/data/bulletin';
 import { useNews } from '../src/data/hooks';
 import { firebaseEnabled } from '../src/firebase';
@@ -166,16 +165,6 @@ export default function BulletinScreen() {
                   {i + 1} / {bulletin.pages.length}
                 </Text>
               </View>
-              {/* 설교 메모는 괄호 채우기가 있는 3면 바로 아래에.
-                  key로 날짜가 바뀌면 새로 만들어 그 날짜의 저장 메모를 불러온다 */}
-              {i === Math.min(2, bulletin.pages.length - 1) && (
-                <React.Fragment key={`note-${bulletin.date}`}>
-                  {(bulletin.noteLines?.length ?? 0) > 0 && (
-                    <FillInCard date={bulletin.date} lines={bulletin.noteLines!} />
-                  )}
-                  <SermonNoteCard date={bulletin.date} />
-                </React.Fragment>
-              )}
             </React.Fragment>
           ))}
           {webBulletin?.url ? (

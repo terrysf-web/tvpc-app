@@ -9,9 +9,14 @@ import { SegmentTabs } from '../../src/components/SegmentTabs';
 import {
   FillInCard,
   SermonNoteCard,
+  ShareQuestionsCard,
   type SermonNoteHandle,
 } from '../../src/components/SermonNoteCards';
-import { useBulletinDates, useBulletinNoteLines } from '../../src/data/bulletin';
+import {
+  useBulletinDates,
+  useBulletinNoteLines,
+  useBulletinShareQuestions,
+} from '../../src/data/bulletin';
 import { useClockTick, useTodayVerse } from '../../src/data/hooks';
 import { firebaseEnabled } from '../../src/firebase';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
@@ -88,6 +93,7 @@ export default function WordScreen() {
   const { dates: bulletinDates } = useBulletinDates(firebaseEnabled);
   const latestBulletinDate = bulletinDates[0] ?? null;
   const { noteLines } = useBulletinNoteLines(latestBulletinDate);
+  const { shareQuestions } = useBulletinShareQuestions(latestBulletinDate);
   const noteDate = latestBulletinDate ?? verse.date;
 
   // 북마크 해제 시 형광펜이 있으면 실수로 잃지 않게 한 번 더 확인
@@ -223,6 +229,9 @@ export default function WordScreen() {
         <View style={{ display: tab === 'note' ? 'flex' : 'none', gap: 14 }}>
           {noteLines.length > 0 && <FillInCard date={noteDate} lines={noteLines} />}
           <SermonNoteCard ref={sermonNoteRef} date={noteDate} />
+          {shareQuestions.length > 0 && (
+            <ShareQuestionsCard date={noteDate} questions={shareQuestions} />
+          )}
         </View>
         {tab === 'med' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>

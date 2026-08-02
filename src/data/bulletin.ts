@@ -36,6 +36,8 @@ export interface Bulletin {
   pages: BulletinPage[];
   /** 설교 노트 괄호 채우기 문장 — "(____)"가 빈칸 자리 */
   noteLines?: string[];
+  /** 나눔 질문 — 설교 노트의 [나눔 질문] 항목 */
+  shareQuestions?: string[];
 }
 
 /** Firestore 문서 1MB 한도 아래로 유지 (base64 문자열 기준) */
@@ -255,4 +257,43 @@ export function useBulletinNoteLines(date: string | null): {
   }, [date]);
 
   return { noteLines, loading };
+}
+
+/**
+ * 최신 주보의 나눔 질문만 가볍게 조회 — 말씀 탭 메모칸에서 쓰기 위한
+ * 용도라, 무거운 페이지 이미지(pages 하위 컬렉션)는 읽지 않는다.
+ */
+export function useBulletinShareQuestions(date: string | null): {
+  shareQuestions: string[];
+  loading: boolean;
+} {
+  const [shareQuestions, setShareQuestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !date) {
+      setShareQuestions([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const docSnap = await getDoc(doc(db, 'bulletins', date));
+        if (cancelled) return;
+        setShareQuestions(((docSnap.get('shareQuestions') as string[] | undefined) ?? []).map(String));
+      } catch {
+        if (!cancelled) setShareQuestions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  return { shareQuestions, loading };
 }

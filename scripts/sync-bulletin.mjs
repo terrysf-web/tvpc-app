@@ -700,11 +700,11 @@ async function writeStatus(changed, note) {
   }
 }
 
-// ── 3.7 설교 노트(괄호 채우기) 추출 ────────────────────────────
-// 주보의 설교 개요에서 "( … )" 빈칸이 있는 문장들을 뽑아 앱 메모장에
-// 깔아준다 — 교인은 괄호만 채우면 된다. 접는 주보라 페이지를 반쪽
-// (면) 단위로 나눠 줄을 복원하고, 빈칸이 가장 많은 면을 고른다.
-function extractNoteLines() {
+// ── 3.7 설교 노트(괄호 채우기 · 나눔 질문) 추출 ────────────────
+// 주보의 설교 개요에서 "( … )" 빈칸이 있는 문장들과 "[나눔 질문]" 아래
+// 번호 매긴 질문들을 뽑아 앱 메모장에 깔아준다. 접는 주보라 페이지를
+// 반쪽(면) 단위로 나눠 줄을 복원한다.
+function buildFaces() {
   execFileSync('pdftohtml', ['-xml', '-q', join(dir, 'in.pdf'), join(dir, 'note')], { cwd: dir });
   const xml = readFileSync(join(dir, 'note.xml'), 'utf8');
   const pages = [
@@ -755,6 +755,10 @@ function extractNoteLines() {
       faces.push(lines);
     }
   }
+  return faces;
+}
+
+function extractNoteLines(faces) {
   // 괄호 빈칸 표준화: "( ¶ )", "(____)", "(   )" → "(____)"
   const normBlank = (s) =>
     s
@@ -779,9 +783,43 @@ function extractNoteLines() {
   }
   return best ? best.block : [];
 }
+
+// "[나눔 질문]" 아래 "1. …" "2. …" 처럼 번호 매긴 문단을 뽑는다.
+// 줄 복원 단계에서 한 질문이 여러 줄로 쪼개져 있으므로, 번호로 시작하는
+// 줄을 새 질문으로 보고 그 다음 줄들은 앞 질문에 이어붙인다.
+function extractShareQuestions(faces) {
+  for (const lines of faces) {
+    const startIdx = lines.findIndex((l) => /나눔\s*질문/.test(l));
+    if (startIdx < 0) continue;
+    const rest = lines.slice(startIdx + 1).filter((s) => s.trim());
+    const qs = [];
+    for (const line of rest) {
+      if (/^\s*\d+\s*[.).]\s*/.test(line)) {
+        qs.push(line.trim());
+      } else if (qs.length) {
+        qs[qs.length - 1] += ` ${line.trim()}`;
+      }
+    }
+    const cleaned = qs
+      .map((q) => q.replace(/^\s*\d+\s*[.).]\s*/, '').replace(/\s+/g, ' ').trim())
+      .filter((q) => q.length > 3)
+      .slice(0, 10);
+    if (cleaned.length) {
+      console.log(`[설교노트] 나눔 질문 ${cleaned.length}개 추출:`);
+      for (const q of cleaned) console.log(`    ${q}`);
+      return cleaned;
+    }
+  }
+  console.log('[설교노트] 나눔 질문을 찾지 못했습니다.');
+  return [];
+}
+
 let noteLines = [];
+let shareQuestions = [];
 try {
-  noteLines = extractNoteLines();
+  const faces = buildFaces();
+  noteLines = extractNoteLines(faces);
+  shareQuestions = extractShareQuestions(faces);
 } catch (e) {
   console.log(`  ! 설교 노트 추출 실패(무해): ${e.message}`);
 }
@@ -789,13 +827,23 @@ try {
 const existing = await db.doc(`bulletins/${date}`).get();
 if (existing.exists && existing.get('pdfHash') === pdfHash) {
   console.log(`완료: ${date} 주보는 이미 최신입니다 (변경 없음).`);
-  // 괄호 채우기 추출 결과가 새로우면 그것만 갱신
+  // 괄호 채우기·나눔 질문 추출 결과가 새로우면 그것만 갱신
+  const patch = {};
   if (
     noteLines.length &&
     JSON.stringify(existing.get('noteLines') ?? []) !== JSON.stringify(noteLines)
   ) {
-    await db.doc(`bulletins/${date}`).set({ noteLines }, { merge: true });
-    console.log('  → 설교 노트(괄호 채우기) 갱신');
+    patch.noteLines = noteLines;
+  }
+  if (
+    shareQuestions.length &&
+    JSON.stringify(existing.get('shareQuestions') ?? []) !== JSON.stringify(shareQuestions)
+  ) {
+    patch.shareQuestions = shareQuestions;
+  }
+  if (Object.keys(patch).length) {
+    await db.doc(`bulletins/${date}`).set(patch, { merge: true });
+    console.log('  → 설교 노트(괄호 채우기·나눔 질문) 갱신');
   }
   await writeStatus(false, '이미 최신 (변경 없음)');
   process.exit(0);
@@ -852,6 +900,7 @@ await db.doc(`bulletins/${date}`).set({
   pdfHash,
   source: 'auto',
   noteLines,
+  shareQuestions,
   updatedAt: FieldValue.serverTimestamp(),
 });
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
