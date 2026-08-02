@@ -52,15 +52,17 @@ export default function WordScreen() {
     };
   }, [verse.date]);
 
-  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 형광펜으로 표시된다.
-  // 표시한 구절이 있으면 저장한 말씀에 자동 보관된다.
+  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 형광펜으로 표시되며 설교 메모 탭으로
+  // 넘어가 바로 메모를 이어 쓸 수 있다. 표시한 구절이 있으면 저장한 말씀에도 자동 보관된다.
   const [hls, setHls] = useState<VerseHighlight[]>([]);
   useEffect(() => {
     setHls(getHighlights(verse.date));
   }, [verse.date]);
   const onToggleHl = (p: { verse: number; text: string }) => {
     const next = toggleHighlight(verse.date, p.verse, p.text);
+    const turnedOn = next.length > hls.length;
     setHls(next);
+    if (turnedOn) setTab('note');
     if (next.length > 0) {
       ensureSavedVerse({
         date: verse.date,
