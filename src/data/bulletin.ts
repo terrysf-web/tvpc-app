@@ -217,3 +217,42 @@ export function useBulletin(date: string | null): {
 
   return { bulletin, loading };
 }
+
+/**
+ * 최신 주보의 설교 노트 괄호 채우기 문장만 가볍게 조회 — 말씀 탭 메모칸에서
+ * 쓰기 위한 용도라, 무거운 페이지 이미지(pages 하위 컬렉션)는 읽지 않는다.
+ */
+export function useBulletinNoteLines(date: string | null): {
+  noteLines: string[];
+  loading: boolean;
+} {
+  const [noteLines, setNoteLines] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !date) {
+      setNoteLines([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const docSnap = await getDoc(doc(db, 'bulletins', date));
+        if (cancelled) return;
+        setNoteLines(((docSnap.get('noteLines') as string[] | undefined) ?? []).map(String));
+      } catch {
+        if (!cancelled) setNoteLines([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  return { noteLines, loading };
+}

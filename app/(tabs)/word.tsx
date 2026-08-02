@@ -1,17 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bookmark, List } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
+import { FillInCard, SermonNoteCard } from '../../src/components/SermonNoteCards';
+import { useBulletinDates, useBulletinNoteLines } from '../../src/data/bulletin';
 import { useClockTick, useTodayVerse } from '../../src/data/hooks';
-import {
-  hasVerseNote,
-  VerseNoteCard,
-  type VerseNoteHandle,
-} from '../../src/components/VerseNoteCard';
+import { firebaseEnabled } from '../../src/firebase';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { colors, font, shadows, textShadow } from '../../src/theme';
@@ -54,26 +52,15 @@ export default function WordScreen() {
     };
   }, [verse.date]);
 
-  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 메모장 맨 위에 고정으로 들어온다.
-  // 다시 누르면(또는 블록의 ✕) 형광펜과 메모장 속 구절이 함께 사라진다.
-  // 표시한 구절과 메모는 저장한 말씀에 자동 보관된다.
-  const noteRef = useRef<VerseNoteHandle>(null);
+  // 형광펜 — 구절을 누르면 켜지고, 그 구절이 형광펜으로 표시된다.
+  // 표시한 구절이 있으면 저장한 말씀에 자동 보관된다.
   const [hls, setHls] = useState<VerseHighlight[]>([]);
   useEffect(() => {
     setHls(getHighlights(verse.date));
   }, [verse.date]);
   const onToggleHl = (p: { verse: number; text: string }) => {
     const next = toggleHighlight(verse.date, p.verse, p.text);
-    const turnedOn = next.some((h) => h.v === p.verse) && !hls.some((h) => h.v === p.verse);
     setHls(next);
-    if (turnedOn) {
-      // 구절이 메모장 맨 아래(이전 메모 다음)에 붙고, 메모 탭으로 넘어가
-      // 새 메모 칸에 커서가 놓인다
-      setTab('note');
-      noteRef.current?.addQuote(p.verse, p.text);
-    } else {
-      noteRef.current?.removeQuote(p.verse);
-    }
     if (next.length > 0) {
       ensureSavedVerse({
         date: verse.date,
@@ -83,31 +70,28 @@ export default function WordScreen() {
     }
   };
   const hlNums = new Set(hls.map((h) => h.v));
-  // 메모 카드(memo)가 재렌더에서 격리되도록 콜백 참조를 고정한다
-  const onQuoteRemoved = React.useCallback(
-    (v: number) => setHls(toggleHighlight(verse.date, v, '')),
-    [verse.date],
-  );
-  const onNoteAutoSaved = React.useCallback(() => setSaved(true), []);
 
-  // 북마크 해제 시 메모·형광펜이 있으면 실수로 잃지 않게 한 번 더 확인
-  const [noteKey, setNoteKey] = useState(0);
+  // 메모 탭 — 이번 주 주보의 괄호 채우기·설교 메모 (주보 날짜로 저장)
+  const { dates: bulletinDates } = useBulletinDates(firebaseEnabled);
+  const latestBulletinDate = bulletinDates[0] ?? null;
+  const { noteLines } = useBulletinNoteLines(latestBulletinDate);
+  const noteDate = latestBulletinDate ?? verse.date;
+
+  // 북마크 해제 시 형광펜이 있으면 실수로 잃지 않게 한 번 더 확인
   const onToggleSaved = () => {
     const entry = { date: verse.date, reference: verse.reference, heroText: verse.heroText };
-    if (saved && (hls.length > 0 || hasVerseNote(verse.date))) {
-      const msg = `${verse.reference} 말씀의 저장을 해제할까요?\n적어둔 메모와 형광펜 표시도 함께 지워집니다.`;
+    if (saved && hls.length > 0) {
+      const msg = `${verse.reference} 말씀의 저장을 해제할까요?\n표시해 둔 형광펜도 함께 지워집니다.`;
       const doRemove = () => {
         toggleSavedVerse(entry).then(setSaved);
         try {
           if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.removeItem(`verseNote:${verse.date}`);
             window.localStorage.removeItem(`verseHl:${verse.date}`);
           }
         } catch {
           /* 무시 */
         }
         setHls([]);
-        setNoteKey((k) => k + 1); // 메모장 비우기(재장착)
       };
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.confirm(msg)) doRemove();
@@ -221,18 +205,11 @@ export default function WordScreen() {
             ))}
           </>
         )}
-        {/* 메모 탭 — 형광펜 구절이 담기는 메모장. 탭을 오가도 상태가 유지되게
-            숨김(display:none)으로만 감춘다 */}
-        <View style={{ display: tab === 'note' ? 'flex' : 'none' }}>
-          <VerseNoteCard
-            key={`${verse.date}:${noteKey}`}
-            ref={noteRef}
-            date={verse.date}
-            reference={verse.reference}
-            heroText={verse.heroText}
-            onQuoteRemoved={onQuoteRemoved}
-            onAutoSaved={onNoteAutoSaved}
-          />
+        {/* 메모 탭 — 이번 주 주보의 괄호 채우기·설교 메모. 탭을 오가도 상태가
+            유지되게 숨김(display:none)으로만 감춘다 */}
+        <View style={{ display: tab === 'note' ? 'flex' : 'none', gap: 14 }}>
+          {noteLines.length > 0 && <FillInCard date={noteDate} lines={noteLines} />}
+          <SermonNoteCard date={noteDate} />
         </View>
         {tab === 'med' && (
           <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
