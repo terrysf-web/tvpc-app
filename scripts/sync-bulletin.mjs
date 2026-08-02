@@ -68,9 +68,10 @@ const unescapeHtml = (s) =>
     .replace(/&amp;|&#0?38;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
+    .replace(/&quot;|&#0?34;/g, '"')
     .replace(/&#0?39;|&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ');
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 
 // ── 1. 로그인 (실제 브라우저) ──────────────────────────────────
 // 홈페이지 앞단에 봇 차단 스크립트가 붙었다(로그인 페이지가 HTTP 409로,
