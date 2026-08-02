@@ -74,21 +74,37 @@ const unescapeHtml = (s) =>
 // ── 1. 로그인 ──────────────────────────────────────────────────
 console.log('[주보] 홈페이지 로그인:');
 await jfetch(`${ORIGIN}/wp/wp-login.php`); // 테스트 쿠키 수령
-const login = await jfetch(`${ORIGIN}/wp/wp-login.php`, {
-  method: 'POST',
-  headers: { 'content-type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({
-    log: WEB_USER,
-    pwd: WEB_PASS,
-    rememberme: 'forever',
-    'wp-submit': 'Log In',
-    redirect_to: `${ORIGIN}/wp/jubo/`,
-    testcookie: '1',
-  }).toString(),
-});
-const loggedIn = [...jar.keys()].some((k) => k.startsWith('wordpress_logged_in'));
+
+async function tryLogin() {
+  const res = await jfetch(`${ORIGIN}/wp/wp-login.php`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      log: WEB_USER,
+      pwd: WEB_PASS,
+      rememberme: 'forever',
+      'wp-submit': 'Log In',
+      redirect_to: `${ORIGIN}/wp/jubo/`,
+      testcookie: '1',
+    }).toString(),
+  });
+  const loggedIn = [...jar.keys()].some((k) => k.startsWith('wordpress_logged_in'));
+  return { res, loggedIn };
+}
+
+let { res: login, loggedIn } = await tryLogin();
+// 아이디/비밀번호 오류라면 보통 워드프레스가 200(로그인 페이지에 오류 문구)으로 응답한다.
+// 409처럼 워드프레스답지 않은 상태코드는 보안 플러그인·레이트리밋 등 앞단 차단일 가능성이 커서,
+// 잠깐 쉬었다 한 번 더 시도해 일시적 차단인지 구분한다.
+if (!loggedIn && login.status !== 200) {
+  console.log(`  ! 1차 로그인 실패(HTTP ${login.status}) — 15초 후 재시도`);
+  await new Promise((r) => setTimeout(r, 15000));
+  ({ res: login, loggedIn } = await tryLogin());
+}
 if (!loggedIn) {
+  const body = await login.text().catch(() => '');
   console.error(`  ✗ 로그인 실패 (HTTP ${login.status}) — 아이디/비밀번호를 확인해 주세요.`);
+  console.error(`  ! 응답 앞부분(진단용): ${body.replace(/\s+/g, ' ').slice(0, 800)}`);
   process.exit(1);
 }
 console.log('  ✓ 로그인 성공');
