@@ -659,9 +659,41 @@ for (const e of upcoming) {
 }
 const deduped = [...byDay.values()].sort((a, b) => a.start - b.start);
 
+// 여러 날에 걸친 행사(예: 여름 성경 학교 8/3~8/7)는 소스 달력이 날짜
+// 칸마다 한 번씩 나열해서, 위 중복 제거를 거쳐도 날마다 똑같은 카드가
+// 남는다(요일마다 떨어져 반복되는 진짜 주간 모임과는 다름 — 그건 날짜가
+// 하루 간격이 아니라 7일 간격이라 아래 로직에 안 걸린다). 같은 행사가
+// 연속된 날짜로 이어지면 첫날 카드 하나로 합치고 날짜를 범위로 보여준다.
+const runsByKey = new Map();
+for (const e of deduped) {
+  const k = dedupeKeyOf(e);
+  if (!runsByKey.has(k)) runsByKey.set(k, []);
+  runsByKey.get(k).push(e);
+}
+const ONE_DAY_MS = 86400e3;
+const dayLabel = (d) => `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${KDAYS[d.getDay()]}`;
+const collapsed = [];
+for (const list of runsByKey.values()) {
+  list.sort((a, b) => a.start - b.start);
+  let runStart = 0;
+  for (let i = 1; i <= list.length; i++) {
+    const prev = list[i - 1];
+    const cur = list[i];
+    const consecutive = cur && cur.start.getTime() - prev.start.getTime() === ONE_DAY_MS;
+    if (consecutive) continue;
+    const first = list[runStart];
+    const last = list[i - 1];
+    collapsed.push(
+      last === first ? first : { ...first, rangeLabel: `${dayLabel(first.start)}~${dayLabel(last.start)}` },
+    );
+    runStart = i;
+  }
+}
+collapsed.sort((a, b) => a.start - b.start);
+
 let eventsWrote = 0;
 const writtenEventIds = new Set();
-for (const e of deduped) {
+for (const e of collapsed) {
   const d = e.start;
   writtenEventIds.add(`web-${hash(e.uid)}`);
   const tribe = tribeFor(e.summary);
@@ -669,7 +701,7 @@ for (const e of deduped) {
   const imageUrl = tribe?.image ?? (await fetchOgImage(url));
   await db.doc(`events/web-${hash(e.uid)}`).set(
     {
-      dateLabel: `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${KDAYS[d.getDay()]}`,
+      dateLabel: e.rangeLabel || dayLabel(d),
       title: e.summary,
       detail: [e.allDay ? null : timeLabel(d), e.location || null, e.detail || null]
         .filter(Boolean)
