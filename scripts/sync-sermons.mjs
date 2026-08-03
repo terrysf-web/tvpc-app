@@ -460,7 +460,7 @@ function classify(title) {
 }
 
 /**
- * 팟캐스트 오프닝 화면 오른쪽 아래에 발표자 이름이 "문장석 · 진선미"처럼
+ * 팟캐스트 오프닝 화면 가운데 아래쪽에 발표자 이름이 "문장석 · 진선미"처럼
  * 그림으로 박혀 있다(제목·설명·홈페이지 어디에도 글자로는 없음 — 실제로
  * 확인함). 담임목사님이 아니라 매회 다른 성도가 발표하므로, 썸네일에서
  * 그 영역만 잘라 OCR로 읽는다. 실패해도 무해(빈 값 → 화면에 이름 표시 안 함).
@@ -489,13 +489,14 @@ async function ocrPodcastSpeaker(videoId) {
     console.log(`    (썸네일 ${chosen} ${width}x${height})`);
     const dir = mkdtempSync(join(tmpdir(), 'ocr-'));
     const cropPath = join(dir, 'crop.png');
-    // 이름은 화면 오른쪽 아래 좁은 띠에만 나온다 — 그 영역만 잘라 확대하면
-    // 배경(설교 화면)의 다른 글자에 안 걸리고 인식률도 올라간다.
+    // 이름은 화면 가운데, 제목 아래쪽 띠에 나온다(오른쪽 아래가 아니었다 —
+    // 실제 썸네일을 잘라 눈으로 확인해서 잡은 좌표). 그 영역만 잘라 확대하면
+    // 배경 그림의 다른 무늬에 안 걸리고 인식률도 올라간다.
     const extractOpts = {
-      left: Math.round(width * 0.55),
-      top: Math.round(height * 0.78),
-      width: Math.round(width * 0.44),
-      height: Math.round(height * 0.18),
+      left: Math.round(width * 0.15),
+      top: Math.round(height * 0.65),
+      width: Math.round(width * 0.7),
+      height: Math.round(height * 0.2),
     };
     await sharp(buf).extract(extractOpts).greyscale().normalize().resize({ width: 900 }).toFile(cropPath);
     // 진단용 — DEBUG_OCR=true일 때만 썸네일 전체·크롭 영역을 base64로 찍어
@@ -506,12 +507,15 @@ async function ocrPodcastSpeaker(videoId) {
       const cropRaw = await sharp(buf).extract(extractOpts).png().toBuffer();
       console.log(`    (크롭 영역 base64: ${cropRaw.toString('base64')})`);
     }
-    const text = execFileSync('tesseract', [cropPath, 'stdout', '-l', 'kor', '--psm', '7'], {
+    // --psm 7(한 줄)은 가운데 점(·)을 종종 틀리게 읽어 실패했다 —
+    // --psm 6(균일한 블록)이 훨씬 안정적으로 읽는다(배경 무늬가 위에 잡음
+    // 한 줄로 더 끼어들 수 있어 아래 정규식이 그 잡음은 걸러낸다).
+    const text = execFileSync('tesseract', [cropPath, 'stdout', '-l', 'kor', '--psm', '6'], {
       encoding: 'utf8',
     });
     const raw = text.replace(/\s+/g, ' ').trim();
     console.log(`    (OCR 원문: "${raw}")`);
-    const m = raw.match(/([가-힣]{2,4})\s*[·/,ㆍ.]\s*([가-힣]{2,4})/);
+    const m = raw.match(/([가-힣]{2,4})\s*[·/,ㆍ.~-]\s*([가-힣]{2,4})/);
     return m ? `${m[1]} · ${m[2]}` : '';
   } catch (e) {
     console.log(`    ! 발표자 OCR 실패(무해): ${e.message}`);
