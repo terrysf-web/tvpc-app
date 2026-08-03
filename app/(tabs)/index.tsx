@@ -149,6 +149,9 @@ export default function HomeScreen() {
   const liveEnded = isSunday && phase !== 'live';
   // 월요일은 예배로 나아가는 날이 아니라, 주일의 은혜가 남아 있는 날
   const isMonday = phase === 'monday';
+  // 주일 당일이지만 2부 예배가 끝난 오후·저녁 — "예배로 나아가요"가 아니라
+  // 다녀온 예배를 돌아보는 문구로 (다시보기 버튼과 결을 맞춘다)
+  const serviceOver = phase === 'after';
   // 어떤 내용·배경이 정답인지 확정되기 전에는 히어로를 그리지 않는다 —
   // 옛 구절이나 기본 그림이 번쩍였다가 바뀌면 혼란스럽기 때문.
   const heroReady = isSunday
@@ -257,9 +260,11 @@ export default function HomeScreen() {
             <Text style={styles.greetingSub}>
               {isMonday
                 ? '주일의 은혜를 품고, 새로운 한 주를 힘차게 시작해 봐요.'
-                : isSunday
-                  ? '복된 주일입니다. 기쁜 마음으로 예배의 자리로 나아가요.'
-                  : GREETING_SUB[timeSlot()]}
+                : serviceOver
+                  ? '은혜로운 주일 보내셨나요? 오늘도 평안하시길 바랍니다.'
+                  : isSunday
+                    ? '복된 주일입니다. 기쁜 마음으로 예배의 자리로 나아가요.'
+                    : GREETING_SUB[timeSlot()]}
             </Text>
           </View>
           <View style={styles.headBtns}>
@@ -311,7 +316,9 @@ export default function HomeScreen() {
                 <Text style={[styles.heroVerse, !sb.dark && styles.heroVerseDark]}>
                   {isMonday
                     ? '주일의 은혜가\n한 주간 이어지기를'
-                    : '오늘은 주일입니다\n예배로 함께 나아가요'}
+                    : serviceOver
+                      ? '은혜로운 예배였기를\n바랍니다'
+                      : '오늘은 주일입니다\n예배로 함께 나아가요'}
                 </Text>
                 <Text style={[styles.sundayTimes, !sb.dark && styles.sundayTimesDark]}>
                   {isMonday
