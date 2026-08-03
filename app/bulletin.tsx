@@ -7,10 +7,18 @@ import {
   ChevronUp,
   Clock,
   FileText,
+  Gift,
+  Hand,
+  Image as ImageIcon,
   ListChecks,
+  Mail,
   Megaphone,
+  Mic,
+  Music,
+  Play,
   Users,
   Wallet,
+  Wine,
   X,
 } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -116,6 +124,28 @@ function futureDutyTable(t: BulletinDutyTable, todayKey: string): BulletinDutyTa
   };
 }
 
+/** 예배 순서 항목별 아이콘 — 못 찾으면 원(Circle) 자리만 비워둔다 */
+const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth: number }>> = {
+  '성도의 교제': Users,
+  '예배의 부름': Mail,
+  '경배와 기도': Music,
+  성찬식: Wine,
+  성경봉독: BookOpen,
+  설교: Mic,
+  '결단의 찬양': Music,
+  봉헌: Gift,
+  축도: Hand,
+};
+
+function OrderIcon({ name }: { name: string }) {
+  const Icon = ORDER_ICONS[name];
+  return (
+    <View style={styles.orderIconChip}>
+      {Icon ? <Icon size={14} color={colors.primary} strokeWidth={2} /> : null}
+    </View>
+  );
+}
+
 function SectionTitle({
   icon,
   tint,
@@ -150,6 +180,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
   const { services } = useServices();
   const [noticesOpen, setNoticesOpen] = useState(false);
 
+  const [svcTab, setSvcTab] = useState<'1' | '2'>('1');
   const order = bulletin.order ?? [];
   const notices = bulletin.notices ?? [];
   const offering = bulletin.offering ?? null;
@@ -170,25 +201,60 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     .slice(0, 6);
 
   const hasCommunion = order.some((o) => o.name === '성찬식');
-  // 1부·2부 순서가 서로 다른 앞부분(성도의 교제~경배와 기도)과, 그 이후 공통 순서를 나눠 보여준다
-  const boundaryIdx = order.findIndex((o) => o.name === '성찬식' || o.name === '성경봉독');
-  const varyOrder = boundaryIdx > 0 ? order.slice(0, boundaryIdx) : [];
-  const sharedOrder = boundaryIdx > 0 ? order.slice(boundaryIdx) : order;
+  const hasAsterisk = order.some(
+    (item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*'),
+  );
+  const svcDetail = (item: (typeof order)[number]) => {
+    if (item.service1 || item.service2) {
+      return (svcTab === '1' ? item.service1 || item.service2 : item.service2 || item.service1) ?? '';
+    }
+    return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
+  };
+  const SERVICE_INFO = [
+    { tab: '1' as const, label: '1부 예배', sub: '이른 비', time: '오전 8:50' },
+    { tab: '2' as const, label: '2부 예배', sub: '큰 비', time: '오전 11:00' },
+  ];
 
   return (
     <>
       {bulletin.sermon ? (
         <View style={[styles.heroCard, shadows.hero]}>
           <Text style={styles.heroEyebrow}>
-            {fmtKo(bulletin.date)}
+            이번주 말씀 · {fmtKo(bulletin.date)}
             {hasCommunion ? ' · 성찬식' : ''}
           </Text>
           {bulletin.sermon.title ? <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text> : null}
           <Text style={styles.heroMeta}>
             {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
           </Text>
+          <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
+            <Text style={styles.heroBtnText}>오늘 말씀 보기</Text>
+            <ChevronRight size={15} color={colors.primary} strokeWidth={2.4} />
+          </Pressable>
         </View>
       ) : null}
+
+      {order.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<Clock size={13} color={colors.tagBlueText} strokeWidth={2} />}
+            tint={colors.tagBlueBg}
+            title="오늘 예배 안내"
+          />
+          <View style={styles.svcSummaryRow}>
+            {SERVICE_INFO.map((s) => (
+              <View key={s.tab} style={styles.svcSummaryCard}>
+                <Text style={styles.svcSummaryLabel}>{s.label}</Text>
+                <Text style={styles.svcSummarySub}>{s.sub}</Text>
+                <View style={styles.svcSummaryTimeRow}>
+                  <Clock size={12} color={colors.primary} strokeWidth={2.2} />
+                  <Text style={styles.svcSummaryTime}>{s.time}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {order.length > 0 && (
         <View style={[styles.contentCard, shadows.card]}>
@@ -197,35 +263,27 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             tint={colors.tagBlueBg}
             title="예배 순서"
           />
-          {varyOrder.length > 0 && (
-            <View style={styles.orderVaryTable}>
-              <View style={styles.orderVaryHeaderRow}>
-                <View style={styles.orderVaryLabelCol} />
-                <Text style={styles.orderVaryHeadCell}>이른 비{'\n'}(1부 8:50AM)</Text>
-                <Text style={styles.orderVaryHeadCell}>큰 비{'\n'}(2부 11:00AM)</Text>
-              </View>
-              {varyOrder.map((item, i) => {
-                const c1 = item.service1 || item.service2 || item.shared || '—';
-                const c2 = item.service2 || item.service1 || item.shared || '—';
-                return (
-                  <View key={i} style={styles.orderVaryRow}>
-                    <Text style={styles.orderVaryName}>{item.name}</Text>
-                    <Text style={styles.orderVaryCell}>{c1}</Text>
-                    <Text style={styles.orderVaryCell}>{c2}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-          {varyOrder.some((item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*')) && (
-            <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>
-          )}
-          {sharedOrder.map((item, i) => (
-            <View key={i} style={[styles.orderRow, i === sharedOrder.length - 1 && styles.rowLast]}>
-              <Text style={styles.orderName}>{item.name}</Text>
-              <Text style={styles.orderDetail}>{item.shared || '다같이'}</Text>
+          <View style={styles.svcTabRow}>
+            {SERVICE_INFO.map((s) => (
+              <Pressable
+                key={s.tab}
+                style={[styles.svcTabBtn, svcTab === s.tab && styles.svcTabBtnActive]}
+                onPress={() => setSvcTab(s.tab)}
+              >
+                <Text style={[styles.svcTabText, svcTab === s.tab && styles.svcTabTextActive]}>
+                  {s.label} ({s.time})
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {order.map((item, i) => (
+            <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
+              <OrderIcon name={item.name} />
+              <Text style={styles.orderIconName}>{item.name}</Text>
+              <Text style={styles.orderIconDetail}>{svcDetail(item)}</Text>
             </View>
           ))}
+          {hasAsterisk && <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>}
         </View>
       )}
 
@@ -263,10 +321,13 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           />
           {visibleNotices.map((n, i) => (
             <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
-              <Text style={styles.noticeTitle}>
-                {i + 1}. {n.title}
-              </Text>
-              <Text style={styles.noticeBody}>{n.body}</Text>
+              <View style={styles.noticeNumBadge}>
+                <Text style={styles.noticeNumText}>{i + 1}</Text>
+              </View>
+              <View style={styles.noticeTextCol}>
+                <Text style={styles.noticeTitle}>{n.title}</Text>
+                <Text style={styles.noticeBody}>{n.body}</Text>
+              </View>
             </View>
           ))}
           {notices.length > 4 && (
@@ -400,18 +461,30 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           tint={colors.tagBlueBg}
           title="바로가기"
         />
-        <View style={styles.linkPillsWrap}>
-          <Pressable style={styles.linkPill} onPress={openLiveWorship}>
-            <Text style={styles.linkPillText}>온라인 예배</Text>
+        <View style={styles.linkGrid}>
+          <Pressable style={styles.linkBtn} onPress={openLiveWorship}>
+            <View style={[styles.linkBtnIcon, { backgroundColor: colors.tagBlueBg }]}>
+              <Play size={17} color={colors.tagBlueText} strokeWidth={2.2} />
+            </View>
+            <Text style={styles.linkBtnText}>온라인 예배</Text>
           </Pressable>
-          <Pressable style={styles.linkPill} onPress={() => openExternal(churchInfo.pages.newcomerForm)}>
-            <Text style={styles.linkPillText}>새가족 등록</Text>
+          <Pressable style={styles.linkBtn} onPress={() => openExternal(churchInfo.pages.newcomerForm)}>
+            <View style={[styles.linkBtnIcon, { backgroundColor: colors.tagGreenBg }]}>
+              <Users size={17} color={colors.tagGreenText} strokeWidth={2.2} />
+            </View>
+            <Text style={styles.linkBtnText}>새가족 등록</Text>
           </Pressable>
-          <Pressable style={styles.linkPill} onPress={() => router.push('/album')}>
-            <Text style={styles.linkPillText}>교회 앨범</Text>
+          <Pressable style={styles.linkBtn} onPress={() => router.push('/album')}>
+            <View style={[styles.linkBtnIcon, { backgroundColor: colors.tagOrangeBg }]}>
+              <ImageIcon size={17} color={colors.tagOrangeText} strokeWidth={2.2} />
+            </View>
+            <Text style={styles.linkBtnText}>교회 앨범</Text>
           </Pressable>
-          <Pressable style={styles.linkPill} onPress={() => router.push('/word')}>
-            <Text style={styles.linkPillText}>오늘의 말씀</Text>
+          <Pressable style={styles.linkBtn} onPress={() => router.push('/word')}>
+            <View style={[styles.linkBtnIcon, { backgroundColor: colors.tagGrayBg }]}>
+              <BookOpen size={17} color={colors.tagGrayText} strokeWidth={2.2} />
+            </View>
+            <Text style={styles.linkBtnText}>오늘의 말씀</Text>
           </Pressable>
         </View>
       </View>
@@ -733,6 +806,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.88)', marginTop: 8 },
+  heroBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 11,
+    paddingVertical: 11,
+    marginTop: 14,
+  },
+  heroBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
 
   contentCard: {
     width: '100%',
@@ -758,65 +842,63 @@ const styles = StyleSheet.create({
   cardCount: { fontFamily: font.medium, fontSize: 11.5, color: colors.faint2 },
   rowLast: { borderBottomWidth: 0 },
 
-  orderRow: {
+  // 오늘 예배 안내 — 1부/2부 요약 2단
+  svcSummaryRow: { flexDirection: 'row', gap: 10 },
+  svcSummaryCard: {
+    flex: 1,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 12,
+    padding: 12,
+  },
+  svcSummaryLabel: { fontFamily: font.extraBold, fontSize: 13.5, color: colors.title },
+  svcSummarySub: { fontFamily: font.bold, fontSize: 11, color: colors.primary, marginTop: 2 },
+  svcSummaryTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
+  svcSummaryTime: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
+
+  // 예배 순서 — 1부/2부 탭 + 아이콘 목록
+  svcTabRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    backgroundColor: colors.screenBg,
+    borderRadius: 11,
+    padding: 3,
+    marginBottom: 6,
+  },
+  svcTabBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9 },
+  svcTabBtnActive: { backgroundColor: colors.primary },
+  svcTabText: { fontFamily: font.bold, fontSize: 11.5, color: colors.muted },
+  svcTabTextActive: { color: '#FFFFFF' },
+
+  orderIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
-  orderName: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
-
-  orderVaryTable: { marginBottom: 4, borderRadius: 10, overflow: 'hidden' },
+  orderIconChip: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: colors.tagBlueBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  orderIconName: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
+  orderIconDetail: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: colors.muted,
+    textAlign: 'right',
+  },
   orderFootnote: {
     fontFamily: font.regular,
     fontSize: 10,
     color: colors.faint2,
-    marginBottom: 4,
-  },
-  orderVaryHeaderRow: { flexDirection: 'row' },
-  orderVaryLabelCol: { flex: 0.8 },
-  orderVaryHeadCell: {
-    flex: 1,
-    fontFamily: font.bold,
-    fontSize: 10.5,
-    color: '#FFFFFF',
-    backgroundColor: colors.primary,
-    textAlign: 'center',
-    paddingVertical: 6,
-  },
-  orderVaryRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    paddingVertical: 6,
-  },
-  orderVaryName: {
-    flex: 0.8,
-    fontFamily: font.bold,
-    fontSize: 11.5,
-    color: colors.body,
-    paddingRight: 4,
-  },
-  orderVaryCell: {
-    flex: 1,
-    fontFamily: font.medium,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.muted,
-    textAlign: 'center',
-    paddingHorizontal: 3,
-  },
-  orderDetail: {
-    // 위 1부/2부 표의 두 칸(flex 1+1)을 합친 너비와 맞춰야, 그 두 칸 사이
-    // 정가운데로 보인다 — 라벨 칸(0.8)은 그대로 두고 나머지만 2배로.
-    flex: 2,
-    fontFamily: font.medium,
-    fontSize: 12,
-    color: colors.muted,
-    textAlign: 'center',
-    lineHeight: 17,
+    marginTop: 6,
   },
 
   readingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -849,7 +931,25 @@ const styles = StyleSheet.create({
   readingFridayLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.tagOrangeText },
   readingFridayPassage: { fontFamily: font.bold, fontSize: 12.5, color: colors.body },
 
-  noticeRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  noticeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  noticeNumBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.tagOrangeBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  noticeNumText: { fontFamily: font.extraBold, fontSize: 11, color: colors.tagOrangeText },
+  noticeTextCol: { flex: 1 },
   noticeTitle: { fontFamily: font.bold, fontSize: 13, color: colors.body },
   noticeBody: { fontFamily: font.regular, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 18 },
   morePill: {
@@ -949,14 +1049,24 @@ const styles = StyleSheet.create({
   staffRole: { fontFamily: font.bold, fontSize: 11.5, color: colors.faint2, width: 74, flexShrink: 0 },
   staffNames: { fontFamily: font.medium, fontSize: 12.5, color: colors.body, flex: 1, lineHeight: 18 },
 
-  linkPillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  linkPill: {
-    backgroundColor: colors.tagBlueBg,
-    borderRadius: 10,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+  linkGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  linkBtn: {
+    flexBasis: '46%',
+    flexGrow: 1,
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.screenBg,
+    borderRadius: 12,
+    paddingVertical: 12,
   },
-  linkPillText: { fontFamily: font.bold, fontSize: 12, color: colors.primary },
+  linkBtnIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkBtnText: { fontFamily: font.bold, fontSize: 12, color: colors.body },
 
   toggleImagesBtn: {
     flexDirection: 'row',
