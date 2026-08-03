@@ -459,6 +459,18 @@ function classify(title) {
   return '주일예배';
 }
 
+// OCR이 특정 이름을 계속 같은 식으로 잘못 읽는 경우 사람이 확인해서
+// 바로잡은 목록 — 새로 인식할 때도, 이미 저장된(잘못된) 값을 다시 볼
+// 때도 똑같이 적용한다.
+const OCR_NAME_FIXES = {
+  원송환: '원승환',
+};
+function applyNameFixes(s) {
+  let out = s;
+  for (const [wrong, right] of Object.entries(OCR_NAME_FIXES)) out = out.split(wrong).join(right);
+  return out;
+}
+
 /**
  * 팟캐스트 오프닝 화면 가운데 아래쪽에 발표자 이름이 "문장석 · 진선미"처럼
  * 그림으로 박혀 있다(제목·설명·홈페이지 어디에도 글자로는 없음 — 실제로
@@ -516,7 +528,7 @@ async function ocrPodcastSpeaker(videoId) {
     const raw = text.replace(/\s+/g, ' ').trim();
     console.log(`    (OCR 원문: "${raw}")`);
     const m = raw.match(/([가-힣]{2,4})\s*[·/,ㆍ.~-]\s*([가-힣]{2,4})/);
-    return m ? `${m[1]} · ${m[2]}` : '';
+    return m ? applyNameFixes(`${m[1]} · ${m[2]}`) : '';
   } catch (e) {
     console.log(`    ! 발표자 OCR 실패(무해): ${e.message}`);
     return '';
@@ -661,8 +673,9 @@ for (const v of videos) {
   let preacher = p.category === 'sermon' ? PREACHER_DEFAULT : '';
   if (p.category === 'podcast') {
     const already = existingPodcastPreachers.get(`yt-${v.id}`);
-    if (already && already !== PREACHER_DEFAULT) {
-      preacher = already;
+    const fixed = already ? applyNameFixes(already) : already;
+    if (fixed && fixed !== PREACHER_DEFAULT) {
+      preacher = fixed;
     } else {
       preacher = await ocrPodcastSpeaker(v.id);
       console.log(preacher ? `    → 발표자 인식: ${preacher}` : '    → 발표자 인식 실패(빈 값)');
