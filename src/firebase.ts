@@ -40,9 +40,12 @@ export function getDb(): Firestore | null {
   const a = ensureApp();
   if (!a) return null;
   if (!db) {
-    // RN(특히 Android 에뮬레이터)에서 WebChannel이 막히는 경우가 있어 자동 감지 롱폴링 사용
+    // 일부 네트워크(회사망·특정 통신사 등)에서 Firestore 기본 스트리밍(WebChannel)
+    // 연결이 몇 십 초씩 멎어 화면이 안 뜨는 경우가 있어, 웹도 포함해 자동 감지
+    // 롱폴링을 쓴다 — 되는 환경에서는 그대로 스트리밍을 쓰고, 막히는 환경에서만
+    // 롱폴링으로 자동 전환된다.
     db = initializeFirestore(a, {
-      experimentalAutoDetectLongPolling: Platform.OS !== 'web',
+      experimentalAutoDetectLongPolling: true,
     });
   }
   return db;
