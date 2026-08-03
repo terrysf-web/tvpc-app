@@ -28,7 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
 import type { Bulletin, BulletinDutyTable, BulletinReading } from '../src/data/bulletin';
-import { useBulletin, useBulletinDates } from '../src/data/bulletin';
+import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../src/data/bulletin';
 import { useEvents, useNews } from '../src/data/hooks';
 import { useServices } from '../src/data/services';
 import { firebaseEnabled } from '../src/firebase';
@@ -423,11 +423,16 @@ export default function BulletinScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { dates, testDates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
   // 지난 주보는 주소에 날짜를 담아 연다 — 그래야 뒤로가기가 홈이 아니라
   // 이번 주 주보 화면으로 돌아온다(브라우저 뒤로가기·화면 밀기 모두 동일).
   const params = useLocalSearchParams<{ d?: string }>();
   const selected = typeof params.d === 'string' && params.d ? params.d : null;
+  // 화면을 열자마자 "이번 주 주보" 내용부터 받는다 — 지난 주보 전체 목록(최대
+  // 300건, 날짜 칩·목록용)은 따로, 동시에 받아서 서로 기다리지 않는다.
+  const { date: latestDate, loading: latestLoading } = useLatestBulletinDate(
+    firebaseEnabled && !selected,
+  );
+  const { dates, testDates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
   const openDate = (date: string) => {
     if (date === selected) return;
     const to = { pathname: '/bulletin' as const, params: { d: date } };
@@ -439,8 +444,8 @@ export default function BulletinScreen() {
   // 지난주 내용을 오늘 것으로 오해하기 쉽기 때문. (날짜를 직접 고르면 볼 수 있다)
   const todayKey = new Date().toLocaleDateString('en-CA');
   const isSunday = new Date().getDay() === 0;
-  const todayMissing = isSunday && !dates.includes(todayKey);
-  const current = selected ?? (todayMissing ? null : (dates[0] ?? null));
+  const todayMissing = !selected && !latestLoading && isSunday && latestDate !== todayKey;
+  const current = selected ?? (todayMissing ? null : latestDate);
   // 원본 이미지는 기본으로 접혀 있다 — 실제로 펼치기 전에는 무거운 페이지
   // 이미지를 받지 않아 카드형 내용이 훨씬 빨리 뜬다.
   const [showImages, setShowImages] = useState(false);
@@ -458,7 +463,9 @@ export default function BulletinScreen() {
       ? [...recentDates, current]
       : recentDates;
   const olderDates = dates.filter((d) => !chipDates.includes(d));
-  const loading = datesLoading || metaLoading;
+  // 콘텐츠는 최신 날짜 조회(가벼움)만 끝나면 바로 뜬다 — 칩용 전체 목록(datesLoading)은
+  // 별도로 채워지며 화면을 막지 않는다.
+  const loading = (selected ? false : latestLoading) || metaLoading;
   const { news } = useNews();
 
   // 홈페이지의 주보 게시글(이미지 주보가 없을 때의 대안)

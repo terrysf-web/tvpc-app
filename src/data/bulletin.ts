@@ -198,6 +198,42 @@ export async function saveBulletin(date: string, pages: BulletinPage[]): Promise
   });
 }
 
+/**
+ * 최신 주보 날짜 하나만 — 화면을 열자마자 "이번 주 주보" 내용을 바로 받기 시작하려고
+ * 쓴다. 지난 주보 목록(최대 300건)이 다 내려오기를 기다렸다가 그제서야 이번 주
+ * 내용을 받기 시작하면(예전 방식) 그만큼 화면이 늦게 뜬다 — 이 둘은 이제 서로
+ * 기다리지 않고 동시에 따로 조회한다.
+ */
+export function useLatestBulletinDate(enabled: boolean): { date: string | null; loading: boolean } {
+  const [date, setDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !enabled) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const snap = await getDocs(query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(1)));
+        if (!cancelled) setDate(snap.docs[0]?.id ?? null);
+      } catch {
+        // 오프라인 등 — 아래 dates 목록 쪽에서 대신 채워질 수 있다
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  return { date, loading };
+}
+
 /** 저장된 주보 날짜 목록(최신순) — 지난 주보 열람용 */
 export function useBulletinDates(
   enabled: boolean,
