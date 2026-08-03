@@ -230,47 +230,53 @@ export function useBulletinDates(
   return { dates, testDates, loading };
 }
 
-/** 선택한 날짜의 주보 페이지 — 날짜가 바뀔 때마다 그 주만 불러온다 */
-export function useBulletin(date: string | null): {
-  bulletin: Bulletin | null;
-  loading: boolean;
-} {
-  const [bulletin, setBulletin] = useState<Bulletin | null>(null);
+type BulletinMeta = Omit<Bulletin, 'pages'>;
+
+/**
+ * 선택한 날짜의 주보 — 날짜가 바뀔 때마다 그 주만 불러온다.
+ * 페이지 이미지(면당 최대 900KB)는 무거워서 기본으로는 받지 않는다 — 예배
+ * 순서·공지 등 텍스트 내용을 뽑아낸 주보는 카드로 먼저 보여주고, "원본 이미지
+ * 보기"를 눌렀을 때(wantPages=true)만 받는다. 텍스트 내용이 없는 옛 주보는
+ * 이미지가 유일한 내용이라 자동으로 받는다.
+ */
+export function useBulletin(
+  date: string | null,
+  wantPages: boolean,
+): { bulletin: Bulletin | null; loading: boolean; pagesLoading: boolean } {
+  const [meta, setMeta] = useState<BulletinMeta | null>(null);
+  const [pages, setPages] = useState<BulletinPage[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pagesLoading, setPagesLoading] = useState(false);
 
   useEffect(() => {
     const db = getDb();
-    if (!db || !date) {
-      setBulletin(null);
-      return;
-    }
+    setMeta(null);
+    setPages(null);
+    if (!db || !date) return;
     let cancelled = false;
     setLoading(true);
     (async () => {
       try {
         await ensureAnonymousAuth();
-        const [pagesSnap, docSnap] = await Promise.all([
-          getDocs(query(collection(db, 'bulletins', date, 'pages'), orderBy('order'))),
-          getDoc(doc(db, 'bulletins', date)),
-        ]);
+        const docSnap = await getDoc(doc(db, 'bulletins', date));
         if (cancelled) return;
-        const pages = pagesSnap.docs.map((d) => ({
-          image: String(d.get('image') ?? ''),
-          w: Number(d.get('w') ?? 3),
-          h: Number(d.get('h') ?? 4),
-        }));
-        const noteLines = ((docSnap.get('noteLines') as string[] | undefined) ?? []).map(String);
-        const order = (docSnap.get('order') as BulletinOrderItem[] | undefined) ?? [];
-        const sermon = (docSnap.get('sermon') as BulletinSermon | null | undefined) ?? null;
-        const notices = (docSnap.get('notices') as BulletinNotice[] | undefined) ?? [];
-        const offering = (docSnap.get('offering') as BulletinOffering | null | undefined) ?? null;
-        const duty = (docSnap.get('duty') as BulletinDutyTable[] | undefined) ?? [];
-        const staff = (docSnap.get('staff') as BulletinStaff[] | undefined) ?? [];
-        setBulletin(
-          pages.length ? { date, pages, noteLines, order, sermon, notices, offering, duty, staff } : null,
-        );
+        if (!docSnap.exists() || Number(docSnap.get('pageCount') ?? 0) <= 0) {
+          setMeta(null);
+          return;
+        }
+        setMeta({
+          date,
+          source: (docSnap.get('source') as string | undefined) ?? undefined,
+          noteLines: ((docSnap.get('noteLines') as string[] | undefined) ?? []).map(String),
+          order: (docSnap.get('order') as BulletinOrderItem[] | undefined) ?? [],
+          sermon: (docSnap.get('sermon') as BulletinSermon | null | undefined) ?? null,
+          notices: (docSnap.get('notices') as BulletinNotice[] | undefined) ?? [],
+          offering: (docSnap.get('offering') as BulletinOffering | null | undefined) ?? null,
+          duty: (docSnap.get('duty') as BulletinDutyTable[] | undefined) ?? [],
+          staff: (docSnap.get('staff') as BulletinStaff[] | undefined) ?? [],
+        });
       } catch {
-        if (!cancelled) setBulletin(null);
+        if (!cancelled) setMeta(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -280,7 +286,41 @@ export function useBulletin(date: string | null): {
     };
   }, [date]);
 
-  return { bulletin, loading };
+  const hasStructured = !!(meta?.order?.length || meta?.notices?.length || meta?.sermon);
+  const shouldLoadPages = !!date && !!meta && pages == null && (wantPages || !hasStructured);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !date || !shouldLoadPages) return;
+    let cancelled = false;
+    setPagesLoading(true);
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const pagesSnap = await getDocs(
+          query(collection(db, 'bulletins', date, 'pages'), orderBy('order')),
+        );
+        if (cancelled) return;
+        setPages(
+          pagesSnap.docs.map((d) => ({
+            image: String(d.get('image') ?? ''),
+            w: Number(d.get('w') ?? 3),
+            h: Number(d.get('h') ?? 4),
+          })),
+        );
+      } catch {
+        if (!cancelled) setPages([]);
+      } finally {
+        if (!cancelled) setPagesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date, shouldLoadPages]);
+
+  const bulletin: Bulletin | null = meta ? { ...meta, pages: pages ?? [] } : null;
+  return { bulletin, loading, pagesLoading };
 }
 
 /**

@@ -379,11 +379,13 @@ export default function BulletinScreen() {
   const isSunday = new Date().getDay() === 0;
   const todayMissing = isSunday && !dates.includes(todayKey);
   const current = selected ?? (todayMissing ? null : (dates[0] ?? null));
-  const { bulletin, loading: pagesLoading } = useBulletin(current);
+  // 원본 이미지는 기본으로 접혀 있다 — 실제로 펼치기 전에는 무거운 페이지
+  // 이미지를 받지 않아 카드형 내용이 훨씬 빨리 뜬다.
+  const [showImages, setShowImages] = useState(false);
+  const { bulletin, loading: metaLoading, pagesLoading } = useBulletin(current, showImages);
   // 예배 순서·설교 등 텍스트 내용을 뽑아낸 주보만 카드형으로 보여준다 —
   // 옛날 주보(추출 전)는 그대로 스캔 이미지로 보인다.
   const hasStructured = !!(bulletin?.order?.length || bulletin?.notices?.length || bulletin?.sermon);
-  const [showImages, setShowImages] = useState(false);
   // 주보가 쌓여도 칩이 옆으로 끝없이 늘어나지 않게 — 최근 8주만 칩으로 두고
   // 그 이전 것은 '지난 주보' 목록에서 월별로 고른다.
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -394,7 +396,7 @@ export default function BulletinScreen() {
       ? [...recentDates, current]
       : recentDates;
   const olderDates = dates.filter((d) => !chipDates.includes(d));
-  const loading = datesLoading || pagesLoading;
+  const loading = datesLoading || metaLoading;
   const { news } = useNews();
 
   // 홈페이지의 주보 게시글(이미지 주보가 없을 때의 대안)
@@ -467,6 +469,10 @@ export default function BulletinScreen() {
                 <ChevronDown size={16} color={colors.primary} strokeWidth={2.2} />
               )}
             </Pressable>
+          ) : null}
+
+          {(!hasStructured || showImages) && pagesLoading && bulletin.pages.length === 0 ? (
+            <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
           ) : null}
 
           {(!hasStructured || showImages) &&
