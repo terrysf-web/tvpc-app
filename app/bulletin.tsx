@@ -203,14 +203,15 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     (item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*'),
   );
   const svcDetail = (item: (typeof order)[number]) => {
+    if (item.name === '성도의 교제') return '교회 소식';
     if (item.service1 || item.service2) {
       return (svcTab === '1' ? item.service1 || item.service2 : item.service2 || item.service1) ?? '';
     }
     return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
   };
   const SERVICE_INFO = [
-    { tab: '1' as const, label: '1부 예배', sub: '이른 비', time: '오전 8:50' },
-    { tab: '2' as const, label: '2부 예배', sub: '큰 비', time: '오전 11:00' },
+    { tab: '1' as const, label: '이른 비(1부)', time: '오전 8:50' },
+    { tab: '2' as const, label: '큰 비(2부)', time: '오전 11:00' },
   ];
 
   return (
@@ -243,7 +244,6 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             {SERVICE_INFO.map((s) => (
               <View key={s.tab} style={styles.svcSummaryCard}>
                 <Text style={styles.svcSummaryLabel}>{s.label}</Text>
-                <Text style={styles.svcSummarySub}>{s.sub}</Text>
                 <View style={styles.svcSummaryTimeRow}>
                   <Clock size={12} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.svcSummaryTime}>{s.time}</Text>
@@ -269,7 +269,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
                 onPress={() => setSvcTab(s.tab)}
               >
                 <Text style={[styles.svcTabText, svcTab === s.tab && styles.svcTabTextActive]}>
-                  {s.label} ({s.time})
+                  {s.label}
                 </Text>
               </Pressable>
             ))}
@@ -849,7 +849,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   svcSummaryLabel: { fontFamily: font.extraBold, fontSize: 13.5, color: colors.title },
-  svcSummarySub: { fontFamily: font.bold, fontSize: 11, color: colors.primary, marginTop: 2 },
   svcSummaryTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   svcSummaryTime: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
 
