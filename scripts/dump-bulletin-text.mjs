@@ -18,7 +18,6 @@ import { join } from 'node:path';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { chromium } from 'playwright';
-import sharp from 'sharp';
 
 const WEB_USER = process.env.TVPC_WEB_USER;
 const WEB_PASS = process.env.TVPC_WEB_PASS;
