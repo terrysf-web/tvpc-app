@@ -1,0 +1,26 @@
+# 일회성 진단 — 현재 올라온 주보 페이지 이미지를 아티팩트로 꺼내본다
+# (앱 스타일 텍스트 카드로 옮기기 위한 실제 내용 확인용. 작업 끝나면 삭제해도 됨)
+name: Dump bulletin pages (diagnostic)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Dump pages
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/dump-bulletin-pages.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bulletin-pages
+          path: dump/
+          retention-days: 1
