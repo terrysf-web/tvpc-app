@@ -1,20 +1,18 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-  Bell,
-  BookOpen,
-  CircleQuestionMark,
-  FileText,
-  HandCoins,
-  Images,
-  Megaphone,
-  Moon,
-  MoonStar,
-  Play,
-  Sun,
-  Sunrise,
-  Sunset,
-} from 'lucide-react-native';
+import Bell from 'lucide-react-native/dist/esm/icons/bell.mjs';
+import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
+import CircleQuestionMark from 'lucide-react-native/dist/esm/icons/circle-question-mark.mjs';
+import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
+import HandCoins from 'lucide-react-native/dist/esm/icons/hand-coins.mjs';
+import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
+import Moon from 'lucide-react-native/dist/esm/icons/moon.mjs';
+import MoonStar from 'lucide-react-native/dist/esm/icons/moon-star.mjs';
+import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
+import Sun from 'lucide-react-native/dist/esm/icons/sun.mjs';
+import Sunrise from 'lucide-react-native/dist/esm/icons/sunrise.mjs';
+import Sunset from 'lucide-react-native/dist/esm/icons/sunset.mjs';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

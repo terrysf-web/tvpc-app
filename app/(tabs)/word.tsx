@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bookmark, List } from 'lucide-react-native';
+import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
+import List from 'lucide-react-native/dist/esm/icons/list.mjs';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
-import { BellRing, ChevronRight, HeartHandshake } from 'lucide-react-native';
+import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
+import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
+import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';

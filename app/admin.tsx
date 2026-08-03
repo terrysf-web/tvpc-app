@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react-native';
+import LogOut from 'lucide-react-native/dist/esm/icons/log-out.mjs';
 import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {

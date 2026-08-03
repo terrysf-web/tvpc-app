@@ -1,5 +1,6 @@
 import { usePathname, useRouter } from 'expo-router';
-import { BookOpenCheck, X } from 'lucide-react-native';
+import BookOpenCheck from 'lucide-react-native/dist/esm/icons/book-open-check.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

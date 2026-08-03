@@ -3,7 +3,14 @@
  * 아이폰은 [공유] → [홈 화면에 추가] 순서를,
  * 안드로이드는 브라우저의 설치 창을 바로 띄우거나 메뉴 위치를 알려드린다.
  */
-import { BellRing, ExternalLink, MonitorDown, Plus, Share, SquarePlus, X, Zap } from 'lucide-react-native';
+import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
+import ExternalLink from 'lucide-react-native/dist/esm/icons/external-link.mjs';
+import MonitorDown from 'lucide-react-native/dist/esm/icons/monitor-down.mjs';
+import Plus from 'lucide-react-native/dist/esm/icons/plus.mjs';
+import Share from 'lucide-react-native/dist/esm/icons/share.mjs';
+import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
+import Zap from 'lucide-react-native/dist/esm/icons/zap.mjs';
 import React, { useEffect, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {

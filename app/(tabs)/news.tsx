@@ -1,4 +1,6 @@
-import { CalendarDays, FileText, Megaphone } from 'lucide-react-native';
+import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
+import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
+import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

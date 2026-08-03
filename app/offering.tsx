@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Check, Copy } from 'lucide-react-native';
+import Check from 'lucide-react-native/dist/esm/icons/check.mjs';
+import Copy from 'lucide-react-native/dist/esm/icons/copy.mjs';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

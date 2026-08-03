@@ -1,5 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { BookmarkX, Highlighter, PenLine, Trash2 } from 'lucide-react-native';
+import BookmarkX from 'lucide-react-native/dist/esm/icons/bookmark-x.mjs';
+import Highlighter from 'lucide-react-native/dist/esm/icons/highlighter.mjs';
+import PenLine from 'lucide-react-native/dist/esm/icons/pen-line.mjs';
+import Trash2 from 'lucide-react-native/dist/esm/icons/trash-2.mjs';
 import React, { useCallback, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';

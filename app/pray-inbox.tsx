@@ -1,4 +1,4 @@
-import { HeartHandshake } from 'lucide-react-native';
+import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,

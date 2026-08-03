@@ -1,24 +1,22 @@
 import { useRouter } from 'expo-router';
-import {
-  BellRing,
-  Building2,
-  ChevronRight,
-  CircleQuestionMark,
-  Clock,
-  Copyright,
-  Download,
-  HeartHandshake,
-  Images,
-  Mail,
-  MapPin,
-  MessageCircle,
-  RefreshCw,
-  Share2,
-  SquarePlus,
-  Upload,
-  UserRound,
-  Users,
-} from 'lucide-react-native';
+import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
+import Building2 from 'lucide-react-native/dist/esm/icons/building-2.mjs';
+import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
+import CircleQuestionMark from 'lucide-react-native/dist/esm/icons/circle-question-mark.mjs';
+import Clock from 'lucide-react-native/dist/esm/icons/clock.mjs';
+import Copyright from 'lucide-react-native/dist/esm/icons/copyright.mjs';
+import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
+import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
+import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
+import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
+import MessageCircle from 'lucide-react-native/dist/esm/icons/message-circle.mjs';
+import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw.mjs';
+import Share2 from 'lucide-react-native/dist/esm/icons/share-2.mjs';
+import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
+import Upload from 'lucide-react-native/dist/esm/icons/upload.mjs';
+import UserRound from 'lucide-react-native/dist/esm/icons/user-round.mjs';
+import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
 import React from 'react';
 import {
   ActivityIndicator,

@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
-import { Images, Play, Video } from 'lucide-react-native';
+import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
+import Video from 'lucide-react-native/dist/esm/icons/video.mjs';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';

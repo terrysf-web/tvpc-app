@@ -1,26 +1,24 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  BookOpen,
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Clock,
-  FileText,
-  Gift,
-  Hand,
-  Image as ImageIcon,
-  ListChecks,
-  Mail,
-  Megaphone,
-  Mic,
-  Music,
-  Play,
-  Users,
-  Wallet,
-  Wine,
-  X,
-} from 'lucide-react-native';
+import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
+import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
+import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
+import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
+import ChevronUp from 'lucide-react-native/dist/esm/icons/chevron-up.mjs';
+import Clock from 'lucide-react-native/dist/esm/icons/clock.mjs';
+import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
+import Gift from 'lucide-react-native/dist/esm/icons/gift.mjs';
+import Hand from 'lucide-react-native/dist/esm/icons/hand.mjs';
+import ImageIcon from 'lucide-react-native/dist/esm/icons/image.mjs';
+import ListChecks from 'lucide-react-native/dist/esm/icons/list-checks.mjs';
+import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
+import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
+import Mic from 'lucide-react-native/dist/esm/icons/mic.mjs';
+import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
+import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
+import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
+import Wallet from 'lucide-react-native/dist/esm/icons/wallet.mjs';
+import Wine from 'lucide-react-native/dist/esm/icons/wine.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,

@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
-import { ChevronDown, Images, Search } from 'lucide-react-native';
+import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
+import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Search from 'lucide-react-native/dist/esm/icons/search.mjs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,

@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ExternalLink, X } from 'lucide-react-native';
+import ExternalLink from 'lucide-react-native/dist/esm/icons/external-link.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,

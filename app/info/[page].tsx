@@ -1,6 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { BookOpen, Clock, ClipboardPen, Globe, Mail, MapPin, MonitorPlay, Phone, Users } from 'lucide-react-native';
+import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
+import Clock from 'lucide-react-native/dist/esm/icons/clock.mjs';
+import ClipboardPen from 'lucide-react-native/dist/esm/icons/clipboard-pen.mjs';
+import Globe from 'lucide-react-native/dist/esm/icons/globe.mjs';
+import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
+import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
+import MonitorPlay from 'lucide-react-native/dist/esm/icons/monitor-play.mjs';
+import Phone from 'lucide-react-native/dist/esm/icons/phone.mjs';
+import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
 import React from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

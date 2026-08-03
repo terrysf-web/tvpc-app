@@ -1,4 +1,5 @@
-import { MapPin, Search } from 'lucide-react-native';
+import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
+import Search from 'lucide-react-native/dist/esm/icons/search.mjs';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Siren } from 'lucide-react-native';
+import Siren from 'lucide-react-native/dist/esm/icons/siren.mjs';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,

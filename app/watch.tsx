@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Maximize, X } from 'lucide-react-native';
+import Maximize from 'lucide-react-native/dist/esm/icons/maximize.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
 import React, { useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

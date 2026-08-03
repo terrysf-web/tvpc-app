@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { ExternalLink } from 'lucide-react-native';
+import ExternalLink from 'lucide-react-native/dist/esm/icons/external-link.mjs';
 import React, { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

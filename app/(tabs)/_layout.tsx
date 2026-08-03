@@ -1,5 +1,9 @@
 import { Tabs } from 'expo-router';
-import { Bell, BookOpen, Home, MoreHorizontal, PlayCircle } from 'lucide-react-native';
+import Bell from 'lucide-react-native/dist/esm/icons/bell.mjs';
+import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
+import Home from 'lucide-react-native/dist/esm/icons/house.mjs';
+import MoreHorizontal from 'lucide-react-native/dist/esm/icons/ellipsis.mjs';
+import PlayCircle from 'lucide-react-native/dist/esm/icons/circle-play.mjs';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font } from '../../src/theme';

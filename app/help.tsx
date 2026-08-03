@@ -1,20 +1,18 @@
 import { useRouter } from 'expo-router';
-import {
-  Bell,
-  BellRing,
-  BookOpen,
-  Bookmark,
-  CalendarDays,
-  Download,
-  FileText,
-  HandCoins,
-  Home,
-  Images,
-  PlayCircle,
-  RefreshCw,
-  SquarePlus,
-  X,
-} from 'lucide-react-native';
+import Bell from 'lucide-react-native/dist/esm/icons/bell.mjs';
+import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
+import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
+import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
+import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
+import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
+import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
+import HandCoins from 'lucide-react-native/dist/esm/icons/hand-coins.mjs';
+import Home from 'lucide-react-native/dist/esm/icons/house.mjs';
+import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import PlayCircle from 'lucide-react-native/dist/esm/icons/circle-play.mjs';
+import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw.mjs';
+import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
 import React, { useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';

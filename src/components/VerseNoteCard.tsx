@@ -1,4 +1,5 @@
-import { PenLine, X } from 'lucide-react-native';
+import PenLine from 'lucide-react-native/dist/esm/icons/pen-line.mjs';
+import X from 'lucide-react-native/dist/esm/icons/x.mjs';
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ensureSavedVerse } from '../data/savedVerses';

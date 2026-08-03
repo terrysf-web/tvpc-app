@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react-native';
+import ChevronLeft from 'lucide-react-native/dist/esm/icons/chevron-left.mjs';
+import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
+import ExternalLink from 'lucide-react-native/dist/esm/icons/external-link.mjs';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';

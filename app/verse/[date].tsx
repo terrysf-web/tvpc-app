@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Bookmark } from 'lucide-react-native';
+import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
