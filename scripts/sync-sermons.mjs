@@ -10,8 +10,12 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import sharp from 'sharp';
 
 const CHANNEL_HANDLE = process.env.CHANNEL_HANDLE || '@tri-valley';
 const MAX_VIDEOS = Number(process.env.MAX_VIDEOS || 15);
@@ -455,6 +459,54 @@ function classify(title) {
   return '주일예배';
 }
 
+/**
+ * 팟캐스트 오프닝 화면 오른쪽 아래에 발표자 이름이 "문장석 · 진선미"처럼
+ * 그림으로 박혀 있다(제목·설명·홈페이지 어디에도 글자로는 없음 — 실제로
+ * 확인함). 담임목사님이 아니라 매회 다른 성도가 발표하므로, 썸네일에서
+ * 그 영역만 잘라 OCR로 읽는다. 실패해도 무해(빈 값 → 화면에 이름 표시 안 함).
+ */
+async function ocrPodcastSpeaker(videoId) {
+  try {
+    let buf = null;
+    for (const name of ['maxresdefault', 'sddefault', 'hqdefault']) {
+      const res = await fetch(`https://i.ytimg.com/vi/${videoId}/${name}.jpg`);
+      if (!res.ok) continue;
+      const b = Buffer.from(await res.arrayBuffer());
+      if (b.length > 2000) {
+        buf = b;
+        break;
+      }
+    }
+    if (!buf) return '';
+    const img = sharp(buf);
+    const { width, height } = await img.metadata();
+    if (!width || !height) return '';
+    const dir = mkdtempSync(join(tmpdir(), 'ocr-'));
+    const cropPath = join(dir, 'crop.png');
+    // 이름은 화면 오른쪽 아래 좁은 띠에만 나온다 — 그 영역만 잘라 확대하면
+    // 배경(설교 화면)의 다른 글자에 안 걸리고 인식률도 올라간다.
+    await sharp(buf)
+      .extract({
+        left: Math.round(width * 0.55),
+        top: Math.round(height * 0.78),
+        width: Math.round(width * 0.44),
+        height: Math.round(height * 0.18),
+      })
+      .greyscale()
+      .normalize()
+      .resize({ width: 900 })
+      .toFile(cropPath);
+    const text = execFileSync('tesseract', [cropPath, 'stdout', '-l', 'kor', '--psm', '7'], {
+      encoding: 'utf8',
+    });
+    const m = text.replace(/\s+/g, ' ').trim().match(/([가-힣]{2,4})\s*[·/,ㆍ]\s*([가-힣]{2,4})/);
+    return m ? `${m[1]} · ${m[2]}` : '';
+  } catch (e) {
+    console.log(`    ! 발표자 OCR 실패(무해): ${e.message}`);
+    return '';
+  }
+}
+
 const BACKFILL = process.env.BACKFILL === 'true';
 
 const channelId = await resolveChannelId(CHANNEL_HANDLE);
@@ -576,16 +628,36 @@ if (videos.length === 0) console.log('가져올 영상이 없습니다.');
 
 const LABEL = { sermon: '설교', podcast: '팟캐스트', praise: '찬양', etc: '기타' };
 
+// 팟캐스트는 담임목사님이 아니라 매회 다른 성도가 발표한다 — 이미 이름을
+// 읽어둔 회차는(값이 있고 옛 기본값이 아니면) 매번 다시 OCR하지 않는다.
+const existingPodcastPreachers = new Map();
+try {
+  const snap = await db.collection('sermons').where('category', '==', 'podcast').get();
+  for (const d of snap.docs) existingPodcastPreachers.set(d.id, d.get('preacher') || '');
+} catch (e) {
+  console.log(`  ! 기존 팟캐스트 발표자 조회 실패(무해): ${e.message}`);
+}
+
 let wrote = 0;
 for (const v of videos) {
   const p = parseVideo(v.title, v.published);
   const service = p.category === 'sermon' ? classify(v.title) : LABEL[p.category];
+  let preacher = p.category === 'sermon' ? PREACHER_DEFAULT : '';
+  if (p.category === 'podcast') {
+    const already = existingPodcastPreachers.get(`yt-${v.id}`);
+    if (already && already !== PREACHER_DEFAULT) {
+      preacher = already;
+    } else {
+      preacher = await ocrPodcastSpeaker(v.id);
+      console.log(preacher ? `    → 발표자 인식: ${preacher}` : '    → 발표자 인식 실패(빈 값)');
+    }
+  }
   await db.doc(`sermons/yt-${v.id}`).set(
     {
       category: p.category,
       title: p.title,
       subtitle: service,
-      preacher: p.category === 'sermon' || p.category === 'podcast' ? PREACHER_DEFAULT : '',
+      preacher,
       scripture: p.scripture,
       date: p.date,
       service,
