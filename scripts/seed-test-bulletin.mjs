@@ -12,15 +12,28 @@ const db = getFirestore();
 
 const SOURCE_DATE = '2026-08-02'; // 원본 — 페이지 이미지만 읽어서 복사, 수정하지 않음
 
-// 기존에 등록된 어떤 주보보다도 이전 날짜를 찾아, 실제 사용자에게 "이번 주 주보"로
-// 잘못 보이지 않게 한다(목록 맨 뒤로 가고, 기본으로는 열리지 않음).
-const existing = await db.collection('bulletins').orderBy('date', 'asc').limit(1).get();
-const earliest = existing.empty ? '2026-01-04' : existing.docs[0].id;
+// 기존에 등록된 어떤 "진짜" 주보보다도 이전 날짜를 찾아, 실제 사용자에게 "이번 주 주보"로
+// 잘못 보이지 않게 한다(목록 맨 뒤로 가고, 기본으로는 열리지 않음). 이 스크립트를 다시 돌려도
+// 매번 같은 날짜가 나오도록, 지난번에 만든 테스트 문서(source: 'test')는 기준에서 뺀다.
+const existing = await db.collection('bulletins').orderBy('date', 'asc').limit(20).get();
+const earliestReal = existing.docs.find((d) => d.get('source') !== 'test');
+const earliest = earliestReal ? earliestReal.id : '2026-01-04';
 const [ey, em, ed] = earliest.split('-').map(Number);
 const testDateObj = new Date(Date.UTC(ey, em - 1, ed));
 testDateObj.setUTCDate(testDateObj.getUTCDate() - 7);
 const TEST_DATE = testDateObj.toISOString().slice(0, 10);
 console.log(`테스트 주보 날짜: ${TEST_DATE} (원본 페이지는 ${SOURCE_DATE}에서 복사)`);
+
+// 이전에 다른 날짜로 만들어 둔 테스트 문서가 있으면(스크립트 로직이 바뀌어 날짜가
+// 달라진 경우 등) 정리해서 "테스트 주보"가 여러 개 남지 않게 한다.
+const oldTests = await db.collection('bulletins').where('source', '==', 'test').get();
+for (const d of oldTests.docs) {
+  if (d.id === TEST_DATE) continue;
+  const oldPages = await d.ref.collection('pages').get();
+  await Promise.all(oldPages.docs.map((p) => p.ref.delete()));
+  await d.ref.delete();
+  console.log(`  · 이전 테스트 주보(${d.id}) 정리`);
+}
 
 const sermon = {
   title: '예배, 나를 내려놓고 주님을 닮아가는 시간입니다',
@@ -30,7 +43,7 @@ const sermon = {
 
 const order = [
   { name: '성도의 교제', service1: '경배찬양 / 교회소식', service2: '교회 소식' },
-  { name: '예배의 부름', shared: '인도자' },
+  { name: '예배의 부름', shared: '인도자*' },
   {
     name: '경배와 기도',
     service1: '참회의 기도 / 신앙고백*\n찬송가 2장*\n[찬양 성부 성자 성령]\n김희주 집사',

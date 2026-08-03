@@ -180,6 +180,9 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
               })}
             </View>
           )}
+          {varyOrder.some((item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*')) && (
+            <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>
+          )}
           {sharedOrder.map((item, i) => (
             <View key={i} style={[styles.orderRow, i === sharedOrder.length - 1 && styles.rowLast]}>
               <Text style={styles.orderName}>{item.name}</Text>
@@ -700,6 +703,12 @@ const styles = StyleSheet.create({
   orderName: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
 
   orderVaryTable: { marginBottom: 4, borderRadius: 10, overflow: 'hidden' },
+  orderFootnote: {
+    fontFamily: font.regular,
+    fontSize: 10,
+    color: colors.faint2,
+    marginBottom: 4,
+  },
   orderVaryHeaderRow: { flexDirection: 'row' },
   orderVaryLabelCol: { flex: 0.8 },
   orderVaryHeadCell: {
