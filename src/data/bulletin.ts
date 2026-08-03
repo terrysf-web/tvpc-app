@@ -31,6 +31,42 @@ export interface BulletinPage {
   h: number;
 }
 
+/** 예배 순서 한 줄 — 1부/2부가 다르면 service1/service2, 같으면 shared만 */
+export interface BulletinOrderItem {
+  name: string;
+  shared?: string;
+  service1?: string;
+  service2?: string;
+}
+
+export interface BulletinSermon {
+  title: string;
+  scripture: string;
+  preacher: string;
+}
+
+export interface BulletinNotice {
+  title: string;
+  body: string;
+}
+
+export interface BulletinOffering {
+  columns: string[];
+  rows: { label: string; values: string[] }[];
+  total: string;
+}
+
+export interface BulletinDutyTable {
+  title: string;
+  columns: string[];
+  rows: { label: string; values: string[] }[];
+}
+
+export interface BulletinStaff {
+  role: string;
+  names: string;
+}
+
 export interface Bulletin {
   date: string; // YYYY-MM-DD
   pages: BulletinPage[];
@@ -38,6 +74,17 @@ export interface Bulletin {
   noteLines?: string[];
   /** 나눔 질문 — 설교 노트의 [나눔 질문] 항목 */
   shareQuestions?: string[];
+  /** 예배 순서 — 주보 PDF에서 자동 추출(면 텍스트 기반, 실패하면 빈 배열) */
+  order?: BulletinOrderItem[];
+  sermon?: BulletinSermon | null;
+  /** 교회 소식(공지) */
+  notices?: BulletinNotice[];
+  /** 지난주일 헌금 표 */
+  offering?: BulletinOffering | null;
+  /** 예배위원 안내(로테이션 표, 여러 주) */
+  duty?: BulletinDutyTable[];
+  /** 섬기는 사람들(교역자·장로·안수집사 등) */
+  staff?: BulletinStaff[];
 }
 
 /** Firestore 문서 1MB 한도 아래로 유지 (base64 문자열 기준) */
@@ -205,7 +252,15 @@ export function useBulletin(date: string | null): {
           h: Number(d.get('h') ?? 4),
         }));
         const noteLines = ((docSnap.get('noteLines') as string[] | undefined) ?? []).map(String);
-        setBulletin(pages.length ? { date, pages, noteLines } : null);
+        const order = (docSnap.get('order') as BulletinOrderItem[] | undefined) ?? [];
+        const sermon = (docSnap.get('sermon') as BulletinSermon | null | undefined) ?? null;
+        const notices = (docSnap.get('notices') as BulletinNotice[] | undefined) ?? [];
+        const offering = (docSnap.get('offering') as BulletinOffering | null | undefined) ?? null;
+        const duty = (docSnap.get('duty') as BulletinDutyTable[] | undefined) ?? [];
+        const staff = (docSnap.get('staff') as BulletinStaff[] | undefined) ?? [];
+        setBulletin(
+          pages.length ? { date, pages, noteLines, order, sermon, notices, offering, duty, staff } : null,
+        );
       } catch {
         if (!cancelled) setBulletin(null);
       } finally {

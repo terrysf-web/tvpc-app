@@ -1,0 +1,20 @@
+# 일회성 — 목사님 시연용 테스트 주보를 별도 날짜로 만든다 (원본 8/2는 건드리지 않음)
+name: Seed test bulletin (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Seed
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/seed-test-bulletin.mjs

@@ -1,5 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronRight, FileText, X } from 'lucide-react-native';
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Clock,
+  FileText,
+  ListChecks,
+  Megaphone,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,9 +25,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
+import { churchInfo } from '../src/churchInfo';
+import type { Bulletin } from '../src/data/bulletin';
 import { useBulletin, useBulletinDates } from '../src/data/bulletin';
-import { useNews } from '../src/data/hooks';
+import { useEvents, useNews } from '../src/data/hooks';
+import { useServices } from '../src/data/services';
 import { firebaseEnabled } from '../src/firebase';
+import { openExternal, openLiveWorship } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 
 function fmtKo(date: string): string {
@@ -60,6 +76,280 @@ function chipLabel(date: string): string {
   return y === new Date().getFullYear() ? `${m}월 ${d}일` : `${y}. ${m}. ${d}.`;
 }
 
+/** 다가오는 일정 정렬용 — 실제 날짜(YYYY-MM-DD)가 있으면 그걸, 없으면 라벨에서 짐작 */
+function eventSortKey(dateLabel: string, sortKey?: string): string {
+  if (sortKey && /^\d{4}-\d{2}-\d{2}$/.test(sortKey)) return sortKey;
+  const m = dateLabel.match(/(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/);
+  if (!m) return '9999-99-99';
+  return `9999-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+}
+
+function SectionTitle({
+  icon,
+  tint,
+  title,
+  count,
+}: {
+  icon: React.ReactNode;
+  tint: string;
+  title: string;
+  count?: string;
+}) {
+  return (
+    <View style={styles.cardTitleRow}>
+      <View style={styles.cardTitleWrap}>
+        <View style={[styles.iconChipSm, { backgroundColor: tint }]}>{icon}</View>
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      {count ? <Text style={styles.cardCount}>{count}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * 주보 PDF에서 자동 추출한 내용을 텍스트 카드로 보여준다 — 스캔 이미지를 확대해
+ * 읽는 대신, 예배 순서·공지·헌금 등을 한 번의 스크롤로 볼 수 있게 정리한 화면.
+ * 추출에 실패한 항목은 그냥 비어 있으므로(빈 배열/undefined) 각 카드는 내용이
+ * 있을 때만 나타난다.
+ */
+function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
+  const router = useRouter();
+  const { events } = useEvents();
+  const { services } = useServices();
+  const [noticesOpen, setNoticesOpen] = useState(false);
+
+  const order = bulletin.order ?? [];
+  const notices = bulletin.notices ?? [];
+  const offering = bulletin.offering ?? null;
+  const duty = bulletin.duty ?? [];
+  const staff = bulletin.staff ?? [];
+  const visibleNotices = noticesOpen ? notices : notices.slice(0, 4);
+
+  const upcoming = events
+    .filter((e) => eventSortKey(e.dateLabel, e.sortKey) >= bulletin.date)
+    .sort((a, b) =>
+      eventSortKey(a.dateLabel, a.sortKey) < eventSortKey(b.dateLabel, b.sortKey) ? -1 : 1,
+    )
+    .slice(0, 6);
+
+  const hasCommunion = order.some((o) => o.name === '성찬식');
+
+  return (
+    <>
+      {bulletin.sermon ? (
+        <View style={[styles.heroCard, shadows.hero]}>
+          <Text style={styles.heroEyebrow}>
+            {fmtKo(bulletin.date)}
+            {hasCommunion ? ' · 성찬식' : ''}
+          </Text>
+          {bulletin.sermon.title ? <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text> : null}
+          <Text style={styles.heroMeta}>
+            {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
+          </Text>
+        </View>
+      ) : null}
+
+      {order.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<ListChecks size={13} color={colors.tagBlueText} strokeWidth={2} />}
+            tint={colors.tagBlueBg}
+            title="예배 순서"
+          />
+          {order.map((item, i) => (
+            <View key={i} style={[styles.orderRow, i === order.length - 1 && styles.rowLast]}>
+              <Text style={styles.orderName}>{item.name}</Text>
+              {item.service1 || item.service2 ? (
+                <View style={styles.orderSvcCol}>
+                  {item.service1 ? <Text style={styles.orderDetail}>1부 · {item.service1}</Text> : null}
+                  {item.service2 ? <Text style={styles.orderDetail}>2부 · {item.service2}</Text> : null}
+                </View>
+              ) : (
+                <Text style={styles.orderDetail}>{item.shared || '다같이'}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {notices.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<Megaphone size={13} color={colors.tagOrangeText} strokeWidth={2} />}
+            tint={colors.tagOrangeBg}
+            title="교회 소식"
+            count={`${notices.length}건`}
+          />
+          {visibleNotices.map((n, i) => (
+            <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
+              <Text style={styles.noticeTitle}>
+                {i + 1}. {n.title}
+              </Text>
+              <Text style={styles.noticeBody}>{n.body}</Text>
+            </View>
+          ))}
+          {notices.length > 4 && (
+            <Pressable style={styles.morePill} onPress={() => setNoticesOpen((v) => !v)}>
+              <Text style={styles.morePillText}>
+                {noticesOpen ? '접기' : `+${notices.length - 4}건 더보기`}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {offering && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<Wallet size={13} color={colors.tagGreenText} strokeWidth={2} />}
+            tint={colors.tagGreenBg}
+            title="지난주일 헌금"
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View>
+              <View style={styles.giveHeaderRow}>
+                <Text style={[styles.giveCell, styles.giveHeadCell, styles.giveLabelCol]}>구분</Text>
+                {offering.columns.map((c, ci) => (
+                  <Text key={ci} style={[styles.giveCell, styles.giveHeadCell]}>
+                    {c}
+                  </Text>
+                ))}
+              </View>
+              {offering.rows.map((r, ri) => (
+                <View key={ri} style={styles.giveRow}>
+                  <Text style={[styles.giveCell, styles.giveRowLabel, styles.giveLabelCol]}>{r.label}</Text>
+                  {r.values.map((v, vi) => (
+                    <Text key={vi} style={styles.giveCell}>
+                      {v}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+          {offering.total ? (
+            <View style={styles.giveTotalRow}>
+              <Text style={styles.giveTotalLabel}>합계</Text>
+              <Text style={styles.giveTotalValue}>${offering.total}</Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+
+      {duty.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<Users size={13} color={colors.tagBlueText} strokeWidth={2} />}
+            tint={colors.tagBlueBg}
+            title="예배위원 안내"
+          />
+          {duty.map((t, ti) => (
+            <View key={ti} style={ti > 0 ? styles.dutyTableGap : undefined}>
+              <Text style={styles.dutyTableTitle}>{t.title}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View>
+                  <View style={styles.dutyHeaderRow}>
+                    <Text style={[styles.dutyCell, styles.dutyHeadCell, styles.dutyLabelCol]}>구분</Text>
+                    {t.columns.map((c, ci) => (
+                      <Text key={ci} style={[styles.dutyCell, styles.dutyHeadCell]}>
+                        {c}
+                      </Text>
+                    ))}
+                  </View>
+                  {t.rows.map((r, ri) => (
+                    <View key={ri} style={styles.dutyRow}>
+                      <Text style={[styles.dutyCell, styles.dutyRowLabel, styles.dutyLabelCol]}>
+                        {r.label}
+                      </Text>
+                      {r.values.map((v, vi) => (
+                        <Text key={vi} style={styles.dutyCell}>
+                          {v || '–'}
+                        </Text>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {upcoming.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<CalendarDays size={13} color={colors.tagGreenText} strokeWidth={2} />}
+            tint={colors.tagGreenBg}
+            title="사역 캘린더"
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekStrip}>
+            {upcoming.map((e, i) => (
+              <View key={i} style={styles.weekItem}>
+                <Text style={styles.weekDate}>{e.dateLabel}</Text>
+                <Text style={styles.weekTitle}>{e.title}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {services.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<Clock size={13} color={colors.tagGrayText} strokeWidth={2} />}
+            tint={colors.tagGrayBg}
+            title="예배시간 안내"
+          />
+          {services.map((s, i) => (
+            <View key={i} style={[styles.serviceRow, i === services.length - 1 && styles.rowLast]}>
+              <Text style={styles.serviceName}>{s.name}</Text>
+              <Text style={styles.serviceTime}>{s.time}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {staff.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<Users size={13} color={colors.tagGrayText} strokeWidth={2} />}
+            tint={colors.tagGrayBg}
+            title="섬기는 사람들"
+          />
+          {staff.map((s, i) => (
+            <View key={i} style={[styles.staffRow, i === staff.length - 1 && styles.rowLast]}>
+              <Text style={styles.staffRole}>{s.role}</Text>
+              <Text style={styles.staffNames}>{s.names}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={[styles.contentCard, shadows.card]}>
+        <SectionTitle
+          icon={<ChevronRight size={13} color={colors.tagBlueText} strokeWidth={2} />}
+          tint={colors.tagBlueBg}
+          title="바로가기"
+        />
+        <View style={styles.linkPillsWrap}>
+          <Pressable style={styles.linkPill} onPress={openLiveWorship}>
+            <Text style={styles.linkPillText}>온라인 예배</Text>
+          </Pressable>
+          <Pressable style={styles.linkPill} onPress={() => openExternal(churchInfo.pages.newcomerForm)}>
+            <Text style={styles.linkPillText}>새가족 등록</Text>
+          </Pressable>
+          <Pressable style={styles.linkPill} onPress={() => router.push('/album')}>
+            <Text style={styles.linkPillText}>교회 앨범</Text>
+          </Pressable>
+          <Pressable style={styles.linkPill} onPress={() => router.push('/word')}>
+            <Text style={styles.linkPillText}>오늘의 말씀</Text>
+          </Pressable>
+        </View>
+      </View>
+    </>
+  );
+}
+
 export default function BulletinScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -83,6 +373,10 @@ export default function BulletinScreen() {
   const todayMissing = isSunday && !dates.includes(todayKey);
   const current = selected ?? (todayMissing ? null : (dates[0] ?? null));
   const { bulletin, loading: pagesLoading } = useBulletin(current);
+  // 예배 순서·설교 등 텍스트 내용을 뽑아낸 주보만 카드형으로 보여준다 —
+  // 옛날 주보(추출 전)는 그대로 스캔 이미지로 보인다.
+  const hasStructured = !!(bulletin?.order?.length || bulletin?.notices?.length || bulletin?.sermon);
+  const [showImages, setShowImages] = useState(false);
   // 주보가 쌓여도 칩이 옆으로 끝없이 늘어나지 않게 — 최근 8주만 칩으로 두고
   // 그 이전 것은 '지난 주보' 목록에서 월별로 고른다.
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -153,20 +447,34 @@ export default function BulletinScreen() {
           contentContainerStyle={[styles.pages, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
         >
-          {bulletin.pages.map((p, i) => (
-            <React.Fragment key={i}>
-              <View style={[styles.pageWrap, shadows.card]}>
-                <Image
-                  source={{ uri: p.image }}
-                  style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
-                  resizeMode="contain"
-                />
-                <Text style={styles.pageNum}>
-                  {i + 1} / {bulletin.pages.length}
-                </Text>
-              </View>
-            </React.Fragment>
-          ))}
+          {hasStructured ? <BulletinCards bulletin={bulletin} /> : null}
+
+          {hasStructured ? (
+            <Pressable style={styles.toggleImagesBtn} onPress={() => setShowImages((v) => !v)}>
+              <Text style={styles.toggleImagesText}>원본 주보 이미지 {showImages ? '접기' : '보기'}</Text>
+              {showImages ? (
+                <ChevronUp size={16} color={colors.primary} strokeWidth={2.2} />
+              ) : (
+                <ChevronDown size={16} color={colors.primary} strokeWidth={2.2} />
+              )}
+            </Pressable>
+          ) : null}
+
+          {(!hasStructured || showImages) &&
+            bulletin.pages.map((p, i) => (
+              <React.Fragment key={i}>
+                <View style={[styles.pageWrap, shadows.card]}>
+                  <Image
+                    source={{ uri: p.image }}
+                    style={{ width: pageWidth, height: pageWidth * (p.h / p.w), borderRadius: 10 }}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.pageNum}>
+                    {i + 1} / {bulletin.pages.length}
+                  </Text>
+                </View>
+              </React.Fragment>
+            ))}
           {webBulletin?.url ? (
             <Pressable style={styles.webLink} onPress={openWeb}>
               <Text style={styles.webLinkText}>홈페이지에서 원본 보기 ›</Text>
@@ -324,6 +632,171 @@ const styles = StyleSheet.create({
   },
   webLink: { padding: 10 },
   webLinkText: { fontFamily: font.medium, fontSize: 13, color: colors.primary },
+
+  // ── 카드형 주보 내용 ──
+  heroCard: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    padding: 18,
+    width: '100%',
+  },
+  heroEyebrow: { fontFamily: font.bold, fontSize: 11.5, color: 'rgba(255,255,255,0.85)' },
+  heroTitle: {
+    fontFamily: font.extraBold,
+    fontSize: 17,
+    lineHeight: 23,
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.88)', marginTop: 8 },
+
+  contentCard: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 14,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  cardTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  iconChipSm: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: { fontFamily: font.extraBold, fontSize: 14, color: colors.title },
+  cardCount: { fontFamily: font.medium, fontSize: 11.5, color: colors.faint2 },
+  rowLast: { borderBottomWidth: 0 },
+
+  orderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  orderName: { fontFamily: font.bold, fontSize: 13, color: colors.body, flexShrink: 0 },
+  orderSvcCol: { flex: 1, alignItems: 'flex-end' },
+  orderDetail: {
+    fontFamily: font.medium,
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: 'right',
+    lineHeight: 17,
+  },
+
+  noticeRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  noticeTitle: { fontFamily: font.bold, fontSize: 13, color: colors.body },
+  noticeBody: { fontFamily: font.regular, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 18 },
+  morePill: {
+    marginTop: 4,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  morePillText: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
+
+  giveHeaderRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.divider },
+  giveRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.divider },
+  giveCell: {
+    fontFamily: font.medium,
+    fontSize: 11.5,
+    color: colors.body,
+    width: 78,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    textAlign: 'right',
+  },
+  giveLabelCol: { width: 66, textAlign: 'left' },
+  giveHeadCell: { fontFamily: font.bold, fontSize: 10.5, color: colors.faint2 },
+  giveRowLabel: { fontFamily: font.bold, color: colors.muted2 },
+  giveTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  giveTotalLabel: { fontFamily: font.bold, fontSize: 13, color: colors.title },
+  giveTotalValue: { fontFamily: font.extraBold, fontSize: 16, color: colors.primary },
+
+  dutyTableGap: { marginTop: 12 },
+  dutyTableTitle: { fontFamily: font.extraBold, fontSize: 11, color: colors.primary, marginBottom: 5 },
+  dutyHeaderRow: { flexDirection: 'row' },
+  dutyRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.divider },
+  dutyCell: {
+    fontFamily: font.medium,
+    fontSize: 11,
+    color: colors.body,
+    width: 84,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    textAlign: 'center',
+  },
+  dutyLabelCol: { width: 56, textAlign: 'left', backgroundColor: colors.screenBg },
+  dutyHeadCell: {
+    fontFamily: font.bold,
+    fontSize: 10,
+    color: '#FFFFFF',
+    backgroundColor: colors.primary,
+  },
+  dutyRowLabel: { fontFamily: font.bold, color: colors.muted2 },
+
+  weekStrip: { gap: 8 },
+  weekItem: { backgroundColor: colors.screenBg, borderRadius: 10, padding: 10, minWidth: 92 },
+  weekDate: { fontFamily: font.bold, fontSize: 10.5, color: colors.faint2 },
+  weekTitle: { fontFamily: font.bold, fontSize: 12, color: colors.body, marginTop: 3 },
+
+  serviceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    gap: 8,
+  },
+  serviceName: { fontFamily: font.bold, fontSize: 12.5, color: colors.body, flexShrink: 1 },
+  serviceTime: { fontFamily: font.medium, fontSize: 12.5, color: colors.muted },
+
+  staffRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  staffRole: { fontFamily: font.bold, fontSize: 11.5, color: colors.faint2, width: 74, flexShrink: 0 },
+  staffNames: { fontFamily: font.medium, fontSize: 12.5, color: colors.body, flex: 1, lineHeight: 18 },
+
+  linkPillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  linkPill: {
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  linkPillText: { fontFamily: font.bold, fontSize: 12, color: colors.primary },
+
+  toggleImagesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  toggleImagesText: { fontFamily: font.bold, fontSize: 13, color: colors.primary },
 
   // 아래 주보 내용이 길면 이 줄이 함께 눌려 칩이 잘린다 — 줄어들지 않게 고정
   dateBar: { flexGrow: 0, flexShrink: 0, backgroundColor: colors.card },
