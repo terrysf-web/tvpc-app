@@ -164,8 +164,8 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             <View style={styles.orderVaryTable}>
               <View style={styles.orderVaryHeaderRow}>
                 <View style={styles.orderVaryLabelCol} />
-                <Text style={styles.orderVaryHeadCell}>1부</Text>
-                <Text style={styles.orderVaryHeadCell}>2부</Text>
+                <Text style={styles.orderVaryHeadCell}>이른 비{'\n'}(1부 8:50AM)</Text>
+                <Text style={styles.orderVaryHeadCell}>큰 비{'\n'}(2부 11:00AM)</Text>
               </View>
               {varyOrder.map((item, i) => {
                 const c1 = item.service1 || item.service2 || item.shared || '—';
@@ -691,14 +691,13 @@ const styles = StyleSheet.create({
 
   orderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 10,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
-  orderName: { fontFamily: font.bold, fontSize: 13, color: colors.body, flexShrink: 0 },
+  orderName: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
 
   orderVaryTable: { marginBottom: 4, borderRadius: 10, overflow: 'hidden' },
   orderVaryHeaderRow: { flexDirection: 'row' },
@@ -735,10 +734,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   orderDetail: {
+    flex: 1,
     fontFamily: font.medium,
     fontSize: 12,
     color: colors.muted,
-    textAlign: 'right',
+    textAlign: 'center',
     lineHeight: 17,
   },
 
