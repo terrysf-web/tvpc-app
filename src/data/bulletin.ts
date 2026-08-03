@@ -67,6 +67,12 @@ export interface BulletinStaff {
   names: string;
 }
 
+/** 새벽예배·금요성령집회 본문 한 줄 — 예: { day: '화(4일)', passage: '이사야 42장' } */
+export interface BulletinReading {
+  day: string;
+  passage: string;
+}
+
 export interface Bulletin {
   date: string; // YYYY-MM-DD
   /** 'test'면 시연용으로 만든 주보 — 화면에 실제 날짜 대신 "테스트 주보"로 표시 */
@@ -87,6 +93,10 @@ export interface Bulletin {
   duty?: BulletinDutyTable[];
   /** 섬기는 사람들(교역자·장로·안수집사 등) */
   staff?: BulletinStaff[];
+  /** 새벽예배 본문(화~토) */
+  dawnReadings?: BulletinReading[];
+  /** 금요성령집회 본문 */
+  fridayReading?: BulletinReading | null;
 }
 
 /** Firestore 문서 1MB 한도 아래로 유지 (base64 문자열 기준) */
@@ -274,6 +284,8 @@ export function useBulletin(
           offering: (docSnap.get('offering') as BulletinOffering | null | undefined) ?? null,
           duty: (docSnap.get('duty') as BulletinDutyTable[] | undefined) ?? [],
           staff: (docSnap.get('staff') as BulletinStaff[] | undefined) ?? [],
+          dawnReadings: (docSnap.get('dawnReadings') as BulletinReading[] | undefined) ?? [],
+          fridayReading: (docSnap.get('fridayReading') as BulletinReading | null | undefined) ?? null,
         });
       } catch {
         if (!cancelled) setMeta(null);

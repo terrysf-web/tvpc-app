@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  BookOpen,
   CalendarDays,
   ChevronDown,
   ChevronRight,
@@ -26,7 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
-import type { Bulletin, BulletinDutyTable } from '../src/data/bulletin';
+import type { Bulletin, BulletinDutyTable, BulletinReading } from '../src/data/bulletin';
 import { useBulletin, useBulletinDates } from '../src/data/bulletin';
 import { useEvents, useNews } from '../src/data/hooks';
 import { useServices } from '../src/data/services';
@@ -151,6 +152,8 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     .map((t) => futureDutyTable(t, todayKey))
     .filter((t) => t.columns.length > 0);
   const staff = bulletin.staff ?? [];
+  const dawnReadings: BulletinReading[] = bulletin.dawnReadings ?? [];
+  const fridayReading = bulletin.fridayReading ?? null;
   const visibleNotices = noticesOpen ? notices : notices.slice(0, 4);
 
   const upcoming = events
@@ -217,6 +220,30 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
               <Text style={styles.orderDetail}>{item.shared || '다같이'}</Text>
             </View>
           ))}
+        </View>
+      )}
+
+      {(dawnReadings.length > 0 || fridayReading) && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<BookOpen size={13} color={colors.tagGreenText} strokeWidth={2} />}
+            tint={colors.tagGreenBg}
+            title="새벽예배 · 금요성령집회"
+          />
+          <View style={styles.readingRow}>
+            {dawnReadings.map((r, i) => (
+              <View key={i} style={styles.readingCol}>
+                <Text style={styles.readingDay}>{r.day}</Text>
+                <Text style={styles.readingPassage}>{r.passage}</Text>
+              </View>
+            ))}
+          </View>
+          {fridayReading ? (
+            <View style={styles.readingFridayRow}>
+              <Text style={styles.readingFridayLabel}>금요성령집회 {fridayReading.day}</Text>
+              <Text style={styles.readingFridayPassage}>{fridayReading.passage}</Text>
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -778,6 +805,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 17,
   },
+
+  readingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  readingCol: {
+    flexBasis: '18%',
+    flexGrow: 1,
+    backgroundColor: colors.screenBg,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  readingDay: { fontFamily: font.bold, fontSize: 10.5, color: colors.faint2 },
+  readingPassage: {
+    fontFamily: font.bold,
+    fontSize: 11.5,
+    color: colors.body,
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  readingFridayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  readingFridayLabel: { fontFamily: font.bold, fontSize: 11.5, color: colors.tagOrangeText },
+  readingFridayPassage: { fontFamily: font.bold, fontSize: 12.5, color: colors.body },
 
   noticeRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider },
   noticeTitle: { fontFamily: font.bold, fontSize: 13, color: colors.body },

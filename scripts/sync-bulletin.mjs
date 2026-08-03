@@ -913,6 +913,29 @@ function extractOrderAndSermon(lines) {
   return { order, sermon: title || preacher || scripture ? { title, scripture, preacher } : null };
 }
 
+/**
+ * 1면 — 예배 순서 아래 "새벽예배 / 금요성령집회" 본문표. 요일 칸(화(4일) 등) 5개는
+ * 새벽예배, 마지막 한 칸은 금요성령집회 — 본문 줄은 새벽예배 쪽은 여러 칸
+ * 띄어쓰기로, 금요성령집회 쪽만 ¶로 나뉘어 있다.
+ */
+function extractDawnReadings(lines) {
+  const hdrIdx = lines.findIndex((l) => /^새벽예배/.test(l.trim()));
+  if (hdrIdx < 0 || hdrIdx + 2 >= lines.length) return { dawn: [], friday: null };
+  const days = splitPillar(lines[hdrIdx + 1].trim()).filter(Boolean);
+  const passageLine = lines[hdrIdx + 2].trim();
+  const pillarParts = passageLine.split('¶').map((s) => s.trim());
+  const fridayPassage = pillarParts.length > 1 ? pillarParts.pop() : '';
+  const dawnPassages = pillarParts.join(' ').split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+  const dawn = [];
+  const dawnCount = Math.max(0, days.length - 1);
+  for (let i = 0; i < Math.min(dawnCount, dawnPassages.length); i++) {
+    dawn.push({ day: days[i], passage: dawnPassages[i] });
+  }
+  const friday =
+    fridayPassage && days.length ? { day: days[days.length - 1], passage: fridayPassage } : null;
+  return { dawn, friday };
+}
+
 /** 2면 — 교회 소식(번호 매긴 공지) */
 function extractNotices(lines) {
   const notices = [];
@@ -1078,16 +1101,23 @@ let notices = [];
 let offering = null;
 let duty = [];
 let staff = [];
+let dawnReadings = [];
+let fridayReading = null;
 try {
   const faces = buildFaces();
   noteLines = extractNoteLines(faces);
   shareQuestions = extractShareQuestions(faces);
 
   try {
-    const r = extractOrderAndSermon(findOrderFace(faces));
+    const orderFace = findOrderFace(faces);
+    const r = extractOrderAndSermon(orderFace);
     orderOfWorship = r.order;
     sermonInfo = r.sermon;
     if (orderOfWorship.length) console.log(`[주보] 예배 순서 ${orderOfWorship.length}개 항목 추출`);
+    const dr = extractDawnReadings(orderFace);
+    dawnReadings = dr.dawn;
+    fridayReading = dr.friday;
+    if (dawnReadings.length) console.log(`[주보] 새벽예배 본문 ${dawnReadings.length}일 추출`);
   } catch (e) {
     console.log(`  ! 예배 순서 추출 실패(무해): ${e.message}`);
   }
@@ -1138,6 +1168,8 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   patchIfChanged('offering', offering);
   patchIfChanged('duty', duty);
   patchIfChanged('staff', staff);
+  patchIfChanged('dawnReadings', dawnReadings);
+  patchIfChanged('fridayReading', fridayReading);
   if (Object.keys(patch).length) {
     await db.doc(`bulletins/${date}`).set(patch, { merge: true });
     console.log(`  → 텍스트 내용 갱신: ${Object.keys(patch).join(', ')}`);
@@ -1204,6 +1236,8 @@ await db.doc(`bulletins/${date}`).set({
   offering,
   duty,
   staff,
+  dawnReadings,
+  fridayReading,
   updatedAt: FieldValue.serverTimestamp(),
 });
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
