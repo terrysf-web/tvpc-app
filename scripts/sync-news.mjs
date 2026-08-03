@@ -246,10 +246,23 @@ function parseIcal(ics) {
   return events;
 }
 
+// 달력 그리드의 "date_in_hover_block"에 쓰이는 요일 표기 → 요일 번호(일=0)
+const HOVER_WEEKDAY = {
+  주일: 0, 일요일: 0, 월요일: 1, 화요일: 2, 수요일: 3, 목요일: 4, 금요일: 5, 토요일: 6,
+};
+
 /**
  * 달력 페이지(Simple Calendar 플러그인) 그리드 파싱 — 날짜별 <ul class="events">
  * 블록에서 일정 제목·설명을 추출한다. 구글 캘린더 공개 ICS가 막혀 있어
  * 서버 렌더링된 이 그리드가 전체 일정의 소스다.
+ *
+ * 함정: "새가족반 모임"처럼 매주 같은 요일에만 하는 모임을, 관리자가 반복
+ * 설정 대신 "8/2~8/30" 같은 긴 기간으로 등록해 두면, 이 플러그인은 그 기간의
+ * 날마다(월~토도 포함) 그 일정을 나열한다 — 실제로는 그 요일에만 하는데도.
+ * 다행히 호버 설명의 "주일 08/02 – 주일 08/30"처럼 시작·끝 요일 표기가 있어,
+ * 둘이 같은 요일이면(=진짜 매주 모임을 기간으로만 등록한 경우) 그 요일로
+ * weeklyDow를 표시해 두고, 실제로 다른 요일에 걸치는 여름 성경 학교 같은
+ * 진짜 연속 행사("월요일 08/03 – 금요일 08/07")는 건드리지 않는다.
  */
 function parseCalendarGrid(html) {
   const events = [];
@@ -279,6 +292,14 @@ function parseCalendarGrid(html) {
         const hm = tm[1].match(/(\d{1,2}):(\d{2})/);
         if (hm) start.setHours(Number(hm[1]) + (/오후|PM/i.test(tm[1]) && Number(hm[1]) < 12 ? 12 : 0), Number(hm[2]));
       }
+      let weeklyDow;
+      const rangeText = li.match(/<div class="date_in_hover_block">([\s\S]*?)<\/div>/)?.[1];
+      if (rangeText) {
+        const dows = [...unescape(rangeText).matchAll(/주일|일요일|월요일|화요일|수요일|목요일|금요일|토요일/g)].map(
+          (mm) => HOVER_WEEKDAY[mm[0]],
+        );
+        if (dows.length === 2 && dows[0] === dows[1]) weeklyDow = dows[0];
+      }
       events.push({
         uid: `grid-${d8}-${summary}`,
         summary,
@@ -287,6 +308,7 @@ function parseCalendarGrid(html) {
         allDay: !tm,
         url: null,
         detail,
+        weeklyDow,
       });
     }
   }
@@ -596,9 +618,11 @@ for (const url of icalSources) {
 
 const now = new Date();
 now.setHours(0, 0, 0, 0);
-// 오늘 이후 일정만 — 지난 일정은 목록·달력에 남기지 않는다
+// 오늘 이후 일정만 — 지난 일정은 목록·달력에 남기지 않는다.
+// weeklyDow가 있으면(매주 같은 요일 모임을 기간으로만 등록해 둔 경우)
+// 그 요일이 아닌 날짜는 실제로 모이지 않는 날이므로 걸러낸다.
 const upcoming = calEvents
-  .filter((e) => e.start >= now)
+  .filter((e) => e.start >= now && (e.weeklyDow == null || e.start.getDay() === e.weeklyDow))
   .sort((a, b) => a.start - b.start)
   .slice(0, MAX_EVENTS);
 
