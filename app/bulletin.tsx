@@ -743,7 +743,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   orderDetail: {
-    flex: 1,
+    // 위 1부/2부 표의 두 칸(flex 1+1)을 합친 너비와 맞춰야, 그 두 칸 사이
+    // 정가운데로 보인다 — 라벨 칸(0.8)은 그대로 두고 나머지만 2배로.
+    flex: 2,
     fontFamily: font.medium,
     fontSize: 12,
     color: colors.muted,
