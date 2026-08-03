@@ -815,12 +815,307 @@ function extractShareQuestions(faces) {
   return [];
 }
 
+// ── 3.8 예배 순서·설교·공지·헌금·예배위원·섬기는 사람들 추출 ──────
+// 주보 면(각 반쪽) 텍스트에서 정해진 라벨을 찾아 그 아래 내용을 모은다.
+// 주보 레이아웃이 조금씩 달라져도 버티도록 각 항목은 실패해도 나머지에
+// 영향 없이 빈 값으로 남는다 — 앱 쪽에서는 값이 있는 카드만 보여준다.
+
+/** ¶(면 재구성에서 표시한 열 경계)로만 나눈다 — 표(고정 열) 파싱용. 빈 칸도 자리가
+ * 중요하므로 걸러내지 않는다. */
+function splitPillar(raw) {
+  return raw.split('¶').map((s) => s.trim());
+}
+
+const ORDER_LABELS = [
+  '성도의 교제', '예배의 부름', '경배와 기도', '성찬식',
+  '성경봉독', '설교', '결단의 찬양', '봉헌', '축도',
+];
+const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
+const SCRIPTURE_LIKE = /\d{1,3}\s*[:：\-–~]\s*\d{1,3}|\d{1,3}\s*장/;
+const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권사)\s*$/;
+const cleanText = (s) => s.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+
+/** 1부/2부에서 서로 다른 항목의 두 칸(줄바꿈으로 이어붙임) — 마지막 두 ¶ 조각을 쓴다 */
+function orderVaryCols(detailLines) {
+  const c1 = [];
+  const c2 = [];
+  for (const raw of detailLines) {
+    const pillars = raw.split('¶').map((s) => s.trim());
+    if (pillars.length === 1) {
+      if (pillars[0]) c1.push(pillars[0]);
+      continue;
+    }
+    const a = pillars[pillars.length - 2];
+    const b = pillars[pillars.length - 1];
+    if (a) c1.push(a);
+    if (b) c2.push(b);
+  }
+  if (!c1.length && c2.length) {
+    const last = c2[c2.length - 1];
+    const m = last.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+    if (m.length >= 2) {
+      c2[c2.length - 1] = m.slice(1).join(' ');
+      c1.push(m[0]);
+    }
+  }
+  return {
+    service1: c1.map(cleanText).filter(Boolean).join('\n'),
+    service2: c2.map(cleanText).filter(Boolean).join('\n'),
+  };
+}
+
+/** 1면 — 예배 순서(1부/2부 다른 부분은 두 칸) + 설교 제목/본문/설교자 */
+function extractOrderAndSermon(lines) {
+  const raw = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    if (raw.length && /^\*\s*표는/.test(t)) break;
+    const label = ORDER_LABELS.find((l) => t.startsWith(l));
+    if (label) raw.push({ name: label, detailLines: [t.slice(label.length)] });
+    else if (raw.length) raw[raw.length - 1].detailLines.push(t);
+  }
+  if (!raw.length) return { order: [], sermon: null };
+
+  const scriptureItem = raw.find((r) => r.name === '성경봉독');
+  const sermonItem = raw.find((r) => r.name === '설교');
+  let scripture = '';
+  let preacher = '';
+  const titleParts = [];
+  if (scriptureItem) {
+    for (const l of scriptureItem.detailLines) {
+      if (!l) continue;
+      if (!scripture && SCRIPTURE_LIKE.test(l)) scripture = cleanText(l.replace(/\([^)]*\)/g, ''));
+      else titleParts.push(l);
+    }
+  }
+  if (sermonItem) {
+    const rest = [];
+    for (const l of sermonItem.detailLines) {
+      if (!l) continue;
+      if (!preacher && PREACHER_SUFFIX.test(l)) preacher = cleanText(l);
+      else rest.push(l);
+    }
+    titleParts.push(...rest);
+  }
+  const title = cleanText(titleParts.join(' '));
+
+  const order = raw.map((item) => {
+    if (item.name === '성경봉독') return { name: item.name, shared: scripture };
+    if (item.name === '설교') return { name: item.name, shared: preacher };
+    if (VARY_LABELS.has(item.name)) return { name: item.name, ...orderVaryCols(item.detailLines) };
+    const shared = cleanText(
+      item.detailLines.flatMap((l) => l.split('¶')).map((s) => s.trim()).filter(Boolean).join(' · '),
+    );
+    return { name: item.name, shared };
+  });
+
+  return { order, sermon: title || preacher || scripture ? { title, scripture, preacher } : null };
+}
+
+/** 2면 — 교회 소식(번호 매긴 공지) */
+function extractNotices(lines) {
+  const notices = [];
+  let cur = null;
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) continue;
+    const m = t.match(/^(\d{1,2})\s*[.．]\s*\[([^\]]+)\]\s*$/);
+    if (m) {
+      cur = { title: m[2].trim(), body: '' };
+      notices.push(cur);
+      continue;
+    }
+    if (cur) cur.body = `${cur.body} ${t}`.trim();
+  }
+  return notices
+    .map((n) => ({ title: n.title, body: n.body.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim() }))
+    .filter((n) => n.title && n.body)
+    .slice(0, 20);
+}
+
+/** 3면 위 — 지난주일 헌금 표 */
+function extractOffering(lines) {
+  const start = lines.findIndex((l) => /지난주일\s*헌금/.test(l));
+  if (start < 0) return null;
+  let columns = null;
+  const rows = [];
+  let total = '';
+  for (let i = start + 1; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    if (/예배위원\s*안내/.test(t)) break;
+    const cols = splitPillar(t);
+    const label = cols[0].replace(/\s+/g, '');
+    if (!label) continue;
+    if (!columns) {
+      if (label === '구분') columns = cols.slice(1).map((c) => c.replace(/\s+/g, ''));
+      continue;
+    }
+    if (label === '합계') {
+      // 합계 줄은 "지난주일 헌금" 표의 마지막 줄 — 다음 줄에 숫자만 있으면
+      // 그게 합계 값이고(줄바꿈으로 따로 찍힘), 표는 여기서 끝난다.
+      total = (cols[1] || lines[i + 1] || '').trim();
+      break;
+    }
+    rows.push({ label, values: cols.slice(1).map((v) => v || '–') });
+  }
+  if (!columns || !rows.length) return null;
+  return { columns, rows, total };
+}
+
+/** 예배위원 표 한 구간(주일/금요) 안에서, 담당별 값 줄을 모은다 — 라벨 줄이
+ * 없는 값 줄(칸이 두 줄에 걸친 경우)은 직전까지 확정된 담당에 붙인다. */
+function collectDutyRows(lines, startIdx, endIdx, dutyOrder) {
+  const marks = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    const cols = splitPillar(lines[i].trim());
+    const name = cols[0].replace(/\s+/g, '');
+    const pos = dutyOrder.indexOf(name);
+    if (pos === marks.length) marks.push({ idx: i, ownVals: cols.slice(1) });
+  }
+  const chunks = dutyOrder.map(() => []);
+  if (!marks.length) return chunks;
+  for (let d = 0; d < marks.length; d++) {
+    if (marks[d].ownVals.some(Boolean)) chunks[d].push(marks[d].ownVals);
+    const nextIdx = d + 1 < marks.length ? marks[d + 1].idx : endIdx;
+    const nextOwnEmpty = d + 1 < marks.length ? !marks[d + 1].ownVals.some(Boolean) : false;
+    for (let i = marks[d].idx + 1; i < nextIdx; i++) {
+      const t = lines[i].trim();
+      if (!t) continue;
+      const owner = nextOwnEmpty ? d + 1 : d;
+      chunks[Math.min(owner, dutyOrder.length - 1)].push(splitPillar(t));
+    }
+  }
+  return chunks;
+}
+
+/** 3면 아래 — 예배위원 안내(주일/금요기도 로테이션 표) */
+function extractDuty(lines) {
+  const secStart = lines.findIndex((l) => /예배위원\s*안내/.test(l));
+  if (secStart < 0) return [];
+  const DUTY_ORDER = ['기도', '헌금', '안내', '친교'];
+  const sectionEnd = (() => {
+    const idx = lines.findIndex((l, i) => i > secStart && /설교\s*메모|나눔\s*질문/.test(l));
+    return idx >= 0 ? idx : lines.length;
+  })();
+  const findHeader = (word, from) =>
+    lines.findIndex((l, i) => {
+      if (i <= from || i >= sectionEnd) return false;
+      const cols = splitPillar(l.trim());
+      return cols[0].replace(/\s+/g, '') === word && cols.length > 1 && /\d/.test(cols[1]);
+    });
+  const sundayHdr = findHeader('주일', secStart);
+  const fridayHdr = findHeader('금요', secStart);
+
+  const buildTable = (hdrIdx, endIdx, title) => {
+    if (hdrIdx < 0) return null;
+    const columns = splitPillar(lines[hdrIdx].trim()).slice(1);
+    const chunks = collectDutyRows(lines, hdrIdx + 1, endIdx, DUTY_ORDER);
+    const rows = DUTY_ORDER.map((name, d) => ({
+      label: name,
+      values: columns.map((_, c) => chunks[d].map((r) => r[c]).filter(Boolean).join('\n')),
+    })).filter((r) => r.values.some(Boolean));
+    return rows.length ? { title, columns, rows } : null;
+  };
+
+  const tables = [];
+  const sundayEnd = fridayHdr >= 0 ? fridayHdr : sectionEnd;
+  const sunday = buildTable(sundayHdr, sundayEnd, '주일');
+  if (sunday) tables.push(sunday);
+  const friday = buildTable(fridayHdr, sectionEnd, '금요기도');
+  if (friday) tables.push(friday);
+  return tables;
+}
+
+/** 4면 — 섬기는 사람들 */
+function extractStaff(lines) {
+  const start = lines.findIndex((l) => /섬기는\s*사람들/.test(l));
+  if (start < 0) return [];
+  const ROLES = ['담임목사', '원로목사', '협동목사', '부목사', '교역자', '시무장로', '시무안수집사', '안수집사'];
+  const staff = [];
+  let cur = null;
+  for (let i = start + 1; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    if (/온라인\s*바로가기|📍/.test(t)) break;
+    const cols = splitPillar(t);
+    if (!cols.length) continue;
+    const norm = cols[0].replace(/\s+/g, '');
+    const role = ROLES.find((r) => r === norm);
+    if (role) {
+      cur = { role, names: cols.slice(1).join(' ') };
+      staff.push(cur);
+    } else if (cur) {
+      cur.names = `${cur.names} ${cols.join(' ')}`.trim();
+    }
+  }
+  return staff.map((s) => ({ role: s.role, names: s.names.replace(/\s*,\s*/g, ', ').trim() }));
+}
+
+/** 텍스트로 찾은 면들 중 특정 표식이 있는 면을 고른다 */
+function findFaceByMarker(faces, test) {
+  return faces.find((f) => f.some((l) => test.test(l))) ?? [];
+}
+function findOrderFace(faces) {
+  let best = null;
+  let bestCount = 0;
+  for (const f of faces) {
+    const count = ORDER_LABELS.filter((l) => f.some((line) => line.trim().startsWith(l))).length;
+    if (count > bestCount) {
+      bestCount = count;
+      best = f;
+    }
+  }
+  return bestCount >= 3 ? best : [];
+}
+
 let noteLines = [];
 let shareQuestions = [];
+let orderOfWorship = [];
+let sermonInfo = null;
+let notices = [];
+let offering = null;
+let duty = [];
+let staff = [];
 try {
   const faces = buildFaces();
   noteLines = extractNoteLines(faces);
   shareQuestions = extractShareQuestions(faces);
+
+  try {
+    const r = extractOrderAndSermon(findOrderFace(faces));
+    orderOfWorship = r.order;
+    sermonInfo = r.sermon;
+    if (orderOfWorship.length) console.log(`[주보] 예배 순서 ${orderOfWorship.length}개 항목 추출`);
+  } catch (e) {
+    console.log(`  ! 예배 순서 추출 실패(무해): ${e.message}`);
+  }
+  try {
+    const noticesFace = faces.find(
+      (f) => f.filter((l) => /^\d{1,2}\s*[.．]\s*\[/.test(l.trim())).length >= 2,
+    ) ?? [];
+    notices = extractNotices(noticesFace);
+    if (notices.length) console.log(`[주보] 교회 소식 ${notices.length}건 추출`);
+  } catch (e) {
+    console.log(`  ! 교회 소식 추출 실패(무해): ${e.message}`);
+  }
+  try {
+    const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
+    offering = extractOffering(financeFace);
+    duty = extractDuty(financeFace);
+    if (offering) console.log('[주보] 지난주일 헌금 표 추출');
+    if (duty.length) console.log(`[주보] 예배위원 안내 ${duty.length}개 표 추출`);
+  } catch (e) {
+    console.log(`  ! 헌금/예배위원 추출 실패(무해): ${e.message}`);
+  }
+  try {
+    const staffFace = findFaceByMarker(faces, /섬기는\s*사람들/);
+    staff = extractStaff(staffFace);
+    if (staff.length) console.log(`[주보] 섬기는 사람들 ${staff.length}건 추출`);
+  } catch (e) {
+    console.log(`  ! 섬기는 사람들 추출 실패(무해): ${e.message}`);
+  }
 } catch (e) {
   console.log(`  ! 설교 노트 추출 실패(무해): ${e.message}`);
 }
@@ -828,23 +1123,24 @@ try {
 const existing = await db.doc(`bulletins/${date}`).get();
 if (existing.exists && existing.get('pdfHash') === pdfHash) {
   console.log(`완료: ${date} 주보는 이미 최신입니다 (변경 없음).`);
-  // 괄호 채우기·나눔 질문 추출 결과가 새로우면 그것만 갱신
+  // 추출 결과가 기존 값과 다르면(로직 개선 등) 이미지는 그대로 두고 텍스트만 갱신
   const patch = {};
-  if (
-    noteLines.length &&
-    JSON.stringify(existing.get('noteLines') ?? []) !== JSON.stringify(noteLines)
-  ) {
-    patch.noteLines = noteLines;
-  }
-  if (
-    shareQuestions.length &&
-    JSON.stringify(existing.get('shareQuestions') ?? []) !== JSON.stringify(shareQuestions)
-  ) {
-    patch.shareQuestions = shareQuestions;
-  }
+  const patchIfChanged = (key, val) => {
+    if (val == null) return;
+    if (Array.isArray(val) && !val.length) return;
+    if (JSON.stringify(existing.get(key) ?? null) !== JSON.stringify(val)) patch[key] = val;
+  };
+  patchIfChanged('noteLines', noteLines);
+  patchIfChanged('shareQuestions', shareQuestions);
+  patchIfChanged('order', orderOfWorship);
+  patchIfChanged('sermon', sermonInfo);
+  patchIfChanged('notices', notices);
+  patchIfChanged('offering', offering);
+  patchIfChanged('duty', duty);
+  patchIfChanged('staff', staff);
   if (Object.keys(patch).length) {
     await db.doc(`bulletins/${date}`).set(patch, { merge: true });
-    console.log('  → 설교 노트(괄호 채우기·나눔 질문) 갱신');
+    console.log(`  → 텍스트 내용 갱신: ${Object.keys(patch).join(', ')}`);
   }
   await writeStatus(false, '이미 최신 (변경 없음)');
   process.exit(0);
@@ -902,6 +1198,12 @@ await db.doc(`bulletins/${date}`).set({
   source: 'auto',
   noteLines,
   shareQuestions,
+  order: orderOfWorship,
+  sermon: sermonInfo,
+  notices,
+  offering,
+  duty,
+  staff,
   updatedAt: FieldValue.serverTimestamp(),
 });
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
