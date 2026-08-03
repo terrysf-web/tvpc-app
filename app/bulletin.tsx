@@ -85,6 +85,12 @@ function eventSortKey(dateLabel: string, sortKey?: string): string {
   return `9999-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
 }
 
+/** "이사야 42장"을 "이사야\n42장"으로 — 화면 폭에 따라 아무 데서나 줄바꿈되지 않고
+ * 책 이름과 장 번호가 항상 각자 한 줄에 오게 한다. */
+function twoLinePassage(s: string): string {
+  return s.replace(/\s+/, '\n');
+}
+
 /** "8월 2일" 같은 표기를 오늘 기준 실제 날짜(YYYY-MM-DD)로 — 예배위원 표에서 지난 주를 거른다 */
 function monthDayKey(label: string): string | null {
   const m = label.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
@@ -234,7 +240,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             {dawnReadings.map((r, i) => (
               <View key={i} style={styles.readingCol}>
                 <Text style={styles.readingDay}>{r.day}</Text>
-                <Text style={styles.readingPassage}>{r.passage}</Text>
+                <Text style={styles.readingPassage}>{twoLinePassage(r.passage)}</Text>
               </View>
             ))}
           </View>
