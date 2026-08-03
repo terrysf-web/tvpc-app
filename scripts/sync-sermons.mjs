@@ -468,38 +468,50 @@ function classify(title) {
 async function ocrPodcastSpeaker(videoId) {
   try {
     let buf = null;
+    let chosen = '';
     for (const name of ['maxresdefault', 'sddefault', 'hqdefault']) {
       const res = await fetch(`https://i.ytimg.com/vi/${videoId}/${name}.jpg`);
       if (!res.ok) continue;
       const b = Buffer.from(await res.arrayBuffer());
       if (b.length > 2000) {
         buf = b;
+        chosen = name;
         break;
       }
     }
-    if (!buf) return '';
+    if (!buf) {
+      console.log('    (썸네일을 못 받아옴)');
+      return '';
+    }
     const img = sharp(buf);
     const { width, height } = await img.metadata();
     if (!width || !height) return '';
+    console.log(`    (썸네일 ${chosen} ${width}x${height})`);
     const dir = mkdtempSync(join(tmpdir(), 'ocr-'));
     const cropPath = join(dir, 'crop.png');
     // 이름은 화면 오른쪽 아래 좁은 띠에만 나온다 — 그 영역만 잘라 확대하면
     // 배경(설교 화면)의 다른 글자에 안 걸리고 인식률도 올라간다.
-    await sharp(buf)
-      .extract({
-        left: Math.round(width * 0.55),
-        top: Math.round(height * 0.78),
-        width: Math.round(width * 0.44),
-        height: Math.round(height * 0.18),
-      })
-      .greyscale()
-      .normalize()
-      .resize({ width: 900 })
-      .toFile(cropPath);
+    const extractOpts = {
+      left: Math.round(width * 0.55),
+      top: Math.round(height * 0.78),
+      width: Math.round(width * 0.44),
+      height: Math.round(height * 0.18),
+    };
+    await sharp(buf).extract(extractOpts).greyscale().normalize().resize({ width: 900 }).toFile(cropPath);
+    // 진단용 — DEBUG_OCR=true일 때만 썸네일 전체·크롭 영역을 base64로 찍어
+    // 실제로 어디를 잘랐는지 눈으로 확인할 수 있게 한다(평소엔 로그 낭비라 끈다).
+    if (process.env.DEBUG_OCR === 'true') {
+      const smallFull = await sharp(buf).resize({ width: 480 }).png().toBuffer();
+      console.log(`    (전체 썸네일 base64: ${smallFull.toString('base64')})`);
+      const cropRaw = await sharp(buf).extract(extractOpts).png().toBuffer();
+      console.log(`    (크롭 영역 base64: ${cropRaw.toString('base64')})`);
+    }
     const text = execFileSync('tesseract', [cropPath, 'stdout', '-l', 'kor', '--psm', '7'], {
       encoding: 'utf8',
     });
-    const m = text.replace(/\s+/g, ' ').trim().match(/([가-힣]{2,4})\s*[·/,ㆍ]\s*([가-힣]{2,4})/);
+    const raw = text.replace(/\s+/g, ' ').trim();
+    console.log(`    (OCR 원문: "${raw}")`);
+    const m = raw.match(/([가-힣]{2,4})\s*[·/,ㆍ.]\s*([가-힣]{2,4})/);
     return m ? `${m[1]} · ${m[2]}` : '';
   } catch (e) {
     console.log(`    ! 발표자 OCR 실패(무해): ${e.message}`);

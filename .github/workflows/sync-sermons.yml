@@ -17,6 +17,10 @@ on:
         description: '채널 전체 영상 백필 (true = 과거 팟캐스트·설교 전부 가져오기)'
         required: false
         default: 'false'
+      debug_ocr:
+        description: '팟캐스트 발표자 OCR 진단(true = 썸네일·크롭 영역을 base64로 로그에 출력)'
+        required: false
+        default: 'false'
 
 jobs:
   sync:
@@ -56,4 +60,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           BACKFILL: ${{ inputs.backfill || 'false' }}
+          DEBUG_OCR: ${{ inputs.debug_ocr || 'false' }}
         run: node scripts/sync-sermons.mjs
