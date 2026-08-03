@@ -26,7 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
-import type { Bulletin } from '../src/data/bulletin';
+import type { Bulletin, BulletinDutyTable } from '../src/data/bulletin';
 import { useBulletin, useBulletinDates } from '../src/data/bulletin';
 import { useEvents, useNews } from '../src/data/hooks';
 import { useServices } from '../src/data/services';
@@ -84,6 +84,31 @@ function eventSortKey(dateLabel: string, sortKey?: string): string {
   return `9999-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
 }
 
+/** "8월 2일" 같은 표기를 오늘 기준 실제 날짜(YYYY-MM-DD)로 — 예배위원 표에서 지난 주를 거른다 */
+function monthDayKey(label: string): string | null {
+  const m = label.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (!m) return null;
+  const now = new Date();
+  let yy = now.getFullYear();
+  const cand = new Date(yy, Number(m[1]) - 1, Number(m[2]));
+  if (cand.getTime() < now.getTime() - 180 * 86400e3) yy += 1;
+  return `${yy}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+}
+
+/** 예배위원 표에서 이미 지난 주(오늘 이전) 칸은 뺀다 */
+function futureDutyTable(t: BulletinDutyTable, todayKey: string): BulletinDutyTable {
+  const keep = t.columns.map((c, i) => {
+    const k = monthDayKey(c);
+    return !k || k >= todayKey;
+  });
+  if (keep.every(Boolean)) return t;
+  return {
+    title: t.title,
+    columns: t.columns.filter((_, i) => keep[i]),
+    rows: t.rows.map((r) => ({ label: r.label, values: r.values.filter((_, i) => keep[i]) })),
+  };
+}
+
 function SectionTitle({
   icon,
   tint,
@@ -121,7 +146,10 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
   const order = bulletin.order ?? [];
   const notices = bulletin.notices ?? [];
   const offering = bulletin.offering ?? null;
-  const duty = bulletin.duty ?? [];
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  const duty = (bulletin.duty ?? [])
+    .map((t) => futureDutyTable(t, todayKey))
+    .filter((t) => t.columns.length > 0);
   const staff = bulletin.staff ?? [];
   const visibleNotices = noticesOpen ? notices : notices.slice(0, 4);
 
@@ -292,14 +320,12 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             tint={colors.tagGreenBg}
             title="사역 캘린더"
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekStrip}>
-            {upcoming.map((e, i) => (
-              <View key={i} style={styles.weekItem}>
-                <Text style={styles.weekDate}>{e.dateLabel}</Text>
-                <Text style={styles.weekTitle}>{e.title}</Text>
-              </View>
-            ))}
-          </ScrollView>
+          {upcoming.map((e, i) => (
+            <View key={i} style={[styles.weekRow, i === upcoming.length - 1 && styles.rowLast]}>
+              <Text style={styles.weekDate}>{e.dateLabel}</Text>
+              <Text style={styles.weekTitle}>{e.title}</Text>
+            </View>
+          ))}
         </View>
       )}
 
@@ -797,28 +823,40 @@ const styles = StyleSheet.create({
   dutyRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.divider },
   dutyCell: {
     fontFamily: font.medium,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 11.5,
+    lineHeight: 15,
     color: colors.body,
     flex: 1,
-    paddingVertical: 5,
-    paddingHorizontal: 2,
+    paddingVertical: 7,
+    paddingHorizontal: 3,
     textAlign: 'center',
   },
-  dutyLabelCol: { flex: 0.55, textAlign: 'left', paddingLeft: 4 },
+  dutyLabelCol: { flex: 0.6, textAlign: 'left', paddingLeft: 4 },
   dutyHeadCell: {
     fontFamily: font.bold,
-    fontSize: 8.5,
-    lineHeight: 11,
+    fontSize: 10.5,
+    lineHeight: 13,
     color: '#FFFFFF',
     backgroundColor: colors.primary,
   },
   dutyRowLabel: { fontFamily: font.bold, color: colors.muted2, backgroundColor: colors.screenBg },
 
-  weekStrip: { gap: 8 },
-  weekItem: { backgroundColor: colors.screenBg, borderRadius: 10, padding: 10, minWidth: 92 },
-  weekDate: { fontFamily: font.bold, fontSize: 10.5, color: colors.faint2 },
-  weekTitle: { fontFamily: font.bold, fontSize: 12, color: colors.body, marginTop: 3 },
+  weekRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  weekDate: {
+    fontFamily: font.bold,
+    fontSize: 11,
+    color: colors.faint2,
+    width: 92,
+    flexShrink: 0,
+  },
+  weekTitle: { fontFamily: font.bold, fontSize: 13, color: colors.body, flex: 1 },
 
   serviceRow: {
     flexDirection: 'row',
