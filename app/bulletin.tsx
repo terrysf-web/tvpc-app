@@ -218,8 +218,11 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     <>
       {bulletin.sermon ? (
         <View style={[styles.heroCard, shadows.hero]}>
-          <Text style={styles.heroEyebrow}>
-            이번주 말씀 · {fmtKo(bulletin.date)}
+          <View style={styles.heroBadge}>
+            <Text style={styles.heroBadgeText}>이번주 말씀</Text>
+          </View>
+          <Text style={styles.heroDate}>
+            {fmtKo(bulletin.date)}
             {hasCommunion ? ' · 성찬식' : ''}
           </Text>
           {bulletin.sermon.title ? <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text> : null}
@@ -228,7 +231,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           </Text>
           <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
             <Text style={styles.heroBtnText}>오늘 말씀 보기</Text>
-            <ChevronRight size={15} color={colors.primary} strokeWidth={2.4} />
+            <ChevronRight size={13} color={colors.primary} strokeWidth={2.4} />
           </Pressable>
         </View>
       ) : null}
@@ -795,7 +798,20 @@ const styles = StyleSheet.create({
     padding: 18,
     width: '100%',
   },
-  heroEyebrow: { fontFamily: font.bold, fontSize: 11.5, color: 'rgba(255,255,255,0.85)' },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  heroBadgeText: { fontFamily: font.bold, fontSize: 11, color: '#FFFFFF' },
+  heroDate: {
+    fontFamily: font.bold,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 10,
+  },
   heroTitle: {
     fontFamily: font.extraBold,
     fontSize: 17,
@@ -806,15 +822,17 @@ const styles = StyleSheet.create({
   heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.88)', marginTop: 8 },
   heroBtn: {
     flexDirection: 'row',
+    alignSelf: 'flex-start',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
     backgroundColor: '#FFFFFF',
-    borderRadius: 11,
-    paddingVertical: 11,
+    borderRadius: 9,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
     marginTop: 14,
   },
-  heroBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
+  heroBtnText: { fontFamily: font.bold, fontSize: 12, color: colors.primary },
 
   contentCard: {
     width: '100%',
