@@ -153,7 +153,7 @@ export function BrandSplash() {
             {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
             <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
           </View>
-          <Text style={styles.name}>트라이밸리{'\n'}장로교회</Text>
+          <Text style={styles.name}>트라이밸리 장로교회</Text>
           <Text style={styles.slogan}>{churchInfo.slogan}</Text>
         </View>
         <View style={{ flex: 1 }} />
@@ -217,9 +217,9 @@ const styles = StyleSheet.create({
   logo: { width: 70, height: 70 },
   name: {
     fontFamily: font.extraBold,
-    fontSize: 26,
-    lineHeight: 35,
-    letterSpacing: -0.4,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.3,
     textAlign: 'center',
     color: '#122B4F',
     marginBottom: 12,
