@@ -41,11 +41,14 @@ export function getDb(): Firestore | null {
   if (!a) return null;
   if (!db) {
     // 일부 네트워크(회사망·특정 통신사 등)에서 Firestore 기본 스트리밍(WebChannel)
-    // 연결이 몇 십 초씩 멎어 화면이 안 뜨는 경우가 있어, 웹도 포함해 자동 감지
-    // 롱폴링을 쓴다 — 되는 환경에서는 그대로 스트리밍을 쓰고, 막히는 환경에서만
-    // 롱폴링으로 자동 전환된다.
+    // 연결이 막혀 몇 십 초씩 화면이 안 뜨는 경우가 있다. 자동 감지
+    // (autoDetectLongPolling)는 먼저 스트리밍 연결을 시도하고 실패를
+    // 기다린 뒤에야 롱폴링으로 전환하는데, 막힌 게 아니라 그냥 느리게
+    // 멎는 네트워크에서는 이 "감지 대기"만으로도 수십 초가 든다.
+    // 그래서 웹은 아예 처음부터 롱폴링을 강제해 그 대기 시간을 없앤다.
     db = initializeFirestore(a, {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: Platform.OS === 'web',
+      experimentalAutoDetectLongPolling: Platform.OS !== 'web',
     });
   }
   return db;
