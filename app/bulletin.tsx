@@ -133,6 +133,10 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     .slice(0, 6);
 
   const hasCommunion = order.some((o) => o.name === '성찬식');
+  // 1부·2부 순서가 서로 다른 앞부분(성도의 교제~경배와 기도)과, 그 이후 공통 순서를 나눠 보여준다
+  const boundaryIdx = order.findIndex((o) => o.name === '성찬식' || o.name === '성경봉독');
+  const varyOrder = boundaryIdx > 0 ? order.slice(0, boundaryIdx) : [];
+  const sharedOrder = boundaryIdx > 0 ? order.slice(boundaryIdx) : order;
 
   return (
     <>
@@ -156,17 +160,30 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             tint={colors.tagBlueBg}
             title="예배 순서"
           />
-          {order.map((item, i) => (
-            <View key={i} style={[styles.orderRow, i === order.length - 1 && styles.rowLast]}>
+          {varyOrder.length > 0 && (
+            <View style={styles.orderVaryTable}>
+              <View style={styles.orderVaryHeaderRow}>
+                <View style={styles.orderVaryLabelCol} />
+                <Text style={styles.orderVaryHeadCell}>1부</Text>
+                <Text style={styles.orderVaryHeadCell}>2부</Text>
+              </View>
+              {varyOrder.map((item, i) => {
+                const c1 = item.service1 || item.service2 || item.shared || '—';
+                const c2 = item.service2 || item.service1 || item.shared || '—';
+                return (
+                  <View key={i} style={styles.orderVaryRow}>
+                    <Text style={styles.orderVaryName}>{item.name}</Text>
+                    <Text style={styles.orderVaryCell}>{c1}</Text>
+                    <Text style={styles.orderVaryCell}>{c2}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          {sharedOrder.map((item, i) => (
+            <View key={i} style={[styles.orderRow, i === sharedOrder.length - 1 && styles.rowLast]}>
               <Text style={styles.orderName}>{item.name}</Text>
-              {item.service1 || item.service2 ? (
-                <View style={styles.orderSvcCol}>
-                  {item.service1 ? <Text style={styles.orderDetail}>1부 · {item.service1}</Text> : null}
-                  {item.service2 ? <Text style={styles.orderDetail}>2부 · {item.service2}</Text> : null}
-                </View>
-              ) : (
-                <Text style={styles.orderDetail}>{item.shared || '다같이'}</Text>
-              )}
+              <Text style={styles.orderDetail}>{item.shared || '다같이'}</Text>
             </View>
           ))}
         </View>
@@ -676,7 +693,41 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   orderName: { fontFamily: font.bold, fontSize: 13, color: colors.body, flexShrink: 0 },
-  orderSvcCol: { flex: 1, alignItems: 'flex-end' },
+
+  orderVaryTable: { marginBottom: 4, borderRadius: 10, overflow: 'hidden' },
+  orderVaryHeaderRow: { flexDirection: 'row' },
+  orderVaryLabelCol: { flex: 0.8 },
+  orderVaryHeadCell: {
+    flex: 1,
+    fontFamily: font.bold,
+    fontSize: 10.5,
+    color: '#FFFFFF',
+    backgroundColor: colors.primary,
+    textAlign: 'center',
+    paddingVertical: 6,
+  },
+  orderVaryRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    paddingVertical: 6,
+  },
+  orderVaryName: {
+    flex: 0.8,
+    fontFamily: font.bold,
+    fontSize: 11.5,
+    color: colors.body,
+    paddingRight: 4,
+  },
+  orderVaryCell: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    textAlign: 'center',
+    paddingHorizontal: 3,
+  },
   orderDetail: {
     fontFamily: font.medium,
     fontSize: 12,
@@ -737,7 +788,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     textAlign: 'center',
   },
-  dutyLabelCol: { flex: 0.55, textAlign: 'left', backgroundColor: colors.screenBg, paddingLeft: 4 },
+  dutyLabelCol: { flex: 0.55, textAlign: 'left', paddingLeft: 4 },
   dutyHeadCell: {
     fontFamily: font.bold,
     fontSize: 8.5,
@@ -745,7 +796,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     backgroundColor: colors.primary,
   },
-  dutyRowLabel: { fontFamily: font.bold, color: colors.muted2 },
+  dutyRowLabel: { fontFamily: font.bold, color: colors.muted2, backgroundColor: colors.screenBg },
 
   weekStrip: { gap: 8 },
   weekItem: { backgroundColor: colors.screenBg, borderRadius: 10, padding: 10, minWidth: 92 },
