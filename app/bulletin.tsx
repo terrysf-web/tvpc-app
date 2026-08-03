@@ -205,28 +205,24 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             tint={colors.tagGreenBg}
             title="지난주일 헌금"
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View>
-              <View style={styles.giveHeaderRow}>
-                <Text style={[styles.giveCell, styles.giveHeadCell, styles.giveLabelCol]}>구분</Text>
-                {offering.columns.map((c, ci) => (
-                  <Text key={ci} style={[styles.giveCell, styles.giveHeadCell]}>
-                    {c}
-                  </Text>
-                ))}
-              </View>
-              {offering.rows.map((r, ri) => (
-                <View key={ri} style={styles.giveRow}>
-                  <Text style={[styles.giveCell, styles.giveRowLabel, styles.giveLabelCol]}>{r.label}</Text>
-                  {r.values.map((v, vi) => (
-                    <Text key={vi} style={styles.giveCell}>
-                      {v}
-                    </Text>
-                  ))}
-                </View>
+          <View style={styles.giveHeaderRow}>
+            <Text style={[styles.giveCell, styles.giveHeadCell, styles.giveLabelCol]}>구분</Text>
+            {offering.columns.map((c, ci) => (
+              <Text key={ci} style={[styles.giveCell, styles.giveHeadCell]}>
+                {c}
+              </Text>
+            ))}
+          </View>
+          {offering.rows.map((r, ri) => (
+            <View key={ri} style={styles.giveRow}>
+              <Text style={[styles.giveCell, styles.giveRowLabel, styles.giveLabelCol]}>{r.label}</Text>
+              {r.values.map((v, vi) => (
+                <Text key={vi} style={styles.giveCell}>
+                  {v}
+                </Text>
               ))}
             </View>
-          </ScrollView>
+          ))}
           {offering.total ? (
             <View style={styles.giveTotalRow}>
               <Text style={styles.giveTotalLabel}>합계</Text>
@@ -246,30 +242,24 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           {duty.map((t, ti) => (
             <View key={ti} style={ti > 0 ? styles.dutyTableGap : undefined}>
               <Text style={styles.dutyTableTitle}>{t.title}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View>
-                  <View style={styles.dutyHeaderRow}>
-                    <Text style={[styles.dutyCell, styles.dutyHeadCell, styles.dutyLabelCol]}>구분</Text>
-                    {t.columns.map((c, ci) => (
-                      <Text key={ci} style={[styles.dutyCell, styles.dutyHeadCell]}>
-                        {c}
-                      </Text>
-                    ))}
-                  </View>
-                  {t.rows.map((r, ri) => (
-                    <View key={ri} style={styles.dutyRow}>
-                      <Text style={[styles.dutyCell, styles.dutyRowLabel, styles.dutyLabelCol]}>
-                        {r.label}
-                      </Text>
-                      {r.values.map((v, vi) => (
-                        <Text key={vi} style={styles.dutyCell}>
-                          {v || '–'}
-                        </Text>
-                      ))}
-                    </View>
+              <View style={styles.dutyHeaderRow}>
+                <Text style={[styles.dutyCell, styles.dutyHeadCell, styles.dutyLabelCol]}>구분</Text>
+                {t.columns.map((c, ci) => (
+                  <Text key={ci} style={[styles.dutyCell, styles.dutyHeadCell]}>
+                    {c}
+                  </Text>
+                ))}
+              </View>
+              {t.rows.map((r, ri) => (
+                <View key={ri} style={styles.dutyRow}>
+                  <Text style={[styles.dutyCell, styles.dutyRowLabel, styles.dutyLabelCol]}>{r.label}</Text>
+                  {r.values.map((v, vi) => (
+                    <Text key={vi} style={styles.dutyCell}>
+                      {v || '–'}
+                    </Text>
                   ))}
                 </View>
-              </ScrollView>
+              ))}
             </View>
           ))}
         </View>
@@ -354,7 +344,7 @@ export default function BulletinScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { dates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
+  const { dates, testDates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
   // 지난 주보는 주소에 날짜를 담아 연다 — 그래야 뒤로가기가 홈이 아니라
   // 이번 주 주보 화면으로 돌아온다(브라우저 뒤로가기·화면 밀기 모두 동일).
   const params = useLocalSearchParams<{ d?: string }>();
@@ -404,7 +394,9 @@ export default function BulletinScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title={current ? `주보 · ${fmtKo(current)}` : '주보'} />
+      <OverlayHeader
+        title={current ? `주보 · ${testDates.has(current) ? '테스트 주보' : fmtKo(current)}` : '주보'}
+      />
       {/* 지난 주보 날짜 선택 — 날짜별 메모(●)도 함께 열린다 */}
       {(dates.length > 1 || todayMissing) && (
         <ScrollView
@@ -420,7 +412,7 @@ export default function BulletinScreen() {
               onPress={() => openDate(d)}
             >
               <Text style={[styles.dateChipText, d === current && styles.dateChipTextActive]}>
-                {chipLabel(d)}
+                {testDates.has(d) ? '테스트 주보' : chipLabel(d)}
                 {hasNote(d) ? ' ●' : ''}
               </Text>
             </Pressable>
@@ -525,7 +517,7 @@ export default function BulletinScreen() {
                       }}
                     >
                       <Text style={styles.pickerRowText}>
-                        {Number(d.slice(8, 10))}일 주보
+                        {testDates.has(d) ? '테스트 주보' : `${Number(d.slice(8, 10))}일 주보`}
                         {hasNote(d) ? '  ● 메모' : ''}
                       </Text>
                       <ChevronRight size={17} color={colors.faint2} strokeWidth={1.9} />
@@ -709,15 +701,15 @@ const styles = StyleSheet.create({
   giveRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.divider },
   giveCell: {
     fontFamily: font.medium,
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: colors.body,
-    width: 78,
+    flex: 1,
     paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     textAlign: 'right',
   },
-  giveLabelCol: { width: 66, textAlign: 'left' },
-  giveHeadCell: { fontFamily: font.bold, fontSize: 10.5, color: colors.faint2 },
+  giveLabelCol: { flex: 0.85, textAlign: 'left' },
+  giveHeadCell: { fontFamily: font.bold, fontSize: 9.5, color: colors.faint2 },
   giveRowLabel: { fontFamily: font.bold, color: colors.muted2 },
   giveTotalRow: {
     flexDirection: 'row',
@@ -737,17 +729,19 @@ const styles = StyleSheet.create({
   dutyRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.divider },
   dutyCell: {
     fontFamily: font.medium,
-    fontSize: 11,
+    fontSize: 9,
+    lineHeight: 12,
     color: colors.body,
-    width: 84,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
+    flex: 1,
+    paddingVertical: 5,
+    paddingHorizontal: 2,
     textAlign: 'center',
   },
-  dutyLabelCol: { width: 56, textAlign: 'left', backgroundColor: colors.screenBg },
+  dutyLabelCol: { flex: 0.55, textAlign: 'left', backgroundColor: colors.screenBg, paddingLeft: 4 },
   dutyHeadCell: {
     fontFamily: font.bold,
-    fontSize: 10,
+    fontSize: 8.5,
+    lineHeight: 11,
     color: '#FFFFFF',
     backgroundColor: colors.primary,
   },

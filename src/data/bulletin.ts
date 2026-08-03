@@ -69,6 +69,8 @@ export interface BulletinStaff {
 
 export interface Bulletin {
   date: string; // YYYY-MM-DD
+  /** 'test'면 시연용으로 만든 주보 — 화면에 실제 날짜 대신 "테스트 주보"로 표시 */
+  source?: string;
   pages: BulletinPage[];
   /** 설교 노트 괄호 채우기 문장 — "(____)"가 빈칸 자리 */
   noteLines?: string[];
@@ -187,8 +189,11 @@ export async function saveBulletin(date: string, pages: BulletinPage[]): Promise
 }
 
 /** 저장된 주보 날짜 목록(최신순) — 지난 주보 열람용 */
-export function useBulletinDates(enabled: boolean): { dates: string[]; loading: boolean } {
+export function useBulletinDates(
+  enabled: boolean,
+): { dates: string[]; testDates: Set<string>; loading: boolean } {
   const [dates, setDates] = useState<string[]>([]);
+  const [testDates, setTestDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -207,7 +212,10 @@ export function useBulletinDates(enabled: boolean): { dates: string[]; loading: 
           // 나머지는 '지난 주보' 목록에서 월별로 고른다.
           query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(300)),
         );
-        if (!cancelled) setDates(snap.docs.map((d) => d.id));
+        if (!cancelled) {
+          setDates(snap.docs.map((d) => d.id));
+          setTestDates(new Set(snap.docs.filter((d) => d.get('source') === 'test').map((d) => d.id)));
+        }
       } catch {
         // 오프라인 등 — 빈 목록이면 화면에서 홈페이지 링크로 안내
       } finally {
@@ -219,7 +227,7 @@ export function useBulletinDates(enabled: boolean): { dates: string[]; loading: 
     };
   }, [enabled]);
 
-  return { dates, loading };
+  return { dates, testDates, loading };
 }
 
 /** 선택한 날짜의 주보 페이지 — 날짜가 바뀔 때마다 그 주만 불러온다 */
