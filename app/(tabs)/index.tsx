@@ -89,6 +89,9 @@ export default function HomeScreen() {
   // 홈 최근 설교 카드에는 실제 설교만 (팟캐스트·찬양 영상 제외)
   const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
   const featured = onlySermons.find((s) => s.featured) ?? onlySermons[0];
+  // 주일예배 다시보기는 관리자가 고른 featured가 아니라 가장 최근 설교를
+  // 바로 튼다 — 재생목록 페이지만 뜨고 안 넘어가던 문제 수정
+  const latestSermon = onlySermons[0];
   // 다가오는 일정 — 달력 표시용으로 보관하는 지난 일정은 건너뛴다
   const eventKey = (e: (typeof events)[number]): string => {
     if (e.sortKey && /^\d{4}-\d{2}-\d{2}$/.test(e.sortKey)) return e.sortKey;
@@ -327,11 +330,16 @@ export default function HomeScreen() {
                 </Text>
                 <View style={styles.heroBtnRow}>
                   {/* 1부는 온라인 중계가 없어 2부만 안내한다.
-                      예배가 끝난 뒤(주일 오후~월요일)에는 예배 녹화본이 담긴
-                      재생목록으로 이어, 예배 전체를 다시 볼 수 있게 한다. */}
+                      예배가 끝난 뒤(주일 오후~월요일)에는 재생목록 페이지가 아니라
+                      가장 최근 설교 영상을 바로 튼다 — 등록된 영상이 아직 없을
+                      때만 재생목록으로 안내한다. */}
                   <Pressable
                     style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
-                    onPress={() => (liveEnded ? openWorshipReplay() : openLiveWorship())}
+                    onPress={() => {
+                      if (!liveEnded) return openLiveWorship();
+                      if (latestSermon) return playSermon(latestSermon);
+                      return openWorshipReplay();
+                    }}
                   >
                     <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
                       {liveEnded ? '▶ 주일 온라인예배 다시보기' : '▶ 2부 온라인예배'}
