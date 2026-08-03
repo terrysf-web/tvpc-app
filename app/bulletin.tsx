@@ -910,10 +910,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   orderFootnote: {
-    fontFamily: font.regular,
-    fontSize: 10,
-    color: colors.faint2,
-    marginTop: 6,
+    fontFamily: font.bold,
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 8,
   },
 
   readingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
   weekDate: {
     fontFamily: font.bold,
     fontSize: 11,
-    color: colors.faint2,
+    color: colors.primary,
     width: 92,
     flexShrink: 0,
   },
