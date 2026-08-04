@@ -63,8 +63,8 @@ function hasNote(date: string): boolean {
 /** 날짜 칩으로 바로 보여줄 최근 주보 수 — 나머지는 '지난 주보' 목록으로 */
 const RECENT_CHIPS = 8;
 
-/** 히어로 카드 배경(hero-sunday-bg-v2.jpg) 가로:세로 비율 */
-const HERO_ASPECT = 1.4;
+/** 히어로 카드 배경(hero-sunday-bg-v3.jpg) 가로:세로 비율 — 원본 그림 그대로라 잘리지 않는다 */
+const HERO_ASPECT = 1920 / 1080;
 
 /** 지난 주보 목록을 '2026년 7월'처럼 달별로 묶는다 */
 function byMonth(dates: string[]): { key: string; label: string; days: string[] }[] {
@@ -230,7 +230,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
         >
           <Image
-            source={{ uri: '/hero-sunday-bg-v2.jpg' }}
+            source={{ uri: '/hero-sunday-bg-v3.jpg' }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
@@ -818,12 +818,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  // 배경 그림(hero-sunday-bg-v2.jpg)은 위쪽 여백을 잘라내 아래쪽 선을 위로 올린 버전.
-  // 카드 비율(1.4)이 그림 원본 비율(1.9)보다 좁아서, 세로는 잘리지 않고 양옆만
-  // 살짝 잘린다 — 실제 선 위치를 픽셀 분석해 맞춘 좌표: 위쪽 선 2.67%, 아래쪽 선 87.75%
+  // 배경 그림(hero-sunday-bg-v3.jpg)은 원본 그대로 안 자름 — 카드 비율도 그림과
+  // 똑같아서(1920:1080) 어느 방향으로도 잘리지 않는다. 실제 선 위치를 픽셀 분석해
+  // 맞춘 좌표: 위쪽 선 9.07%, 아래쪽 선 88.52%
   heroBadge: {
     position: 'absolute',
-    top: '2.67%',
+    top: '9.07%',
     left: '6.5%',
     transform: [{ translateY: 6 }, { translateX: -8 }],
     backgroundColor: 'rgba(255,255,255,0.4)',
@@ -834,10 +834,10 @@ const styles = StyleSheet.create({
   heroBadgeText: { fontFamily: font.bold, fontSize: 11.5, color: '#5A3D2B' },
   heroMid: {
     position: 'absolute',
-    top: '46%',
+    top: '50%',
     left: '6.5%',
     right: '34%',
-    transform: [{ translateY: -34 }],
+    transform: [{ translateY: -45 }],
   },
   heroDate: {
     fontFamily: font.bold,
@@ -852,11 +852,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: '#6B4A35', marginTop: 6 },
+  // 버튼은 아래쪽 선 밑 좁은 틈에 욱여넣는 대신, 선 위에 걸치듯 배치 —
+  // 어떤 화면 폭에서도 여백 부족으로 잘리지 않는다.
   heroBtn: {
     position: 'absolute',
-    top: '87.75%',
+    top: '88.52%',
     right: '3.96%',
-    transform: [{ translateY: 4 }],
+    transform: [{ translateY: -13 }],
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
