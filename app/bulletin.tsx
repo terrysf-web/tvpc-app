@@ -238,7 +238,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           </View>
           <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
             <Text style={styles.heroBtnText}>성경말씀보기</Text>
-            <ChevronRight size={11} color="#FFF6ED" strokeWidth={2.6} />
+            <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
           </Pressable>
         </View>
       ) : null}
@@ -820,27 +820,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  heroBadgeText: { fontFamily: font.bold, fontSize: 10.5, color: '#5A3D2B' },
+  heroBadgeText: { fontFamily: font.bold, fontSize: 11.5, color: '#5A3D2B' },
   heroMid: {
     position: 'absolute',
     top: '46%',
     left: '6.5%',
     right: '34%',
-    transform: [{ translateY: -30 }],
+    transform: [{ translateY: -34 }],
   },
   heroDate: {
     fontFamily: font.bold,
-    fontSize: 11.5,
+    fontSize: 13,
     color: '#8A6A4E',
   },
   heroTitle: {
     fontFamily: font.extraBold,
-    fontSize: 14.5,
-    lineHeight: 20,
+    fontSize: 16.5,
+    lineHeight: 22,
     color: '#3A2A1D',
     marginTop: 6,
   },
-  heroMeta: { fontFamily: font.medium, fontSize: 11, color: '#6B4A35', marginTop: 6 },
+  heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: '#6B4A35', marginTop: 6 },
   heroBtn: {
     position: 'absolute',
     top: '87.75%',
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 11,
   },
-  heroBtnText: { fontFamily: font.bold, fontSize: 11, color: '#FFF6ED' },
+  heroBtnText: { fontFamily: font.bold, fontSize: 12, color: '#FFF6ED' },
 
   contentCard: {
     width: '100%',
