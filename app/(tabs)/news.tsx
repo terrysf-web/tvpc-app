@@ -122,8 +122,8 @@ export default function NewsScreen() {
                   <Text style={styles.title} numberOfLines={2}>
                     {n.title}
                   </Text>
-                  {n.alert && n.body ? (
-                    <Text style={styles.alertBody} numberOfLines={3}>
+                  {n.body ? (
+                    <Text style={styles.bodyPreview} numberOfLines={3}>
                       {n.body}
                     </Text>
                   ) : null}
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   textCol: { flex: 1, gap: 7 },
   title: { fontFamily: font.bold, fontSize: 14.5, lineHeight: 21, color: colors.title },
   date: { fontFamily: font.regular, fontSize: 12, color: colors.faint },
-  alertBody: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 18, color: colors.muted },
+  bodyPreview: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 18, color: colors.muted },
   thumb: { width: 74, height: 74, borderRadius: 12 },
   thumbIcon: {
     position: 'absolute',

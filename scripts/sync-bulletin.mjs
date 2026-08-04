@@ -1183,30 +1183,32 @@ try {
  * 주보의 "교회 소식"을 news 컬렉션(소식 탭 · 공지)에도 반영한다.
  * 홈페이지의 별도 소식 게시판은 관리자가 깜빡 잊고 안 올리면 그대로 방치되지만,
  * 주보는 매주 반드시 새로 만들어지는 문서라 이쪽을 기준으로 삼으면 소식 탭도
- * 늘 최신을 유지한다. 문서 id를 주보 날짜+순번으로 고정해 재실행해도 중복 없이
- * 덮어쓰고, bulletinDate로 그 주 것만 지웠다 다시 써서 개수가 줄어도 안 남는다.
+ * 늘 최신을 유지한다. 주(週)마다 카드 한 장 — 주보 안의 번호 매긴 소식을
+ * 그대로 옮겨 담는다. 문서 id를 주보 날짜로 고정해 재실행해도 덮어쓰기만 한다.
  */
 async function syncNoticesToNews() {
   if (!notices.length) return;
   const col = db.collection('news');
+  // 예전에 공지 하나당 문서를 따로 만들던 방식의 잔재가 있으면 정리하고 한 장으로 합친다
   const old = await col.where('bulletinDate', '==', date).get();
   const batch = db.batch();
   for (const d of old.docs) batch.delete(d.ref);
-  notices.slice(0, 20).forEach((n, i) => {
-    const ref = col.doc(`bulletin-${date}-${String(i).padStart(2, '0')}`);
-    batch.set(ref, {
-      category: 'notice',
-      title: n.title,
-      date,
-      body: n.body,
-      imageUrl: null,
-      url: `/bulletin?d=${date}`,
-      alert: false,
-      bulletinDate: date,
-    });
+  const [yr, mo, d0] = date.split('-').map(Number);
+  const body = notices.map((n, i) => `${i + 1}. ${n.title}\n${n.body}`).join('\n\n');
+  batch.set(col.doc(`bulletin-${date}`), {
+    category: 'notice',
+    // 기존(홈페이지 게시판 스크레이핑) 방식이 쓰던 표기와 그대로 맞춘다 —
+    // "교회 소식 · " 접두어가 있어야 소식 탭에서 배너 썸네일도 자동으로 붙는다.
+    title: `교회 소식 · ${yr}년 ${mo}월 ${d0}일`,
+    date,
+    body,
+    imageUrl: null,
+    url: `/bulletin?d=${date}`,
+    alert: false,
+    bulletinDate: date,
   });
   await batch.commit();
-  console.log(`[소식] 주보 교회소식 ${notices.length}건 → news 컬렉션 반영`);
+  console.log(`[소식] 주보 교회소식 ${notices.length}건 → news 컬렉션 카드 1건으로 반영`);
 }
 
 const existing = await db.doc(`bulletins/${date}`).get();
