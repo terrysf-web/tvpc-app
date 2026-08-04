@@ -860,8 +860,9 @@ const ORDER_LABELS = [
 const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
 const SCRIPTURE_LIKE = /\d{1,3}\s*[:：\-–~]\s*\d{1,3}|\d{1,3}\s*장/;
 const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권사)\s*$/;
-// '*'는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다 — 공백만 정리한다.
-const cleanText = (s) => s.replace(/\s+/g, ' ').trim();
+// '*'는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다. '¶'는 원본 디자인의 장식
+// 따옴표(“ ”)가 폰트 인식 오류로 깨져 나온 것이라 항상 제거한다.
+const cleanText = (s) => s.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** 1부/2부에서 서로 다른 항목의 두 칸(줄바꿈으로 이어붙임) — 마지막 두 ¶ 조각을 쓴다 */
 function orderVaryCols(detailLines) {
