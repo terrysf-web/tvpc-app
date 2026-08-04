@@ -6,7 +6,7 @@ import { colors, font, shadows } from '../theme';
 
 export interface SermonNoteHandle {
   /** 형광펜으로 표시한 구절을 메모 맨 끝에 이어붙인다 */
-  appendQuote(reference: string, text: string): void;
+  appendQuote(reference: string, text: string, verse: number): void;
   /** 형광펜을 해제한 구절의 인용 블록을 메모에서 지운다 (본문에 적은 메모는 그대로 둔다) */
   removeQuoteByReference(reference: string): void;
 }
@@ -205,6 +205,8 @@ interface Seg {
   kind: 'q' | 'm';
   /** kind='q'일 때만 — 구절 참조 표시(예: "빌립보서 2:5") */
   reference?: string;
+  /** kind='q'일 때만 — 본문 형광펜과 짝을 맞추기 위한 절 번호 */
+  verse?: number;
   text: string;
 }
 
@@ -219,12 +221,15 @@ function loadSegs(date: string): Seg[] {
       const raw = window.localStorage.getItem(noteKey(date));
       if (raw) {
         if (raw.startsWith('{"seg"')) {
-          const parsed = JSON.parse(raw) as { seg?: { k?: string; r?: string; x?: string }[] };
+          const parsed = JSON.parse(raw) as {
+            seg?: { k?: string; r?: string; v?: number; x?: string }[];
+          };
           for (const s of parsed.seg ?? []) {
             segs.push({
               id: id++,
               kind: s.k === 'q' ? 'q' : 'm',
               reference: s.r,
+              verse: typeof s.v === 'number' ? s.v : undefined,
               text: String(s.x ?? ''),
             });
           }
@@ -251,10 +256,10 @@ function loadSegs(date: string): Seg[] {
  * 한글 조합(IME) 안전을 위해 각 메모 칸은 비제어 입력 + 디바운스 저장.
  */
 export const SermonNoteCard = React.memo(
-  React.forwardRef<SermonNoteHandle, { date: string; visible?: boolean }>(function SermonNoteCard(
-    { date, visible },
-    ref,
-  ) {
+  React.forwardRef<
+    SermonNoteHandle,
+    { date: string; visible?: boolean; onRemoveQuote?: (verse: number) => void }
+  >(function SermonNoteCard({ date, visible, onRemoveQuote }, ref) {
     const [segs, setSegs] = useState<Seg[]>(() => loadSegs(date));
     const nextId = useRef(Math.max(0, ...segs.map((s) => s.id)) + 1);
     const vals = useRef<Record<number, string>>(
@@ -269,7 +274,7 @@ export const SermonNoteCard = React.memo(
       JSON.stringify({
         seg: list.map((s) =>
           s.kind === 'q'
-            ? { k: 'q', r: s.reference, x: s.text }
+            ? { k: 'q', r: s.reference, v: s.verse, x: s.text }
             : { k: 'm', x: vals.current[s.id] ?? s.text },
         ),
       });
@@ -331,10 +336,10 @@ export const SermonNoteCard = React.memo(
     }, [segs]);
 
     useImperativeHandle(ref, () => ({
-      appendQuote(reference: string, text: string) {
+      appendQuote(reference: string, text: string, verseNum: number) {
         setSegs((prev) => {
           if (prev.some((s) => s.kind === 'q' && s.reference === reference)) return prev;
-          const q: Seg = { id: nextId.current++, kind: 'q', reference, text };
+          const q: Seg = { id: nextId.current++, kind: 'q', reference, verse: verseNum, text };
           const last = prev[prev.length - 1];
           let next: Seg[];
           if (last && last.kind === 'm' && !(vals.current[last.id] ?? last.text).trim()) {
@@ -371,8 +376,13 @@ export const SermonNoteCard = React.memo(
 
     const removeQuote = (segId: number) => {
       setSegs((prev) => {
+        const target = prev.find((s) => s.id === segId);
         const next = prev.filter((s) => s.id !== segId);
         persist(next);
+        // 메모에서 인용을 지우면 본문 형광펜도 같이 꺼서 서로 어긋나지 않게 한다
+        if (target?.kind === 'q' && typeof target.verse === 'number') {
+          onRemoveQuote?.(target.verse);
+        }
         return next;
       });
     };

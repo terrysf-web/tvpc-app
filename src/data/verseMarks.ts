@@ -39,3 +39,19 @@ export function toggleHighlight(date: string, v: number, t: string): VerseHighli
   }
   return next;
 }
+
+/** 무조건 끄기 — 설교 메모에서 인용 블록을 지울 때, 이미 꺼져 있어도 안전하게 */
+export function removeHighlight(date: string, v: number): VerseHighlight[] {
+  const list = getHighlights(date);
+  const next = list.filter((h) => h.v !== v);
+  if (next.length === list.length) return list;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (next.length) window.localStorage.setItem(keyOf(date), JSON.stringify(next));
+      else window.localStorage.removeItem(keyOf(date));
+    }
+  } catch {
+    /* 저장 실패는 무시 */
+  }
+  return next;
+}

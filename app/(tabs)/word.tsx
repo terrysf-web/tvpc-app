@@ -21,7 +21,12 @@ import {
 import { useClockTick, useTodayVerse } from '../../src/data/hooks';
 import { firebaseEnabled } from '../../src/firebase';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
-import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
+import {
+  getHighlights,
+  removeHighlight,
+  toggleHighlight,
+  type VerseHighlight,
+} from '../../src/data/verseMarks';
 import { colors, font, shadows, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
@@ -78,7 +83,7 @@ export default function WordScreen() {
     setHls(next);
     if (turnedOn) {
       setTab('note');
-      sermonNoteRef.current?.appendQuote(verseRefLabel(p.verse), p.text);
+      sermonNoteRef.current?.appendQuote(verseRefLabel(p.verse), p.text, p.verse);
     } else {
       sermonNoteRef.current?.removeQuoteByReference(verseRefLabel(p.verse));
     }
@@ -242,7 +247,12 @@ export default function WordScreen() {
           {isBulletinDay && noteLines.length > 0 && (
             <FillInCard date={latestBulletinDate!} lines={noteLines} />
           )}
-          <SermonNoteCard ref={sermonNoteRef} date={noteDate} visible={tab === 'note'} />
+          <SermonNoteCard
+            ref={sermonNoteRef}
+            date={noteDate}
+            visible={tab === 'note'}
+            onRemoveQuote={(v) => setHls(removeHighlight(verse.date, v))}
+          />
           {isBulletinDay && shareQuestions.length > 0 && (
             <ShareQuestionsCard
               date={latestBulletinDate!}
