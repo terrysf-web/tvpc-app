@@ -13,6 +13,11 @@ import { colors, font, shadows } from '../src/theme';
  */
 type Row = { key: string; label: string; credit: string };
 
+// 관리자 업로드가 아니라 앱에 고정으로 넣은 그림 — Firestore 조회와 무관하게 항상 보여준다.
+const STATIC_ROWS: Row[] = [
+  { key: 'bulletinHero', label: '주보 · 이번주 말씀 카드 배경', credit: 'Canva' },
+];
+
 export default function CreditsScreen() {
   const insets = useSafeAreaInsets();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -23,7 +28,7 @@ export default function CreditsScreen() {
       try {
         const db = getDb();
         if (!db) {
-          if (on) setRows([]);
+          if (on) setRows([...STATIC_ROWS]);
           return;
         }
         await ensureAnonymousAuth();
@@ -40,9 +45,10 @@ export default function CreditsScreen() {
         add('weekday', '매일 말씀카드 배경', weekday);
         add('sunday', '주일예배 카드 배경', sunday);
         add('welcome', '웰컴 화면 배경', welcome);
+        found.push(...STATIC_ROWS);
         if (on) setRows(found);
       } catch {
-        if (on) setRows([]);
+        if (on) setRows([...STATIC_ROWS]);
       }
     })();
     return () => {
