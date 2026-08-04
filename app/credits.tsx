@@ -15,7 +15,7 @@ type Row = { key: string; label: string; credit: string };
 
 // 관리자 업로드가 아니라 앱에 고정으로 넣은 그림 — Firestore 조회와 무관하게 항상 보여준다.
 const STATIC_ROWS: Row[] = [
-  { key: 'bulletinHero', label: '주보 · 이번주 말씀 카드 배경', credit: 'Canva' },
+  { key: 'bulletinHero', label: '주보 · 이번주 말씀 카드 배경', credit: '디자인: Terry Seo · 소재: Canva' },
 ];
 
 export default function CreditsScreen() {
