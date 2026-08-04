@@ -497,7 +497,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             <View style={[styles.linkBtnIcon, { backgroundColor: colors.tagOrangeBg }]}>
               <ImageIcon size={17} color={colors.tagOrangeText} strokeWidth={2.2} />
             </View>
-            <Text style={styles.linkBtnText}>교회 앨범</Text>
+            <Text style={styles.linkBtnText}>교우 앨범</Text>
           </Pressable>
           <Pressable style={styles.linkBtn} onPress={() => router.push('/word')}>
             <View style={[styles.linkBtnIcon, { backgroundColor: colors.tagGrayBg }]}>
