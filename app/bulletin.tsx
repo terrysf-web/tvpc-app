@@ -218,20 +218,27 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     <>
       {bulletin.sermon ? (
         <View style={[styles.heroCard, shadows.hero]}>
+          <Image
+            source={{ uri: '/hero-sunday-bg.jpg' }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
           <View style={styles.heroBadge}>
             <Text style={styles.heroBadgeText}>이번주 말씀</Text>
           </View>
-          <Text style={styles.heroDate}>
-            {fmtKo(bulletin.date)}
-            {hasCommunion ? ' · 성찬식' : ''}
-          </Text>
-          {bulletin.sermon.title ? <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text> : null}
-          <Text style={styles.heroMeta}>
-            {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
-          </Text>
+          <View style={styles.heroMid}>
+            <Text style={styles.heroDate}>
+              {fmtKo(bulletin.date)}
+              {hasCommunion ? ' · 성찬식' : ''}
+            </Text>
+            {bulletin.sermon.title ? <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text> : null}
+            <Text style={styles.heroMeta}>
+              {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
+            </Text>
+          </View>
           <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
-            <Text style={styles.heroBtnText}>오늘 말씀 보기</Text>
-            <ChevronRight size={13} color={colors.primary} strokeWidth={2.4} />
+            <Text style={styles.heroBtnText}>성경말씀보기</Text>
+            <ChevronRight size={9} color="#FFF6ED" strokeWidth={2.6} />
           </Pressable>
         </View>
       ) : null}
@@ -793,46 +800,60 @@ const styles = StyleSheet.create({
 
   // ── 카드형 주보 내용 ──
   heroCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#F3E9DC',
     borderRadius: 16,
-    padding: 18,
     width: '100%',
+    aspectRatio: 900 / 506,
+    overflow: 'hidden',
+    position: 'relative',
   },
+  // 배경 그림(hero-sunday-bg.jpg)의 실제 장식선 위치를 픽셀 분석해서 맞춘 좌표:
+  // 위쪽 선 9.44%, 아래쪽 선 88.89% (그림 자체 비율 그대로라 잘리지 않는다)
   heroBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 7,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    position: 'absolute',
+    top: '9.44%',
+    left: '6.5%',
+    transform: [{ translateY: 6 }, { translateX: -8 }],
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  heroBadgeText: { fontFamily: font.bold, fontSize: 11, color: '#FFFFFF' },
+  heroBadgeText: { fontFamily: font.bold, fontSize: 10.5, color: '#5A3D2B' },
+  heroMid: {
+    position: 'absolute',
+    top: '9.44%',
+    left: '6.5%',
+    right: '34%',
+    transform: [{ translateY: 56 }],
+  },
   heroDate: {
     fontFamily: font.bold,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 10,
+    fontSize: 11.5,
+    color: '#8A6A4E',
   },
   heroTitle: {
     fontFamily: font.extraBold,
-    fontSize: 17,
-    lineHeight: 23,
-    color: '#FFFFFF',
-    marginTop: 8,
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: '#3A2A1D',
+    marginTop: 6,
   },
-  heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.88)', marginTop: 8 },
+  heroMeta: { fontFamily: font.medium, fontSize: 11, color: '#6B4A35', marginTop: 6 },
   heroBtn: {
+    position: 'absolute',
+    top: '88.89%',
+    right: '3.96%',
+    transform: [{ translateY: 3 }],
     flexDirection: 'row',
-    alignSelf: 'flex-start',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 9,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-    marginTop: 14,
+    gap: 3,
+    backgroundColor: '#6B4A35',
+    borderRadius: 7,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
   },
-  heroBtnText: { fontFamily: font.bold, fontSize: 12, color: colors.primary },
+  heroBtnText: { fontFamily: font.bold, fontSize: 9.5, color: '#FFF6ED' },
 
   contentCard: {
     width: '100%',
