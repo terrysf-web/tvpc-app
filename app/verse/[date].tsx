@@ -13,7 +13,9 @@ import {
   View,
 } from 'react-native';
 import { OverlayHeader } from '../../src/components/OverlayHeader';
+import { FillInCard, ShareQuestionsCard } from '../../src/components/SermonNoteCards';
 import { hasVerseNote, VerseNoteCard } from '../../src/components/VerseNoteCard';
+import { useBulletinNoteLines, useBulletinShareQuestions } from '../../src/data/bulletin';
 import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { ensureAnonymousAuth, getDb } from '../../src/firebase';
@@ -33,6 +35,11 @@ export default function VerseByDateScreen() {
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showFull, setShowFull] = useState(false);
+  // 이 화면은 항상 "그 날짜 하나"만 다룬다 — 오늘이 며칠이든 상관없이, 주일
+  // 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문을 그대로 함께 보여준다.
+  // (요일별 새벽 본문에는 이 문서가 아예 없어 자연히 빈 배열로 안 나온다.)
+  const { noteLines } = useBulletinNoteLines(date ?? null);
+  const { shareQuestions } = useBulletinShareQuestions(date ?? null);
 
   useEffect(() => {
     if (!date) return;
@@ -150,6 +157,14 @@ export default function VerseByDateScreen() {
             )}
           </View>
 
+          {/* 주일 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문도 함께 */}
+          {noteLines.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>괄호 채우기</Text>
+              <FillInCard date={verse.date} lines={noteLines} />
+            </>
+          )}
+
           {/* 저장한 말씀에는 형광펜 구절 + 메모만 — 장 전체는 원할 때만 펼친다 */}
           <Text style={styles.sectionTitle}>메모</Text>
           <VerseNoteCard
@@ -160,6 +175,13 @@ export default function VerseByDateScreen() {
             onQuoteRemoved={onQuoteRemoved}
             onAutoSaved={onNoteAutoSaved}
           />
+
+          {shareQuestions.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>나눔 질문</Text>
+              <ShareQuestionsCard date={verse.date} questions={shareQuestions} />
+            </>
+          )}
 
           {hls.length > 0 && (
             <Pressable style={styles.fullToggle} onPress={() => setShowFull((s) => !s)}>

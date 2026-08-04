@@ -247,7 +247,10 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
               {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
             </Text>
           </View>
-          <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
+          <Pressable
+            style={styles.heroBtn}
+            onPress={() => router.push(`/verse/${bulletin.date}`)}
+          >
             <Text style={styles.heroBtnText}>성경말씀보기</Text>
             <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
           </Pressable>
