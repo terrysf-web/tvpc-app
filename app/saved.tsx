@@ -39,6 +39,7 @@ export default function SavedVersesScreen() {
       removeSavedVerse(v.date).then(setItems);
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(`bulletinNote:${v.date}`);
           window.localStorage.removeItem(`verseNote:${v.date}`);
           window.localStorage.removeItem(`verseHl:${v.date}`);
         }

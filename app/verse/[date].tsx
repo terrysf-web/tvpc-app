@@ -96,6 +96,7 @@ export default function VerseByDateScreen() {
         toggleSavedVerse(entry).then(() => {
           try {
             if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.removeItem(`bulletinNote:${verse.date}`);
               window.localStorage.removeItem(`verseNote:${verse.date}`);
               window.localStorage.removeItem(`verseHl:${verse.date}`);
             }

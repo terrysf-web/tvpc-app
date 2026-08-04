@@ -20,6 +20,8 @@ interface Seg {
   kind: 'q' | 'm';
   /** kind='q'일 때 절 번호 */
   v?: number;
+  /** kind='q'일 때 구절 참조 표시 — 있으면 이걸 쓰고, 없으면 v로 계산해 표시 */
+  r?: string;
   text: string;
 }
 
@@ -31,34 +33,56 @@ export interface VerseNoteHandle {
   focus(): void;
 }
 
-const storeKey = (date: string) => `verseNote:${date}`;
+// 말씀 탭(word.tsx)의 "설교 메모"도 같은 날짜엔 같은 메모여야 하므로, 그쪽과
+// 똑같은 키를 쓴다 — 예전엔 여기만 'verseNote:'라는 다른 키를 썼어서, 주일에
+// 실시간으로 쓴 메모가 나중에 지난 주보에서 다시 열면 안 보이는 문제가 있었다.
+const storeKey = (date: string) => `bulletinNote:${date}`;
+const legacyKey = (date: string) => `verseNote:${date}`;
 
-/** 저장된 메모를 세그먼트로 읽는다 — 옛 형식(순수 문자열)도 허용 */
+function parseSegRaw(raw: string, id: { current: number }): Seg[] {
+  const segs: Seg[] = [];
+  if (raw.startsWith('{"seg"')) {
+    const parsed = JSON.parse(raw) as {
+      seg?: { k?: string; v?: number; r?: string; x?: string }[];
+    };
+    for (const s of parsed.seg ?? []) {
+      segs.push({
+        id: id.current++,
+        kind: s.k === 'q' ? 'q' : 'm',
+        v: s.v,
+        r: s.r,
+        text: String(s.x ?? ''),
+      });
+    }
+  } else {
+    segs.push({ id: id.current++, kind: 'm', text: raw });
+  }
+  return segs;
+}
+
+/** 저장된 메모를 세그먼트로 읽는다 — 옛 형식(순수 문자열)·옛 키('verseNote:')도 허용 */
 function loadSegs(date: string): Seg[] {
   let segs: Seg[] = [];
-  let id = 1;
+  const idRef = { current: 1 };
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const raw = window.localStorage.getItem(storeKey(date));
       if (raw) {
-        if (raw.startsWith('{"seg"')) {
-          const parsed = JSON.parse(raw) as { seg?: { k?: string; v?: number; x?: string }[] };
-          for (const s of parsed.seg ?? []) {
-            segs.push({
-              id: id++,
-              kind: s.k === 'q' ? 'q' : 'm',
-              v: s.v,
-              text: String(s.x ?? ''),
-            });
-          }
-        } else {
-          segs = [{ id: id++, kind: 'm', text: raw }];
+        segs = parseSegRaw(raw, idRef);
+      } else {
+        // 마이그레이션 — 예전 키에 있던 메모를 새 키로 한 번만 옮겨 쓴다
+        const legacyRaw = window.localStorage.getItem(legacyKey(date));
+        if (legacyRaw) {
+          segs = parseSegRaw(legacyRaw, idRef);
+          window.localStorage.setItem(storeKey(date), legacyRaw);
+          window.localStorage.removeItem(legacyKey(date));
         }
       }
     }
   } catch {
     segs = [];
   }
+  let id = idRef.current;
   // 형광펜 저장분 중 메모장에 없는 구절은 뒤에 붙인다 (버전 이행)
   for (const h of getHighlights(date)) {
     if (!segs.some((s) => s.kind === 'q' && s.v === h.v)) {
@@ -114,7 +138,7 @@ export const VerseNoteCard = React.memo(
     JSON.stringify({
       seg: list.map((s) =>
         s.kind === 'q'
-          ? { k: 'q', v: s.v, x: s.text }
+          ? { k: 'q', v: s.v, r: s.r, x: s.text }
           : { k: 'm', x: vals.current[s.id] ?? s.text },
       ),
     });
@@ -169,7 +193,7 @@ export const VerseNoteCard = React.memo(
     addQuote(v: number, t: string) {
       setSegs((prev) => {
         if (prev.some((s) => s.kind === 'q' && s.v === v)) return prev;
-        const q: Seg = { id: nextId.current++, kind: 'q', v, text: t };
+        const q: Seg = { id: nextId.current++, kind: 'q', v, r: refLabel(v), text: t };
         const last = prev[prev.length - 1];
         let next: Seg[];
         if (last && last.kind === 'm' && !(vals.current[last.id] ?? last.text).trim()) {
@@ -300,7 +324,7 @@ export const VerseNoteCard = React.memo(
             <View key={s.id} style={styles.quoteRow}>
               <Text style={styles.quoteText}>
                 {s.text}
-                <Text style={styles.quoteRef}> ({refLabel(s.v ?? 0)})</Text>
+                <Text style={styles.quoteRef}> ({s.r ?? refLabel(s.v ?? 0)})</Text>
               </Text>
               <Pressable onPress={() => removeByX(s.v ?? 0)} hitSlop={8} style={styles.quoteX}>
                 <X size={14} color="#8A6D00" strokeWidth={2} />
@@ -328,7 +352,7 @@ export function hasVerseNote(date: string): boolean {
 export function getVerseNoteText(date: string): string {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return '';
-    const raw = window.localStorage.getItem(storeKey(date));
+    const raw = window.localStorage.getItem(storeKey(date)) ?? window.localStorage.getItem(legacyKey(date));
     if (!raw) return '';
     if (!raw.startsWith('{"seg"')) return raw;
     const parsed = JSON.parse(raw) as { seg?: { k?: string; x?: string }[] };
