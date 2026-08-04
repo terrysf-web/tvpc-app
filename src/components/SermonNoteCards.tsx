@@ -7,6 +7,8 @@ import { colors, font, shadows } from '../theme';
 export interface SermonNoteHandle {
   /** 형광펜으로 표시한 구절을 메모 맨 끝에 이어붙인다 */
   appendQuote(reference: string, text: string): void;
+  /** 형광펜을 해제한 구절의 인용 블록을 메모에서 지운다 (본문에 적은 메모는 그대로 둔다) */
+  removeQuoteByReference(reference: string): void;
 }
 
 /**
@@ -345,6 +347,22 @@ export const SermonNoteCard = React.memo(
             next = [...prev, q, m];
             pendingFocus.current = m.id;
           }
+          persist(next);
+          return next;
+        });
+      },
+      removeQuoteByReference(reference: string) {
+        setSegs((prev) => {
+          const idx = prev.findIndex((s) => s.kind === 'q' && s.reference === reference);
+          if (idx === -1) return prev;
+          // 바로 뒤 메모 칸에 아직 아무것도 안 적었을 때만 구절+그 메모 칸을 함께 지운다.
+          // 뭔가 적어뒀으면 형광펜을 지워도 메모는 그대로 둔다 — 써둔 걸 실수로 잃지 않게.
+          const after = prev[idx + 1];
+          const afterEmpty =
+            after?.kind === 'm' && !(vals.current[after.id] ?? after.text).trim();
+          if (!afterEmpty) return prev;
+          const next = prev.filter((_, i) => i !== idx && i !== idx + 1);
+          delete vals.current[after.id];
           persist(next);
           return next;
         });

@@ -79,6 +79,8 @@ export default function WordScreen() {
     if (turnedOn) {
       setTab('note');
       sermonNoteRef.current?.appendQuote(verseRefLabel(p.verse), p.text);
+    } else {
+      sermonNoteRef.current?.removeQuoteByReference(verseRefLabel(p.verse));
     }
     if (next.length > 0) {
       ensureSavedVerse({
@@ -90,16 +92,12 @@ export default function WordScreen() {
   };
   const hlNums = new Set(hls.map((h) => h.v));
 
-  // 메모 탭 — 괄호 채우기·나눔 질문은 주일 주보에만 있는 내용이라 주보 날짜로
-  // 가져오되, 지금 보고 있는 게 그 주일 본문일 때만 보여준다(다른 날 새벽 본문
-  // 페이지에 주일 내용이 섞여 보이지 않게). 자유 메모(설교 메모)는 보고 있는
-  // 날짜(verse.date) 자체로 저장해야 새벽 본문 메모와 주일 메모가 서로 안 섞인다.
+  // 메모 탭 — 이번 주 주보의 괄호 채우기·설교 메모 (주보 날짜로 저장)
   const { dates: bulletinDates } = useBulletinDates(firebaseEnabled);
   const latestBulletinDate = bulletinDates[0] ?? null;
-  const isBulletinDay = latestBulletinDate != null && verse.date === latestBulletinDate;
   const { noteLines } = useBulletinNoteLines(latestBulletinDate);
   const { shareQuestions } = useBulletinShareQuestions(latestBulletinDate);
-  const noteDate = verse.date;
+  const noteDate = latestBulletinDate ?? verse.date;
 
   // 북마크 해제 시 형광펜이 있으면 실수로 잃지 않게 한 번 더 확인
   const onToggleSaved = () => {
@@ -232,21 +230,10 @@ export default function WordScreen() {
         {/* 메모 탭 — 이번 주 주보의 괄호 채우기·설교 메모. 탭을 오가도 상태가
             유지되게 숨김(display:none)으로만 감춘다 */}
         <View style={{ display: tab === 'note' ? 'flex' : 'none', gap: 14 }}>
-          <Text style={styles.hlHint}>
-            {isBulletinDay
-              ? '괄호 채우기·설교 메모·나눔 질문을 적을 수 있어요. 답은 이 전화기에만 저장됩니다.'
-              : '오늘 본문에 대한 메모를 적을 수 있어요. 답은 이 전화기에만 저장됩니다.'}
-          </Text>
-          {isBulletinDay && noteLines.length > 0 && (
-            <FillInCard date={latestBulletinDate!} lines={noteLines} />
-          )}
+          {noteLines.length > 0 && <FillInCard date={noteDate} lines={noteLines} />}
           <SermonNoteCard ref={sermonNoteRef} date={noteDate} visible={tab === 'note'} />
-          {isBulletinDay && shareQuestions.length > 0 && (
-            <ShareQuestionsCard
-              date={latestBulletinDate!}
-              questions={shareQuestions}
-              visible={tab === 'note'}
-            />
+          {shareQuestions.length > 0 && (
+            <ShareQuestionsCard date={noteDate} questions={shareQuestions} visible={tab === 'note'} />
           )}
         </View>
         {tab === 'med' && (
