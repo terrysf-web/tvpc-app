@@ -63,6 +63,9 @@ function hasNote(date: string): boolean {
 /** 날짜 칩으로 바로 보여줄 최근 주보 수 — 나머지는 '지난 주보' 목록으로 */
 const RECENT_CHIPS = 8;
 
+/** 히어로 카드 배경(hero-sunday-bg-v2.jpg) 가로:세로 비율 */
+const HERO_ASPECT = 1.4;
+
 /** 지난 주보 목록을 '2026년 7월'처럼 달별로 묶는다 */
 function byMonth(dates: string[]): { key: string; label: string; days: string[] }[] {
   const groups = new Map<string, string[]>();
@@ -179,6 +182,11 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
   const [noticesOpen, setNoticesOpen] = useState(false);
 
   const [svcTab, setSvcTab] = useState<'1' | '2'>('1');
+  // 히어로 카드 배경 그림 위 배지·버튼이 %로 위치를 잡는데, RN(web)에서
+  // aspectRatio만으로 정해진 높이는 절대위치 자식의 %가 잘못 계산되는
+  // 경우가 있어 — 실제 렌더된 폭을 재서 높이를 직접 픽셀로 계산해 넘긴다.
+  const [heroWidth, setHeroWidth] = useState(0);
+  const heroHeight = heroWidth > 0 ? heroWidth / HERO_ASPECT : undefined;
   const order = bulletin.order ?? [];
   const notices = bulletin.notices ?? [];
   const offering = bulletin.offering ?? null;
@@ -217,9 +225,12 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
   return (
     <>
       {bulletin.sermon ? (
-        <View style={[styles.heroCard, shadows.hero]}>
+        <View
+          style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
+          onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
+        >
           <Image
-            source={{ uri: '/hero-sunday-bg.jpg' }}
+            source={{ uri: '/hero-sunday-bg-v2.jpg' }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
@@ -803,11 +814,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E9DC',
     borderRadius: 16,
     width: '100%',
-    aspectRatio: 1.4,
+    aspectRatio: HERO_ASPECT,
     overflow: 'hidden',
     position: 'relative',
   },
-  // 배경 그림(hero-sunday-bg.jpg)은 위쪽 여백을 잘라내 아래쪽 선을 위로 올린 버전.
+  // 배경 그림(hero-sunday-bg-v2.jpg)은 위쪽 여백을 잘라내 아래쪽 선을 위로 올린 버전.
   // 카드 비율(1.4)이 그림 원본 비율(1.9)보다 좁아서, 세로는 잘리지 않고 양옆만
   // 살짝 잘린다 — 실제 선 위치를 픽셀 분석해 맞춘 좌표: 위쪽 선 2.67%, 아래쪽 선 87.75%
   heroBadge: {
