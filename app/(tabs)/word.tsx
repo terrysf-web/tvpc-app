@@ -228,6 +228,9 @@ export default function WordScreen() {
         {/* 메모 탭 — 이번 주 주보의 괄호 채우기·설교 메모. 탭을 오가도 상태가
             유지되게 숨김(display:none)으로만 감춘다 */}
         <View style={{ display: tab === 'note' ? 'flex' : 'none', gap: 14 }}>
+          <Text style={styles.hlHint}>
+            괄호 채우기·설교 메모·나눔 질문을 적을 수 있어요. 답은 이 전화기에만 저장됩니다.
+          </Text>
           {noteLines.length > 0 && <FillInCard date={noteDate} lines={noteLines} />}
           <SermonNoteCard ref={sermonNoteRef} date={noteDate} visible={tab === 'note'} />
           {shareQuestions.length > 0 && (
