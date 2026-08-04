@@ -238,7 +238,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           </View>
           <Pressable style={styles.heroBtn} onPress={() => router.push('/word')}>
             <Text style={styles.heroBtnText}>성경말씀보기</Text>
-            <ChevronRight size={9} color="#FFF6ED" strokeWidth={2.6} />
+            <ChevronRight size={11} color="#FFF6ED" strokeWidth={2.6} />
           </Pressable>
         </View>
       ) : null}
@@ -803,15 +803,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E9DC',
     borderRadius: 16,
     width: '100%',
-    aspectRatio: 900 / 506,
+    aspectRatio: 1.4,
     overflow: 'hidden',
     position: 'relative',
   },
-  // 배경 그림(hero-sunday-bg.jpg)의 실제 장식선 위치를 픽셀 분석해서 맞춘 좌표:
-  // 위쪽 선 9.44%, 아래쪽 선 88.89% (그림 자체 비율 그대로라 잘리지 않는다)
+  // 배경 그림(hero-sunday-bg.jpg)은 위쪽 여백을 잘라내 아래쪽 선을 위로 올린 버전.
+  // 카드 비율(1.4)이 그림 원본 비율(1.9)보다 좁아서, 세로는 잘리지 않고 양옆만
+  // 살짝 잘린다 — 실제 선 위치를 픽셀 분석해 맞춘 좌표: 위쪽 선 2.67%, 아래쪽 선 87.75%
   heroBadge: {
     position: 'absolute',
-    top: '9.44%',
+    top: '2.67%',
     left: '6.5%',
     transform: [{ translateY: 6 }, { translateX: -8 }],
     backgroundColor: 'rgba(255,255,255,0.4)',
@@ -822,10 +823,10 @@ const styles = StyleSheet.create({
   heroBadgeText: { fontFamily: font.bold, fontSize: 10.5, color: '#5A3D2B' },
   heroMid: {
     position: 'absolute',
-    top: '9.44%',
+    top: '46%',
     left: '6.5%',
     right: '34%',
-    transform: [{ translateY: 56 }],
+    transform: [{ translateY: -30 }],
   },
   heroDate: {
     fontFamily: font.bold,
@@ -842,18 +843,18 @@ const styles = StyleSheet.create({
   heroMeta: { fontFamily: font.medium, fontSize: 11, color: '#6B4A35', marginTop: 6 },
   heroBtn: {
     position: 'absolute',
-    top: '88.89%',
+    top: '87.75%',
     right: '3.96%',
-    transform: [{ translateY: 3 }],
+    transform: [{ translateY: 4 }],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
     backgroundColor: '#6B4A35',
-    borderRadius: 7,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
   },
-  heroBtnText: { fontFamily: font.bold, fontSize: 9.5, color: '#FFF6ED' },
+  heroBtnText: { fontFamily: font.bold, fontSize: 11, color: '#FFF6ED' },
 
   contentCard: {
     width: '100%',
