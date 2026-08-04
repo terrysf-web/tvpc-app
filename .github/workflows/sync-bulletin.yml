@@ -9,6 +9,11 @@ on:
     # (겨울 PST에는 한 시간 이른 토 16:45부터 시작 — 무해)
     - cron: '45 0-20 * * 0'
   workflow_dispatch:
+    inputs:
+      target_date:
+        description: '특정 지난 주보만 다시 처리(YYYY-MM-DD). 비워두면 항상 최신 주보를 찾음.'
+        required: false
+        type: string
 
 jobs:
   sync:
@@ -49,4 +54,5 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
           TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+          TARGET_BULLETIN_DATE: ${{ inputs.target_date }}
         run: node scripts/sync-bulletin.mjs

@@ -35,6 +35,17 @@ const ORIGIN = 'https://tvpc.church';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
+// 이미지로만 올라갔던 지난 주보를 8/2 이후처럼 구조화된 형태(예배 순서·설교·괄호
+// 채우기 등)로 다시 만들고 싶을 때: TARGET_BULLETIN_DATE=YYYY-MM-DD 로 지정하면
+// "최신 글"이 아니라 그 날짜의 "M/D/YYYY 주보" 게시글을 목록에서 찾아 처리한다.
+// 지정하지 않으면 기존과 동일하게 항상 최신 주보를 찾는다.
+const TARGET_DATE = process.env.TARGET_BULLETIN_DATE?.trim() || null;
+if (TARGET_DATE && !/^\d{4}-\d{2}-\d{2}$/.test(TARGET_DATE)) {
+  console.error(`  ✗ TARGET_BULLETIN_DATE 형식이 올바르지 않습니다: "${TARGET_DATE}" (YYYY-MM-DD)`);
+  process.exit(1);
+}
+if (TARGET_DATE) console.log(`[주보] 특정 날짜 지정: ${TARGET_DATE} 주보를 찾습니다.`);
+
 // ── 쿠키 유지 fetch ────────────────────────────────────────────
 const jar = new Map();
 function storeCookies(res) {
@@ -142,8 +153,10 @@ function dumpInteresting(list, html) {
 // PDF 직링크가 목록에 바로 있으면 그것부터, 없으면 최신 게시글로 들어가서 찾는다.
 const abs = (h) => (h.startsWith('http') ? h : ORIGIN + (h.startsWith('/') ? h : `/${h}`));
 const listUrl = `${ORIGIN}/wp/jubo/`;
-let pdfUrl = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
-let pdfLabel = anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
+// TARGET_DATE가 있으면 목록의 "가장 최근" PDF 직링크를 그냥 집어오면 안 되므로,
+// 이 지름길을 건너뛰고 아래 게시글 제목(날짜) 매칭 경로로 보낸다.
+let pdfUrl = TARGET_DATE ? null : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
+let pdfLabel = TARGET_DATE ? '' : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
 
 /** 게시글 HTML에서 주보 PDF 링크 찾기 — 없으면 null */
 function findPdfInPost(postHtml, postAnchors) {
@@ -191,7 +204,7 @@ if (!pdfUrl) {
     dated.push({ ...a, key: `${y}${mo.padStart(2, '0')}${d.padStart(2, '0')}` });
   }
   dated.sort((x, y) => y.key.localeCompare(x.key));
-  const candidates = dated.length
+  let candidates = dated.length
     ? dated
     : anchors.filter(
         (a) =>
@@ -199,6 +212,18 @@ if (!pdfUrl) {
           !/mod=(editor|remove)/.test(a.href) &&
           /주보/.test(a.text),
       );
+  if (TARGET_DATE) {
+    const targetKey = TARGET_DATE.replace(/-/g, '');
+    candidates = dated.filter((d) => d.key === targetKey);
+    if (!candidates.length) {
+      console.error(
+        `  ✗ ${TARGET_DATE} 날짜의 주보 게시글을 목록에서 찾지 못했습니다 ` +
+          `(게시글 제목이 "M/D/YYYY 주보" 형식의 날짜를 포함해야 합니다).`,
+      );
+      dumpInteresting(anchors, listHtml);
+      process.exit(1);
+    }
+  }
   if (!candidates.length) {
     console.error('  ✗ 주보 게시글 링크를 찾지 못했습니다.');
     dumpInteresting(anchors, listHtml);
@@ -269,7 +294,9 @@ function bulletinDate() {
   la.setDate(la.getDate() + ((7 - la.getDay()) % 7));
   return `${la.getFullYear()}-${String(la.getMonth() + 1).padStart(2, '0')}-${String(la.getDate()).padStart(2, '0')}`;
 }
-const date = bulletinDate();
+// TARGET_DATE로 지정했으면 추정하지 않고 그 날짜를 그대로 쓴다 (게시글 제목 매칭에서
+// 이미 검증됨). 지정하지 않았을 때만 URL/제목에서 날짜를 추정한다.
+const date = TARGET_DATE ?? bulletinDate();
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
