@@ -104,7 +104,10 @@ export default function NewsScreen() {
                 style={[styles.card, shadows.card]}
                 onPress={() => {
                   if (!n.url) return;
-                  if (n.url.includes('tvpc.church')) {
+                  if (n.url.startsWith('/')) {
+                    // 주보에서 가져온 소식 — 앱 안의 주보 화면으로 바로 이동
+                    router.push(n.url as Parameters<typeof router.push>[0]);
+                  } else if (n.url.includes('tvpc.church')) {
                     router.push({ pathname: '/browser', params: { url: n.url, t: n.title } });
                   } else {
                     openExternal(n.url);

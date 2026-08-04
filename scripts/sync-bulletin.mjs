@@ -1179,6 +1179,36 @@ try {
   console.log(`  ! 설교 노트 추출 실패(무해): ${e.message}`);
 }
 
+/**
+ * 주보의 "교회 소식"을 news 컬렉션(소식 탭 · 공지)에도 반영한다.
+ * 홈페이지의 별도 소식 게시판은 관리자가 깜빡 잊고 안 올리면 그대로 방치되지만,
+ * 주보는 매주 반드시 새로 만들어지는 문서라 이쪽을 기준으로 삼으면 소식 탭도
+ * 늘 최신을 유지한다. 문서 id를 주보 날짜+순번으로 고정해 재실행해도 중복 없이
+ * 덮어쓰고, bulletinDate로 그 주 것만 지웠다 다시 써서 개수가 줄어도 안 남는다.
+ */
+async function syncNoticesToNews() {
+  if (!notices.length) return;
+  const col = db.collection('news');
+  const old = await col.where('bulletinDate', '==', date).get();
+  const batch = db.batch();
+  for (const d of old.docs) batch.delete(d.ref);
+  notices.slice(0, 20).forEach((n, i) => {
+    const ref = col.doc(`bulletin-${date}-${String(i).padStart(2, '0')}`);
+    batch.set(ref, {
+      category: 'notice',
+      title: n.title,
+      date,
+      body: n.body,
+      imageUrl: null,
+      url: `/bulletin?d=${date}`,
+      alert: false,
+      bulletinDate: date,
+    });
+  });
+  await batch.commit();
+  console.log(`[소식] 주보 교회소식 ${notices.length}건 → news 컬렉션 반영`);
+}
+
 const existing = await db.doc(`bulletins/${date}`).get();
 if (existing.exists && existing.get('pdfHash') === pdfHash) {
   console.log(`완료: ${date} 주보는 이미 최신입니다 (변경 없음).`);
@@ -1203,6 +1233,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
     await db.doc(`bulletins/${date}`).set(patch, { merge: true });
     console.log(`  → 텍스트 내용 갱신: ${Object.keys(patch).join(', ')}`);
   }
+  await syncNoticesToNews();
   await writeStatus(false, '이미 최신 (변경 없음)');
   process.exit(0);
 }
@@ -1269,5 +1300,6 @@ await db.doc(`bulletins/${date}`).set({
   fridayReading,
   updatedAt: FieldValue.serverTimestamp(),
 });
+await syncNoticesToNews();
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
 console.log(`완료: ${date} 주보 ${ordered.length}페이지 등록`);
