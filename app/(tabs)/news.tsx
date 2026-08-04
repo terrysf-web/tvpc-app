@@ -122,7 +122,7 @@ export default function NewsScreen() {
                   <Text style={styles.title} numberOfLines={2}>
                     {n.title}
                   </Text>
-                  {n.body ? (
+                  {n.alert && n.body ? (
                     <Text style={styles.bodyPreview} numberOfLines={3}>
                       {n.body}
                     </Text>

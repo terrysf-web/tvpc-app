@@ -1203,7 +1203,8 @@ async function syncNoticesToNews() {
     date,
     body,
     imageUrl: null,
-    url: `/bulletin?d=${date}`,
+    // 주보 전체가 아니라 이 소식만 보여주는 전용 화면으로 연결한다
+    url: `/notices/${date}`,
     alert: false,
     bulletinDate: date,
   });
