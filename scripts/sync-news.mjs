@@ -360,21 +360,9 @@ async function fetchOgImage(url) {
   return img;
 }
 
-// ── 1. 소식(공지) 정리 ─────────────────────────────────────────
 // "교회 소식"은 더 이상 여기서 만들지 않는다 — sync-bulletin.mjs가 매주
-// 주보에서 채운다(id: bulletin-*). 예전에 홈페이지 게시판을 긁어와
-// 만들었던 문서(web-*, 행사 카드 web-ev-*는 제외)는 이제 갱신되지 않고
-// 낡은 채로 방치되니, 남아 있으면 지운다.
-{
-  const oldNotices = await db.collection('news').get();
-  let removed = 0;
-  for (const snap of oldNotices.docs) {
-    if (!snap.id.startsWith('web-') || snap.id.startsWith('web-ev-')) continue;
-    await snap.ref.delete();
-    removed++;
-  }
-  if (removed) console.log(`[소식] 홈페이지 게시판에서 가져왔던 옛 공지 ${removed}건 정리`);
-}
+// 주보에서 채운다(id: bulletin-*). 예전에 홈페이지 게시판을 긁어와 만들었던
+// 문서(web-*)는 더 이상 갱신하지 않을 뿐, 있던 건 그대로 둔다 — 지우지 않는다.
 
 // ── 2. 일정 ────────────────────────────────────────────────────
 // 달력 페이지(/wp/ko/calendar/)의 "달력 구독" 링크가 전체 일정 피드 —
