@@ -37,6 +37,7 @@ const HEAD_EXTRA = [
   '<link rel="preconnect" href="https://www.gstatic.com" crossorigin />',
   '<link rel="stylesheet" href="/fonts/pretendard.css" />',
   '<link rel="stylesheet" href="/fonts/nanum-brush.css" />',
+  '<link rel="stylesheet" href="/fonts/nanum-gothic.css" />',
 ].join('');
 html = html.replace('</head>', `${HEAD_EXTRA}</head>`);
 html = html.replace('</head>', `${TAGS}</head>`);

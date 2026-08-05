@@ -1,0 +1,3 @@
+/* 스플래시 표어 제목에 쓰는 볼드 나눔고딕 — 한글/영문 글꼴 파일을 나눠서 받는다. */
+@font-face{font-family:'NanumGothic-Bold';font-style:normal;font-display:swap;font-weight:700;src:url(/fonts/NanumGothic-Bold.korean.woff2) format('woff2')}
+@font-face{font-family:'NanumGothic-Bold';font-style:normal;font-display:swap;font-weight:700;src:url(/fonts/NanumGothic-Bold.latin.woff2) format('woff2')}
