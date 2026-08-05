@@ -128,14 +128,18 @@ export function BrandSplash() {
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.wrap, { opacity: fade }]}>
       <LinearGradient
-        colors={['#BDD7EF', '#D9E8F6', '#EFF5FB', '#F7FAFD']}
-        locations={[0, 0.34, 0.68, 1]}
+        colors={['#EFF5FB', '#F7FAFD']}
         style={StyleSheet.absoluteFill}
       />
       <View style={[StyleSheet.absoluteFill, styles.contentWrap]}>
-        <View style={{ flex: 1.3 }} />
-        <View style={styles.center}>
-          {/* motto 도착 전에도 자리를 미리 잡아둔다 — 나중에 나타나며 로고를 밀어내리지 않게 */}
+        {/* 담장 위로 해가 떠오르는 사진 배너 — "담장을 넘어" 표어를 그대로 그림으로 */}
+        <View style={styles.banner}>
+          <Image
+            source={{ uri: '/wall-banner-2026.jpg' }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+          {/* motto 도착 전에도 자리를 미리 잡아둔다 — 나중에 나타나며 배지가 밀리지 않게 */}
           <Animated.View style={[styles.mottoRow, { opacity: mottoFade }]}>
             {motto ? (
               <>
@@ -144,19 +148,29 @@ export function BrandSplash() {
                 </View>
                 <Text style={styles.mottoTitle}>{motto.title}</Text>
                 <Text style={styles.mottoSubtitle}>{motto.subtitle}</Text>
-                <Text style={styles.mottoVerse}>{motto.verse}</Text>
-                <Text style={styles.mottoReference}>{motto.reference}</Text>
               </>
             ) : null}
           </Animated.View>
-          <View style={styles.logoChip}>
-            {/* public/ 은 웹 루트로 그대로 나간다 — 앱 아이콘과 같은 교회 문양 */}
-            <Image source={{ uri: '/icon-512.png' }} style={styles.logo} contentFit="contain" />
-          </View>
+        </View>
+        {motto ? (
+          <Animated.View style={[styles.below, { opacity: mottoFade }]}>
+            <View style={styles.divider} />
+            <Text style={styles.mottoVerse}>{motto.verse}</Text>
+            <Text style={styles.mottoReference}>{motto.reference}</Text>
+          </Animated.View>
+        ) : (
+          <View style={styles.below} />
+        )}
+        <View style={styles.lower}>
+          {/* public/ 은 웹 루트로 그대로 나간다 — PC(USA) 공식 인장 */}
+          <Image
+            source={{ uri: '/pcusa_seal_3color_kor_lg.png' }}
+            style={styles.logo}
+            contentFit="contain"
+          />
           <Text style={styles.name}>트라이밸리 장로교회</Text>
           <Text style={styles.slogan}>{churchInfo.slogan}</Text>
         </View>
-        <View style={{ flex: 1 }} />
         <Text style={[styles.foot, { marginBottom: Math.max(insets.bottom, 12) + 12 }]}>
           © 2026 {churchInfo.nameEn}
         </Text>
@@ -166,69 +180,72 @@ export function BrandSplash() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { zIndex: 100, alignItems: 'center', justifyContent: 'center' },
+  wrap: { zIndex: 100 },
   contentWrap: { alignItems: 'stretch' },
-  mottoRow: { alignItems: 'center', paddingHorizontal: 24, marginBottom: 26, minHeight: 190, justifyContent: 'center' },
-  mottoBadge: {
-    backgroundColor: 'rgba(18,50,91,0.78)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 10,
+  banner: {
+    width: '100%',
+    height: '38%',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
-  mottoBadgeText: { fontFamily: font.bold, fontSize: 12, color: '#FFFFFF' },
+  mottoRow: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 42 },
+  mottoBadge: {
+    backgroundColor: 'rgba(18,50,91,0.82)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    marginBottom: 14,
+  },
+  mottoBadgeText: { fontFamily: font.bold, fontSize: 13.5, color: '#FFFFFF' },
   mottoTitle: {
-    fontFamily: font.extraBold,
-    fontSize: 19,
-    letterSpacing: -0.3,
-    color: '#122B4F',
+    fontFamily: 'NanumGothic-Bold',
+    fontSize: 30,
+    letterSpacing: -0.2,
+    color: '#16233A',
+    textShadowColor: 'rgba(255,255,255,0.85)',
+    textShadowRadius: 12,
+    textShadowOffset: { width: 0, height: 1 },
   },
   mottoSubtitle: {
-    fontFamily: font.bold,
-    fontSize: 14,
+    fontFamily: 'NanumGothic-Bold',
+    fontSize: 22,
     color: '#1E5AA8',
-    marginTop: 2,
+    marginTop: 5,
+    letterSpacing: 0.2,
+    textShadowColor: 'rgba(255,255,255,0.85)',
+    textShadowRadius: 12,
+    textShadowOffset: { width: 0, height: 1 },
   },
+  below: { width: '100%', alignItems: 'center', paddingHorizontal: 30, paddingTop: 22, minHeight: 118 },
+  divider: { width: 56, height: 2, backgroundColor: '#C9A24B', marginBottom: 15 },
   mottoVerse: {
     fontFamily: font.medium,
-    fontSize: 12.5,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 22,
     textAlign: 'center',
-    color: '#3A5A85',
-    marginTop: 14,
+    color: '#233650',
   },
   mottoReference: {
     fontFamily: font.bold,
-    fontSize: 11,
-    color: '#7590B5',
-    marginTop: 4,
+    fontSize: 12,
+    color: '#3A557E',
+    marginTop: 7,
   },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  logoChip: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  logo: { width: 70, height: 70 },
+  lower: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  logo: { width: 92, height: 92 },
   name: {
     fontFamily: font.extraBold,
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 24,
     letterSpacing: -0.3,
     textAlign: 'center',
     color: '#122B4F',
-    marginBottom: 12,
   },
-  slogan: { fontFamily: 'NanumBrushScript', fontSize: 34, color: '#0F3D75' },
+  slogan: { fontFamily: 'NanumBrushScript', fontSize: 33, color: '#0F3D75' },
   foot: {
     alignSelf: 'center',
     fontFamily: font.regular,
-    fontSize: 10.5,
+    fontSize: 12,
     color: '#8FA0B5',
   },
 });
