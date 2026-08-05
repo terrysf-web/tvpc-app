@@ -1,8 +1,8 @@
 import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
 import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
@@ -26,6 +26,28 @@ function fmtDate(d: string): string {
   return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+/** 관리자가 올린 소식 배너의 원본 가로세로 비율 — 정사각형으로 잘라내지 않고
+ * 올린 사진의 넓이 그대로 보여주기 위해 필요하다. */
+function useAspectRatio(uri: string | null): number | null {
+  const [ratio, setRatio] = useState<number | null>(null);
+  useEffect(() => {
+    if (!uri) {
+      setRatio(null);
+      return;
+    }
+    let on = true;
+    Image.getSize(
+      uri,
+      (w, h) => on && h > 0 && setRatio(w / h),
+      () => on && setRatio(null),
+    );
+    return () => {
+      on = false;
+    };
+  }, [uri]);
+  return ratio;
+}
+
 export default function NewsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -33,6 +55,8 @@ export default function NewsScreen() {
   const { events } = useEvents();
   // 관리자가 올린 소식 배너 — 교회 소식(주보 게시판) 카드의 썸네일로 쓴다
   const banner = useNewsBanner();
+  // 정사각형으로 잘라내지 않고 올린 사진의 넓이 그대로 보여준다
+  const bannerRatio = useAspectRatio(banner);
   const [tab, setTab] = useState<NewsTab>('notice');
 
   // 공지는 최근 게시순(이미 news 쿼리가 desc) 그대로, 행사는 각 행사 날짜(date)가
@@ -129,7 +153,17 @@ export default function NewsScreen() {
                   ) : null}
                   <Text style={styles.date}>{fmtDate(n.date)}</Text>
                 </View>
-                <PhotoSlot uri={thumbUri} alt={n.title} style={styles.thumb}>
+                <PhotoSlot
+                  uri={thumbUri}
+                  alt={n.title}
+                  style={[
+                    styles.thumb,
+                    isChurchNews && banner && bannerRatio
+                      ? { width: styles.thumb.height * bannerRatio }
+                      : null,
+                  ]}
+                  contentFit={isChurchNews && banner ? 'contain' : 'cover'}
+                >
                   {!thumbUri && (
                     <View style={styles.thumbIcon}>
                       {isChurchNews ? (
