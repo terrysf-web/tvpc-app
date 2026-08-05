@@ -147,7 +147,7 @@ export default function InfoScreen() {
         {key === 'newcomer' && (
           <>
             <View style={[styles.card, shadows.card]}>
-              <Text style={styles.welcomeTitle}>환영합니다! 🙌</Text>
+              <Text style={styles.welcomeTitle}>환영하고 축복합니다! 🙌</Text>
               <Text style={styles.paragraph}>
                 {churchInfo.nameKo}에 처음 오셨나요? 함께 예배하게 되어 기쁩니다.
               </Text>
