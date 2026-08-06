@@ -8,6 +8,7 @@ import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
 import Info from 'lucide-react-native/dist/esm/icons/info.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
 import MessageCircle from 'lucide-react-native/dist/esm/icons/message-circle.mjs';
+import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
 import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw.mjs';
 import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
 import UserRound from 'lucide-react-native/dist/esm/icons/user-round.mjs';
@@ -26,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
 import { canAddToHome, deviceKind, isStandalone, openInstallGuide } from '../../src/installPrompt';
+import { openExternal } from '../../src/links';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
@@ -164,6 +166,21 @@ export default function MoreScreen() {
         </Pressable>
       </View>
 
+      {/* 찬양앱 바로가기 */}
+      <Pressable
+        style={[styles.praiseCard, shadows.card]}
+        onPress={() => openExternal(churchInfo.praiseApp)}
+      >
+        <View style={[styles.gridChip, { backgroundColor: colors.tagPurpleBg, marginBottom: 0 }]}>
+          <Music size={20} color={colors.tagPurpleText} strokeWidth={1.9} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.gridLabel}>찬양앱</Text>
+          <Text style={styles.gridSub}>가사·악보를 확인해요</Text>
+        </View>
+        <ChevronRight size={18} color={colors.faint2} strokeWidth={1.9} />
+      </Pressable>
+
       {/* 데일리브레드 알림 */}
       {push.supported && (
         <View style={[styles.pushCard, shadows.card]}>
@@ -286,6 +303,16 @@ const styles = StyleSheet.create({
   gridLabel: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
   prayEmoji: { fontSize: 21, lineHeight: 26 },
   gridSub: { fontFamily: font.regular, fontSize: 12, color: colors.muted },
+
+  praiseCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+  },
 
   pushCard: {
     flexDirection: 'row',
