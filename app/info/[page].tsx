@@ -87,6 +87,12 @@ export default function InfoScreen() {
               <Text style={styles.churchNameEn}>{churchInfo.nameEn}</Text>
               <Text style={styles.paragraph}>{churchInfo.intro}</Text>
             </View>
+            <ActionRow
+              icon={<BookOpen size={20} color={colors.primary} strokeWidth={1.9} />}
+              label="교회 소개"
+              sub="비전 · 연혁 · 담임목사"
+              onPress={() => openInApp(churchInfo.pages.about, '교회 소개')}
+            />
 
             <Text style={styles.sectionTitle}>예배 시간 안내</Text>
             <View style={[styles.card, shadows.card]}>
@@ -154,12 +160,6 @@ export default function InfoScreen() {
             />
 
             <Text style={styles.sectionTitle}>더 알아보기</Text>
-            <ActionRow
-              icon={<BookOpen size={20} color={colors.primary} strokeWidth={1.9} />}
-              label="교회 소개 전체 보기"
-              sub="비전 · 연혁 · 섬기는 이들"
-              onPress={() => openInApp(churchInfo.pages.about, '교회 소개')}
-            />
             <ActionRow
               icon={<Globe size={20} color={colors.primary} strokeWidth={1.9} />}
               label="교회 홈페이지"
