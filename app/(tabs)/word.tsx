@@ -320,7 +320,7 @@ export default function WordScreen() {
         {/* 저장한 말씀 목록 */}
         <Pressable style={styles.actionBtnWide} onPress={() => router.push('/saved')}>
           <List size={18} color={colors.muted3} strokeWidth={1.9} />
-          <Text style={styles.actionBtnLabel}>저장한 말씀</Text>
+          <Text style={styles.actionBtnLabel}>저장한 메모</Text>
         </Pressable>
       </View>
     </View>
