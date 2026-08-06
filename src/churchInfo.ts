@@ -11,6 +11,8 @@ export const churchInfo = {
   phone: '925-227-0880',
   website: 'https://tvpc.church',
   youtube: 'https://www.youtube.com/@tri-valley',
+  /** 찬양 가사·악보 앱 — 별도 사이트 */
+  praiseApp: 'https://worship.tvpc.church',
 
   /** 교우 앨범(사진 주소록) PDF — 주보 QR과 동일. 새 앨범이 나오면 이 주소만 바꾸면 됨 */
   albumPdf: 'https://tvpc.church/ChurchDirectory/TVPC_2026_01.pdf',

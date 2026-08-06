@@ -9,6 +9,7 @@ import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
 import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
 import Moon from 'lucide-react-native/dist/esm/icons/moon.mjs';
 import MoonStar from 'lucide-react-native/dist/esm/icons/moon-star.mjs';
+import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
 import Sun from 'lucide-react-native/dist/esm/icons/sun.mjs';
 import Sunrise from 'lucide-react-native/dist/esm/icons/sunrise.mjs';
@@ -22,7 +23,13 @@ import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/da
 import { useServices } from '../../src/data/services';
 import { churchInfo } from '../../src/churchInfo';
 import { sundayPhase } from '../../src/churchTime';
-import { openLiveWorship, openWorshipReplay, playSermon, sermonThumb } from '../../src/links';
+import {
+  openExternal,
+  openLiveWorship,
+  openWorshipReplay,
+  playSermon,
+  sermonThumb,
+} from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
 import { setAppReady } from '../../src/appBoot';
@@ -198,6 +205,13 @@ export default function HomeScreen() {
           chipBg: colors.tagGreenBg,
           onPress: () => router.push('/offering'),
         },
+        {
+          key: 'praise',
+          label: '찬양앱',
+          icon: <Music size={21} color={colors.tagPurpleText} strokeWidth={1.9} />,
+          chipBg: colors.tagPurpleBg,
+          onPress: () => openExternal(churchInfo.praiseApp),
+        },
       ]
     : [
     {
@@ -227,6 +241,13 @@ export default function HomeScreen() {
       icon: <HandCoins size={21} color={colors.tagGreenText} strokeWidth={1.9} />,
       chipBg: colors.tagGreenBg,
       onPress: () => router.push('/offering'),
+    },
+    {
+      key: 'praise',
+      label: '찬양앱',
+      icon: <Music size={21} color={colors.tagPurpleText} strokeWidth={1.9} />,
+      chipBg: colors.tagPurpleBg,
+      onPress: () => openExternal(churchInfo.praiseApp),
     },
   ];
 
@@ -650,9 +671,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLink: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
-  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
   quickCard: {
-    flex: 1,
+    width: '31%',
     backgroundColor: colors.card,
     borderRadius: 15,
     paddingVertical: 9,

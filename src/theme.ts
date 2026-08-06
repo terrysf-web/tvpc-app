@@ -17,6 +17,8 @@ export const colors = {
   tagOrangeBg: '#FBEEDC',
   tagGrayText: '#6B7079',
   tagGrayBg: '#EEEEF1',
+  tagPurpleText: '#7C5CBF',
+  tagPurpleBg: '#F1ECFB',
 
   // 액센트
   heartActive: '#DC4B3E',
