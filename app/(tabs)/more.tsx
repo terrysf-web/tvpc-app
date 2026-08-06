@@ -2,19 +2,16 @@ import { useRouter } from 'expo-router';
 import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
 import Building2 from 'lucide-react-native/dist/esm/icons/building-2.mjs';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
-import CircleQuestionMark from 'lucide-react-native/dist/esm/icons/circle-question-mark.mjs';
 import Clock from 'lucide-react-native/dist/esm/icons/clock.mjs';
-import Copyright from 'lucide-react-native/dist/esm/icons/copyright.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Info from 'lucide-react-native/dist/esm/icons/info.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
 import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
 import MessageCircle from 'lucide-react-native/dist/esm/icons/message-circle.mjs';
 import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw.mjs';
-import Share2 from 'lucide-react-native/dist/esm/icons/share-2.mjs';
 import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
-import Upload from 'lucide-react-native/dist/esm/icons/upload.mjs';
 import UserRound from 'lucide-react-native/dist/esm/icons/user-round.mjs';
 import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
 import React from 'react';
@@ -23,7 +20,6 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Switch,
   Text,
@@ -32,7 +28,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
-import { exportMemoBackup, importMemoBackup } from '../../src/data/backup';
 import { canAddToHome, deviceKind, isStandalone, openInstallGuide } from '../../src/installPrompt';
 import { usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
@@ -45,12 +40,9 @@ const MENU = [
   { key: 'direction', label: '오시는 길', icon: MapPin },
   { key: 'album', label: '교우 앨범', icon: Images },
   { key: 'contact', label: '도움받기', icon: MessageCircle },
-  { key: 'backup', label: '내 메모 백업 (파일로 저장)', icon: Download },
-  { key: 'restore', label: '메모 가져오기 (백업 복원)', icon: Upload },
+  { key: 'memoBackup', label: '메모 백업/복원', icon: Download },
   { key: 'install', label: '홈 화면에 추가하기', icon: SquarePlus },
-  { key: 'share', label: '앱 공유하기', icon: Share2 },
-  { key: 'help', label: '앱 사용 안내서', icon: CircleQuestionMark },
-  { key: 'credits', label: '사진 출처', icon: Copyright },
+  { key: 'appInfo', label: '앱 정보', icon: Info },
   { key: 'refresh', label: '앱 새로고침 (최신 버전 불러오기)', icon: RefreshCw },
 ] as const;
 
@@ -79,43 +71,7 @@ export default function MoreScreen() {
     }
   };
 
-  const notify = (m: string) => {
-    if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(m);
-  };
-
   const onMenu = (key: (typeof MENU)[number]['key']) => {
-    if (key === 'backup') {
-      try {
-        const n = exportMemoBackup();
-        notify(
-          n > 0
-            ? `메모 ${n}건을 백업 파일로 저장했습니다. 파일을 잘 보관해 주세요.`
-            : '아직 백업할 메모가 없습니다.',
-        );
-      } catch {
-        notify('백업에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-      }
-      return;
-    }
-    if (key === 'restore') {
-      if (typeof document === 'undefined') return;
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json,.json';
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        try {
-          const n = await importMemoBackup(file);
-          notify(`메모 ${n}건을 되살렸습니다. 앱을 새로고침합니다.`);
-          window.location.reload();
-        } catch (e) {
-          notify(e instanceof Error ? e.message : '복원에 실패했습니다.');
-        }
-      };
-      input.click();
-      return;
-    }
     if (key === 'refresh') {
       // 홈 화면 앱(PWA)에는 새로고침 버튼이 없어 여기서 최신 버전을 다시 불러온다
       if (typeof window !== 'undefined') window.location.reload();
@@ -125,23 +81,16 @@ export default function MoreScreen() {
       openInstallGuide();
       return;
     }
-    if (key === 'share') {
-      Share.share({
-        message:
-          '트라이밸리 장로교회 앱 — 매일 말씀과 교회 소식을 받아보세요.\nhttps://app.tvpc.church',
-      }).catch(() => {});
+    if (key === 'memoBackup') {
+      router.push('/memo-backup');
       return;
     }
-    if (key === 'help') {
-      router.push('/help');
+    if (key === 'appInfo') {
+      router.push('/app-info');
       return;
     }
     if (key === 'album') {
       router.push('/album');
-      return;
-    }
-    if (key === 'credits') {
-      router.push('/credits');
       return;
     }
     const pages: Record<string, string> = {
