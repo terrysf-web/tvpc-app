@@ -2,18 +2,15 @@ import { useRouter } from 'expo-router';
 import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
 import Building2 from 'lucide-react-native/dist/esm/icons/building-2.mjs';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
-import Clock from 'lucide-react-native/dist/esm/icons/clock.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
 import Info from 'lucide-react-native/dist/esm/icons/info.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
-import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
 import MessageCircle from 'lucide-react-native/dist/esm/icons/message-circle.mjs';
 import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw.mjs';
 import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
 import UserRound from 'lucide-react-native/dist/esm/icons/user-round.mjs';
-import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -34,10 +31,7 @@ import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
-  { key: 'staff', label: '섬기는 이들', icon: Users },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
-  { key: 'service', label: '예배 시간 안내', icon: Clock },
-  { key: 'direction', label: '오시는 길', icon: MapPin },
   { key: 'album', label: '교우 앨범', icon: Images },
   { key: 'contact', label: '도움받기', icon: MessageCircle },
   { key: 'memoBackup', label: '메모 백업/복원', icon: Download },
@@ -95,10 +89,7 @@ export default function MoreScreen() {
     }
     const pages: Record<string, string> = {
       about: 'about',
-      staff: 'staff',
       newcomer: 'newcomer',
-      service: 'worship',
-      direction: 'directions',
       contact: 'contact',
     };
     router.push(`/info/${pages[key]}`);

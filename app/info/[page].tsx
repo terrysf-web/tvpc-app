@@ -18,14 +18,11 @@ import { useServices } from '../../src/data/services';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 
-type PageKey = 'about' | 'staff' | 'newcomer' | 'worship' | 'directions' | 'contact';
+type PageKey = 'about' | 'newcomer' | 'contact';
 
 const TITLES: Record<PageKey, string> = {
   about: '교회 소개',
-  staff: '섬기는 이들',
   newcomer: '새가족 안내',
-  worship: '예배 시간 안내',
-  directions: '오시는 길',
   contact: '도움받기',
 };
 
@@ -56,9 +53,7 @@ export default function InfoScreen() {
   const insets = useSafeAreaInsets();
   const { page } = useLocalSearchParams<{ page: string }>();
   const { services } = useServices();
-  const key = (
-    ['about', 'staff', 'newcomer', 'worship', 'directions', 'contact'] as PageKey[]
-  ).includes(page as PageKey)
+  const key = (['about', 'newcomer', 'contact'] as PageKey[]).includes(page as PageKey)
     ? (page as PageKey)
     : 'about';
 
@@ -92,29 +87,30 @@ export default function InfoScreen() {
               <Text style={styles.churchNameEn}>{churchInfo.nameEn}</Text>
               <Text style={styles.paragraph}>{churchInfo.intro}</Text>
             </View>
-            <ActionRow
-              icon={<BookOpen size={20} color={colors.primary} strokeWidth={1.9} />}
-              label="교회 소개 전체 보기"
-              sub="비전 · 연혁 · 섬기는 이들"
-              onPress={() => openInApp(churchInfo.pages.about, '교회 소개')}
-            />
-            <ActionRow
-              icon={<Globe size={20} color={colors.primary} strokeWidth={1.9} />}
-              label="교회 홈페이지"
-              sub="tvpc.church"
-              onPress={openSite}
-            />
-            <ActionRow
-              icon={<MonitorPlay size={20} color={colors.heartActive} strokeWidth={1.9} />}
-              label="유튜브 채널"
-              sub="@tri-valley"
-              onPress={openYoutube}
-            />
-          </>
-        )}
 
-        {key === 'staff' && (
-          <>
+            <Text style={styles.sectionTitle}>예배 시간 안내</Text>
+            <View style={[styles.card, shadows.card]}>
+              {services.map((s, i) => (
+                <View
+                  key={s.name}
+                  style={[styles.serviceRow, i < services.length - 1 && styles.serviceDivider]}
+                >
+                  <View style={styles.serviceChip}>
+                    <Clock size={17} color={colors.primary} strokeWidth={1.9} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.serviceName}>{s.name}</Text>
+                    <Text style={styles.servicePlace}>{s.place}</Text>
+                  </View>
+                  <Text style={styles.serviceTime}>{s.time}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.note}>
+              절기·행사에 따라 시간이 변경될 수 있습니다. 주보와 교회 소식을 확인해 주세요.
+            </Text>
+
+            <Text style={styles.sectionTitle}>섬기는 이들</Text>
             <View style={[styles.card, shadows.card]}>
               {churchInfo.staff.map((s) => (
                 <View key={s.name} style={styles.staffRow}>
@@ -138,9 +134,44 @@ export default function InfoScreen() {
               sub="사진과 소개 — 교회 홈페이지"
               onPress={() => openInApp(churchInfo.pages.staff, '교역자 소개')}
             />
-            <Text style={styles.note}>
-              교역자 정보는 교회 사무실({churchInfo.phone})을 통해 확인·업데이트됩니다.
-            </Text>
+
+            <Text style={styles.sectionTitle}>오시는 길</Text>
+            <View style={[styles.card, shadows.card]}>
+              <Text style={styles.addrLabel}>교회 주소</Text>
+              <Text style={styles.addr}>{churchInfo.address}</Text>
+            </View>
+            <ActionRow
+              icon={<MapPin size={20} color={colors.heartActive} strokeWidth={1.9} />}
+              label="지도 앱에서 열기"
+              sub="Google Maps"
+              onPress={openMap}
+            />
+            <ActionRow
+              icon={<Phone size={20} color={colors.tagGreenText} strokeWidth={1.9} />}
+              label="전화 문의"
+              sub={churchInfo.phone}
+              onPress={call}
+            />
+
+            <Text style={styles.sectionTitle}>더 알아보기</Text>
+            <ActionRow
+              icon={<BookOpen size={20} color={colors.primary} strokeWidth={1.9} />}
+              label="교회 소개 전체 보기"
+              sub="비전 · 연혁 · 섬기는 이들"
+              onPress={() => openInApp(churchInfo.pages.about, '교회 소개')}
+            />
+            <ActionRow
+              icon={<Globe size={20} color={colors.primary} strokeWidth={1.9} />}
+              label="교회 홈페이지"
+              sub="tvpc.church"
+              onPress={openSite}
+            />
+            <ActionRow
+              icon={<MonitorPlay size={20} color={colors.heartActive} strokeWidth={1.9} />}
+              label="유튜브 채널"
+              sub="@tri-valley"
+              onPress={openYoutube}
+            />
           </>
         )}
 
@@ -172,55 +203,6 @@ export default function InfoScreen() {
             <ActionRow
               icon={<Phone size={20} color={colors.tagGreenText} strokeWidth={1.9} />}
               label="새가족 문의 전화"
-              sub={churchInfo.phone}
-              onPress={call}
-            />
-          </>
-        )}
-
-        {key === 'worship' && (
-          <>
-            <View style={[styles.card, shadows.card]}>
-              {services.map((s, i) => (
-                <View
-                  key={s.name}
-                  style={[
-                    styles.serviceRow,
-                    i < services.length - 1 && styles.serviceDivider,
-                  ]}
-                >
-                  <View style={styles.serviceChip}>
-                    <Clock size={17} color={colors.primary} strokeWidth={1.9} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.serviceName}>{s.name}</Text>
-                    <Text style={styles.servicePlace}>{s.place}</Text>
-                  </View>
-                  <Text style={styles.serviceTime}>{s.time}</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={styles.note}>
-              절기·행사에 따라 시간이 변경될 수 있습니다. 주보와 교회 소식을 확인해 주세요.
-            </Text>
-          </>
-        )}
-
-        {key === 'directions' && (
-          <>
-            <View style={[styles.card, shadows.card]}>
-              <Text style={styles.addrLabel}>교회 주소</Text>
-              <Text style={styles.addr}>{churchInfo.address}</Text>
-            </View>
-            <ActionRow
-              icon={<MapPin size={20} color={colors.heartActive} strokeWidth={1.9} />}
-              label="지도 앱에서 열기"
-              sub="Google Maps"
-              onPress={openMap}
-            />
-            <ActionRow
-              icon={<Phone size={20} color={colors.tagGreenText} strokeWidth={1.9} />}
-              label="전화 문의"
               sub={churchInfo.phone}
               onPress={call}
             />
@@ -268,6 +250,13 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
 
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 18 },
+  sectionTitle: {
+    marginTop: 4,
+    fontFamily: font.extraBold,
+    fontSize: 15.5,
+    color: colors.title,
+    paddingHorizontal: 2,
+  },
   churchName: { fontFamily: font.extraBold, fontSize: 19, color: colors.title },
   churchNameEn: { marginTop: 2, fontFamily: font.medium, fontSize: 13, color: colors.muted2 },
   paragraph: {
