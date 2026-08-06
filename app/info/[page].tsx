@@ -90,31 +90,9 @@ export default function InfoScreen() {
             <ActionRow
               icon={<BookOpen size={20} color={colors.primary} strokeWidth={1.9} />}
               label="교회 소개"
-              sub="비전 · 연혁 · 담임목사"
+              sub="비전 · 연혁"
               onPress={() => openInApp(churchInfo.pages.about, '교회 소개')}
             />
-
-            <Text style={styles.sectionTitle}>예배 시간 안내</Text>
-            <View style={[styles.card, shadows.card]}>
-              {services.map((s, i) => (
-                <View
-                  key={s.name}
-                  style={[styles.serviceRow, i < services.length - 1 && styles.serviceDivider]}
-                >
-                  <View style={styles.serviceChip}>
-                    <Clock size={17} color={colors.primary} strokeWidth={1.9} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.serviceName}>{s.name}</Text>
-                    <Text style={styles.servicePlace}>{s.place}</Text>
-                  </View>
-                  <Text style={styles.serviceTime}>{s.time}</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={styles.note}>
-              절기·행사에 따라 시간이 변경될 수 있습니다. 주보와 교회 소식을 확인해 주세요.
-            </Text>
 
             <Text style={styles.sectionTitle}>섬기는 이들</Text>
             <View style={[styles.card, shadows.card]}>
@@ -140,6 +118,28 @@ export default function InfoScreen() {
               sub="사진과 소개 — 교회 홈페이지"
               onPress={() => openInApp(churchInfo.pages.staff, '교역자 소개')}
             />
+
+            <Text style={styles.sectionTitle}>예배 시간 안내</Text>
+            <View style={[styles.card, shadows.card]}>
+              {services.map((s, i) => (
+                <View
+                  key={s.name}
+                  style={[styles.serviceRow, i < services.length - 1 && styles.serviceDivider]}
+                >
+                  <View style={styles.serviceChip}>
+                    <Clock size={17} color={colors.primary} strokeWidth={1.9} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.serviceName}>{s.name}</Text>
+                    <Text style={styles.servicePlace}>{s.place}</Text>
+                  </View>
+                  <Text style={styles.serviceTime}>{s.time}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.note}>
+              절기·행사에 따라 시간이 변경될 수 있습니다. 주보와 교회 소식을 확인해 주세요.
+            </Text>
 
             <Text style={styles.sectionTitle}>오시는 길</Text>
             <View style={[styles.card, shadows.card]}>
