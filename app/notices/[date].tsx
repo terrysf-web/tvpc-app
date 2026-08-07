@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
-  headDate: { fontFamily: font.medium, fontSize: 11.5, color: colors.faint2 },
+  headDate: { fontFamily: font.bold, fontSize: 15, color: colors.muted },
   row: {
     flexDirection: 'row',
     gap: 10,
