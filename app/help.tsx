@@ -9,6 +9,7 @@ import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import HandCoins from 'lucide-react-native/dist/esm/icons/hand-coins.mjs';
 import Home from 'lucide-react-native/dist/esm/icons/house.mjs';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
 import PlayCircle from 'lucide-react-native/dist/esm/icons/circle-play.mjs';
 import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw.mjs';
 import SquarePlus from 'lucide-react-native/dist/esm/icons/square-plus.mjs';
@@ -221,12 +222,12 @@ export default function HelpScreen() {
       key: 'saved',
       icon: <Bookmark size={20} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
-      title: '저장한 말씀 다시 보기',
+      title: '저장한 메모 다시 보기',
       lines: [
-        '말씀 화면 아래쪽 「저장한 말씀 보기」를 누르시면 그동안 별표 해두신 말씀이 모여 있습니다.',
+        '말씀 화면 아래쪽 「저장한 메모」를 누르시면 그동안 별표 해두신 말씀과 메모가 모여 있습니다.',
         '그때 적어두신 메모도 함께 남아 있습니다.',
       ],
-      go: { label: '저장한 말씀 열기', to: '/saved' },
+      go: { label: '저장한 메모 열기', to: '/saved' },
     },
     {
       key: 'sermon',
@@ -348,8 +349,15 @@ export default function HelpScreen() {
       title: '전화기를 바꾸실 때',
       lines: [
         '메모와 괄호 채우기는 그 전화기에만 저장됩니다.',
-        '더보기 메뉴 › 「내 메모 백업」으로 파일을 저장해 두시고, 새 전화기에서 「메모 가져오기」로 되살리실 수 있습니다.',
+        '더보기 메뉴 › 「메모 백업/복원」에서 파일로 저장해 두시고, 새 전화기에서 같은 화면의 복원 버튼으로 되살리실 수 있습니다.',
       ],
+    },
+    {
+      key: 'praise',
+      icon: <Music size={20} color={colors.tagPurpleText} strokeWidth={1.9} />,
+      chipBg: colors.tagPurpleBg,
+      title: '찬양앱',
+      lines: ['더보기 메뉴 › 「찬양앱」을 누르면 가사·악보를 확인할 수 있는 사이트로 이동합니다.'],
     },
   ];
 
