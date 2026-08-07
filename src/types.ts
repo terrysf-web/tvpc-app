@@ -13,8 +13,11 @@ export interface VerseDoc {
   application: string[];
   prayer: string;
   imageUrl?: string | null;
-  /** 'auto' = 주보에서 자동 등록(개역개정 본문), 없으면 직접 등록 */
+  /** 'auto' = 주보에서 자동 등록, 없으면 직접 등록 */
   source?: string;
+  /** 자동 등록 본문의 번역본 — 'gae'=개역개정, 'krv'=개역한글(예전 자동 등록분).
+   *  없으면(예전 문서) 개역한글로 간주한다. */
+  translation?: 'gae' | 'krv';
 }
 
 export type SermonCategory = 'sermon' | 'podcast' | 'praise' | 'etc';

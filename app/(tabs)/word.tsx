@@ -198,12 +198,13 @@ export default function WordScreen() {
                 weekday: 'long',
               })}
             </Text>
-            {/* 자동 등록 본문의 번역본 표기 — 저작권 사용허가 조건에 따른 출처 표기 */}
+            {/* 자동 등록 본문의 번역본 표기 — 저작권 사용허가 조건에 따른 출처 표기.
+                translation 필드가 없는(개역개정 전환 전) 예전 문서는 개역한글로 표기한다. */}
             {verse.source === 'auto' && (
               <Text
                 style={[styles.versionTag, !verse.imageUrl && !bg.dark && styles.versionTagDark]}
               >
-                성경전서 개역개정판
+                {verse.translation === 'gae' ? '성경전서 개역개정판' : '성경전서 개역한글판'}
               </Text>
             )}
           </View>

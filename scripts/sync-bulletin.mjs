@@ -452,6 +452,7 @@ async function syncSundayReading() {
       `예수님의 이름으로 기도합니다. 아멘.`,
     imageUrl: null,
     source: 'auto',
+    translation: 'gae',
   });
   console.log(`[말씀] 주일 성경봉독 등록: ${date}  ${ref} (${picked.length}절)`);
 }
@@ -607,6 +608,7 @@ async function syncDawnVerses() {
         `예수님의 이름으로 기도합니다. 아멘.`,
       imageUrl: null,
       source: 'auto',
+      translation: 'gae',
     });
     console.log(`  ✓ ${vDate}  ${ref} (${verses.length}절)`);
     wrote++;
@@ -699,6 +701,7 @@ async function syncQtVerses(dates, bible, findBook) {
         `예수님의 이름으로 기도합니다. 아멘.`,
       imageUrl: null,
       source: 'auto',
+      translation: 'gae',
     });
     console.log(`  ✓ ${d}  ${ref} (${picked.length}절)`);
   }
