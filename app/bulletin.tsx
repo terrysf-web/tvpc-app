@@ -284,6 +284,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             icon={<ListChecks size={13} color={colors.tagBlueText} strokeWidth={2} />}
             tint={colors.tagBlueBg}
             title="예배 순서"
+            count={SERVICE_INFO.find((s) => s.tab === svcTab)?.label}
           />
           <View style={styles.svcTabRow}>
             {SERVICE_INFO.map((s) => (
