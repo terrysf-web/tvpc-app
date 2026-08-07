@@ -198,12 +198,12 @@ export default function WordScreen() {
                 weekday: 'long',
               })}
             </Text>
-            {/* 자동 등록 본문은 개역한글판 — 예배용 개역개정과 어투가 달라 표기해 둔다 */}
+            {/* 자동 등록 본문의 번역본 표기 — 저작권 사용허가 조건에 따른 출처 표기 */}
             {verse.source === 'auto' && (
               <Text
                 style={[styles.versionTag, !verse.imageUrl && !bg.dark && styles.versionTagDark]}
               >
-                성경전서 개역한글판
+                성경전서 개역개정판
               </Text>
             )}
           </View>

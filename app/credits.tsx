@@ -58,11 +58,22 @@ export default function CreditsScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="사진 출처" />
+      <OverlayHeader title="출처 및 저작권" />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* 대한성서공회 저작권 사용허가 조건에 따른 필수 표기 (2026.08.01~2027.07.31) */}
+        <View style={[styles.card, shadows.card]}>
+          <View style={styles.row}>
+            <Text style={styles.label}>성경 본문 · 「성경전서 개역개정판」</Text>
+            <Text style={styles.credit}>
+              본 제품에 사용한 「성경전서 개역개정판」의 저작권은 재단법인 대한성서공회
+              소유이며 재단법인 대한성서공회의 허락을 받고 사용하였음.
+            </Text>
+          </View>
+        </View>
+
         {rows === null ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
         ) : rows.length === 0 ? (

@@ -154,7 +154,7 @@ export default function VerseByDateScreen() {
             <Text style={styles.headTitle}>{verse.passageTitle}</Text>
             <Text style={styles.headDate}>{dateLabel(verse.date)}</Text>
             {verse.source === 'auto' && (
-              <Text style={styles.versionTag}>성경전서 개역한글판</Text>
+              <Text style={styles.versionTag}>성경전서 개역개정판</Text>
             )}
           </View>
 

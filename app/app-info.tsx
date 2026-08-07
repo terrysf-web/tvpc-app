@@ -56,8 +56,8 @@ export default function AppInfoScreen() {
               <Copyright size={19} color={colors.tagOrangeText} strokeWidth={1.9} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>사진 출처</Text>
-              <Text style={styles.sub}>앱에서 쓰는 배경 사진의 출처를 밝혀요</Text>
+              <Text style={styles.label}>출처 및 저작권</Text>
+              <Text style={styles.sub}>성경 본문·배경 사진의 출처를 밝혀요</Text>
             </View>
             <ChevronRight size={18} color={colors.faint2} strokeWidth={1.9} />
           </Pressable>

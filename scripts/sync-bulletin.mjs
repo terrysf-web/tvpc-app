@@ -303,7 +303,7 @@ writeFileSync(join(dir, 'in.pdf'), pdfBuf);
 
 // ── 3.5 주보의 새벽예배 본문표 → 매일 말씀(verses/{날짜}) 자동 등록 ──
 // 주보에 "화(21일) 수(22일) …" / "이사야 34장 이사야 35장 …" 두 줄이 있어
-// 각 요일의 본문을 개역한글 본문과 함께 등록한다. 목사님이 직접 올린 날은 건너뜀.
+// 각 요일의 본문을 개역개정 본문과 함께 등록한다. 목사님이 직접 올린 날은 건너뜀.
 /** pdftotext 결과 (한 번만 변환) — 아래 함수들이 공유한다 */
 let pdfTextCache = null;
 
@@ -320,11 +320,11 @@ try {
   console.log(`  ! 주일 성경봉독 등록 실패(주보 등록은 계속): ${e.message}`);
 }
 
-/** 개역한글 본문 로드 — 책이름 → 장별 절 배열 */
+/** 개역개정 본문 로드 — 책이름 → 장별 절 배열 */
 async function loadBible() {
   const { gunzipSync } = await import('node:zlib');
   const scriptDir = new URL('.', import.meta.url).pathname;
-  return JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'krv.json.gz'))).toString());
+  return JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'gae.json.gz'))).toString());
 }
 
 /** 숫자·한글 표기 차이(요한1서↔요한일서 등)를 허용해 책 이름 찾기 */
@@ -501,10 +501,10 @@ async function syncDawnVerses() {
       `본문 ${passages.map((p) => `${p.book}${p.chapter}@${Math.round(p.col)}`).join(' ')}`,
   );
 
-  // 개역한글 본문 로드 (책이름 → 장별 절 배열)
+  // 개역개정 본문 로드 (책이름 → 장별 절 배열)
   const { gunzipSync } = await import('node:zlib');
   const scriptDir = new URL('.', import.meta.url).pathname;
-  const bible = JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'krv.json.gz'))).toString());
+  const bible = JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'gae.json.gz'))).toString());
   // 숫자·한글 표기 차이(요한1서↔요한일서 등) 허용
   const norm = (s) =>
     s.replace(/\s/g, '').replace(/1서/, '일서').replace(/2서/, '이서').replace(/3서/, '삼서');
