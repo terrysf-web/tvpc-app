@@ -968,18 +968,36 @@ function extractDawnReadings(lines) {
   return { dawn, friday };
 }
 
-/** 2면 — 교회 소식(번호 매긴 공지) */
+/** 2면 — 교회 소식(번호 매긴 공지) + 그 아래 "교우 동정"(번호 없이 [태그] 본문 형식) —
+ * 교우 동정도 화면에서는 그냥 교회 소식 목록 맨 아래에 이어 붙인다(번호는 화면에서
+ * 다시 매기므로 원본 번호 유무는 상관없다). */
 function extractNotices(lines) {
   const notices = [];
   let cur = null;
+  let inTail = false; // "교우 동정" 제목을 지난 뒤
   for (const raw of lines) {
     const t = raw.trim();
     if (!t) continue;
-    const m = t.match(/^(\d{1,2})\s*[.．]\s*\[([^\]]+)\]\s*$/);
-    if (m) {
-      cur = { title: m[2].trim(), body: '' };
+    if (/^교우\s*동정$/.test(t)) {
+      inTail = true;
+      cur = null;
+      continue;
+    }
+    // "N. [제목] 본문…" — 본문이 같은 줄에 있을 수도, 다음 줄로 넘어갈 수도 있다
+    const numbered = t.match(/^(\d{1,2})\s*[.．]\s*\[([^\]]+)\]\s*(.*)$/);
+    if (numbered) {
+      cur = { title: numbered[2].trim(), body: numbered[3].trim() };
       notices.push(cur);
       continue;
+    }
+    // 교우 동정 구간엔 번호가 없다 — "[태그] 본문…" 형식만으로 새 항목 시작
+    if (inTail) {
+      const tagged = t.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (tagged) {
+        cur = { title: tagged[1].trim(), body: tagged[2].trim() };
+        notices.push(cur);
+        continue;
+      }
     }
     if (cur) cur.body = `${cur.body} ${t}`.trim();
   }
