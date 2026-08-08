@@ -22,7 +22,7 @@ import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
 import Wallet from 'lucide-react-native/dist/esm/icons/wallet.mjs';
 import Wine from 'lucide-react-native/dist/esm/icons/wine.mjs';
 import X from 'lucide-react-native/dist/esm/icons/x.mjs';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -178,13 +178,26 @@ function SectionTitle({
  * 추출에 실패한 항목은 그냥 비어 있으므로(빈 배열/undefined) 각 카드는 내용이
  * 있을 때만 나타난다.
  */
-function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
+function BulletinCards({
+  bulletin,
+  scrollRef,
+}: {
+  bulletin: Bulletin;
+  scrollRef?: React.RefObject<ScrollView | null>;
+}) {
   const router = useRouter();
   const { events } = useEvents();
   const { services } = useServices();
   const [noticesOpen, setNoticesOpen] = useState(false);
 
   const [svcTab, setSvcTab] = useState<'1' | '2'>('1');
+  // "오늘 예배 안내"에서 예배를 고르면 아래 "예배 순서" 카드가 화면에
+  // 다 들어오게 스크롤해 준다 — 탭만 바뀌고 화면은 그대로면 뭐가 바뀐 건지
+  // 어중간하게 보이기 쉬워서.
+  const orderCardY = useRef(0);
+  const scrollToOrder = () => {
+    scrollRef?.current?.scrollTo({ y: Math.max(orderCardY.current - 12, 0), animated: true });
+  };
   // 히어로 카드 배경 그림 위 배지·버튼이 %로 위치를 잡는데, RN(web)에서
   // aspectRatio만으로 정해진 높이는 절대위치 자식의 %가 잘못 계산되는
   // 경우가 있어 — 실제 렌더된 폭을 재서 높이를 직접 픽셀로 계산해 넘긴다.
@@ -273,6 +286,7 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             icon={<Clock size={13} color={colors.tagBlueText} strokeWidth={2} />}
             tint={colors.tagBlueBg}
             title="오늘 예배 안내"
+            count="누르면 예배 순서로 이동"
           />
           <View style={styles.svcSummaryRow}>
             {SERVICE_INFO.map((s) => {
@@ -285,7 +299,10 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
                     styles.svcSummaryCard,
                     active && { backgroundColor: accent.bg, borderColor: accent.solid },
                   ]}
-                  onPress={() => setSvcTab(s.tab)}
+                  onPress={() => {
+                    setSvcTab(s.tab);
+                    scrollToOrder();
+                  }}
                 >
                   <View style={styles.svcSummaryTopRow}>
                     <View style={styles.svcSummaryIconLabel}>
@@ -306,7 +323,12 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
       )}
 
       {order.length > 0 && (
-        <View style={[styles.contentCard, shadows.card]}>
+        <View
+          style={[styles.contentCard, shadows.card]}
+          onLayout={(e) => {
+            orderCardY.current = e.nativeEvent.layout.y;
+          }}
+        >
           <SectionTitle
             icon={<ListChecks size={13} color={colors.tagBlueText} strokeWidth={2} />}
             tint={colors.tagBlueBg}
@@ -560,6 +582,7 @@ export default function BulletinScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
   // 지난 주보는 주소에 날짜를 담아 연다 — 그래야 뒤로가기가 홈이 아니라
   // 이번 주 주보 화면으로 돌아온다(브라우저 뒤로가기·화면 밀기 모두 동일).
   const params = useLocalSearchParams<{ d?: string }>();
@@ -661,10 +684,11 @@ export default function BulletinScreen() {
         </View>
       ) : bulletin ? (
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[styles.pages, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
         >
-          {hasStructured ? <BulletinCards bulletin={bulletin} /> : null}
+          {hasStructured ? <BulletinCards bulletin={bulletin} scrollRef={scrollRef} /> : null}
 
           {hasStructured ? (
             <Pressable style={styles.toggleImagesBtn} onPress={() => setShowImages((v) => !v)}>
