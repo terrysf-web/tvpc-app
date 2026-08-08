@@ -234,8 +234,8 @@ function BulletinCards({
     return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
   };
   const SERVICE_INFO = [
-    { tab: '1' as const, short: '이른 비', label: '이른 비(1부)', time: '오전 8:50', Icon: Sun },
-    { tab: '2' as const, short: '큰 비', label: '큰 비(2부)', time: '오전 11:00', Icon: Cloud },
+    { tab: '1' as const, label: '이른 비(1부)', time: '오전 8:50', Icon: Sun },
+    { tab: '2' as const, label: '큰 비(2부)', time: '오전 11:00', Icon: Cloud },
   ];
   // 1부는 파랑, 2부는 초록 — 지금 어느 예배를 보고 있는지 색으로도 구분되게
   const SERVICE_ACCENT = {
@@ -356,7 +356,7 @@ function BulletinCards({
                   onPress={() => setSvcTab(s.tab)}
                 >
                   <Text style={[styles.svcTabText, active && styles.svcTabTextActive]}>
-                    {s.tab}부 {s.short}
+                    {s.label}
                   </Text>
                 </Pressable>
               );
