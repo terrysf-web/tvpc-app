@@ -65,11 +65,20 @@ export default function CreditsScreen() {
       >
         {/* 대한성서공회 저작권 사용허가 조건에 따른 필수 표기 (2026.08.01~2027.07.31) */}
         <View style={[styles.card, shadows.card]}>
-          <View style={styles.row}>
+          <View style={[styles.row, styles.rowDivider]}>
             <Text style={styles.label}>성경 본문 · 「성경전서 개역개정판」</Text>
             <Text style={styles.credit}>
               본 제품에 사용한 「성경전서 개역개정판」의 저작권은 재단법인 대한성서공회
               소유이며 재단법인 대한성서공회의 허락을 받고 사용하였음.
+            </Text>
+          </View>
+          {/* 야외예배 등 영어 병기 주보의 영어 성경 본문 — Biblica 인용 정책(500절
+              이하·저작물의 25% 미만)에 따라 별도 서면 허가 없이 이 표기만으로 사용 */}
+          <View style={styles.row}>
+            <Text style={styles.label}>English Scripture · NIV</Text>
+            <Text style={styles.credit}>
+              Scripture quotations taken from The Holy Bible, New International Version® NIV®
+              Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc.™ Used by permission.
             </Text>
           </View>
         </View>

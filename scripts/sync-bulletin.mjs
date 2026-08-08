@@ -982,6 +982,85 @@ function extractDawnReadings(lines) {
   return { dawn, friday };
 }
 
+const HAS_HANGUL = /[가-힣]/;
+const HYMN_HEADER = /^찬송가\s*(\d+)\s*장\s*\[([^\]]+)\]/;
+// "책이름 [English] 장:절" — 대괄호 안이 영문 책이름인 줄만 성경 본문 시작으로 본다
+const READING_HEADER = /^([가-힣A-Za-z0-9() ]+?)\s*\[([A-Za-z][^\]]*)\]\s*(\d+[:.]\d+(?:[-–]\d+)?)/;
+
+/**
+ * 1면 왼쪽 — 찬송가 가사·성경 본문 전체(있는 만큼만). 야외예배처럼 예배 순서와
+ * 별도로 가사·본문이 통째로 인쇄된 주보에만 있다 — 없으면 조용히 빈 배열.
+ * 언어는 줄에 한글이 있는지로 판정한다(한글 없으면 영어로 본다).
+ * orderFace·noticesFace는 "책이름 [영문] 장:절" 같은 참조 한 줄이 섞여 들어와
+ * 뒤따르는 무관한 줄까지 본문으로 삼켜버리므로 미리 제외해서 받는다.
+ */
+function extractHymnsAndScriptures(faces, excludeFaces) {
+  const hymns = new Map(); // 장 번호 → { number, titleKo, titleEn, lyricsKo:[], lyricsEn:[] }
+  const scriptures = new Map(); // "책이름 장:절" → { reference, textKo:[], textEn:[] }
+  const seen = new Set(); // 인쇄용으로 양면 중복된 페이지(영어 가사 삽지 등) 걸러내기
+
+  for (const f of faces) {
+    if (excludeFaces.includes(f)) continue;
+    const sig = f.join('\n');
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+
+    let cur = null; // { kind: 'hymn'|'scripture', key }
+    for (const raw of f) {
+      const t = raw.replace(/\s{2,}/g, ' ').trim();
+      if (!t) continue; // 문단 중간의 빈 span 줄 — cur는 끊지 않는다
+
+      const hm = t.match(HYMN_HEADER);
+      if (hm) {
+        const number = hm[1];
+        const title = hm[2].trim();
+        const lang = HAS_HANGUL.test(title) ? 'ko' : 'en';
+        if (!hymns.has(number)) {
+          hymns.set(number, { number, titleKo: '', titleEn: '', lyricsKo: [], lyricsEn: [] });
+        }
+        hymns.get(number)[lang === 'ko' ? 'titleKo' : 'titleEn'] = title;
+        cur = { kind: 'hymn', key: number };
+        continue;
+      }
+
+      const rm = t.match(READING_HEADER);
+      if (rm) {
+        const korBook = rm[1].trim();
+        const ref = rm[3].replace('.', ':');
+        const key = `${korBook} ${ref}`;
+        if (!scriptures.has(key)) scriptures.set(key, { reference: key, textKo: [], textEn: [] });
+        cur = { kind: 'scripture', key };
+        continue;
+      }
+
+      if (!cur) continue;
+      const lang = HAS_HANGUL.test(t) ? 'ko' : 'en';
+      if (cur.kind === 'hymn') hymns.get(cur.key)[lang === 'ko' ? 'lyricsKo' : 'lyricsEn'].push(t);
+      else scriptures.get(cur.key)[lang === 'ko' ? 'textKo' : 'textEn'].push(t);
+    }
+  }
+
+  // Firestore(Admin SDK)는 undefined 값을 못 받으므로 없는 필드는 null로 채운다
+  return {
+    hymns: [...hymns.values()]
+      .map((h) => ({
+        number: h.number,
+        titleKo: h.titleKo || null,
+        titleEn: h.titleEn || null,
+        lyricsKo: h.lyricsKo.join('\n') || null,
+        lyricsEn: h.lyricsEn.join('\n') || null,
+      }))
+      .filter((h) => h.lyricsKo || h.lyricsEn),
+    scriptures: [...scriptures.values()]
+      .map((r) => ({
+        reference: r.reference,
+        textKo: r.textKo.join(' ').trim() || null,
+        textEn: r.textEn.join(' ').trim() || null,
+      }))
+      .filter((r) => r.textKo || r.textEn),
+  };
+}
+
 /** 2면 — 교회 소식(번호 매긴 공지) + 그 아래 "교우 동정"(번호 없이 [태그] 본문 형식) —
  * 교우 동정도 화면에서는 그냥 교회 소식 목록 맨 아래에 이어 붙인다(번호는 화면에서
  * 다시 매기므로 원본 번호 유무는 상관없다). */
@@ -1167,13 +1246,17 @@ let duty = [];
 let staff = [];
 let dawnReadings = [];
 let fridayReading = null;
+let hymns = [];
+let scriptures = [];
 try {
   const faces = buildFaces();
   noteLines = extractNoteLines(faces);
   shareQuestions = extractShareQuestions(faces);
 
+  let orderFace = [];
+  let noticesFace = [];
   try {
-    const orderFace = findOrderFace(faces);
+    orderFace = findOrderFace(faces);
     const r = extractOrderAndSermon(orderFace);
     orderOfWorship = r.order;
     sermonInfo = r.sermon;
@@ -1186,13 +1269,22 @@ try {
     console.log(`  ! 예배 순서 추출 실패(무해): ${e.message}`);
   }
   try {
-    const noticesFace = faces.find(
+    noticesFace = faces.find(
       (f) => f.filter((l) => /^\d{1,2}\s*[.．]\s*\[/.test(l.trim())).length >= 2,
     ) ?? [];
     notices = extractNotices(noticesFace);
     if (notices.length) console.log(`[주보] 교회 소식 ${notices.length}건 추출`);
   } catch (e) {
     console.log(`  ! 교회 소식 추출 실패(무해): ${e.message}`);
+  }
+  try {
+    const hr = extractHymnsAndScriptures(faces, [orderFace, noticesFace]);
+    hymns = hr.hymns;
+    scriptures = hr.scriptures;
+    if (hymns.length) console.log(`[주보] 찬송가 가사 ${hymns.length}곡 추출`);
+    if (scriptures.length) console.log(`[주보] 성경 본문 ${scriptures.length}건 추출`);
+  } catch (e) {
+    console.log(`  ! 찬송가/성경 본문 추출 실패(무해): ${e.message}`);
   }
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
@@ -1267,6 +1359,8 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   patchIfChanged('staff', staff);
   patchIfChanged('dawnReadings', dawnReadings);
   patchIfChanged('fridayReading', fridayReading);
+  patchIfChanged('hymns', hymns);
+  patchIfChanged('scriptures', scriptures);
   if (Object.keys(patch).length) {
     await db.doc(`bulletins/${date}`).set(patch, { merge: true });
     console.log(`  → 텍스트 내용 갱신: ${Object.keys(patch).join(', ')}`);
@@ -1336,6 +1430,8 @@ await db.doc(`bulletins/${date}`).set({
   staff,
   dawnReadings,
   fridayReading,
+  hymns,
+  scriptures,
   updatedAt: FieldValue.serverTimestamp(),
 });
 await syncNoticesToNews();

@@ -73,6 +73,24 @@ export interface BulletinReading {
   passage: string;
 }
 
+/** 찬송가 가사 전체 — 야외예배 등 가사가 통째로 인쇄된 주보에만 있다.
+ * 한글/영어 중 그 주보에 실제로 인쇄된 언어만 채워진다. */
+export interface BulletinHymn {
+  number: string;
+  titleKo?: string;
+  titleEn?: string;
+  lyricsKo?: string;
+  lyricsEn?: string;
+}
+
+/** 성경 본문 전체 — "성경봉독" 항목의 참조(장·절)와 달리, 주보에 본문 텍스트
+ * 자체가 인쇄돼 있을 때만(주로 영어 병기 주간) 채워진다. */
+export interface BulletinScripture {
+  reference: string; // 예: "창세기 1:31"
+  textKo?: string;
+  textEn?: string;
+}
+
 export interface Bulletin {
   date: string; // YYYY-MM-DD
   /** 'test'면 시연용으로 만든 주보 — 화면에 실제 날짜 대신 "테스트 주보"로 표시 */
@@ -97,6 +115,10 @@ export interface Bulletin {
   dawnReadings?: BulletinReading[];
   /** 금요성령집회 본문 */
   fridayReading?: BulletinReading | null;
+  /** 찬송가 가사 전체(있는 주보만) — 예배 순서에서 항목을 누르면 펼쳐 보여준다 */
+  hymns?: BulletinHymn[];
+  /** 성경 본문 전체(있는 주보만) — 주로 영어 병기 주간 */
+  scriptures?: BulletinScripture[];
 }
 
 /** Firestore 문서 1MB 한도 아래로 유지 (base64 문자열 기준) */
@@ -322,6 +344,8 @@ export function useBulletin(
           staff: (docSnap.get('staff') as BulletinStaff[] | undefined) ?? [],
           dawnReadings: (docSnap.get('dawnReadings') as BulletinReading[] | undefined) ?? [],
           fridayReading: (docSnap.get('fridayReading') as BulletinReading | null | undefined) ?? null,
+          hymns: (docSnap.get('hymns') as BulletinHymn[] | undefined) ?? [],
+          scriptures: (docSnap.get('scriptures') as BulletinScripture[] | undefined) ?? [],
         });
       } catch {
         if (!cancelled) setMeta(null);

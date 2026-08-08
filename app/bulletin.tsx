@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Baby from 'lucide-react-native/dist/esm/icons/baby.mjs';
 import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
 import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
@@ -36,7 +37,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
-import type { Bulletin, BulletinDutyTable, BulletinReading } from '../src/data/bulletin';
+import type {
+  Bulletin,
+  BulletinDutyTable,
+  BulletinHymn,
+  BulletinReading,
+  BulletinScripture,
+} from '../src/data/bulletin';
 import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../src/data/bulletin';
 import { useEvents, useNews } from '../src/data/hooks';
 import { useServices } from '../src/data/services';
@@ -139,6 +146,13 @@ const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: str
   '결단의 찬양': Music,
   봉헌: Gift,
   축도: Hand,
+  // 야외예배 등 단일 예배 주보 — 항목 이름이 다르다
+  '참회의 기도/신앙고백': Hand,
+  '찬송 / 헌금': Music,
+  '어린이 설교': Baby,
+  '교회소식 / 새가족환영': Megaphone,
+  기도: Hand,
+  찬송: Music,
 };
 
 function OrderIcon({ name }: { name: string }) {
@@ -146,6 +160,52 @@ function OrderIcon({ name }: { name: string }) {
   return (
     <View style={styles.orderIconChip}>
       {Icon ? <Icon size={14} color={colors.primary} strokeWidth={2} /> : null}
+    </View>
+  );
+}
+
+/** 예배 순서 항목 문구에서 "찬송가 28장" 같은 표기를 찾아 그 곡의 가사를 붙인다 */
+function findHymnForItem(text: string, hymns: BulletinHymn[]): BulletinHymn | null {
+  const m = text.match(/찬송가\s*(\d+)\s*장/);
+  if (!m) return null;
+  return hymns.find((h) => h.number === m[1]) ?? null;
+}
+
+/** 항목 문구에서 "1:31" 같은 장·절을 찾아 그 본문을 붙인다(책 이름은 안 봐도
+ * 장·절이 같은 본문이 그 주에 하나뿐이라 사실상 이걸로 충분하다) */
+function findScriptureForItem(text: string, scriptures: BulletinScripture[]): BulletinScripture | null {
+  const m = text.match(/\d+\s*:\s*\d+(?:[-–]\d+)?/);
+  if (!m) return null;
+  const ref = m[0].replace(/\s+/g, '');
+  return scriptures.find((s) => s.reference.replace(/\s+/g, '').endsWith(ref)) ?? null;
+}
+
+/** 예배 순서 항목을 눌러 펼쳤을 때 — 가사·본문(있으면 한글/English 전환) */
+function OrderExpandPanel({ hymn, scripture }: { hymn?: BulletinHymn | null; scripture?: BulletinScripture | null }) {
+  const ko = hymn ? hymn.lyricsKo : scripture?.textKo;
+  const en = hymn ? hymn.lyricsEn : scripture?.textEn;
+  const [lang, setLang] = useState<'ko' | 'en'>(ko ? 'ko' : 'en');
+  const text = lang === 'ko' ? ko : en;
+  const both = !!ko && !!en;
+  return (
+    <View style={styles.expandPanel}>
+      {both && (
+        <View style={styles.expandLangRow}>
+          <Pressable
+            style={[styles.expandLangBtn, lang === 'ko' && styles.expandLangBtnActive]}
+            onPress={() => setLang('ko')}
+          >
+            <Text style={[styles.expandLangText, lang === 'ko' && styles.expandLangTextActive]}>한글</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.expandLangBtn, lang === 'en' && styles.expandLangBtnActive]}
+            onPress={() => setLang('en')}
+          >
+            <Text style={[styles.expandLangText, lang === 'en' && styles.expandLangTextActive]}>English</Text>
+          </Pressable>
+        </View>
+      )}
+      <Text style={styles.expandText}>{text ?? '—'}</Text>
     </View>
   );
 }
@@ -204,6 +264,11 @@ function BulletinCards({
   const [heroWidth, setHeroWidth] = useState(0);
   const heroHeight = heroWidth > 0 ? heroWidth / HERO_ASPECT : undefined;
   const order = bulletin.order ?? [];
+  // 찬송가 가사·성경 본문 전체 — 야외예배 등 특별 주보에만 있다. 있으면 예배
+  // 순서에서 해당 항목을 눌러 펼쳐 볼 수 있다.
+  const hymns = bulletin.hymns ?? [];
+  const scriptures = bulletin.scriptures ?? [];
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const notices = bulletin.notices ?? [];
   const offering = bulletin.offering ?? null;
   const todayKey = new Date().toLocaleDateString('en-CA');
@@ -362,13 +427,33 @@ function BulletinCards({
               );
             })}
           </View>
-          {order.map((item, i) => (
-            <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
-              <OrderIcon name={item.name} />
-              <Text style={styles.orderIconName}>{item.name}</Text>
-              <Text style={styles.orderIconDetail}>{svcDetail(item)}</Text>
-            </View>
-          ))}
+          {order.map((item, i) => {
+            const detail = svcDetail(item);
+            const hymn = hymns.length ? findHymnForItem(detail, hymns) : null;
+            const scripture = !hymn && scriptures.length ? findScriptureForItem(detail, scriptures) : null;
+            const expandable = !!(hymn || scripture);
+            const isOpen = expandable && expandedIdx === i;
+            const Row = expandable ? Pressable : View;
+            return (
+              <View key={i}>
+                <Row
+                  style={[styles.orderIconRow, i === order.length - 1 && !isOpen && styles.rowLast]}
+                  onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
+                >
+                  <OrderIcon name={item.name} />
+                  <Text style={styles.orderIconName}>{item.name}</Text>
+                  <Text style={styles.orderIconDetail}>{detail}</Text>
+                  {expandable &&
+                    (isOpen ? (
+                      <ChevronUp size={14} color={colors.muted3} strokeWidth={2.2} />
+                    ) : (
+                      <ChevronDown size={14} color={colors.muted3} strokeWidth={2.2} />
+                    ))}
+                </Row>
+                {isOpen && <OrderExpandPanel hymn={hymn} scripture={scripture} />}
+              </View>
+            );
+          })}
           {hasAsterisk && <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>}
         </View>
       )}
@@ -1042,6 +1127,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     marginTop: 8,
+  },
+
+  // 예배 순서 항목을 눌러 펼친 가사·본문
+  expandPanel: {
+    backgroundColor: colors.screenBg,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 9,
+  },
+  expandLangRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 9,
+    padding: 3,
+    marginBottom: 9,
+    alignSelf: 'flex-start',
+  },
+  expandLangBtn: { paddingVertical: 5, paddingHorizontal: 14, borderRadius: 7 },
+  expandLangBtnActive: { backgroundColor: colors.primary },
+  expandLangText: { fontFamily: font.bold, fontSize: 11.5, color: colors.muted },
+  expandLangTextActive: { color: '#FFFFFF' },
+  expandText: {
+    fontFamily: font.regular,
+    fontSize: 13,
+    lineHeight: 21,
+    color: colors.body,
   },
 
   readingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
