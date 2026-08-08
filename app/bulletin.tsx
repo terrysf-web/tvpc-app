@@ -213,13 +213,14 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
   const hasAsterisk = order.some(
     (item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*'),
   );
-  const svcDetail = (item: (typeof order)[number]) => {
+  const svcDetailFor = (item: (typeof order)[number], tab: '1' | '2') => {
     if (item.name === '성도의 교제') return '교회 소식';
     if (item.service1 || item.service2) {
-      return (svcTab === '1' ? item.service1 || item.service2 : item.service2 || item.service1) ?? '';
+      return (tab === '1' ? item.service1 || item.service2 : item.service2 || item.service1) ?? '';
     }
     return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
   };
+  const svcDetail = (item: (typeof order)[number]) => svcDetailFor(item, svcTab);
   const SERVICE_INFO = [
     { tab: '1' as const, short: '이른 비', label: '이른 비(1부)', time: '오전 8:50', Icon: Sun },
     { tab: '2' as const, short: '큰 비', label: '큰 비(2부)', time: '오전 11:00', Icon: Cloud },
@@ -343,10 +344,9 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
           {order.map((item, i) => {
             const otherTab = svcTab === '1' ? '2' : '1';
             const otherSvc = SERVICE_INFO.find((s) => s.tab === otherTab)!;
-            const otherText = svcTab === '1' ? item.service2 : item.service1;
-            const curText = svcDetail(item);
-            const differs =
-              !!item.service1 && !!item.service2 && item.service1.trim() !== item.service2.trim();
+            const curText = svcDetailFor(item, svcTab);
+            const otherText = svcDetailFor(item, otherTab);
+            const differs = curText.trim() !== '' && curText.trim() !== otherText.trim();
             return (
               <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
                 <OrderIcon name={item.name} />
