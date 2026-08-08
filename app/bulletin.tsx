@@ -299,20 +299,13 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
               </Pressable>
             ))}
           </View>
-          <View
-            style={[
-              styles.orderListPanel,
-              { backgroundColor: svcTab === '1' ? colors.tagPurpleBg : colors.tagOrangeBg },
-            ]}
-          >
-            {order.map((item, i) => (
-              <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
-                <OrderIcon name={item.name} />
-                <Text style={styles.orderIconName}>{item.name}</Text>
-                <Text style={styles.orderIconDetail}>{svcDetail(item)}</Text>
-              </View>
-            ))}
-          </View>
+          {order.map((item, i) => (
+            <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
+              <OrderIcon name={item.name} />
+              <Text style={styles.orderIconName}>{item.name}</Text>
+              <Text style={styles.orderIconDetail}>{svcDetail(item)}</Text>
+            </View>
+          ))}
           {hasAsterisk && <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>}
         </View>
       )}
@@ -929,12 +922,6 @@ const styles = StyleSheet.create({
   svcTabText: { fontFamily: font.bold, fontSize: 11.5, color: colors.muted },
   svcTabTextActive: { color: '#FFFFFF' },
 
-  // 탭 색만으로는 눈에 안 들어와서 목록 배경 자체를 1부/2부로 다르게 물들인다
-  orderListPanel: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    marginTop: 2,
-  },
   orderIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
