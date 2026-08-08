@@ -4,7 +4,9 @@ import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
 import ChevronUp from 'lucide-react-native/dist/esm/icons/chevron-up.mjs';
+import CircleCheck from 'lucide-react-native/dist/esm/icons/circle-check.mjs';
 import Clock from 'lucide-react-native/dist/esm/icons/clock.mjs';
+import Cloud from 'lucide-react-native/dist/esm/icons/cloud.mjs';
 import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import Gift from 'lucide-react-native/dist/esm/icons/gift.mjs';
 import Hand from 'lucide-react-native/dist/esm/icons/hand.mjs';
@@ -15,6 +17,7 @@ import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
 import Mic from 'lucide-react-native/dist/esm/icons/mic.mjs';
 import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
+import Sun from 'lucide-react-native/dist/esm/icons/sun.mjs';
 import Users from 'lucide-react-native/dist/esm/icons/users.mjs';
 import Wallet from 'lucide-react-native/dist/esm/icons/wallet.mjs';
 import Wine from 'lucide-react-native/dist/esm/icons/wine.mjs';
@@ -218,9 +221,16 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
     return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
   };
   const SERVICE_INFO = [
-    { tab: '1' as const, label: '이른 비(1부)', time: '오전 8:50' },
-    { tab: '2' as const, label: '큰 비(2부)', time: '오전 11:00' },
+    { tab: '1' as const, short: '이른 비', label: '이른 비(1부)', time: '오전 8:50', Icon: Sun },
+    { tab: '2' as const, short: '큰 비', label: '큰 비(2부)', time: '오전 11:00', Icon: Cloud },
   ];
+  // 1부는 파랑, 2부는 초록 — 지금 어느 예배를 보고 있는지 색으로도 구분되게
+  const SERVICE_ACCENT = {
+    '1': { solid: colors.primary, text: colors.tagBlueText, bg: colors.tagBlueBg },
+    '2': { solid: colors.tagGreenText, text: colors.tagGreenText, bg: colors.tagGreenBg },
+  } as const;
+  const curSvc = SERVICE_INFO.find((s) => s.tab === svcTab)!;
+  const curAccent = SERVICE_ACCENT[svcTab];
 
   return (
     <>
@@ -265,15 +275,32 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             title="오늘 예배 안내"
           />
           <View style={styles.svcSummaryRow}>
-            {SERVICE_INFO.map((s) => (
-              <View key={s.tab} style={styles.svcSummaryCard}>
-                <Text style={styles.svcSummaryLabel}>{s.label}</Text>
-                <View style={styles.svcSummaryTimeRow}>
-                  <Clock size={12} color={colors.primary} strokeWidth={2.2} />
-                  <Text style={styles.svcSummaryTime}>{s.time}</Text>
-                </View>
-              </View>
-            ))}
+            {SERVICE_INFO.map((s) => {
+              const active = svcTab === s.tab;
+              const accent = SERVICE_ACCENT[s.tab];
+              return (
+                <Pressable
+                  key={s.tab}
+                  style={[
+                    styles.svcSummaryCard,
+                    active && { backgroundColor: accent.bg, borderColor: accent.solid },
+                  ]}
+                  onPress={() => setSvcTab(s.tab)}
+                >
+                  <View style={styles.svcSummaryTopRow}>
+                    <View style={styles.svcSummaryIconLabel}>
+                      <s.Icon size={13} color={accent.text} strokeWidth={2.2} />
+                      <Text style={styles.svcSummaryLabel}>{s.label}</Text>
+                    </View>
+                    {active && <CircleCheck size={15} color={accent.solid} strokeWidth={2.2} />}
+                  </View>
+                  <View style={styles.svcSummaryTimeRow}>
+                    <Clock size={12} color={colors.primary} strokeWidth={2.2} />
+                    <Text style={styles.svcSummaryTime}>{s.time}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
       )}
@@ -284,28 +311,61 @@ function BulletinCards({ bulletin }: { bulletin: Bulletin }) {
             icon={<ListChecks size={13} color={colors.tagBlueText} strokeWidth={2} />}
             tint={colors.tagBlueBg}
             title="예배 순서"
-            count={SERVICE_INFO.find((s) => s.tab === svcTab)?.label}
           />
-          <View style={styles.svcTabRow}>
-            {SERVICE_INFO.map((s) => (
-              <Pressable
-                key={s.tab}
-                style={[styles.svcTabBtn, svcTab === s.tab && styles.svcTabBtnActive]}
-                onPress={() => setSvcTab(s.tab)}
-              >
-                <Text style={[styles.svcTabText, svcTab === s.tab && styles.svcTabTextActive]}>
-                  {s.label}
-                </Text>
-              </Pressable>
-            ))}
+
+          <View style={[styles.currentChip, { backgroundColor: curAccent.bg }]}>
+            <Text style={[styles.currentChipText, { color: curAccent.text }]}>현재 예배</Text>
           </View>
-          {order.map((item, i) => (
-            <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
-              <OrderIcon name={item.name} />
-              <Text style={styles.orderIconName}>{item.name}</Text>
-              <Text style={styles.orderIconDetail}>{svcDetail(item)}</Text>
-            </View>
-          ))}
+          <View style={styles.currentRow}>
+            <Text style={styles.currentName}>{curSvc.label}</Text>
+            <Text style={styles.currentTime}>{curSvc.time}</Text>
+          </View>
+
+          <View style={styles.svcTabRow}>
+            {SERVICE_INFO.map((s) => {
+              const active = svcTab === s.tab;
+              return (
+                <Pressable
+                  key={s.tab}
+                  style={[
+                    styles.svcTabBtn,
+                    active && { backgroundColor: SERVICE_ACCENT[s.tab].solid },
+                  ]}
+                  onPress={() => setSvcTab(s.tab)}
+                >
+                  <Text style={[styles.svcTabText, active && styles.svcTabTextActive]}>
+                    {s.tab}부 {s.short}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {order.map((item, i) => {
+            const otherTab = svcTab === '1' ? '2' : '1';
+            const otherSvc = SERVICE_INFO.find((s) => s.tab === otherTab)!;
+            const otherText = svcTab === '1' ? item.service2 : item.service1;
+            const curText = svcDetail(item);
+            const differs =
+              !!item.service1 && !!item.service2 && item.service1.trim() !== item.service2.trim();
+            return (
+              <View key={i} style={[styles.orderIconRow, i === order.length - 1 && styles.rowLast]}>
+                <OrderIcon name={item.name} />
+                <View style={styles.orderBody}>
+                  <View style={styles.orderMainRow}>
+                    <Text style={styles.orderIconName}>{item.name}</Text>
+                    <Text style={styles.orderIconDetail}>{curText}</Text>
+                  </View>
+                  {differs && (
+                    <Text style={styles.orderChange}>
+                      <Text style={styles.orderChangeLabel}>{otherSvc.tab}부 {otherSvc.short}에서 변경</Text>
+                      {' · '}
+                      {otherText}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
           {hasAsterisk && <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>}
         </View>
       )}
@@ -897,19 +957,44 @@ const styles = StyleSheet.create({
   cardCount: { fontFamily: font.medium, fontSize: 11.5, color: colors.faint2 },
   rowLast: { borderBottomWidth: 0 },
 
-  // 오늘 예배 안내 — 1부/2부 요약 2단
+  // 오늘 예배 안내 — 1부/2부 요약 2단. 지금 보고 있는 쪽만 색 배경 + 테두리 + 체크
   svcSummaryRow: { flexDirection: 'row', gap: 10 },
   svcSummaryCard: {
     flex: 1,
-    backgroundColor: colors.tagBlueBg,
+    backgroundColor: colors.screenBg,
     borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     padding: 12,
   },
+  svcSummaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  svcSummaryIconLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   svcSummaryLabel: { fontFamily: font.extraBold, fontSize: 13.5, color: colors.title },
   svcSummaryTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   svcSummaryTime: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
 
-  // 예배 순서 — 1부/2부 탭 + 아이콘 목록
+  // 예배 순서 — 현재 예배 표시 + 1부/2부 탭 + 아이콘 목록
+  currentChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    marginBottom: 5,
+  },
+  currentChipText: { fontFamily: font.bold, fontSize: 10.5 },
+  currentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  currentName: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
+  currentTime: { fontFamily: font.bold, fontSize: 12, color: colors.muted },
+
   svcTabRow: {
     flexDirection: 'row',
     backgroundColor: colors.screenBg,
@@ -918,7 +1003,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   svcTabBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9 },
-  svcTabBtnActive: { backgroundColor: colors.primary },
   svcTabText: { fontFamily: font.bold, fontSize: 11.5, color: colors.muted },
   svcTabTextActive: { color: '#FFFFFF' },
 
@@ -930,6 +1014,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+  orderBody: { flex: 1 },
+  orderMainRow: { flexDirection: 'row', alignItems: 'center' },
+  orderChange: {
+    fontFamily: font.medium,
+    fontSize: 10.5,
+    color: colors.muted,
+    textAlign: 'right',
+    marginTop: 3,
+  },
+  orderChangeLabel: { fontFamily: font.bold, color: colors.tagOrangeText },
   orderIconChip: {
     width: 28,
     height: 28,
