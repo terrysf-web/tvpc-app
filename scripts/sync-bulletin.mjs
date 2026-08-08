@@ -859,6 +859,9 @@ function splitPillar(raw) {
 const ORDER_LABELS = [
   '성도의 교제', '예배의 부름', '경배와 기도', '성찬식',
   '성경봉독', '설교', '결단의 찬양', '봉헌', '축도',
+  // 야외예배 등 1부/2부 구분 없는 단일 예배 주보 — 항목 이름 자체가 다르다.
+  // ('찬송 / 헌금'을 짧은 '찬송'보다 먼저 둬야 그 줄이 '찬송'으로 잘못 잘리지 않는다)
+  '참회의 기도/신앙고백', '찬송 / 헌금', '어린이 설교', '교회소식 / 새가족환영', '기도', '찬송',
 ];
 const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
 const SCRIPTURE_LIKE = /\d{1,3}\s*[:：\-–~]\s*\d{1,3}|\d{1,3}\s*장/;
@@ -900,10 +903,16 @@ function orderVaryCols(detailLines) {
 function extractOrderAndSermon(lines) {
   const raw = [];
   for (const line of lines) {
-    const t = line.trim();
+    // 야외예배 주보는 pdftohtml 스팬 사이 공백이 두 칸 이상으로 나오기도 해
+    // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음).
+    const t = line.trim().replace(/\s+/g, ' ');
     if (!t) continue;
     if (raw.length && /^\*\s*표는/.test(t)) break;
-    const label = ORDER_LABELS.find((l) => t.startsWith(l));
+    // 접두어만 보면 '찬송'이 '찬송가'까지 집어삼키므로, 라벨 바로 뒤가 공백·'*'·끝
+    // 중 하나일 때만(=단어 경계) 라벨로 인정한다.
+    const label = ORDER_LABELS.find(
+      (l) => t.startsWith(l) && (t.length === l.length || ' *'.includes(t[l.length])),
+    );
     if (label) raw.push({ name: label, detailLines: [t.slice(label.length)] });
     else if (raw.length) raw[raw.length - 1].detailLines.push(t);
   }
@@ -936,9 +945,14 @@ function extractOrderAndSermon(lines) {
     if (item.name === '성경봉독') return { name: item.name, shared: scripture };
     if (item.name === '설교') return { name: item.name, shared: preacher };
     if (VARY_LABELS.has(item.name)) return { name: item.name, ...orderVaryCols(item.detailLines) };
-    const shared = cleanText(
-      item.detailLines.flatMap((l) => l.split('¶')).map((s) => s.trim()).filter(Boolean).join(' · '),
-    );
+    // 라벨 바로 뒤에 붙어 있던 '*'가 조각으로 혼자 떨어져 나오면(예: "* · 인도자")
+    // 맨 앞이 아니라 맨 뒤에 붙여 "인도자*"처럼 자연스럽게 보이게 한다.
+    const pieces = item.detailLines
+      .flatMap((l) => l.split('¶'))
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const hasStar = pieces.some((p) => p === '*');
+    const shared = cleanText(pieces.filter((p) => p !== '*').join(' · ')) + (hasStar ? '*' : '');
     return { name: item.name, shared };
   });
 
