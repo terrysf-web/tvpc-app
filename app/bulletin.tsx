@@ -15,6 +15,7 @@ import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.m
 import ImageIcon from 'lucide-react-native/dist/esm/icons/image.mjs';
 import ListChecks from 'lucide-react-native/dist/esm/icons/list-checks.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
+import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
 import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
 import Mic from 'lucide-react-native/dist/esm/icons/mic.mjs';
 import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
@@ -135,6 +136,13 @@ function futureDutyTable(t: BulletinDutyTable, todayKey: string): BulletinDutyTa
     rows: t.rows.map((r) => ({ label: r.label, values: r.values.filter((_, i) => keep[i]) })),
   };
 }
+
+// 공지 본문이 "주보 뒷면 QR 코드"만 안내하는 경우 — 종이 주보에서나 되는 거라
+// 앱에는 스캔할 QR이 없다. 지도가 필요한 공지에 한해(2026-08-16 온가족
+// 야외예배) 제목으로 매칭해 "지도에서 보기" 버튼을 달아 준다.
+const NOTICE_MAP_LINKS: Record<string, string> = {
+  '온가족 야외예배 및 체육대회': 'https://www.google.com/maps/search/?api=1&query=Pleasanton+Sports+Complex',
+};
 
 /** 예배 순서 항목별 아이콘 — 못 찾으면 원(Circle) 자리만 비워둔다 */
 const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth: number }>> = {
@@ -494,17 +502,31 @@ function BulletinCards({
             title="교회 소식"
             count={`${notices.length}건`}
           />
-          {visibleNotices.map((n, i) => (
-            <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
-              <View style={styles.noticeNumBadge}>
-                <Text style={styles.noticeNumText}>{i + 1}</Text>
+          {visibleNotices.map((n, i) => {
+            const mapUrl = NOTICE_MAP_LINKS[n.title];
+            return (
+              <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
+                <View style={styles.noticeNumBadge}>
+                  <Text style={styles.noticeNumText}>{i + 1}</Text>
+                </View>
+                <View style={styles.noticeTextCol}>
+                  <Text style={styles.noticeTitle}>{n.title}</Text>
+                  <Text style={styles.noticeBody}>{n.body}</Text>
+                  {mapUrl && (
+                    <Pressable
+                      style={styles.mapLinkBtn}
+                      onPress={() =>
+                        router.push({ pathname: '/browser', params: { url: mapUrl, t: '오시는 길' } })
+                      }
+                    >
+                      <MapPin size={12} color={colors.primary} strokeWidth={2.2} />
+                      <Text style={styles.mapLinkText}>지도에서 보기</Text>
+                    </Pressable>
+                  )}
+                </View>
               </View>
-              <View style={styles.noticeTextCol}>
-                <Text style={styles.noticeTitle}>{n.title}</Text>
-                <Text style={styles.noticeBody}>{n.body}</Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
           {notices.length > 4 && (
             <Pressable style={styles.morePill} onPress={() => setNoticesOpen((v) => !v)}>
               <Text style={styles.morePillText}>
@@ -1228,6 +1250,18 @@ const styles = StyleSheet.create({
   noticeTextCol: { flex: 1 },
   noticeTitle: { fontFamily: font.bold, fontSize: 13, color: colors.body },
   noticeBody: { fontFamily: font.regular, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 18 },
+  mapLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginTop: 7,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  mapLinkText: { fontFamily: font.bold, fontSize: 11.5, color: colors.primary },
   morePill: {
     marginTop: 4,
     backgroundColor: colors.tagBlueBg,
