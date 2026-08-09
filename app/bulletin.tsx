@@ -30,6 +30,7 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -149,6 +150,11 @@ const NOTICE_MAP_LINKS: Record<string, string> = {
     '&destination=Pleasanton+Sports+Complex,+Sports+Park+Dr,+Pleasanton,+CA' +
     '&travelmode=driving',
 };
+// 교회에서 목적지까지 가는 길을 미리 그려 둔 지도 그림(관리자가 직접 올림) —
+// 있으면 링크 버튼 위에 그대로 보여준다.
+const NOTICE_MAP_IMAGES: Record<string, { uri: string; aspect: number }> = {
+  '온가족 야외예배 및 체육대회': { uri: '/outdoor-worship-location-2026.png', aspect: 1745 / 1197 },
+};
 
 /** 예배 순서 항목별 아이콘 — 못 찾으면 원(Circle) 자리만 비워둔다 */
 const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth: number }>> = {
@@ -264,6 +270,10 @@ function BulletinCards({
   const { events } = useEvents();
   const { services } = useServices();
   const [noticesOpen, setNoticesOpen] = useState(false);
+  // 공지에 붙인 지도 그림을 전체화면으로 볼 때 — 닫으면 그대로 주보로 돌아온다
+  const [mapImageOpen, setMapImageOpen] = useState<string | null>(null);
+  const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const [svcTab, setSvcTab] = useState<'1' | '2'>('1');
   // "오늘 예배 안내"에서 예배를 고르면 아래 "예배 순서" 카드가 화면에
@@ -510,6 +520,7 @@ function BulletinCards({
           />
           {visibleNotices.map((n, i) => {
             const mapUrl = NOTICE_MAP_LINKS[n.title];
+            const mapImage = NOTICE_MAP_IMAGES[n.title];
             return (
               <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
                 <View style={styles.noticeNumBadge}>
@@ -518,6 +529,15 @@ function BulletinCards({
                 <View style={styles.noticeTextCol}>
                   <Text style={styles.noticeTitle}>{n.title}</Text>
                   <Text style={styles.noticeBody}>{n.body}</Text>
+                  {mapImage && (
+                    <Pressable onPress={() => setMapImageOpen(mapImage.uri)}>
+                      <Image
+                        source={{ uri: mapImage.uri }}
+                        style={[styles.noticeMapThumb, { aspectRatio: mapImage.aspect }]}
+                        resizeMode="cover"
+                      />
+                    </Pressable>
+                  )}
                   {mapUrl && (
                     <Pressable
                       style={styles.mapLinkBtn}
@@ -707,6 +727,26 @@ function BulletinCards({
           </Pressable>
         </View>
       </View>
+
+      {/* 공지에 붙인 지도 그림 — 전체화면으로 크게 보고, 닫으면 주보로 돌아온다 */}
+      <Modal visible={!!mapImageOpen} transparent={false} animationType="fade">
+        <View style={styles.mapViewer}>
+          {mapImageOpen && (
+            <Image
+              source={{ uri: mapImageOpen }}
+              style={{ width: winWidth, height: winHeight }}
+              resizeMode="contain"
+            />
+          )}
+          <Pressable
+            style={[styles.mapViewerCloseBtn, { top: insets.top + 10 }]}
+            onPress={() => setMapImageOpen(null)}
+            hitSlop={10}
+          >
+            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+          </Pressable>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -1266,6 +1306,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   mapLinkText: { fontFamily: font.bold, fontSize: 11.5, color: colors.primary },
+  noticeMapThumb: {
+    width: '100%',
+    borderRadius: 10,
+    marginTop: 8,
+    backgroundColor: colors.tagGrayBg,
+  },
+  mapViewer: { flex: 1, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' },
+  mapViewerCloseBtn: {
+    position: 'absolute',
+    left: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   morePill: {
     marginTop: 4,
     backgroundColor: colors.tagBlueBg,
