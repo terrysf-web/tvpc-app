@@ -1125,6 +1125,7 @@ function extractOffering(lines) {
     const t = lines[i].trim();
     if (!t) continue;
     if (/예배위원\s*안내/.test(t)) break;
+    console.log(`      [헌금표 원본줄] ${JSON.stringify(t)}`); // TEMP DEBUG — 선교헌금 800.00 유실 원인 확인용
     const cols = splitPillar(t);
     const label = cols[0].replace(/\s+/g, '');
     if (!label) continue;
