@@ -15,7 +15,7 @@ import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.m
 import ImageIcon from 'lucide-react-native/dist/esm/icons/image.mjs';
 import ListChecks from 'lucide-react-native/dist/esm/icons/list-checks.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
-import MapPin from 'lucide-react-native/dist/esm/icons/map-pin.mjs';
+import Maximize2 from 'lucide-react-native/dist/esm/icons/maximize-2.mjs';
 import Megaphone from 'lucide-react-native/dist/esm/icons/megaphone.mjs';
 import Mic from 'lucide-react-native/dist/esm/icons/mic.mjs';
 import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
@@ -29,7 +29,6 @@ import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -141,19 +140,10 @@ function futureDutyTable(t: BulletinDutyTable, todayKey: string): BulletinDutyTa
 
 // 공지 본문이 "주보 뒷면 QR 코드"만 안내하는 경우 — 종이 주보에서나 되는 거라
 // 앱에는 스캔할 QR이 없다. 지도가 필요한 공지에 한해(2026-08-16 온가족
-// 야외예배) 제목으로 매칭해 "지도에서 보기" 버튼을 달아 준다. 교회에서
-// 출발하는 길찾기로 — 목적지만 검색되는 링크가 아니라 실제 오는 길을 보여준다.
-const NOTICE_MAP_LINKS: Record<string, string> = {
-  '온가족 야외예배 및 체육대회':
-    'https://www.google.com/maps/dir/?api=1' +
-    '&origin=5925+W.+Las+Positas+Blvd,+Pleasanton,+CA+94588' +
-    '&destination=Pleasanton+Sports+Complex,+Sports+Park+Dr,+Pleasanton,+CA' +
-    '&travelmode=driving',
-};
-// 교회에서 목적지까지 가는 길을 미리 그려 둔 지도 그림(관리자가 직접 올림) —
-// 있으면 링크 버튼 위에 그대로 보여준다.
+// 야외예배) 제목으로 매칭해, 교회에서 목적지까지 가는 길을 미리 그려 둔
+// 지도 그림(관리자가 직접 올림)을 보여준다. 누르면 전체화면으로 커진다.
 const NOTICE_MAP_IMAGES: Record<string, { uri: string; aspect: number }> = {
-  '온가족 야외예배 및 체육대회': { uri: '/outdoor-worship-location-2026.png', aspect: 1745 / 1197 },
+  '온가족 야외예배 및 체육대회': { uri: '/outdoor-worship-location-2026.png', aspect: 1740 / 1852 },
 };
 
 /** 예배 순서 항목별 아이콘 — 못 찾으면 원(Circle) 자리만 비워둔다 */
@@ -519,7 +509,6 @@ function BulletinCards({
             count={`${notices.length}건`}
           />
           {visibleNotices.map((n, i) => {
-            const mapUrl = NOTICE_MAP_LINKS[n.title];
             const mapImage = NOTICE_MAP_IMAGES[n.title];
             return (
               <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
@@ -530,21 +519,19 @@ function BulletinCards({
                   <Text style={styles.noticeTitle}>{n.title}</Text>
                   <Text style={styles.noticeBody}>{n.body}</Text>
                   {mapImage && (
-                    <Pressable onPress={() => setMapImageOpen(mapImage.uri)}>
+                    <Pressable
+                      style={styles.noticeMapThumbWrap}
+                      onPress={() => setMapImageOpen(mapImage.uri)}
+                    >
                       <Image
                         source={{ uri: mapImage.uri }}
                         style={[styles.noticeMapThumb, { aspectRatio: mapImage.aspect }]}
-                        resizeMode="cover"
+                        resizeMode="contain"
                       />
-                    </Pressable>
-                  )}
-                  {mapUrl && (
-                    <Pressable
-                      style={styles.mapLinkBtn}
-                      onPress={() => Linking.openURL(mapUrl)}
-                    >
-                      <MapPin size={12} color={colors.primary} strokeWidth={2.2} />
-                      <Text style={styles.mapLinkText}>지도에서 보기</Text>
+                      <View style={styles.noticeMapHint}>
+                        <Maximize2 size={11} color="#FFFFFF" strokeWidth={2.4} />
+                        <Text style={styles.noticeMapHintText}>크게 보기</Text>
+                      </View>
                     </Pressable>
                   )}
                 </View>
@@ -1294,24 +1281,24 @@ const styles = StyleSheet.create({
   noticeTextCol: { flex: 1 },
   noticeTitle: { fontFamily: font.bold, fontSize: 13, color: colors.body },
   noticeBody: { fontFamily: font.regular, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 18 },
-  mapLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    marginTop: 7,
-    backgroundColor: colors.tagBlueBg,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-  },
-  mapLinkText: { fontFamily: font.bold, fontSize: 11.5, color: colors.primary },
+  noticeMapThumbWrap: { marginTop: 8, borderRadius: 10, overflow: 'hidden' },
   noticeMapThumb: {
     width: '100%',
-    borderRadius: 10,
-    marginTop: 8,
     backgroundColor: colors.tagGrayBg,
   },
+  noticeMapHint: {
+    position: 'absolute',
+    right: 7,
+    bottom: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 7,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  noticeMapHintText: { fontFamily: font.bold, fontSize: 10.5, color: '#FFFFFF' },
   mapViewer: { flex: 1, backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' },
   mapViewerCloseBtn: {
     position: 'absolute',
