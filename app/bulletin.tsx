@@ -11,6 +11,7 @@ import Cloud from 'lucide-react-native/dist/esm/icons/cloud.mjs';
 import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import Gift from 'lucide-react-native/dist/esm/icons/gift.mjs';
 import Hand from 'lucide-react-native/dist/esm/icons/hand.mjs';
+import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import ImageIcon from 'lucide-react-native/dist/esm/icons/image.mjs';
 import ListChecks from 'lucide-react-native/dist/esm/icons/list-checks.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
@@ -270,6 +271,9 @@ function BulletinCards({
   const scriptures = bulletin.scriptures ?? [];
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const notices = bulletin.notices ?? [];
+  // 교우 동정(부고·이사·선교 등) — 교회 소식과 원본에서도 다른 카테고리라
+  // 따로 카드로 보여준다. 없는 주가 더 많다.
+  const familyNews = bulletin.familyNews ?? [];
   const offering = bulletin.offering ?? null;
   const todayKey = new Date().toLocaleDateString('en-CA');
   const duty = (bulletin.duty ?? [])
@@ -508,6 +512,24 @@ function BulletinCards({
               </Text>
             </Pressable>
           )}
+        </View>
+      )}
+
+      {familyNews.length > 0 && (
+        <View style={[styles.contentCard, shadows.card]}>
+          <SectionTitle
+            icon={<HeartHandshake size={13} color={colors.tagPurpleText} strokeWidth={2} />}
+            tint={colors.tagPurpleBg}
+            title="교우 동정"
+          />
+          {familyNews.map((n, i) => (
+            <View key={i} style={[styles.noticeRow, i === familyNews.length - 1 && styles.rowLast]}>
+              <View style={styles.familyTagChip}>
+                <Text style={styles.familyTagText}>{n.title}</Text>
+              </View>
+              <Text style={[styles.noticeBody, styles.familyBody]}>{n.body}</Text>
+            </View>
+          ))}
         </View>
       )}
 
@@ -1213,6 +1235,19 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     alignItems: 'center',
   },
+
+  // 교우 동정 — 번호 대신 [부고]/[이사]/[선교] 같은 태그 칩
+  familyTagChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.tagPurpleBg,
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  familyTagText: { fontFamily: font.extraBold, fontSize: 11, color: colors.tagPurpleText },
+  familyBody: { marginTop: 0 },
   morePillText: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
 
   giveHeaderRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.divider },

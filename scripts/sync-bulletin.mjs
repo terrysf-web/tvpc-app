@@ -1072,18 +1072,19 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
   };
 }
 
-/** 2면 — 교회 소식(번호 매긴 공지) + 그 아래 "교우 동정"(번호 없이 [태그] 본문 형식) —
- * 교우 동정도 화면에서는 그냥 교회 소식 목록 맨 아래에 이어 붙인다(번호는 화면에서
- * 다시 매기므로 원본 번호 유무는 상관없다). */
+/** 2면 — 교회 소식(번호 매긴 공지) + 그 아래 "교우 동정"(번호 없이 [태그] 본문
+ * 형식) — 둘은 원본에서도 제목이 다른 별개 카테고리라 따로 돌려준다. 교우
+ * 동정은 있는 주도 없는 주도 있다. */
 function extractNotices(lines) {
   const notices = [];
+  const familyNews = [];
   let cur = null;
-  let inTail = false; // "교우 동정" 제목을 지난 뒤
+  let list = notices; // "교우 동정" 제목을 만나면 familyNews로 바뀐다
   for (const raw of lines) {
     const t = raw.trim();
     if (!t) continue;
     if (/^교우\s*동정$/.test(t)) {
-      inTail = true;
+      list = familyNews;
       cur = null;
       continue;
     }
@@ -1091,24 +1092,26 @@ function extractNotices(lines) {
     const numbered = t.match(/^(\d{1,2})\s*[.．]\s*\[([^\]]+)\]\s*(.*)$/);
     if (numbered) {
       cur = { title: numbered[2].trim(), body: numbered[3].trim() };
-      notices.push(cur);
+      list.push(cur);
       continue;
     }
     // 교우 동정 구간엔 번호가 없다 — "[태그] 본문…" 형식만으로 새 항목 시작
-    if (inTail) {
+    if (list === familyNews) {
       const tagged = t.match(/^\[([^\]]+)\]\s*(.*)$/);
       if (tagged) {
         cur = { title: tagged[1].trim(), body: tagged[2].trim() };
-        notices.push(cur);
+        list.push(cur);
         continue;
       }
     }
     if (cur) cur.body = `${cur.body} ${t}`.trim();
   }
-  return notices
-    .map((n) => ({ title: n.title, body: n.body.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim() }))
-    .filter((n) => n.title && n.body)
-    .slice(0, 20);
+  const clean = (list2) =>
+    list2
+      .map((n) => ({ title: n.title, body: n.body.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim() }))
+      .filter((n) => n.title && n.body)
+      .slice(0, 20);
+  return { notices: clean(notices), familyNews: clean(familyNews) };
 }
 
 /** 3면 위 — 지난주일 헌금 표 */
@@ -1252,6 +1255,7 @@ let shareQuestions = [];
 let orderOfWorship = [];
 let sermonInfo = null;
 let notices = [];
+let familyNews = [];
 let offering = null;
 let duty = [];
 let staff = [];
@@ -1283,8 +1287,11 @@ try {
     noticesFace = faces.find(
       (f) => f.filter((l) => /^\d{1,2}\s*[.．]\s*\[/.test(l.trim())).length >= 2,
     ) ?? [];
-    notices = extractNotices(noticesFace);
+    const nr = extractNotices(noticesFace);
+    notices = nr.notices;
+    familyNews = nr.familyNews;
     if (notices.length) console.log(`[주보] 교회 소식 ${notices.length}건 추출`);
+    if (familyNews.length) console.log(`[주보] 교우 동정 ${familyNews.length}건 추출`);
   } catch (e) {
     console.log(`  ! 교회 소식 추출 실패(무해): ${e.message}`);
   }
@@ -1365,6 +1372,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   patchIfChanged('order', orderOfWorship);
   patchIfChanged('sermon', sermonInfo);
   patchIfChanged('notices', notices);
+  patchIfChanged('familyNews', familyNews);
   patchIfChanged('offering', offering);
   patchIfChanged('duty', duty);
   patchIfChanged('staff', staff);
@@ -1436,6 +1444,7 @@ await db.doc(`bulletins/${date}`).set({
   order: orderOfWorship,
   sermon: sermonInfo,
   notices,
+  familyNews,
   offering,
   duty,
   staff,

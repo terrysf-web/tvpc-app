@@ -105,6 +105,9 @@ export interface Bulletin {
   sermon?: BulletinSermon | null;
   /** 교회 소식(공지) */
   notices?: BulletinNotice[];
+  /** 교우 동정(부고·이사·선교 등) — 교회 소식과 원본에서도 다른 카테고리.
+   * 있는 주도 없는 주도 있다. */
+  familyNews?: BulletinNotice[];
   /** 지난주일 헌금 표 */
   offering?: BulletinOffering | null;
   /** 예배위원 안내(로테이션 표, 여러 주) */
@@ -339,6 +342,7 @@ export function useBulletin(
           order: (docSnap.get('order') as BulletinOrderItem[] | undefined) ?? [],
           sermon: (docSnap.get('sermon') as BulletinSermon | null | undefined) ?? null,
           notices: (docSnap.get('notices') as BulletinNotice[] | undefined) ?? [],
+          familyNews: (docSnap.get('familyNews') as BulletinNotice[] | undefined) ?? [],
           offering: (docSnap.get('offering') as BulletinOffering | null | undefined) ?? null,
           duty: (docSnap.get('duty') as BulletinDutyTable[] | undefined) ?? [],
           staff: (docSnap.get('staff') as BulletinStaff[] | undefined) ?? [],
