@@ -510,6 +510,11 @@ function BulletinCards({
           />
           {visibleNotices.map((n, i) => {
             const mapImage = NOTICE_MAP_IMAGES[n.title];
+            // 지도 그림을 바로 아래에 보여주는 공지는 "주보 뒷면 QR 코드" 안내가
+            // 더는 맞지 않으니 "아래 지도"로 바꿔 보여준다(원본 데이터는 그대로 둠)
+            const bodyText = mapImage
+              ? n.body.replace(/\(주보\s*뒷면\s*QR\s*코드\)/, '(아래 지도)')
+              : n.body;
             return (
               <View key={i} style={[styles.noticeRow, i === visibleNotices.length - 1 && styles.rowLast]}>
                 <View style={styles.noticeNumBadge}>
@@ -517,7 +522,7 @@ function BulletinCards({
                 </View>
                 <View style={styles.noticeTextCol}>
                   <Text style={styles.noticeTitle}>{n.title}</Text>
-                  <Text style={styles.noticeBody}>{n.body}</Text>
+                  <Text style={styles.noticeBody}>{bodyText}</Text>
                   {mapImage && (
                     <Pressable
                       style={styles.noticeMapThumbWrap}
