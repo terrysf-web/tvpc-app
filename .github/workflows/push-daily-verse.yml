@@ -4,11 +4,12 @@ name: Push daily verse
 
 on:
   schedule:
-    # 목표는 매일 아침 9시(태평양). 깃허브 예약 실행은 공용 대기줄이라
-    # 1시간 반~2시간 반씩 늦게 시작하는 일이 잦다(실측). 그래서 넉넉히
-    # 일찍(13:05 UTC = 태평양 6:05) 깨어난 뒤, 아래 '9시까지 대기'
+    # 목표는 매일 아침 8시(태평양) — 원래 9시였는데 주일 1부 예배(8:50)에
+    # 방해가 돼 8시로 당겼다. 깃허브 예약 실행은 공용 대기줄이라 1시간
+    # 반~2시간 반씩 늦게 시작하는 일이 잦다(실측). 그래서 넉넉히
+    # 일찍(12:05 UTC = 태평양 5:05) 깨어난 뒤, 아래 '8시까지 대기'
     # 단계에서 시각을 정확히 맞춰 보낸다.
-    - cron: '5 13 * * *'
+    - cron: '5 12 * * *'
   workflow_dispatch:
 
 jobs:
@@ -34,19 +35,19 @@ jobs:
         if: env.skip != 'true'
         run: npm install --no-save firebase-admin
 
-      # 예약 실행이 얼마나 늦게 시작하든 발송은 태평양 9:00 정각에 —
-      # 이미 9시가 지나 시작했다면 그냥 바로 보낸다.
+      # 예약 실행이 얼마나 늦게 시작하든 발송은 태평양 8:00 정각에 —
+      # 이미 8시가 지나 시작했다면 그냥 바로 보낸다.
       # (손으로 돌리는 workflow_dispatch 는 기다리지 않는다)
-      - name: Wait until 9:00 AM Pacific
+      - name: Wait until 8:00 AM Pacific
         if: env.skip != 'true' && github.event_name == 'schedule'
         run: |
-          target=$(TZ=America/Los_Angeles date -d '09:00' +%s)
+          target=$(TZ=America/Los_Angeles date -d '08:00' +%s)
           now=$(date +%s)
           if [ "$now" -lt "$target" ]; then
-            echo "태평양 9시까지 $(( (target - now) / 60 ))분 대기"
+            echo "태평양 8시까지 $(( (target - now) / 60 ))분 대기"
             sleep $((target - now))
           else
-            echo "이미 태평양 9시가 지나 바로 보냅니다"
+            echo "이미 태평양 8시가 지나 바로 보냅니다"
           fi
 
       - name: Send push
