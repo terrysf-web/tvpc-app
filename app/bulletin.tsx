@@ -29,6 +29,7 @@ import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -515,9 +516,7 @@ function BulletinCards({
                   {mapUrl && (
                     <Pressable
                       style={styles.mapLinkBtn}
-                      onPress={() =>
-                        router.push({ pathname: '/browser', params: { url: mapUrl, t: '오시는 길' } })
-                      }
+                      onPress={() => Linking.openURL(mapUrl)}
                     >
                       <MapPin size={12} color={colors.primary} strokeWidth={2.2} />
                       <Text style={styles.mapLinkText}>지도에서 보기</Text>
