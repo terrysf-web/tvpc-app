@@ -959,6 +959,12 @@ function extractOrderAndSermon(lines) {
   return { order, sermon: title || preacher || scripture ? { title, scripture, preacher } : null };
 }
 
+// 새벽예배 칸은 "책이름 N장" 아니면 QT 교재를 보는 "생명의 삶" 둘 중 하나뿐이다
+// (syncDawnVerses 쪽 주석 참고) — 칸 사이 공백이 몇 칸인지로 나누면 그 주 PDF의
+// 여백이 좁을 때(특히 '생명의 삶'이 연달아 나올 때) 옆 칸과 붙어버리므로,
+// 이 두 형태 자체를 패턴으로 찾아 나눈다.
+const DAWN_CELL = /\S+\s+\d+장|생명의\s*삶/g;
+
 /**
  * 1면 — 예배 순서 아래 "새벽예배 / 금요성령집회" 본문표. 요일 칸(화(4일) 등) 5개는
  * 새벽예배, 마지막 한 칸은 금요성령집회 — 본문 줄은 새벽예배 쪽은 여러 칸
@@ -971,7 +977,12 @@ function extractDawnReadings(lines) {
   const passageLine = lines[hdrIdx + 2].trim();
   const pillarParts = passageLine.split('¶').map((s) => s.trim());
   const fridayPassage = pillarParts.length > 1 ? pillarParts.pop() : '';
-  const dawnPassages = pillarParts.join(' ').split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+  const dawnText = pillarParts.join(' ');
+  const matched = [...dawnText.matchAll(DAWN_CELL)].map((m) => m[0].replace(/\s+/g, ' ').trim());
+  // 어느 칸도 "책 N장"/"생명의 삶" 형태가 아니면(예: 새 문구) 기존 방식으로 대체
+  const dawnPassages = matched.length
+    ? matched
+    : dawnText.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
   const dawn = [];
   const dawnCount = Math.max(0, days.length - 1);
   for (let i = 0; i < Math.min(dawnCount, dawnPassages.length); i++) {

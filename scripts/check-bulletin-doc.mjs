@@ -35,3 +35,14 @@ console.log('\n=== scriptures (요약) ===');
 console.log((d.scriptures ?? []).map((s) => ({ reference: s.reference, hasKo: !!s.textKo, hasEn: !!s.textEn })));
 console.log('\n=== notices (제목만) ===');
 console.log((d.notices ?? []).map((n) => n.title));
+
+console.log('\n=== 새벽예배 QT 확인 (verses/2026-08-14, 2026-08-15) ===');
+for (const vd of ['2026-08-14', '2026-08-15']) {
+  const v = await db.doc(`verses/${vd}`).get();
+  if (!v.exists) {
+    console.log(`${vd}: 문서 없음`);
+    continue;
+  }
+  const vv = v.data();
+  console.log(`${vd}: reference=${vv.reference} source=${vv.source} passageTitle=${vv.passageTitle}`);
+}
