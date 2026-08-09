@@ -166,6 +166,30 @@ const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: str
   찬송: Music,
 };
 
+// 단일 예배(야외예배 등) 주보에서 한글/English 전환 시 쓰는 항목 이름 번역.
+// 영어부 주보 문구를 참고했고("Call to Worship", "Announcements" 등은 그대로 가져옴),
+// 영어부 주보에 없던 항목(참회의 기도/신앙고백·어린이 설교·기도)은 직접 옮겼다.
+// 그 주의 세부 내용(설교자·찬송 제목 등)까지는 번역하지 않는다 — PDF에서
+// 자동 추출한 한글 텍스트를 매주 사람이 번역해 줄 수 없기 때문에, 항목
+// 이름(고정된 순서표 라벨)만 바뀐다.
+const ORDER_LABELS_EN: Record<string, string> = {
+  '성도의 교제': 'Fellowship',
+  '예배의 부름': 'Call to Worship',
+  '경배와 기도': 'Praise & Prayer',
+  성찬식: 'Communion',
+  성경봉독: 'Scripture Reading',
+  설교: 'Sermon',
+  '결단의 찬양': 'Hymn of Commitment',
+  봉헌: 'Offering',
+  축도: 'Benediction',
+  '참회의 기도/신앙고백': 'Prayer of Confession / Affirmation of Faith',
+  '찬송 / 헌금': 'Hymn / Offering',
+  '어린이 설교': "Children's Sermon",
+  '교회소식 / 새가족환영': 'Announcements / Welcome New Families',
+  기도: 'Prayer',
+  찬송: 'Song of Response',
+};
+
 function OrderIcon({ name }: { name: string }) {
   const Icon = ORDER_ICONS[name];
   return (
@@ -266,6 +290,10 @@ function BulletinCards({
   const insets = useSafeAreaInsets();
 
   const [svcTab, setSvcTab] = useState<'1' | '2'>('1');
+  // 야외예배처럼 1부/2부 없이 예배가 하나뿐인 주(=order 항목 전부가 service1/2
+  // 없이 shared만 씀)는 1부/2부 탭이 무의미하다(둘 다 내용이 같고 시간도
+  // 틀리게 나옴) — 그 탭 자리를 한글/English 전환으로 대신 쓴다.
+  const [orderLang, setOrderLang] = useState<'ko' | 'en'>('ko');
   // "오늘 예배 안내"에서 예배를 고르면 아래 "예배 순서" 카드가 화면에
   // 다 들어오게 스크롤해 준다 — 탭만 바뀌고 화면은 그대로면 뭐가 바뀐 건지
   // 어중간하게 보이기 쉬워서.
@@ -309,6 +337,9 @@ function BulletinCards({
   const hasAsterisk = order.some(
     (item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*'),
   );
+  // 모든 항목이 service1/service2 없이 shared만 쓰면 1부/2부 구분 없는 단일
+  // 예배 주보(야외예배 등)다.
+  const isSingleService = order.length > 0 && order.every((o) => !o.service1 && !o.service2);
   const svcDetail = (item: (typeof order)[number]) => {
     if (item.name === '성도의 교제') return '교회 소식';
     if (item.service1 || item.service2) {
@@ -363,7 +394,9 @@ function BulletinCards({
         </View>
       ) : null}
 
-      {order.length > 0 && (
+      {/* 1부/2부가 있는 주에만 의미가 있다 — 야외예배 등 단일 예배 주에는 고를
+          예배가 하나뿐이라 이 카드 자체를 보여주지 않는다. */}
+      {order.length > 0 && !isSingleService && (
         <View style={[styles.contentCard, shadows.card]}>
           <SectionTitle
             icon={<Clock size={13} color={colors.tagBlueText} strokeWidth={2} />}
@@ -418,32 +451,52 @@ function BulletinCards({
             title="예배 순서"
           />
 
-          <View style={[styles.currentChip, { backgroundColor: curAccent.bg }]}>
-            <Text style={[styles.currentChipText, { color: curAccent.text }]}>현재 예배</Text>
-          </View>
-          <View style={styles.currentRow}>
-            <Text style={styles.currentName}>{curSvc.label}</Text>
-            <Text style={styles.currentTime}>{curSvc.time}</Text>
-          </View>
+          {!isSingleService && (
+            <>
+              <View style={[styles.currentChip, { backgroundColor: curAccent.bg }]}>
+                <Text style={[styles.currentChipText, { color: curAccent.text }]}>현재 예배</Text>
+              </View>
+              <View style={styles.currentRow}>
+                <Text style={styles.currentName}>{curSvc.label}</Text>
+                <Text style={styles.currentTime}>{curSvc.time}</Text>
+              </View>
+            </>
+          )}
 
+          {/* 1부/2부가 있는 주 — 예배 선택 탭 / 단일 예배 주 — 한글·English 전환 탭 */}
           <View style={styles.svcTabRow}>
-            {SERVICE_INFO.map((s) => {
-              const active = svcTab === s.tab;
-              return (
-                <Pressable
-                  key={s.tab}
-                  style={[
-                    styles.svcTabBtn,
-                    active && { backgroundColor: SERVICE_ACCENT[s.tab].solid },
-                  ]}
-                  onPress={() => setSvcTab(s.tab)}
-                >
-                  <Text style={[styles.svcTabText, active && styles.svcTabTextActive]}>
-                    {s.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {isSingleService
+              ? (['ko', 'en'] as const).map((l) => {
+                  const active = orderLang === l;
+                  return (
+                    <Pressable
+                      key={l}
+                      style={[styles.svcTabBtn, active && { backgroundColor: colors.primary }]}
+                      onPress={() => setOrderLang(l)}
+                    >
+                      <Text style={[styles.svcTabText, active && styles.svcTabTextActive]}>
+                        {l === 'ko' ? '한글' : 'English'}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              : SERVICE_INFO.map((s) => {
+                  const active = svcTab === s.tab;
+                  return (
+                    <Pressable
+                      key={s.tab}
+                      style={[
+                        styles.svcTabBtn,
+                        active && { backgroundColor: SERVICE_ACCENT[s.tab].solid },
+                      ]}
+                      onPress={() => setSvcTab(s.tab)}
+                    >
+                      <Text style={[styles.svcTabText, active && styles.svcTabTextActive]}>
+                        {s.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
           </View>
           {order.map((item, i) => {
             const detail = svcDetail(item);
@@ -452,6 +505,8 @@ function BulletinCards({
             const expandable = !!(hymn || scripture);
             const isOpen = expandable && expandedIdx === i;
             const Row = expandable ? Pressable : View;
+            const name =
+              isSingleService && orderLang === 'en' ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
             return (
               <View key={i}>
                 <Row
@@ -459,8 +514,10 @@ function BulletinCards({
                   onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
                 >
                   <OrderIcon name={item.name} />
-                  <Text style={styles.orderIconName}>{item.name}</Text>
-                  <Text style={styles.orderIconDetail}>{detail}</Text>
+                  {/* 세부 내용이 없으면(다같이 하는 순서 등) 오른쪽이 빈 채로
+                      남으니, 그때는 이름 칸이 그 자리까지 채운다. */}
+                  <Text style={[styles.orderIconName, !detail && styles.orderIconNameFull]}>{name}</Text>
+                  {!!detail && <Text style={styles.orderIconDetail}>{detail}</Text>}
                   {expandable &&
                     (isOpen ? (
                       <ChevronUp size={14} color={colors.muted3} strokeWidth={2.2} />
@@ -1196,6 +1253,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   orderIconName: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
+  // 세부 내용이 없는 줄(다같이 등)은 이름이 오른쪽 빈 공간까지 채우게
+  orderIconNameFull: { flex: 1 },
   orderIconDetail: {
     flex: 1,
     fontFamily: font.medium,
