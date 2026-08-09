@@ -146,7 +146,7 @@ const NOTICE_MAP_LINKS: Record<string, string> = {
   '온가족 야외예배 및 체육대회':
     'https://www.google.com/maps/dir/?api=1' +
     '&origin=5925+W.+Las+Positas+Blvd,+Pleasanton,+CA+94588' +
-    '&destination=Pleasanton+Sports+Complex,+Pleasanton,+CA' +
+    '&destination=Pleasanton+Sports+Complex,+Sports+Park+Dr,+Pleasanton,+CA' +
     '&travelmode=driving',
 };
 
