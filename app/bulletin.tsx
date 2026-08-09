@@ -140,9 +140,14 @@ function futureDutyTable(t: BulletinDutyTable, todayKey: string): BulletinDutyTa
 
 // 공지 본문이 "주보 뒷면 QR 코드"만 안내하는 경우 — 종이 주보에서나 되는 거라
 // 앱에는 스캔할 QR이 없다. 지도가 필요한 공지에 한해(2026-08-16 온가족
-// 야외예배) 제목으로 매칭해 "지도에서 보기" 버튼을 달아 준다.
+// 야외예배) 제목으로 매칭해 "지도에서 보기" 버튼을 달아 준다. 교회에서
+// 출발하는 길찾기로 — 목적지만 검색되는 링크가 아니라 실제 오는 길을 보여준다.
 const NOTICE_MAP_LINKS: Record<string, string> = {
-  '온가족 야외예배 및 체육대회': 'https://www.google.com/maps/search/?api=1&query=Pleasanton+Sports+Complex',
+  '온가족 야외예배 및 체육대회':
+    'https://www.google.com/maps/dir/?api=1' +
+    '&origin=5925+W.+Las+Positas+Blvd,+Pleasanton,+CA+94588' +
+    '&destination=Pleasanton+Sports+Complex,+Pleasanton,+CA' +
+    '&travelmode=driving',
 };
 
 /** 예배 순서 항목별 아이콘 — 못 찾으면 원(Circle) 자리만 비워둔다 */
