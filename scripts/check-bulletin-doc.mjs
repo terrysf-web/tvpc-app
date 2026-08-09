@@ -35,6 +35,8 @@ console.log('\n=== scriptures (요약) ===');
 console.log((d.scriptures ?? []).map((s) => ({ reference: s.reference, hasKo: !!s.textKo, hasEn: !!s.textEn })));
 console.log('\n=== notices (제목만) ===');
 console.log((d.notices ?? []).map((n) => n.title));
+console.log('\n=== familyNews (교우 동정) ===');
+console.log(JSON.stringify(d.familyNews, null, 2));
 
 console.log('\n=== 새벽예배 QT 확인 (verses/2026-08-14, 2026-08-15) ===');
 for (const vd of ['2026-08-14', '2026-08-15']) {
