@@ -720,25 +720,27 @@ function BulletinCards({
         </View>
       </View>
 
-      {/* 공지에 붙인 지도 그림 — 전체화면으로 크게 보고, 닫으면 주보로 돌아온다 */}
-      <Modal visible={!!mapImageOpen} transparent={false} animationType="fade">
-        <View style={styles.mapViewer}>
-          {mapImageOpen && (
+      {/* 공지에 붙인 지도 그림 — 전체화면으로 크게 보고, 닫으면 주보로 돌아온다.
+          Modal 자체를 실제로 열 때만 만들어서, 주보 탭 열 때마다 잠깐
+          비쳤다 사라지는 일이 없게 한다. */}
+      {mapImageOpen && (
+        <Modal visible transparent={false} animationType="fade">
+          <View style={styles.mapViewer}>
             <Image
               source={{ uri: mapImageOpen }}
               style={{ width: winWidth, height: winHeight }}
               resizeMode="contain"
             />
-          )}
-          <Pressable
-            style={[styles.mapViewerCloseBtn, { top: insets.top + 10 }]}
-            onPress={() => setMapImageOpen(null)}
-            hitSlop={10}
-          >
-            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-          </Pressable>
-        </View>
-      </Modal>
+            <Pressable
+              style={[styles.mapViewerCloseBtn, { top: insets.top + 10 }]}
+              onPress={() => setMapImageOpen(null)}
+              hitSlop={10}
+            >
+              <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+            </Pressable>
+          </View>
+        </Modal>
+      )}
     </>
   );
 }
