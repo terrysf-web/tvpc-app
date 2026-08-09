@@ -1138,7 +1138,14 @@ function extractOffering(lines) {
       total = (cols[1] || lines[i + 1] || '').trim();
       break;
     }
-    rows.push({ label, values: cols.slice(1).map((v) => v || '–') });
+    // 그 주에 헌금이 아예 없던 칸은 원본 PDF에 값 자체가 안 찍혀서, 있는
+    // 값만으로는 그게 유초등부·중고등부(앞쪽) 중 어디가 빈 건지 알 수 없다.
+    // 실제로는 거의 항상 한어부·영어부(뒤쪽)에만 값이 있으므로, 칸 수가
+    // 모자라면 앞쪽을 '–'로 채워 뒤쪽 칸에 값이 맞춰지게 한다.
+    const raw = cols.slice(1).map((v) => v || '–');
+    const pad = Math.max(0, columns.length - raw.length);
+    const values = [...Array(pad).fill('–'), ...raw].slice(0, columns.length);
+    rows.push({ label, values });
   }
   if (!columns || !rows.length) return null;
   return { columns, rows, total };
