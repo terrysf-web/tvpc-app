@@ -511,14 +511,19 @@ function BulletinCards({
                 })}
           </View>
           {order.map((item, i) => {
-            const detail = svcDetail(item);
-            const hymn = hymns.length ? findHymnForItem(detail, hymns) : null;
-            const scripture = !hymn && scriptures.length ? findScriptureForItem(detail, scriptures) : null;
+            const rawDetail = svcDetail(item);
+            const hymn = hymns.length ? findHymnForItem(rawDetail, hymns) : null;
+            const scripture = !hymn && scriptures.length ? findScriptureForItem(rawDetail, scriptures) : null;
             const expandable = !!(hymn || scripture);
             const isOpen = expandable && expandedIdx === i;
             const Row = expandable ? Pressable : View;
             const name =
               isSingleService && orderLang === 'en' ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
+            // 세부 내용이 "*"(일어서 주시기 바랍니다 표시) 하나뿐이면 오른쪽 칸엔
+            // 사실상 빈 것과 같으니, 그 별표는 이름 뒤에 붙이고 오른쪽은 진짜로 비운다.
+            const asteriskOnly = rawDetail.trim() === '*';
+            const detail = asteriskOnly ? '' : rawDetail;
+            const displayName = asteriskOnly ? `${name}*` : name;
             return (
               <View key={i}>
                 <Row
@@ -528,14 +533,20 @@ function BulletinCards({
                   <OrderIcon name={item.name} />
                   {/* 세부 내용이 없으면(다같이 하는 순서 등) 오른쪽이 빈 채로
                       남으니, 그때는 이름 칸이 그 자리까지 채운다. */}
-                  <Text style={[styles.orderIconName, !detail && styles.orderIconNameFull]}>{name}</Text>
+                  <Text style={[styles.orderIconName, !detail && styles.orderIconNameFull]}>{displayName}</Text>
                   {!!detail && <Text style={styles.orderIconDetail}>{detail}</Text>}
-                  {expandable &&
-                    (isOpen ? (
-                      <ChevronUp size={14} color={colors.muted3} strokeWidth={2.2} />
-                    ) : (
-                      <ChevronDown size={14} color={colors.muted3} strokeWidth={2.2} />
-                    ))}
+                  {/* 챙기기 쉽게 눌러서 펼칠 수 있다는 걸 글자로도 알려준다 —
+                      화살표 아이콘만으로는 눈에 잘 안 띈다는 의견 반영 */}
+                  {expandable && (
+                    <View style={styles.orderExpandHint}>
+                      <Text style={styles.orderExpandHintText}>{hymn ? '가사' : '본문'}</Text>
+                      {isOpen ? (
+                        <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+                      ) : (
+                        <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+                      )}
+                    </View>
+                  )}
                 </Row>
                 {isOpen && (
                   <OrderExpandPanel
@@ -1300,6 +1311,19 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'right',
   },
+  // 가사·본문이 있어 눌러 펼칠 수 있는 줄 — 화살표만으로는 눈에 안 띄어
+  // 글자 칩을 같이 붙인다.
+  orderExpandHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    flexShrink: 0,
+  },
+  orderExpandHintText: { fontFamily: font.bold, fontSize: 10, color: colors.tagBlueText },
   orderFootnote: {
     fontFamily: font.bold,
     fontSize: 12,

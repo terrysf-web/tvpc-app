@@ -4,6 +4,12 @@
  * 내용을 그대로 옮겨 별도 테스트 주보를 하나 만든다. 실제 주보에는 손대지
  * 않는다. seed-test-bulletin.mjs와 같은 방식 — 나중에 지우려면 Firestore
  * 콘솔에서 이 스크립트가 만든 날짜의 문서만 지우면 된다.
+ *
+ * 날짜는 눈에 띄지 않게 먼 과거로 숨기는 대신, 올해 실제 야외예배가 있는
+ * 날짜(OUTDOOR_DATE)에 그대로 만든다 — source가 'test-outdoor'라 관리자가
+ * 아니면 어차피 안 보이고(client + firestore.rules 양쪽에서 막음), 그 날짜가
+ * 되면 실제 주보 동기화가 이 문서를 그대로 덮어써서 자연스럽게 진짜 내용으로
+ * 바뀐다.
  */
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
@@ -13,17 +19,8 @@ initializeApp({ credential: cert(sa) });
 const db = getFirestore();
 
 const SOURCE_DATE = '2026-08-09'; // 페이지 이미지만 복사(내용과 무관) — 원본은 손대지 않음
-
-// 기존 어떤 "진짜" 주보보다도 이전 날짜를 골라 목록 맨 뒤로 가게 하고, 기본으로는
-// 열리지 않게 한다. 일반 테스트 주보(seed-test-bulletin.mjs, source:'test')와
-// 겹치지 않도록 하루 더 앞선 날짜를 쓴다.
-const existing = await db.collection('bulletins').orderBy('date', 'asc').limit(20).get();
-const earliestReal = existing.docs.find((d) => !(d.get('source') ?? '').startsWith('test'));
-const earliest = earliestReal ? earliestReal.id : '2026-01-04';
-const [ey, em, ed] = earliest.split('-').map(Number);
-const testDateObj = new Date(Date.UTC(ey, em - 1, ed));
-testDateObj.setUTCDate(testDateObj.getUTCDate() - 14);
-const TEST_DATE = testDateObj.toISOString().slice(0, 10);
+const OUTDOOR_DATE = process.env.OUTDOOR_DATE?.trim() || '2026-08-16';
+const TEST_DATE = OUTDOOR_DATE;
 console.log(`테스트(야외예배) 주보 날짜: ${TEST_DATE} (원본 페이지는 ${SOURCE_DATE}에서 복사)`);
 
 const oldTests = await db.collection('bulletins').where('source', '==', 'test-outdoor').get();
@@ -187,7 +184,7 @@ const offering = {
 const duty = [
   {
     title: '주일',
-    columns: ['8월 17일', '8월 24일', '8월 31일', '9월 7일'],
+    columns: ['8월 16일', '8월 23일', '8월 30일', '9월 6일'],
     rows: [
       { label: '기도', values: ['Mike Kim 집사', '김희주 집사', '김희주 집사', '안형환 집사'] },
       { label: '안내', values: ['Cell 5', 'Cell 5', 'Cell 5', 'Cell 6'] },

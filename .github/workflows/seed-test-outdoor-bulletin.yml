@@ -4,6 +4,11 @@ name: Seed test outdoor-worship bulletin (one-off)
 
 on:
   workflow_dispatch:
+    inputs:
+      outdoor_date:
+        description: '야외예배 날짜(YYYY-MM-DD). 비워두면 2026-08-16.'
+        required: false
+        type: string
 
 jobs:
   seed:
@@ -18,4 +23,5 @@ jobs:
       - name: Seed
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          OUTDOOR_DATE: ${{ inputs.outdoor_date }}
         run: node scripts/seed-test-outdoor-bulletin.mjs
