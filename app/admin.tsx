@@ -86,6 +86,20 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** 되돌리기 어려운 작업 전에 한 번 더 확인 — 웹은 confirm(), 앱은 Alert */
+async function confirmAction(title: string, question: string, confirmLabel = '확인'): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      resolve(window.confirm(question));
+    } else {
+      Alert.alert(title, question, [
+        { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+        { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
+      ]);
+    }
+  });
+}
+
 function Field({
   label,
   value,
@@ -1019,9 +1033,15 @@ export default function AdminScreen() {
                 </View>
                 <Pressable
                   style={styles.revokeBtn}
-                  onPress={() =>
-                    submit(() => revokeMember(m.id), `${m.name}님의 승인을 해제했습니다.`)
-                  }
+                  onPress={async () => {
+                    const ok = await confirmAction(
+                      '승인 해제',
+                      `정말 ${m.name}님의 승인을 해제하시겠습니까?\n해제하면 다시 되돌릴 수 없습니다.`,
+                      '해제',
+                    );
+                    if (!ok) return;
+                    submit(() => revokeMember(m.id), `${m.name}님의 승인을 해제했습니다.`);
+                  }}
                 >
                   <Text style={styles.revokeBtnText}>해제</Text>
                 </Pressable>
