@@ -221,16 +221,17 @@ function scriptureRefEn(reference: string): string {
   return en ? `${en} ${m[2]}` : reference;
 }
 
-// 담임목사·교역자 등 늘 순서표에 등장하는 사역자만 성(姓) 로마자 표기를 안다 —
-// 매주 바뀌는 안내·헌금 위원(집사·장로 등 성도)까지는 알 수 없어 그대로 둔다.
-const STAFF_SURNAME_EN: Record<string, string> = {
-  허성영: 'Huh',
-  최재하: 'Choi',
-  안현신: 'Ahn',
-  안현숙: 'Ahn',
-  조재희: 'Cho',
+// 늘 순서표에 등장하는 사역자 — 그 주 직함 표기가 "목사"든 "담임목사"든
+// 상관없이 항상 같은 영어 직함·성으로 통일해서 부른다(사람마다 매주 표기가
+// 달라 다르게 번역되면 안 되니까).
+const STAFF_EN: Record<string, { title: string; surname: string }> = {
+  허성영: { title: 'Senior Pastor', surname: 'Huh' },
+  최재하: { title: 'Youth Pastor', surname: 'Choi' },
+  안현신: { title: 'Pastor', surname: 'Ahn' },
+  안현숙: { title: 'CE Director', surname: 'Ahn' },
+  조재희: { title: 'Elder', surname: 'Cho' },
 };
-// 직함(한글 → 영어) — 이름 뒤에 붙는 걸 앞으로 옮겨 "Title Name" 순서로 만든다.
+// 위 목록에 없는 사람(매주 바뀌는 안내·헌금 위원 등)은 그 주 직함 단어만 영어로.
 const TITLE_EN: Record<string, string> = {
   담임목사: 'Senior Pastor',
   원로목사: 'Pastor Emeritus',
@@ -252,11 +253,6 @@ const ROLE_WORD_EN: Record<string, string> = {
   다같이: 'All',
   없음: 'None',
 };
-// "이름 직함" 전체를 통째로 다르게 부르고 싶을 때(예: 담당 사역이 따로
-// 있어 일반 직함 사전보다 정확한 표현이 있는 경우) — TITLE_EN보다 먼저 본다.
-const STAFF_TITLE_OVERRIDE_EN: Record<string, string> = {
-  '최재하 전도사': 'Youth Pastor Choi',
-};
 
 /** 예배 순서 세부 내용(설교자·헌금 위원 등)을 눌러 English로 바꿨을 때 —
  * "이름 + 직함" 조각을 "직함 + (아는 사람이면 성, 모르면 이름 그대로)"로 바꾼다.
@@ -273,17 +269,28 @@ function translateNamesEn(text: string): string {
       if (i % 2 === 1) return piece; // 구분자( · , / ) 그대로
       const seg = piece.trim();
       if (!seg) return piece;
-      if (STAFF_TITLE_OVERRIDE_EN[seg]) return STAFF_TITLE_OVERRIDE_EN[seg];
       if (ROLE_WORD_EN[seg]) return ROLE_WORD_EN[seg];
       const m = seg.match(TITLE_SUFFIX);
       if (!m) return piece;
       const name = m[1].trim();
+      const known = STAFF_EN[name];
+      if (known) return `${known.title} ${known.surname}`;
       const titleEn = TITLE_EN[m[2]];
       if (!name) return titleEn;
-      return `${titleEn} ${STAFF_SURNAME_EN[name] ?? name}`;
+      return `${titleEn} ${name}`;
     })
     .join('');
   return translated + (hasStar ? '*' : '');
+}
+
+/** English 모드에서 "한글 [English]"나 '"한글"(English)'처럼 같은 내용을
+ * 한글·영어로 겹쳐 적어 둔 부분은 영어만 남긴다 — 한글은 안 보여도 되니까. */
+function stripKoreanDuplicates(text: string): string {
+  return text
+    .replace(/[가-힣][가-힣\s]*\[([A-Za-z][^\]]*)\]/g, '$1')
+    .replace(/["“][^"”]*["”]\s*\(([^)]+)\)/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // 이 항목들은 세부 내용이 통째로 "찬송가 N장 [제목]" / "책이름 장:절" 인용
@@ -306,7 +313,7 @@ function translateOrderDetail(
     if (hymn) return `Hymn ${hymn.number}${hymn.titleEn ? ` [${hymn.titleEn}]` : ''}${star}`;
     if (scripture) return `${scriptureRefEn(scripture.reference)}${star}`;
   }
-  return translateNamesEn(rawDetail);
+  return stripKoreanDuplicates(translateNamesEn(rawDetail));
 }
 
 function OrderIcon({ name }: { name: string }) {
