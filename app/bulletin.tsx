@@ -585,7 +585,7 @@ function BulletinCards({
           <SectionTitle
             icon={<ListChecks size={13} color={colors.tagBlueText} strokeWidth={2} />}
             tint={colors.tagBlueBg}
-            title="예배 순서"
+            title={isSingleService && orderLang === 'en' ? 'Order of Worship' : '예배 순서'}
           />
 
           {!isSingleService && (
