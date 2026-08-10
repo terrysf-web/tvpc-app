@@ -1,0 +1,20 @@
+# 일회성 — OCR 발표자 인식 실패로 빈 값이 된 팟캐스트 preacher 필드 수정
+name: Fix podcast preacher (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Fix
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/fix-podcast-preacher.mjs
