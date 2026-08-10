@@ -559,13 +559,20 @@ function BulletinCards({
               {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
             </Text>
           </View>
-          <Pressable
-            style={styles.heroBtn}
-            onPress={() => router.push(`/verse/${bulletin.date}`)}
-          >
-            <Text style={styles.heroBtnText}>성경말씀보기</Text>
-            <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
-          </Pressable>
+          {/* 야외예배 등 단일 예배 미리보기는 verses/{날짜} 문서가 따로
+              없어(sync-bulletin.mjs의 정규 파이프라인을 안 거침) 이 버튼을
+              누르면 "말씀을 불러오지 못했습니다" 오류만 뜬다. 본문은 예배
+              순서 카드에서 성경봉독을 펼쳐 보면 되므로, 이 버튼 자체를
+              숨긴다. */}
+          {!isSingleService && (
+            <Pressable
+              style={styles.heroBtn}
+              onPress={() => router.push(`/verse/${bulletin.date}`)}
+            >
+              <Text style={styles.heroBtnText}>성경말씀보기</Text>
+              <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
+            </Pressable>
+          )}
         </View>
       ) : null}
 
