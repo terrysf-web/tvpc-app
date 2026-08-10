@@ -293,6 +293,16 @@ function stripKoreanDuplicates(text: string): string {
     .trim();
 }
 
+/** 한글 모드에서는 반대로 영어를 없앤다 — 칸이 좁은데 "책이름 [English]"
+ * 처럼 뒤에 괄호로 덧붙은 영어까지 다 보여줄 필요는 없으니까. */
+function stripEnglishDuplicates(text: string): string {
+  return text
+    .replace(/([가-힣][가-힣\s]*)\[[A-Za-z][^\]]*\]/g, '$1')
+    .replace(/(["“][^"”]*["”])\s*\([^)]+\)/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // 이 항목들은 세부 내용이 통째로 "찬송가 N장 [제목]" / "책이름 장:절" 인용
 // 그 자체다 — 실제 저장된 영어 제목·본문 참조로 완전히 바꿔치기해도 안전하다.
 // '어린이 설교'처럼 설교 제목·설교자까지 같이 적힌 줄은(장·절이 우연히 섞여
@@ -644,7 +654,9 @@ function BulletinCards({
             const Row = expandable ? Pressable : View;
             const langEn = isSingleService && orderLang === 'en';
             const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
-            const shownDetail = langEn ? translateOrderDetail(item.name, rawDetail, hymn, scripture) : rawDetail;
+            const shownDetail = langEn
+              ? translateOrderDetail(item.name, rawDetail, hymn, scripture)
+              : stripEnglishDuplicates(rawDetail);
             // 세부 내용이 "*"(일어서 주시기 바랍니다 표시) 하나뿐이면 오른쪽 칸엔
             // 사실상 빈 것과 같으니, 그 별표는 이름 뒤에 붙이고 오른쪽은 진짜로 비운다.
             const asteriskOnly = shownDetail.trim() === '*';

@@ -63,7 +63,9 @@ const order = [
   { name: '찬송 / 헌금', shared: '찬송가 28장 [복의 근원 강림하사]*' },
   {
     name: '어린이 설교',
-    shared: '"Made in His Image" / 창세기 [Genesis] 1:26-27 · 최재하 전도사',
+    // 원본은 제목이 영어("Made in His Image")뿐이라, 한글 화면에서도 뜻이
+    // 통하도록 가장 가까운 한글 제목을 붙여 둔다("설교" 항목의 표기 방식과 동일).
+    shared: '"하나님의 형상대로" (Made in His Image) / 창세기 [Genesis] 1:26-27 · 최재하 전도사',
   },
   { name: '교회소식 / 새가족환영', shared: '' },
   { name: '기도', shared: 'Mike Kim 집사' },
