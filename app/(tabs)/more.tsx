@@ -26,6 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
+import { useMember } from '../../src/data/member';
 import { canAddToHome, deviceKind, isStandalone, openInstallGuide } from '../../src/installPrompt';
 import { openExternal } from '../../src/links';
 import { usePushNotifications } from '../../src/push';
@@ -48,14 +49,18 @@ export default function MoreScreen() {
   const push = usePushNotifications();
   // 긴급 공지·기도요청함 바로가기 — 역할에 맞는 기기에만 보인다
   const { isAdmin, role } = useAdminAuth();
+  // 교우 앨범은 교회 요청으로 비공개 — 승인된 교인·관리자에게만 메뉴에 보인다
+  const { state: memberState } = useMember();
+  const albumVisible = memberState === 'approved' || isAdmin;
   // 이미 홈 화면 앱으로 열었거나 설치할 방법이 없는 브라우저면 이 줄은 뺀다.
   // 컴퓨터에서는 '바탕화면에 설치하기'로 말을 바꾼다.
-  const menu = MENU.filter((m) => m.key !== 'install' || (!isStandalone() && canAddToHome())).map(
-    (m) =>
+  const menu = MENU.filter((m) => m.key !== 'install' || (!isStandalone() && canAddToHome()))
+    .filter((m) => m.key !== 'album' || albumVisible)
+    .map((m) =>
       m.key === 'install' && deviceKind() === 'desktop'
         ? { ...m, label: '바탕화면에 설치하기' }
         : m,
-  );
+    );
 
   // 메일 앱이 주소·제목이 채워진 새 메일로 바로 열린다
   const openEmail = (to: string, subject: string) => {

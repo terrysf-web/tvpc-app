@@ -45,7 +45,7 @@ function Field({
   );
 }
 
-/** 기존 교인 / 새로 가입 선택 — 두 칸 세그먼트 버튼 */
+/** "교인이신가요?" 예/아니오 — 예면 바로 신청, 아니오면 자기소개를 더 받는다 */
 function MemberTypeToggle({
   value,
   onChange,
@@ -55,12 +55,12 @@ function MemberTypeToggle({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>교인 구분</Text>
+      <Text style={styles.fieldLabel}>교인이신가요?</Text>
       <View style={styles.typeRow}>
         {(
           [
-            { key: 'existing' as const, label: '기존 교인' },
-            { key: 'new' as const, label: '새로 가입' },
+            { key: 'existing' as const, label: '예' },
+            { key: 'new' as const, label: '아니오' },
           ]
         ).map((o) => (
           <Pressable
