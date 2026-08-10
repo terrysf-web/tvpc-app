@@ -178,9 +178,12 @@ export async function revokeMember(uid: string): Promise<void> {
   await updateDoc(doc(requireDb(), 'members', uid), { status: 'revoked', revokedAt: Date.now() });
 }
 
-/** 해제된 교인을 다시 승인 (실수로 해제한 경우) */
+/** 해제된 교인을 다시 승인 — revokedAt은 지우지 않고 남겨 해제·재승인 이력을 유지한다 */
 export async function reapproveMember(uid: string): Promise<void> {
-  await updateDoc(doc(requireDb(), 'members', uid), { status: 'approved', revokedAt: null });
+  await updateDoc(doc(requireDb(), 'members', uid), {
+    status: 'approved',
+    reapprovedAt: Date.now(),
+  });
 }
 
 /** 헌금 내역 등록 — 교인 이메일로 대상을 찾아 본인만 볼 수 있게 저장 */

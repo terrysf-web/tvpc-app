@@ -23,6 +23,8 @@ export interface MemberDoc {
   createdAt: number;
   /** 승인 해제된 시각 — 언제 해제했는지 리포트에 남기기 위함 */
   revokedAt?: number;
+  /** 해제 후 다시 승인된 시각 — revokedAt은 지우지 않고 남겨 이력을 유지 */
+  reapprovedAt?: number;
 }
 
 export type MemberState =

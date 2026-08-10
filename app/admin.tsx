@@ -301,7 +301,7 @@ export default function AdminScreen() {
       setMsg('명단 내려받기는 웹 브라우저에서 해주세요.');
       return;
     }
-    const header = ['이름', '이메일', '교인구분', '자기소개', '가입일', '상태', '해제일'];
+    const header = ['이름', '이메일', '교인구분', '자기소개', '가입일', '상태', '해제일', '재승인일'];
     const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const toRow = (m: (typeof approved)[number]) =>
       [
@@ -312,6 +312,7 @@ export default function AdminScreen() {
         new Date(m.createdAt).toLocaleDateString('ko-KR'),
         m.status === 'revoked' ? '해제됨' : '승인됨',
         m.revokedAt ? new Date(m.revokedAt).toLocaleDateString('ko-KR') : '',
+        m.reapprovedAt ? new Date(m.reapprovedAt).toLocaleDateString('ko-KR') : '',
       ]
         .map(escape)
         .join(',');
@@ -1015,6 +1016,11 @@ export default function AdminScreen() {
                   </Text>
                   {m.memberType === 'new' && !!m.bio && (
                     <Text style={styles.pendingBio}>“{m.bio}”</Text>
+                  )}
+                  {!!m.reapprovedAt && (
+                    <Text style={styles.pendingBio}>
+                      {new Date(m.reapprovedAt).toLocaleDateString('ko-KR')} 재승인됨
+                    </Text>
                   )}
                 </View>
                 <Pressable
