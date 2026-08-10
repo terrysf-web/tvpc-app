@@ -21,10 +21,14 @@ export interface MemberDoc {
   bio: string;
   status: 'pending' | 'approved' | 'revoked';
   createdAt: number;
-  /** 승인 해제된 시각 — 언제 해제했는지 리포트에 남기기 위함 */
+  /** 승인 해제된 시각·처리자·사유 — audit trail로 리포트에 남기기 위함 */
   revokedAt?: number;
-  /** 해제 후 다시 승인된 시각 — revokedAt은 지우지 않고 남겨 이력을 유지 */
+  revokedBy?: string;
+  revokeReason?: string;
+  /** 해제 후 다시 승인된 시각·처리자·사유 — revokedAt·revokeReason은 지우지 않고 유지 */
   reapprovedAt?: number;
+  reapprovedBy?: string;
+  reapproveReason?: string;
 }
 
 export type MemberState =

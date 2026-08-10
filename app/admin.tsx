@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -294,6 +295,24 @@ export default function AdminScreen() {
   const [oDate, setODate] = useState(today());
   const [oAmount, setOAmount] = useState('');
 
+  // 해제/재승인 사유 입력 — audit trail로 기록해 리포트에 남긴다
+  const [reasonPrompt, setReasonPrompt] = useState<
+    { uid: string; name: string; action: 'revoke' | 'reapprove' } | null
+  >(null);
+  const [reasonText, setReasonText] = useState('');
+  const confirmReasonPrompt = () => {
+    if (!reasonPrompt) return;
+    const { uid, name, action } = reasonPrompt;
+    const reason = reasonText.trim();
+    setReasonPrompt(null);
+    setReasonText('');
+    if (action === 'revoke') {
+      submit(() => revokeMember(uid, reason), `${name}님의 승인을 해제했습니다.`);
+    } else {
+      submit(() => reapproveMember(uid, reason), `${name}님을 다시 승인했습니다.`);
+    }
+  };
+
   /** 승인·해제된 교인 명단을 CSV로 내려받는다 — 나중에 리포트로 제출할 때 사용.
    * 해제된 교인도 언제 해제됐는지와 함께 남겨 기록이 되게 한다. */
   const exportApprovedCsv = () => {
@@ -301,7 +320,20 @@ export default function AdminScreen() {
       setMsg('명단 내려받기는 웹 브라우저에서 해주세요.');
       return;
     }
-    const header = ['이름', '이메일', '교인구분', '자기소개', '가입일', '상태', '해제일', '재승인일'];
+    const header = [
+      '이름',
+      '이메일',
+      '교인구분',
+      '자기소개',
+      '가입일',
+      '상태',
+      '해제일',
+      '해제한 사람',
+      '해제 사유',
+      '재승인일',
+      '재승인한 사람',
+      '재승인 사유',
+    ];
     const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const toRow = (m: (typeof approved)[number]) =>
       [
@@ -312,7 +344,11 @@ export default function AdminScreen() {
         new Date(m.createdAt).toLocaleDateString('ko-KR'),
         m.status === 'revoked' ? '해제됨' : '승인됨',
         m.revokedAt ? new Date(m.revokedAt).toLocaleDateString('ko-KR') : '',
+        m.revokedBy ?? '',
+        m.revokeReason ?? '',
         m.reapprovedAt ? new Date(m.reapprovedAt).toLocaleDateString('ko-KR') : '',
+        m.reapprovedBy ?? '',
+        m.reapproveReason ?? '',
       ]
         .map(escape)
         .join(',');
@@ -1020,14 +1056,17 @@ export default function AdminScreen() {
                   {!!m.reapprovedAt && (
                     <Text style={styles.pendingBio}>
                       {new Date(m.reapprovedAt).toLocaleDateString('ko-KR')} 재승인됨
+                      {m.reapprovedBy ? ` (${m.reapprovedBy})` : ''}
+                      {m.reapproveReason ? ` · 사유: ${m.reapproveReason}` : ''}
                     </Text>
                   )}
                 </View>
                 <Pressable
                   style={styles.revokeBtn}
-                  onPress={() =>
-                    submit(() => revokeMember(m.id), `${m.name}님의 승인을 해제했습니다.`)
-                  }
+                  onPress={() => {
+                    setReasonText('');
+                    setReasonPrompt({ uid: m.id, name: m.name, action: 'revoke' });
+                  }}
                 >
                   <Text style={styles.revokeBtnText}>해제</Text>
                 </Pressable>
@@ -1051,16 +1090,21 @@ export default function AdminScreen() {
                     {[
                       m.email,
                       m.revokedAt ? `${new Date(m.revokedAt).toLocaleDateString('ko-KR')} 해제` : '',
+                      m.revokedBy,
                     ]
                       .filter(Boolean)
                       .join(' · ')}
                   </Text>
+                  {!!m.revokeReason && (
+                    <Text style={styles.pendingBio}>사유: {m.revokeReason}</Text>
+                  )}
                 </View>
                 <Pressable
                   style={styles.approveBtn}
-                  onPress={() =>
-                    submit(() => reapproveMember(m.id), `${m.name}님을 다시 승인했습니다.`)
-                  }
+                  onPress={() => {
+                    setReasonText('');
+                    setReasonPrompt({ uid: m.id, name: m.name, action: 'reapprove' });
+                  }}
                 >
                   <Text style={styles.approveBtnText}>재승인</Text>
                 </Pressable>
@@ -1168,6 +1212,57 @@ export default function AdminScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={!!reasonPrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReasonPrompt(null)}
+      >
+        <View style={styles.reasonOverlay}>
+          <View style={[styles.reasonCard, shadows.card]}>
+            <Text style={styles.loginTitle}>
+              {reasonPrompt?.action === 'revoke' ? '승인 해제' : '재승인'} 사유
+            </Text>
+            <Text style={styles.loginSub}>
+              {reasonPrompt?.name}님을 {reasonPrompt?.action === 'revoke' ? '해제' : '재승인'}
+              하는 이유를 남겨 주세요. 기록에 남아 나중에 리포트로 확인할 수 있습니다.
+            </Text>
+            <TextInput
+              style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
+              value={reasonText}
+              onChangeText={setReasonText}
+              placeholder="예: 본인 요청, 교회를 떠남, 정보 오기재 등"
+              placeholderTextColor={colors.faint}
+              multiline
+              autoFocus
+            />
+            <View style={styles.reasonBtnRow}>
+              <Pressable
+                style={styles.rejectBtn}
+                onPress={() => {
+                  setReasonPrompt(null);
+                  setReasonText('');
+                }}
+              >
+                <Text style={styles.rejectBtnText}>취소</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.primaryBtn,
+                  { flex: 1 },
+                  reasonPrompt?.action === 'revoke' && { backgroundColor: colors.tagOrangeText },
+                ]}
+                onPress={confirmReasonPrompt}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {reasonPrompt?.action === 'revoke' ? '해제' : '재승인'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1176,6 +1271,22 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   content: { padding: 16 },
   card: { backgroundColor: colors.card, borderRadius: 16, padding: 18 },
+
+  reasonOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10,16,28,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  reasonCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+  },
+  reasonBtnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
 
   loginTitle: { fontFamily: font.extraBold, fontSize: 18, color: colors.title },
   googleBtn: {

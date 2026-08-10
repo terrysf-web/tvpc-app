@@ -12,7 +12,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import { adminSignIn, adminSignOut, getDb, watchUser } from '../firebase';
+import { adminSignIn, adminSignOut, getAuthOrNull, getDb, watchUser } from '../firebase';
 import type { MemberDoc } from './member';
 import type { EventDoc, NewsDoc, VerseDoc } from '../types';
 
@@ -173,16 +173,25 @@ export async function rejectMember(uid: string): Promise<void> {
   await deleteDoc(doc(requireDb(), 'members', uid));
 }
 
-/** 승인 해제 — 문서는 남기고 상태만 바꿔 언제 해제했는지 기록에 남긴다 */
-export async function revokeMember(uid: string): Promise<void> {
-  await updateDoc(doc(requireDb(), 'members', uid), { status: 'revoked', revokedAt: Date.now() });
+/** 승인 해제 — 문서는 남기고 상태만 바꿔 언제·누가·왜 해제했는지 기록에 남긴다 */
+export async function revokeMember(uid: string, reason: string): Promise<void> {
+  const by = getAuthOrNull()?.currentUser?.email ?? '';
+  await updateDoc(doc(requireDb(), 'members', uid), {
+    status: 'revoked',
+    revokedAt: Date.now(),
+    revokedBy: by,
+    revokeReason: reason.trim(),
+  });
 }
 
-/** 해제된 교인을 다시 승인 — revokedAt은 지우지 않고 남겨 해제·재승인 이력을 유지한다 */
-export async function reapproveMember(uid: string): Promise<void> {
+/** 해제된 교인을 다시 승인 — revokedAt·revokeReason은 지우지 않고 남겨 해제·재승인 이력을 유지한다 */
+export async function reapproveMember(uid: string, reason: string): Promise<void> {
+  const by = getAuthOrNull()?.currentUser?.email ?? '';
   await updateDoc(doc(requireDb(), 'members', uid), {
     status: 'approved',
     reapprovedAt: Date.now(),
+    reapprovedBy: by,
+    reapproveReason: reason.trim(),
   });
 }
 
