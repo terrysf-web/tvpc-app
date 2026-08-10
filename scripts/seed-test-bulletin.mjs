@@ -16,7 +16,7 @@ const SOURCE_DATE = '2026-08-02'; // 원본 — 페이지 이미지만 읽어서
 // 잘못 보이지 않게 한다(목록 맨 뒤로 가고, 기본으로는 열리지 않음). 이 스크립트를 다시 돌려도
 // 매번 같은 날짜가 나오도록, 지난번에 만든 테스트 문서(source: 'test')는 기준에서 뺀다.
 const existing = await db.collection('bulletins').orderBy('date', 'asc').limit(20).get();
-const earliestReal = existing.docs.find((d) => d.get('source') !== 'test');
+const earliestReal = existing.docs.find((d) => !(d.get('source') ?? '').startsWith('test'));
 const earliest = earliestReal ? earliestReal.id : '2026-01-04';
 const [ey, em, ed] = earliest.split('-').map(Number);
 const testDateObj = new Date(Date.UTC(ey, em - 1, ed));

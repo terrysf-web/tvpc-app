@@ -47,6 +47,7 @@ import type {
   BulletinReading,
   BulletinScripture,
 } from '../src/data/bulletin';
+import { useAdminAuth } from '../src/data/admin';
 import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../src/data/bulletin';
 import { useEvents, useNews } from '../src/data/hooks';
 import { useServices } from '../src/data/services';
@@ -215,11 +216,22 @@ function findScriptureForItem(text: string, scriptures: BulletinScripture[]): Bu
   return scriptures.find((s) => s.reference.replace(/\s+/g, '').endsWith(ref)) ?? null;
 }
 
-/** 예배 순서 항목을 눌러 펼쳤을 때 — 가사·본문(있으면 한글/English 전환) */
-function OrderExpandPanel({ hymn, scripture }: { hymn?: BulletinHymn | null; scripture?: BulletinScripture | null }) {
+/** 예배 순서 항목을 눌러 펼쳤을 때 — 가사·본문(있으면 한글/English 전환).
+ * defaultLang — 단일 예배 주보에서 위쪽 한글/English 탭을 골라 둔 상태로 펼치면
+ * 그 언어부터 보여준다(둘 다 있을 때만 의미 있고, 없으면 있는 언어로 대체). */
+function OrderExpandPanel({
+  hymn,
+  scripture,
+  defaultLang,
+}: {
+  hymn?: BulletinHymn | null;
+  scripture?: BulletinScripture | null;
+  defaultLang?: 'ko' | 'en';
+}) {
   const ko = hymn ? hymn.lyricsKo : scripture?.textKo;
   const en = hymn ? hymn.lyricsEn : scripture?.textEn;
-  const [lang, setLang] = useState<'ko' | 'en'>(ko ? 'ko' : 'en');
+  const preferred = defaultLang === 'en' ? !!en : defaultLang === 'ko' ? !!ko : false;
+  const [lang, setLang] = useState<'ko' | 'en'>(preferred ? defaultLang! : ko ? 'ko' : 'en');
   const text = lang === 'ko' ? ko : en;
   const both = !!ko && !!en;
   return (
@@ -525,7 +537,14 @@ function BulletinCards({
                       <ChevronDown size={14} color={colors.muted3} strokeWidth={2.2} />
                     ))}
                 </Row>
-                {isOpen && <OrderExpandPanel hymn={hymn} scripture={scripture} />}
+                {isOpen && (
+                  <OrderExpandPanel
+                    key={isSingleService ? orderLang : 'ko'}
+                    hymn={hymn}
+                    scripture={scripture}
+                    defaultLang={isSingleService ? orderLang : undefined}
+                  />
+                )}
               </View>
             );
           })}
@@ -816,7 +835,12 @@ export default function BulletinScreen() {
   const { date: latestDate, loading: latestLoading } = useLatestBulletinDate(
     firebaseEnabled && !selected,
   );
-  const { dates, testDates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
+  const { dates: allDates, testDates, loading: datesLoading } = useBulletinDates(firebaseEnabled);
+  // 목업/미리보기 주보(source가 'test'로 시작)는 관리자로 로그인했을 때만
+  // 날짜 목록에 보인다 — 다른 관리자들과 상의 중인 초안이 일반 교인에게
+  // 먼저 노출되지 않게.
+  const { isAdmin } = useAdminAuth();
+  const dates = isAdmin ? allDates : allDates.filter((d) => !testDates.has(d));
   const openDate = (date: string) => {
     if (date === selected) return;
     const to = { pathname: '/bulletin' as const, params: { d: date } };
@@ -834,6 +858,9 @@ export default function BulletinScreen() {
   // 이미지를 받지 않아 카드형 내용이 훨씬 빨리 뜬다.
   const [showImages, setShowImages] = useState(false);
   const { bulletin, loading: metaLoading, pagesLoading } = useBulletin(current, showImages);
+  // 목록에는 안 보여도, 주소로 날짜를 직접 넣어 들어오면 열릴 수 있으니
+  // 문서 자체의 source로 한 번 더 막는다.
+  const isLockedPreview = !!bulletin?.source?.startsWith('test') && !isAdmin;
   // 예배 순서·설교 등 텍스트 내용을 뽑아낸 주보만 카드형으로 보여준다 —
   // 옛날 주보(추출 전)는 그대로 스캔 이미지로 보인다.
   const hasStructured = !!(bulletin?.order?.length || bulletin?.notices?.length || bulletin?.sermon);
@@ -898,6 +925,16 @@ export default function BulletinScreen() {
       )}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
+      ) : isLockedPreview ? (
+        <View style={styles.waitingWrap}>
+          <Text style={styles.waitingTitle}>관리자 확인용 미리보기입니다</Text>
+          <Text style={styles.waitingText}>
+            아직 검토 중인 주보 목업이라 관리자로 로그인해야 볼 수 있어요.
+          </Text>
+          <Pressable style={styles.primaryBtn} onPress={() => router.push('/admin')}>
+            <Text style={styles.primaryBtnText}>관리자 로그인</Text>
+          </Pressable>
+        </View>
       ) : todayMissing && !selected ? (
         <View style={styles.waitingWrap}>
           <Text style={styles.waitingTitle}>이번 주 주보는 준비 중입니다</Text>

@@ -259,7 +259,9 @@ export function useLatestBulletinDate(enabled: boolean): { date: string | null; 
   return { date, loading };
 }
 
-/** 저장된 주보 날짜 목록(최신순) — 지난 주보 열람용 */
+/** 저장된 주보 날짜 목록(최신순) — 지난 주보 열람용.
+ * testDates — source가 'test'로 시작하는(=목업/미리보기용) 주보 날짜. 일반
+ * 교인에게는 화면에서 걸러내고, 관리자로 로그인했을 때만 보여준다. */
 export function useBulletinDates(
   enabled: boolean,
 ): { dates: string[]; testDates: Set<string>; loading: boolean } {
@@ -285,7 +287,11 @@ export function useBulletinDates(
         );
         if (!cancelled) {
           setDates(snap.docs.map((d) => d.id));
-          setTestDates(new Set(snap.docs.filter((d) => d.get('source') === 'test').map((d) => d.id)));
+          setTestDates(
+            new Set(
+              snap.docs.filter((d) => (d.get('source') as string | undefined)?.startsWith('test')).map((d) => d.id),
+            ),
+          );
         }
       } catch {
         // 오프라인 등 — 빈 목록이면 화면에서 홈페이지 링크로 안내

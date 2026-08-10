@@ -1,0 +1,21 @@
+# 일회성 — 관리자 확인용 야외예배 주보(한글/English 전환) 목업을 별도 날짜로
+# 만든다. 관리자로 로그인해야만 앱에서 보인다(firestore.rules 참고).
+name: Seed test outdoor-worship bulletin (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Seed
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/seed-test-outdoor-bulletin.mjs
