@@ -668,25 +668,29 @@ function BulletinCards({
                   style={[styles.orderIconRow, i === order.length - 1 && !isOpen && styles.rowLast]}
                   onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
                 >
-                  <OrderIcon name={item.name} />
-                  {/* 세부 내용이 없으면(다같이 하는 순서 등) 오른쪽이 빈 채로
-                      남으니, 그때는 이름 칸이 그 자리까지 채운다. */}
-                  <Text style={[styles.orderIconName, !detail && styles.orderIconNameFull]}>{displayName}</Text>
+                  {/* 이름 줄과 세부 내용 줄을 나눈다 — 아이콘 옆에 이름·세부까지
+                      한 줄에 욱여넣으면(특히 전화기에서) 세부 내용이 여러 줄로
+                      쪼개지면서 지저분해 보였다. 세부 내용은 이제 아래에 폭
+                      전체를 쓰는 한 줄로 내려온다. */}
+                  <View style={styles.orderTopRow}>
+                    <OrderIcon name={item.name} />
+                    <Text style={styles.orderIconName}>{displayName}</Text>
+                    {/* 챙기기 쉽게 눌러서 펼칠 수 있다는 걸 글자로도 알려준다 —
+                        화살표 아이콘만으로는 눈에 잘 안 띈다는 의견 반영 */}
+                    {expandable && (
+                      <View style={styles.orderExpandHint}>
+                        <Text style={styles.orderExpandHintText}>
+                          {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
+                        </Text>
+                        {isOpen ? (
+                          <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+                        ) : (
+                          <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+                        )}
+                      </View>
+                    )}
+                  </View>
                   {!!detail && <Text style={styles.orderIconDetail}>{detail}</Text>}
-                  {/* 챙기기 쉽게 눌러서 펼칠 수 있다는 걸 글자로도 알려준다 —
-                      화살표 아이콘만으로는 눈에 잘 안 띈다는 의견 반영 */}
-                  {expandable && (
-                    <View style={styles.orderExpandHint}>
-                      <Text style={styles.orderExpandHintText}>
-                        {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
-                      </Text>
-                      {isOpen ? (
-                        <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
-                      ) : (
-                        <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
-                      )}
-                    </View>
-                  )}
                 </Row>
                 {isOpen && (
                   <OrderExpandPanel
@@ -1415,12 +1419,14 @@ const styles = StyleSheet.create({
   svcTabTextActive: { color: '#FFFFFF' },
 
   orderIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     paddingVertical: 9,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
+  },
+  orderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   orderIconChip: {
     width: 28,
@@ -1431,16 +1437,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  orderIconName: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
-  // 세부 내용이 없는 줄(다같이 등)은 이름이 오른쪽 빈 공간까지 채우게
-  orderIconNameFull: { flex: 1 },
+  orderIconName: { flex: 1, fontFamily: font.bold, fontSize: 13, color: colors.body },
   orderIconDetail: {
-    flex: 1,
     fontFamily: font.medium,
     fontSize: 11.5,
     lineHeight: 16,
     color: colors.muted,
-    textAlign: 'right',
+    textAlign: 'left',
+    marginTop: 3,
+    // 아이콘 칩(28) + 간격(10)만큼 들여써서 이름 글자 시작 위치에 맞춘다.
+    marginLeft: 38,
   },
   // 가사·본문이 있어 눌러 펼칠 수 있는 줄 — 화살표만으로는 눈에 안 띄어
   // 글자 칩을 같이 붙인다.
