@@ -293,6 +293,23 @@ function stripKoreanDuplicates(text: string): string {
     .trim();
 }
 
+/** "경배와 기도"처럼 한 항목을 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)가
+ * 나눠 맡을 때, 줄바꿈으로만 이어붙여 놓으면 한 문단처럼 보여 몇 파트인지
+ * 구분이 안 된다. 각 줄을 한 파트로 보되, "[찬송 제목]"처럼 대괄호만 있는
+ * 줄은 새 파트가 아니라 바로 앞 파트(부른 곡 제목)에 붙인다. */
+function splitDetailParts(detail: string): string[] {
+  const lines = detail.split('\n').map((l) => l.trim()).filter(Boolean);
+  const parts: string[] = [];
+  for (const line of lines) {
+    if (/^[[(].*[\])]$/.test(line) && parts.length) {
+      parts[parts.length - 1] += ` ${line}`;
+    } else {
+      parts.push(line);
+    }
+  }
+  return parts;
+}
+
 /** 한글 모드에서는 반대로 영어를 없앤다 — 칸이 좁은데 "책이름 [English]"
  * 처럼 뒤에 괄호로 덧붙은 영어까지 다 보여줄 필요는 없으니까. */
 function stripEnglishDuplicates(text: string): string {
@@ -662,35 +679,54 @@ function BulletinCards({
             const asteriskOnly = shownDetail.trim() === '*';
             const detail = asteriskOnly ? '' : shownDetail;
             const displayName = asteriskOnly ? `${name}*` : name;
+            const parts = detail ? splitDetailParts(detail) : [];
+            const detailBlock = parts.map((part, pi) => (
+              <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
+                {parts.length > 1 ? `· ${part}` : part}
+              </Text>
+            ));
+            const hint = expandable && (
+              <View style={styles.orderExpandHint}>
+                <Text style={styles.orderExpandHintText}>
+                  {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
+                </Text>
+                {isOpen ? (
+                  <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+                ) : (
+                  <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+                )}
+              </View>
+            );
             return (
               <View key={i}>
                 <Row
                   style={[styles.orderIconRow, i === order.length - 1 && !isOpen && styles.rowLast]}
                   onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
                 >
-                  {/* 이름 줄과 세부 내용 줄을 나눈다 — 아이콘 옆에 이름·세부까지
-                      한 줄에 욱여넣으면(특히 전화기에서) 세부 내용이 여러 줄로
-                      쪼개지면서 지저분해 보였다. 세부 내용은 이제 아래에 폭
-                      전체를 쓰는 한 줄로 내려온다. */}
-                  <View style={styles.orderTopRow}>
-                    <OrderIcon name={item.name} />
-                    <Text style={styles.orderIconName}>{displayName}</Text>
-                    {/* 챙기기 쉽게 눌러서 펼칠 수 있다는 걸 글자로도 알려준다 —
-                        화살표 아이콘만으로는 눈에 잘 안 띈다는 의견 반영 */}
-                    {expandable && (
-                      <View style={styles.orderExpandHint}>
-                        <Text style={styles.orderExpandHintText}>
-                          {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
-                        </Text>
-                        {isOpen ? (
-                          <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
-                        ) : (
-                          <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
-                        )}
+                  {isSingleService ? (
+                    // 야외예배 등 단일 예배 주보 — 항목 이름 길이가 들쭉날쭉하고
+                    // English 모드는 특히 길어서, 이름 줄 아래에 세부 내용이
+                    // 폭 전체를 쓰는 별도 줄로 내려간다.
+                    <>
+                      <View style={styles.orderTopRow}>
+                        <OrderIcon name={item.name} />
+                        <Text style={styles.orderIconName}>{displayName}</Text>
+                        {hint}
                       </View>
-                    )}
-                  </View>
-                  {!!detail && <Text style={styles.orderIconDetail}>{detail}</Text>}
+                      {parts.length > 0 && <View style={styles.orderDetailBelow}>{detailBlock}</View>}
+                    </>
+                  ) : (
+                    // 일반 주일 — 항목 이름이 정해진 몇 가지뿐이라 폭이 일정하다.
+                    // 그 폭에 맞춰 이름 칸을 고정해 두고, 세부 내용은 그 옆
+                    // 칸에서 왼쪽 정렬 — 짧은 줄은 한 줄로 붙고, "경배와 기도"
+                    // 처럼 여러 파트면 그 칸 안에서 파트별로 줄바꿈된다.
+                    <View style={styles.orderTopRow}>
+                      <OrderIcon name={item.name} />
+                      <Text style={[styles.orderIconName, styles.orderIconNameFixed]}>{displayName}</Text>
+                      <View style={styles.orderDetailCol}>{detailBlock}</View>
+                      {hint}
+                    </View>
+                  )}
                 </Row>
                 {isOpen && (
                   <OrderExpandPanel
@@ -1438,16 +1474,24 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   orderIconName: { flex: 1, fontFamily: font.bold, fontSize: 13, color: colors.body },
+  // 일반 주일은 항목 이름이 정해진 몇 가지뿐이라 폭이 일정하다 — 그 폭에
+  // 맞춰 고정해 두면 세부 내용 칸이 줄마다 같은 자리에서 시작한다.
+  orderIconNameFixed: { flex: 0, width: 92 },
+  // 야외예배 등 단일 예배 주보 — 이름 줄 아래, 아이콘 칩(28)+간격(10)만큼
+  // 들여써서 이름 글자 시작 위치에 맞춘 별도 줄.
+  orderDetailBelow: { marginTop: 3, marginLeft: 38 },
+  // 일반 주일 — 고정폭 이름 칸 옆에서 남는 폭을 그대로 쓰는 칸.
+  orderDetailCol: { flex: 1 },
   orderIconDetail: {
     fontFamily: font.medium,
     fontSize: 11.5,
     lineHeight: 16,
     color: colors.muted,
     textAlign: 'left',
-    marginTop: 3,
-    // 아이콘 칩(28) + 간격(10)만큼 들여써서 이름 글자 시작 위치에 맞춘다.
-    marginLeft: 38,
   },
+  // 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)로 나뉜 세부 내용에서
+  // 두 번째 파트부터 위와 살짝 떼어 구분되게.
+  orderIconDetailPart: { marginTop: 3 },
   // 가사·본문이 있어 눌러 펼칠 수 있는 줄 — 화살표만으로는 눈에 안 띄어
   // 글자 칩을 같이 붙인다.
   orderExpandHint: {
