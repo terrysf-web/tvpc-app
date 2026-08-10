@@ -700,7 +700,11 @@ function BulletinCards({
             return (
               <View key={i}>
                 <Row
-                  style={[styles.orderIconRow, i === order.length - 1 && !isOpen && styles.rowLast]}
+                  style={[
+                    styles.orderIconRow,
+                    !isSingleService && styles.orderTopRow,
+                    i === order.length - 1 && !isOpen && styles.rowLast,
+                  ]}
                   onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
                 >
                   {isSingleService ? (
@@ -716,16 +720,15 @@ function BulletinCards({
                       {parts.length > 0 && <View style={styles.orderDetailBelow}>{detailBlock}</View>}
                     </>
                   ) : (
-                    // 일반 주일 — 항목 이름이 정해진 몇 가지뿐이라 폭이 일정하다.
-                    // 그 폭에 맞춰 이름 칸을 고정해 두고, 세부 내용은 그 옆
-                    // 칸에서 왼쪽 정렬 — 짧은 줄은 한 줄로 붙고, "경배와 기도"
-                    // 처럼 여러 파트면 그 칸 안에서 파트별로 줄바꿈된다.
-                    <View style={styles.orderTopRow}>
+                    // 일반 주일 — 원래 레이아웃 그대로(오른쪽 정렬 한 줄).
+                    <>
                       <OrderIcon name={item.name} />
-                      <Text style={[styles.orderIconName, styles.orderIconNameFixed]}>{displayName}</Text>
-                      <View style={styles.orderDetailCol}>{detailBlock}</View>
+                      <Text style={[styles.orderIconNameOrig, !detail && styles.orderIconNameFull]}>
+                        {displayName}
+                      </Text>
+                      {!!detail && <Text style={styles.orderIconDetailOrig}>{detail}</Text>}
                       {hint}
-                    </View>
+                    </>
                   )}
                 </Row>
                 {isOpen && (
@@ -1474,14 +1477,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   orderIconName: { flex: 1, fontFamily: font.bold, fontSize: 13, color: colors.body },
-  // 일반 주일은 항목 이름이 정해진 몇 가지뿐이라 폭이 일정하다 — 그 폭에
-  // 맞춰 고정해 두면 세부 내용 칸이 줄마다 같은 자리에서 시작한다.
-  orderIconNameFixed: { flex: 0, width: 92 },
   // 야외예배 등 단일 예배 주보 — 이름 줄 아래, 아이콘 칩(28)+간격(10)만큼
   // 들여써서 이름 글자 시작 위치에 맞춘 별도 줄.
   orderDetailBelow: { marginTop: 3, marginLeft: 38 },
-  // 일반 주일 — 고정폭 이름 칸 옆에서 남는 폭을 그대로 쓰는 칸.
-  orderDetailCol: { flex: 1 },
   orderIconDetail: {
     fontFamily: font.medium,
     fontSize: 11.5,
@@ -1492,6 +1490,17 @@ const styles = StyleSheet.create({
   // 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)로 나뉜 세부 내용에서
   // 두 번째 파트부터 위와 살짝 떼어 구분되게.
   orderIconDetailPart: { marginTop: 3 },
+  // 일반 주일 — 원래 레이아웃(오른쪽 정렬 한 줄) 그대로 되돌린 스타일.
+  orderIconNameOrig: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
+  orderIconNameFull: { flex: 1 },
+  orderIconDetailOrig: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: colors.muted,
+    textAlign: 'right',
+  },
   // 가사·본문이 있어 눌러 펼칠 수 있는 줄 — 화살표만으로는 눈에 안 띄어
   // 글자 칩을 같이 붙인다.
   orderExpandHint: {
