@@ -11,8 +11,24 @@
  * 되면 실제 주보 동기화가 이 문서를 그대로 덮어써서 자연스럽게 진짜 내용으로
  * 바뀐다.
  */
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+
+// sync-bulletin.mjs의 fillMissingKoreanScripture와 같은 방식 — 인쇄본에 한글이
+// 없던 구절(작년 야외예배 주보의 창세기 1:26-27은 영어만 인쇄됨)도 실제
+// 개역개정 데이터로 채워서, "한글 서비스에도 개역개정이 있어야 한다"는 수정이
+// 목업에도 똑같이 반영되게 한다(기억으로 대충 옮겨 적지 않음).
+const scriptDir = new URL('.', import.meta.url).pathname;
+const bible = JSON.parse(gunzipSync(readFileSync(`${scriptDir}data/gae.json.gz`)).toString());
+function koreanVerses(book, ch, v1, v2) {
+  const verses = bible[book]?.[ch - 1];
+  if (!verses) return null;
+  const picked = [];
+  for (let v = v1; v <= v2; v++) if (verses[v - 1]) picked.push(`${v}. ${verses[v - 1]}`);
+  return picked.length ? picked.join(' ') : null;
+}
 
 const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 initializeApp({ credential: cert(sa) });
@@ -125,6 +141,9 @@ const hymns = [
 const scriptures = [
   {
     reference: '창세기 1:26-27',
+    // 작년 원본엔 이 구절 한글이 인쇄돼 있지 않았지만(영어만), 개역개정
+    // 데이터로 채워 넣는다 — 한글 서비스에서도 개역개정이 있어야 하니까.
+    textKo: koreanVerses('창세기', 1, 26, 27),
     textEn:
       '26. Then God said, "Let us make man in our image, in our likeness, and let them rule over ' +
       'the fish of the sea and the birds of the air, over the livestock, over all the earth, and ' +

@@ -1072,6 +1072,36 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
   };
 }
 
+/** 인쇄본에 그 구절의 한글이 아예 없어(예: 영어만 실린 면) textKo가 빈
+ * 성경 본문에, 이미 갖고 있는 개역개정 데이터로 한글을 채워 넣는다.
+ * 찬송가 가사와 달리 성경은 번역이 고정돼 있어(참조만 맞으면 항상 같은
+ * 본문) 이렇게 채워도 안전하다 — 반대로 textEn이 없을 때는 갖고 있는
+ * 영어 성경 데이터가 없어 채우지 못한다. */
+async function fillMissingKoreanScripture(scriptures) {
+  if (!scriptures.some((s) => !s.textKo)) return scriptures;
+  const bible = await loadBible();
+  return scriptures.map((s) => {
+    if (s.textKo) return s;
+    const m = s.reference.match(/^(.+?)\s+(\d+)[:.](\d+)(?:[-–](\d+))?$/);
+    if (!m) return s;
+    const bookName = findBookIn(bible, m[1].trim());
+    const chapters = bookName ? bible[bookName] : null;
+    if (!chapters) return s;
+    const ch = Number(m[2]);
+    const v1 = Number(m[3]);
+    const v2 = m[4] ? Number(m[4]) : v1;
+    const verses = chapters[ch - 1];
+    if (!verses) return s;
+    const picked = [];
+    for (let v = v1; v <= v2; v++) {
+      if (verses[v - 1]) picked.push(`${v}. ${verses[v - 1]}`);
+    }
+    if (!picked.length) return s;
+    console.log(`  · ${s.reference}: 인쇄본에 없던 한글(개역개정) 채움`);
+    return { ...s, textKo: picked.join(' ') };
+  });
+}
+
 /** 2면 — 교회 소식(번호 매긴 공지) + 그 아래 "교우 동정"(번호 없이 [태그] 본문
  * 형식) — 둘은 원본에서도 제목이 다른 별개 카테고리라 따로 돌려준다. 교우
  * 동정은 있는 주도 없는 주도 있다. */
@@ -1318,7 +1348,7 @@ try {
   try {
     const hr = extractHymnsAndScriptures(faces, [orderFace, noticesFace]);
     hymns = hr.hymns;
-    scriptures = hr.scriptures;
+    scriptures = await fillMissingKoreanScripture(hr.scriptures);
     if (hymns.length) console.log(`[주보] 찬송가 가사 ${hymns.length}곡 추출`);
     if (scriptures.length) console.log(`[주보] 성경 본문 ${scriptures.length}건 추출`);
   } catch (e) {
