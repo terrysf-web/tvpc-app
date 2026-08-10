@@ -1,6 +1,6 @@
 /**
  * 가입 승인 대기 알림 — 새 가입 신청(members/status=pending)이 있으면
- * 승인 담당자(daeho@tvpc.church로 로그인해 알림을 켠 기기)에게만 푸시를 보낸다.
+ * 승인 담당자(dhbaek@gmail.com로 로그인해 알림을 켠 기기)에게만 푸시를 보낸다.
  *
  * GitHub Actions(.github/workflows/notify-pending.yml)가 매시간 실행.
  * 이미 알린 신청은 notifiedAdminAt 필드로 건너뛴다.
@@ -9,7 +9,7 @@ import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 
-const APPROVER_EMAIL = 'daeho@tvpc.church';
+const APPROVER_EMAIL = 'dhbaek@gmail.com';
 
 const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!saRaw) {
@@ -25,7 +25,7 @@ const fresh = pendingSnap.docs.filter((d) => !d.get('notifiedAdminAt'));
 console.log(`승인 대기 ${pendingSnap.size}건, 새 신청 ${fresh.length}건`);
 if (fresh.length === 0) process.exit(0);
 
-// 승인 담당자(daeho@tvpc.church) 계정으로 로그인해 등록된 알림 토큰만
+// 승인 담당자(dhbaek@gmail.com) 계정으로 로그인해 등록된 알림 토큰만
 const tokenDocs = (await db.collection('pushTokens').get()).docs.filter(
   (d) => String(d.get('email') ?? '').toLowerCase() === APPROVER_EMAIL,
 );
