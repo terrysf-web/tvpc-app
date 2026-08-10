@@ -143,11 +143,19 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 40
         && request.resource.data.memberType in ['existing', 'new'];
-      // 수정: 관리자(승인 포함) 또는 본인(이름·교인구분·자기소개만, 승인 상태 변경 불가)
+      // 수정: 관리자(승인 포함) 또는 본인
       allow update: if isAdmin()
+        // 본인 — 이름·교인구분·자기소개만(승인 상태 변경 불가)
         || (request.auth != null && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'memberType', 'bio']));
+                 .hasOnly(['name', 'memberType', 'bio']))
+        // 본인 — 해제(revoked)된 상태에서 재로그인 시 새 가입 신청(pending)으로만
+        // 되돌릴 수 있다. 그 반대(pending→approved 등 스스로 승인)는 불가.
+        || (request.auth != null && request.auth.uid == uid
+            && resource.data.status == 'revoked'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'notifiedAdminAt']));
       allow delete: if isAdmin();
     }
 

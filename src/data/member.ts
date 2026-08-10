@@ -36,14 +36,17 @@ export type MemberState =
   | 'none' // 로그인 안 함(또는 익명)
   | 'noProfile' // 계정 로그인은 됐지만 교인 정보 미등록 (기존 관리자 계정 등)
   | 'pending' // 가입 신청, 승인 대기
-  | 'approved' // 승인된 교인
-  | 'revoked'; // 승인이 해제된 교인
+  | 'approved'; // 승인된 교인
 
 /**
  * 교인 인증 상태 훅. 로그인은 Google 계정으로만(이메일/비밀번호 없음) —
  * 로그인 후 members/{uid} 문서가 없으면 이름·교인구분·자기소개만 받아
  * pending으로 등록 → 관리자 승인 후 approved.
  * 교우 앨범·주소록·헌금 내역·기도요청은 approved 교인만 이용한다(보안 규칙 강제).
+ *
+ * 해제(revoked)된 교인이 다시 로그인하면 "거절당했다"는 인상을 주지 않도록,
+ * 화면엔 그냥 pending(승인 대기)으로만 보여주고 조용히 새 가입 신청으로
+ * 되돌린다 — 관리자가 다시 검토해서 승인/재해제를 판단한다.
  */
 export function useMember() {
   const [state, setState] = useState<MemberState>(firebaseEnabled ? 'loading' : 'none');
@@ -79,8 +82,16 @@ export function useMember() {
             return;
           }
           const m = { ...(snap.data() as Omit<MemberDoc, 'id'>), id: snap.id };
+          if (m.status === 'revoked') {
+            // 화면엔 곧바로 pending으로 보여주고(해제 문구를 보여주지 않음),
+            // 실제 문서도 조용히 새 가입 신청으로 되돌려 관리자 알림이 다시 가게 한다.
+            setMember({ ...m, status: 'pending' });
+            setState('pending');
+            updateDoc(snap.ref, { status: 'pending', notifiedAdminAt: null }).catch(() => {});
+            return;
+          }
           setMember(m);
-          setState(m.status === 'approved' ? 'approved' : m.status === 'revoked' ? 'revoked' : 'pending');
+          setState(m.status === 'approved' ? 'approved' : 'pending');
         },
         () => setState('none'),
       );

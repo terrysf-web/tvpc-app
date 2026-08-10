@@ -157,26 +157,6 @@ export default function MemberLoginScreen() {
     );
   }
 
-  // 승인이 해제됨
-  if (state === 'revoked') {
-    return (
-      <View style={styles.screen}>
-        <OverlayHeader title="교인 로그인" />
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={[styles.card, shadows.card]}>
-            <Text style={styles.title}>승인이 해제되었습니다</Text>
-            <Text style={styles.sub}>
-              {member?.name ? `${member.name}님, ` : ''}교인 승인이 해제되어 교우 앨범 등 교인
-              전용 화면을 더 이상 이용하실 수 없습니다. 문의사항은 교회 사무실로 연락해 주세요.
-            </Text>
-            <Pressable style={styles.secondaryBtn} onPress={signOut}>
-              <Text style={styles.secondaryBtnText}>로그아웃</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
 
   // 승인 완료
   if (state === 'approved') {
