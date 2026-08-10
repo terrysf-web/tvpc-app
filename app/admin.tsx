@@ -1,3 +1,4 @@
+import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
 import LogOut from 'lucide-react-native/dist/esm/icons/log-out.mjs';
 import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
@@ -75,6 +76,9 @@ const TABS: { key: AdminTab; label: string }[] = [
   { key: 'info', label: '예배시간' },
   { key: 'members', label: '가입 승인' },
 ];
+
+// 승인 해제 사유 — 가나다순, "직접입력"은 항상 맨 아래
+const REVOKE_REASONS = ['교인사망', '교인이사', '다른 교회 이동', '불출석', '직접입력'] as const;
 
 /** 다가오는 주일(오늘이 주일이면 오늘) — 주보 날짜 기본값 */
 function upcomingSunday(): string {
@@ -295,17 +299,28 @@ export default function AdminScreen() {
   const [oDate, setODate] = useState(today());
   const [oAmount, setOAmount] = useState('');
 
-  // 해제/재승인 사유 입력 — audit trail로 기록해 리포트에 남긴다
+  // 해제/재승인 사유 입력 — audit trail로 기록해 리포트에 남긴다.
+  // 해제는 미리 정해둔 사유 중 고르고("직접입력"이면 자유 입력), 재승인은 자유 입력.
   const [reasonPrompt, setReasonPrompt] = useState<
     { uid: string; name: string; action: 'revoke' | 'reapprove' } | null
   >(null);
   const [reasonText, setReasonText] = useState('');
+  const [reasonPreset, setReasonPreset] = useState<(typeof REVOKE_REASONS)[number]>(
+    REVOKE_REASONS[0],
+  );
+  const [reasonDropOpen, setReasonDropOpen] = useState(false);
   const confirmReasonPrompt = () => {
     if (!reasonPrompt) return;
     const { uid, name, action } = reasonPrompt;
-    const reason = reasonText.trim();
+    const reason =
+      action === 'revoke'
+        ? reasonPreset === '직접입력'
+          ? reasonText.trim()
+          : reasonPreset
+        : reasonText.trim();
     setReasonPrompt(null);
     setReasonText('');
+    setReasonDropOpen(false);
     if (action === 'revoke') {
       submit(() => revokeMember(uid, reason), `${name}님의 승인을 해제했습니다.`);
     } else {
@@ -1065,6 +1080,8 @@ export default function AdminScreen() {
                   style={styles.revokeBtn}
                   onPress={() => {
                     setReasonText('');
+                    setReasonPreset(REVOKE_REASONS[0]);
+                    setReasonDropOpen(false);
                     setReasonPrompt({ uid: m.id, name: m.name, action: 'revoke' });
                   }}
                 >
@@ -1228,15 +1245,61 @@ export default function AdminScreen() {
               {reasonPrompt?.name}님을 {reasonPrompt?.action === 'revoke' ? '해제' : '재승인'}
               하는 이유를 남겨 주세요. 기록에 남아 나중에 리포트로 확인할 수 있습니다.
             </Text>
-            <TextInput
-              style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
-              value={reasonText}
-              onChangeText={setReasonText}
-              placeholder="예: 본인 요청, 교회를 떠남, 정보 오기재 등"
-              placeholderTextColor={colors.faint}
-              multiline
-              autoFocus
-            />
+            {reasonPrompt?.action === 'revoke' ? (
+              <>
+                <Pressable
+                  style={styles.reasonDropBtn}
+                  onPress={() => setReasonDropOpen((o) => !o)}
+                >
+                  <Text style={styles.reasonDropBtnText}>{reasonPreset}</Text>
+                  <ChevronDown size={16} color={colors.primary} strokeWidth={2} />
+                </Pressable>
+                {reasonDropOpen && (
+                  <View style={styles.reasonDropList}>
+                    {REVOKE_REASONS.map((r) => (
+                      <Pressable
+                        key={r}
+                        style={styles.reasonDropItem}
+                        onPress={() => {
+                          setReasonPreset(r);
+                          setReasonDropOpen(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.reasonDropItemText,
+                            r === reasonPreset && styles.reasonDropItemActive,
+                          ]}
+                        >
+                          {r}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                {reasonPreset === '직접입력' && (
+                  <TextInput
+                    style={[styles.input, { marginTop: 10, minHeight: 70, textAlignVertical: 'top' }]}
+                    value={reasonText}
+                    onChangeText={setReasonText}
+                    placeholder="사유를 입력해 주세요"
+                    placeholderTextColor={colors.faint}
+                    multiline
+                    autoFocus
+                  />
+                )}
+              </>
+            ) : (
+              <TextInput
+                style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
+                value={reasonText}
+                onChangeText={setReasonText}
+                placeholder="예: 본인 요청, 실수로 해제함 등"
+                placeholderTextColor={colors.faint}
+                multiline
+                autoFocus
+              />
+            )}
             <View style={styles.reasonBtnRow}>
               <Pressable
                 style={styles.rejectBtn}
@@ -1287,6 +1350,29 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   reasonBtnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  reasonDropBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.screenBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.divider2,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+  },
+  reasonDropBtnText: { fontFamily: font.bold, fontSize: 14, color: colors.title },
+  reasonDropList: {
+    marginTop: 4,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.divider2,
+    paddingVertical: 4,
+  },
+  reasonDropItem: { paddingHorizontal: 14, paddingVertical: 10 },
+  reasonDropItemText: { fontFamily: font.medium, fontSize: 13.5, color: colors.body },
+  reasonDropItemActive: { color: colors.primary, fontFamily: font.extraBold },
 
   loginTitle: { fontFamily: font.extraBold, fontSize: 18, color: colors.title },
   googleBtn: {
