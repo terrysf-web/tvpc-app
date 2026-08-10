@@ -141,12 +141,13 @@ service cloud.firestore {
         && request.resource.data.status == 'pending'
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 40;
-      // 수정: 관리자(승인 포함) 또는 본인(연락처 정보만, 승인 상태 변경 불가)
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.memberType in ['existing', 'new'];
+      // 수정: 관리자(승인 포함) 또는 본인(이름·교인구분·자기소개만, 승인 상태 변경 불가)
       allow update: if isAdmin()
         || (request.auth != null && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'phone', 'address', 'city', 'state', 'zip']));
+                 .hasOnly(['name', 'memberType', 'bio']));
       allow delete: if isAdmin();
     }
 

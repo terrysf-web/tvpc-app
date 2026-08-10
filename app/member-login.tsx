@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { SegmentTabs } from '../src/components/SegmentTabs';
-import { formatPhone, useMember } from '../src/data/member';
+import { useMember } from '../src/data/member';
 import { colors, font, radius, shadows } from '../src/theme';
 
 /** Firebase Auth 오류 코드 → 교인이 이해할 수 있는 한글 안내 */
@@ -45,30 +45,64 @@ function Field({
   placeholder,
   secure,
   keyboardType,
-  autoCapitalize,
+  multiline,
 }: {
   label: string;
   value: string;
   onChange: (t: string) => void;
   placeholder?: string;
   secure?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
-  autoCapitalize?: 'none' | 'words' | 'characters';
+  keyboardType?: 'default' | 'email-address';
+  multiline?: boolean;
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, multiline && styles.inputMultiline]}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.faint}
         secureTextEntry={secure}
         keyboardType={keyboardType}
-        autoCapitalize={autoCapitalize ?? 'none'}
+        autoCapitalize="none"
         autoCorrect={false}
+        multiline={multiline}
       />
+    </View>
+  );
+}
+
+/** 기존 교인 / 새로 가입 선택 — 두 칸 세그먼트 버튼 */
+function MemberTypeToggle({
+  value,
+  onChange,
+}: {
+  value: 'existing' | 'new';
+  onChange: (v: 'existing' | 'new') => void;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>교인 구분</Text>
+      <View style={styles.typeRow}>
+        {(
+          [
+            { key: 'existing' as const, label: '기존 교인' },
+            { key: 'new' as const, label: '새로 가입' },
+          ]
+        ).map((o) => (
+          <Pressable
+            key={o.key}
+            style={[styles.typeBtn, value === o.key && styles.typeBtnActive]}
+            onPress={() => onChange(o.key)}
+          >
+            <Text style={[styles.typeBtnText, value === o.key && styles.typeBtnTextActive]}>
+              {o.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
@@ -93,11 +127,8 @@ export default function MemberLoginScreen() {
 
   // 가입 폼 (계정 정보 없이 members 문서만 등록하는 noProfile 상태에서도 재사용)
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [stateCode, setStateCode] = useState('');
-  const [zip, setZip] = useState('');
+  const [memberType, setMemberType] = useState<'existing' | 'new'>('existing');
+  const [bio, setBio] = useState('');
   const [sEmail, setSEmail] = useState('');
   const [sPassword, setSPassword] = useState('');
 
@@ -119,8 +150,12 @@ export default function MemberLoginScreen() {
 
   const doSignUp = async () => {
     setErr(null);
-    if (!name.trim() || !phone.trim() || !address.trim() || !city.trim() || !stateCode.trim() || !zip.trim()) {
-      setErr('이름·연락처·주소를 모두 입력해 주세요.');
+    if (!name.trim()) {
+      setErr('이름을 입력해 주세요.');
+      return;
+    }
+    if (memberType === 'new' && !bio.trim()) {
+      setErr('새로 가입하시는 분은 간단한 자기소개를 남겨 주세요.');
       return;
     }
     if (!sEmail.trim() || sPassword.length < 6) {
@@ -129,16 +164,7 @@ export default function MemberLoginScreen() {
     }
     setBusy(true);
     try {
-      await signUp({
-        name,
-        phone,
-        address,
-        city,
-        state: stateCode,
-        zip,
-        email: sEmail,
-        password: sPassword,
-      });
+      await signUp({ name, email: sEmail, password: sPassword, memberType, bio });
     } catch (e) {
       setErr(friendlyAuthError(e));
     } finally {
@@ -148,13 +174,17 @@ export default function MemberLoginScreen() {
 
   const doCreateProfile = async () => {
     setErr(null);
-    if (!name.trim() || !phone.trim() || !address.trim() || !city.trim() || !stateCode.trim() || !zip.trim()) {
-      setErr('이름·연락처·주소를 모두 입력해 주세요.');
+    if (!name.trim()) {
+      setErr('이름을 입력해 주세요.');
+      return;
+    }
+    if (memberType === 'new' && !bio.trim()) {
+      setErr('새로 가입하시는 분은 간단한 자기소개를 남겨 주세요.');
       return;
     }
     setBusy(true);
     try {
-      await createProfile({ name, phone, address, city, state: stateCode, zip });
+      await createProfile({ name, memberType, bio });
     } catch (e) {
       setErr(friendlyAuthError(e));
     } finally {
@@ -247,17 +277,16 @@ export default function MemberLoginScreen() {
               입력하면 승인 후 이용하실 수 있습니다.
             </Text>
             <Field label="이름" value={name} onChange={setName} placeholder="홍길동" />
-            <Field
-              label="연락처"
-              value={phone}
-              onChange={(t) => setPhone(formatPhone(t))}
-              placeholder="925-227-0880"
-              keyboardType="phone-pad"
-            />
-            <Field label="도로명 주소" value={address} onChange={setAddress} placeholder="123 Main St" />
-            <Field label="시(City)" value={city} onChange={setCity} />
-            <Field label="주(State)" value={stateCode} onChange={setStateCode} placeholder="CA" autoCapitalize="characters" />
-            <Field label="Zip" value={zip} onChange={setZip} keyboardType="phone-pad" />
+            <MemberTypeToggle value={memberType} onChange={setMemberType} />
+            {memberType === 'new' && (
+              <Field
+                label="자기소개"
+                value={bio}
+                onChange={setBio}
+                placeholder="간단히 소개해 주세요 (가족관계, 어떻게 오시게 됐는지 등)"
+                multiline
+              />
+            )}
             {err ? <Text style={styles.error}>{err}</Text> : null}
             <Pressable
               style={[styles.primaryBtn, busy && styles.btnBusy]}
@@ -330,29 +359,23 @@ export default function MemberLoginScreen() {
               </Text>
               <Field label="이름" value={name} onChange={setName} placeholder="홍길동" />
               <Field
-                label="연락처"
-                value={phone}
-                onChange={(t) => setPhone(formatPhone(t))}
-                placeholder="925-227-0880"
-                keyboardType="phone-pad"
-              />
-              <Field label="도로명 주소" value={address} onChange={setAddress} placeholder="123 Main St" />
-              <Field label="시(City)" value={city} onChange={setCity} />
-              <Field label="주(State)" value={stateCode} onChange={setStateCode} placeholder="CA" autoCapitalize="characters" />
-              <Field label="Zip" value={zip} onChange={setZip} keyboardType="phone-pad" />
-              <Field
                 label="이메일"
                 value={sEmail}
                 onChange={setSEmail}
                 placeholder="you@example.com"
                 keyboardType="email-address"
               />
-              <Field
-                label="비밀번호 (6자 이상)"
-                value={sPassword}
-                onChange={setSPassword}
-                secure
-              />
+              <Field label="비밀번호 (6자 이상)" value={sPassword} onChange={setSPassword} secure />
+              <MemberTypeToggle value={memberType} onChange={setMemberType} />
+              {memberType === 'new' && (
+                <Field
+                  label="자기소개"
+                  value={bio}
+                  onChange={setBio}
+                  placeholder="간단히 소개해 주세요 (가족관계, 어떻게 오시게 됐는지 등)"
+                  multiline
+                />
+              )}
               {err ? <Text style={styles.error}>{err}</Text> : null}
               <Pressable
                 style={[styles.primaryBtn, busy && styles.btnBusy]}
@@ -405,6 +428,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.body,
   },
+  inputMultiline: { minHeight: 88, textAlignVertical: 'top' },
+  typeRow: { flexDirection: 'row', gap: 8 },
+  typeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.screenBg,
+  },
+  typeBtnActive: { backgroundColor: colors.tagBlueBg, borderColor: colors.primary },
+  typeBtnText: { fontFamily: font.medium, fontSize: 13.5, color: colors.muted },
+  typeBtnTextActive: { fontFamily: font.bold, color: colors.primary },
   primaryBtn: {
     marginTop: 6,
     backgroundColor: colors.primary,

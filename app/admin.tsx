@@ -926,8 +926,13 @@ export default function AdminScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pendingName}>{m.name}</Text>
                   <Text style={styles.pendingMeta}>
-                    {[m.email, m.phone].filter(Boolean).join(' · ')}
+                    {[m.email, m.memberType === 'new' ? '새로 가입' : '기존 교인']
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
+                  {m.memberType === 'new' && !!m.bio && (
+                    <Text style={styles.pendingBio}>“{m.bio}”</Text>
+                  )}
                 </View>
                 <Pressable
                   style={styles.approveBtn}
@@ -1197,6 +1202,13 @@ const styles = StyleSheet.create({
   },
   pendingName: { fontFamily: font.bold, fontSize: 14, color: colors.title },
   pendingMeta: { marginTop: 2, fontFamily: font.regular, fontSize: 11.5, color: colors.muted },
+  pendingBio: {
+    marginTop: 4,
+    fontFamily: font.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted2,
+  },
   alertRow: {
     flexDirection: 'row',
     alignItems: 'center',

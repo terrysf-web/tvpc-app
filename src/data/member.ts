@@ -23,12 +23,10 @@ export interface MemberDoc {
   id: string;
   name: string;
   email: string;
-  phone: string;
-  /** 도로명 주소 */
-  address: string;
-  city?: string;
-  state?: string;
-  zip?: string;
+  /** 기존 교인인지, 새로 가입하는(처음 오신) 분인지 */
+  memberType: 'existing' | 'new';
+  /** 새로 가입하는 분의 자기소개 — 기존 교인은 비워 둠 */
+  bio: string;
   status: 'pending' | 'approved';
   createdAt: number;
 }
@@ -94,13 +92,10 @@ export function useMember() {
   const signUp = useCallback(
     async (input: {
       name: string;
-      phone: string;
-      address: string;
-      city: string;
-      state: string;
-      zip: string;
       email: string;
       password: string;
+      memberType: 'existing' | 'new';
+      bio: string;
     }) => {
       const auth = getAuthOrNull();
       const db = getDb();
@@ -113,11 +108,8 @@ export function useMember() {
       await setDoc(doc(db, 'members', cred.user.uid), {
         name: input.name.trim(),
         email: input.email.trim().toLowerCase(),
-        phone: input.phone.trim(),
-        address: input.address.trim(),
-        city: input.city.trim(),
-        state: input.state.trim().toUpperCase(),
-        zip: input.zip.trim(),
+        memberType: input.memberType,
+        bio: input.memberType === 'new' ? input.bio.trim() : '',
         status: 'pending',
         createdAt: Date.now(),
       });
@@ -127,14 +119,7 @@ export function useMember() {
 
   /** 이미 계정이 있는 사용자(기존 관리자 등)의 교인 정보 등록 */
   const createProfile = useCallback(
-    async (input: {
-      name: string;
-      phone: string;
-      address: string;
-      city: string;
-      state: string;
-      zip: string;
-    }) => {
+    async (input: { name: string; memberType: 'existing' | 'new'; bio: string }) => {
       const auth = getAuthOrNull();
       const db = getDb();
       const user = auth?.currentUser;
@@ -142,11 +127,8 @@ export function useMember() {
       await setDoc(doc(db, 'members', user.uid), {
         name: input.name.trim(),
         email: user.email.toLowerCase(),
-        phone: input.phone.trim(),
-        address: input.address.trim(),
-        city: input.city.trim(),
-        state: input.state.trim().toUpperCase(),
-        zip: input.zip.trim(),
+        memberType: input.memberType,
+        bio: input.memberType === 'new' ? input.bio.trim() : '',
         status: 'pending',
         createdAt: Date.now(),
       });
@@ -170,14 +152,7 @@ export function useMember() {
   }, []);
 
   const updateProfile = useCallback(
-    async (patch: {
-      name?: string;
-      phone?: string;
-      address?: string;
-      city?: string;
-      state?: string;
-      zip?: string;
-    }) => {
+    async (patch: { name?: string; memberType?: 'existing' | 'new'; bio?: string }) => {
       const db = getDb();
       if (!db || !member) throw new Error('로그인이 필요합니다.');
       await updateDoc(doc(db, 'members', member.id), patch);
@@ -186,20 +161,6 @@ export function useMember() {
   );
 
   return { state, member, authEmail, signUp, signIn, signOut, updateProfile, createProfile, resetPassword };
-}
-
-/** 미국식 전화번호 자동 하이픈: 9252270880 → 925-227-0880 */
-export function formatPhone(t: string): string {
-  const d = t.replace(/\D/g, '').slice(0, 10);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}-${d.slice(3)}`;
-  return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
-}
-
-/** 주소록 표시용 전체 주소: 도로명, 시티, 주 집코드 */
-export function fullAddress(m: Pick<MemberDoc, 'address' | 'city' | 'state' | 'zip'>): string {
-  const cityStZip = [m.city, [m.state, m.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  return [m.address, cityStZip].filter(Boolean).join(', ');
 }
 
 /** 교회 주소록 — 승인된 교인 목록 (승인 교인만 읽을 수 있음) */
