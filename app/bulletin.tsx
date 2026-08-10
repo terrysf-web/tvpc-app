@@ -252,6 +252,11 @@ const ROLE_WORD_EN: Record<string, string> = {
   다같이: 'All',
   없음: 'None',
 };
+// "이름 직함" 전체를 통째로 다르게 부르고 싶을 때(예: 담당 사역이 따로
+// 있어 일반 직함 사전보다 정확한 표현이 있는 경우) — TITLE_EN보다 먼저 본다.
+const STAFF_TITLE_OVERRIDE_EN: Record<string, string> = {
+  '최재하 전도사': 'Youth Pastor Choi',
+};
 
 /** 예배 순서 세부 내용(설교자·헌금 위원 등)을 눌러 English로 바꿨을 때 —
  * "이름 + 직함" 조각을 "직함 + (아는 사람이면 성, 모르면 이름 그대로)"로 바꾼다.
@@ -268,6 +273,7 @@ function translateNamesEn(text: string): string {
       if (i % 2 === 1) return piece; // 구분자( · , / ) 그대로
       const seg = piece.trim();
       if (!seg) return piece;
+      if (STAFF_TITLE_OVERRIDE_EN[seg]) return STAFF_TITLE_OVERRIDE_EN[seg];
       if (ROLE_WORD_EN[seg]) return ROLE_WORD_EN[seg];
       const m = seg.match(TITLE_SUFFIX);
       if (!m) return piece;
@@ -653,7 +659,7 @@ function BulletinCards({
                   {expandable && (
                     <View style={styles.orderExpandHint}>
                       <Text style={styles.orderExpandHintText}>
-                        {langEn ? (hymn ? 'Lyrics' : 'Passage') : hymn ? '가사' : '본문'}
+                        {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
                       </Text>
                       {isOpen ? (
                         <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
