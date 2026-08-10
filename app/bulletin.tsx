@@ -191,6 +191,118 @@ const ORDER_LABELS_EN: Record<string, string> = {
   찬송: 'Song of Response',
 };
 
+// 성경책 이름(개역개정 한글 → 영어) — 66권 고정 목록이라 매주 바뀌지 않는다.
+// sync-bulletin.mjs의 findBookIn()처럼 "요한1서/요한일서" 두 표기 모두 인식.
+const BIBLE_BOOK_EN: Record<string, string> = {
+  창세기: 'Genesis', 출애굽기: 'Exodus', 레위기: 'Leviticus', 민수기: 'Numbers', 신명기: 'Deuteronomy',
+  여호수아: 'Joshua', 사사기: 'Judges', 룻기: 'Ruth',
+  사무엘상: '1 Samuel', 사무엘하: '2 Samuel', 열왕기상: '1 Kings', 열왕기하: '2 Kings',
+  역대상: '1 Chronicles', 역대하: '2 Chronicles', 에스라: 'Ezra', 느헤미야: 'Nehemiah', 에스더: 'Esther',
+  욥기: 'Job', 시편: 'Psalms', 잠언: 'Proverbs', 전도서: 'Ecclesiastes', 아가: 'Song of Songs',
+  이사야: 'Isaiah', 예레미야: 'Jeremiah', 예레미야애가: 'Lamentations', 에스겔: 'Ezekiel', 다니엘: 'Daniel',
+  호세아: 'Hosea', 요엘: 'Joel', 아모스: 'Amos', 오바댜: 'Obadiah', 요나: 'Jonah', 미가: 'Micah',
+  나훔: 'Nahum', 하박국: 'Habakkuk', 스바냐: 'Zephaniah', 학개: 'Haggai', 스가랴: 'Zechariah', 말라기: 'Malachi',
+  마태복음: 'Matthew', 마가복음: 'Mark', 누가복음: 'Luke', 요한복음: 'John', 사도행전: 'Acts',
+  로마서: 'Romans', 고린도전서: '1 Corinthians', 고린도후서: '2 Corinthians', 갈라디아서: 'Galatians',
+  에베소서: 'Ephesians', 빌립보서: 'Philippians', 골로새서: 'Colossians',
+  데살로니가전서: '1 Thessalonians', 데살로니가후서: '2 Thessalonians',
+  디모데전서: '1 Timothy', 디모데후서: '2 Timothy', 디도서: 'Titus', 빌레몬서: 'Philemon',
+  히브리서: 'Hebrews', 야고보서: 'James', 베드로전서: '1 Peter', 베드로후서: '2 Peter',
+  요한일서: '1 John', 요한1서: '1 John', 요한이서: '2 John', 요한2서: '2 John',
+  요한삼서: '3 John', 요한3서: '3 John', 유다서: 'Jude', 요한계시록: 'Revelation',
+};
+
+/** 성경 참조(예: "창세기 1:31")를 영어로 — 책 이름만 사전에서 바꾸고 장:절은 그대로 둔다.
+ * 사전에 없는 책이면(오타 등) 원문을 그대로 돌려준다 — 틀리게 보여주는 것보다 낫다. */
+function scriptureRefEn(reference: string): string {
+  const m = reference.match(/^([가-힣0-9]+)\s*(.+)$/);
+  if (!m) return reference;
+  const en = BIBLE_BOOK_EN[m[1]];
+  return en ? `${en} ${m[2]}` : reference;
+}
+
+// 담임목사·교역자 등 늘 순서표에 등장하는 사역자만 성(姓) 로마자 표기를 안다 —
+// 매주 바뀌는 안내·헌금 위원(집사·장로 등 성도)까지는 알 수 없어 그대로 둔다.
+const STAFF_SURNAME_EN: Record<string, string> = {
+  허성영: 'Huh',
+  최재하: 'Choi',
+  안현신: 'Ahn',
+  안현숙: 'Ahn',
+  조재희: 'Cho',
+};
+// 직함(한글 → 영어) — 이름 뒤에 붙는 걸 앞으로 옮겨 "Title Name" 순서로 만든다.
+const TITLE_EN: Record<string, string> = {
+  담임목사: 'Senior Pastor',
+  원로목사: 'Pastor Emeritus',
+  협동목사: 'Associate Pastor',
+  부목사: 'Associate Pastor',
+  목사: 'Pastor',
+  전도사: 'Rev.',
+  교육사: 'CE Director',
+  시무장로: 'Elder',
+  장로: 'Elder',
+  시무안수집사: 'Deacon',
+  안수집사: 'Deacon',
+  집사: 'Deacon',
+  권사: 'Kwonsa',
+};
+// 이름 없이 역할만 적힌 한 단어 — 그대로 사전 치환
+const ROLE_WORD_EN: Record<string, string> = {
+  인도자: 'Worship Leader',
+  다같이: 'All',
+  없음: 'None',
+};
+
+/** 예배 순서 세부 내용(설교자·헌금 위원 등)을 눌러 English로 바꿨을 때 —
+ * "이름 + 직함" 조각을 "직함 + (아는 사람이면 성, 모르면 이름 그대로)"로 바꾼다.
+ * '/' '·'로 여러 사람이 이어진 경우도 각각 처리하고, 매칭 안 되는 부분(설교
+ * 제목처럼 이미 영어가 섞인 문장 등)은 원문 그대로 둔다. */
+function translateNamesEn(text: string): string {
+  if (!text) return text;
+  const hasStar = text.endsWith('*');
+  const body = hasStar ? text.slice(0, -1) : text;
+  const TITLE_SUFFIX = /^(.*?)\s*(담임목사|원로목사|협동목사|부목사|시무안수집사|안수집사|시무장로|목사|전도사|교육사|장로|집사|권사)$/;
+  const translated = body
+    .split(/(\s*[·/]\s*)/)
+    .map((piece, i) => {
+      if (i % 2 === 1) return piece; // 구분자( · , / ) 그대로
+      const seg = piece.trim();
+      if (!seg) return piece;
+      if (ROLE_WORD_EN[seg]) return ROLE_WORD_EN[seg];
+      const m = seg.match(TITLE_SUFFIX);
+      if (!m) return piece;
+      const name = m[1].trim();
+      const titleEn = TITLE_EN[m[2]];
+      if (!name) return titleEn;
+      return `${titleEn} ${STAFF_SURNAME_EN[name] ?? name}`;
+    })
+    .join('');
+  return translated + (hasStar ? '*' : '');
+}
+
+// 이 항목들은 세부 내용이 통째로 "찬송가 N장 [제목]" / "책이름 장:절" 인용
+// 그 자체다 — 실제 저장된 영어 제목·본문 참조로 완전히 바꿔치기해도 안전하다.
+// '어린이 설교'처럼 설교 제목·설교자까지 같이 적힌 줄은(장·절이 우연히 섞여
+// 있어도) 인용만 남기면 나머지 내용을 잃으므로 이름·직함만 옮긴다.
+const PURE_CITATION_ITEMS = new Set(['찬송 / 헌금', '찬송', '성경봉독']);
+
+/** 예배 순서 한 줄의 세부 내용을 English로 — 찬송·본문 인용 전용 줄이면 실제
+ * 저장된 영어 제목/본문 참조를 쓰고(추측 아님), 그 외엔 이름·직함만 사전으로
+ * 옮긴다. 끝의 '*'(일어서 주시기 바랍니다)는 번역 여부와 무관하게 그대로 남긴다. */
+function translateOrderDetail(
+  itemName: string,
+  rawDetail: string,
+  hymn: BulletinHymn | null,
+  scripture: BulletinScripture | null,
+): string {
+  if (PURE_CITATION_ITEMS.has(itemName)) {
+    const star = rawDetail.trim().endsWith('*') ? '*' : '';
+    if (hymn) return `Hymn ${hymn.number}${hymn.titleEn ? ` [${hymn.titleEn}]` : ''}${star}`;
+    if (scripture) return `${scriptureRefEn(scripture.reference)}${star}`;
+  }
+  return translateNamesEn(rawDetail);
+}
+
 function OrderIcon({ name }: { name: string }) {
   const Icon = ORDER_ICONS[name];
   return (
@@ -517,12 +629,13 @@ function BulletinCards({
             const expandable = !!(hymn || scripture);
             const isOpen = expandable && expandedIdx === i;
             const Row = expandable ? Pressable : View;
-            const name =
-              isSingleService && orderLang === 'en' ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
+            const langEn = isSingleService && orderLang === 'en';
+            const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
+            const shownDetail = langEn ? translateOrderDetail(item.name, rawDetail, hymn, scripture) : rawDetail;
             // 세부 내용이 "*"(일어서 주시기 바랍니다 표시) 하나뿐이면 오른쪽 칸엔
             // 사실상 빈 것과 같으니, 그 별표는 이름 뒤에 붙이고 오른쪽은 진짜로 비운다.
-            const asteriskOnly = rawDetail.trim() === '*';
-            const detail = asteriskOnly ? '' : rawDetail;
+            const asteriskOnly = shownDetail.trim() === '*';
+            const detail = asteriskOnly ? '' : shownDetail;
             const displayName = asteriskOnly ? `${name}*` : name;
             return (
               <View key={i}>
@@ -539,7 +652,9 @@ function BulletinCards({
                       화살표 아이콘만으로는 눈에 잘 안 띈다는 의견 반영 */}
                   {expandable && (
                     <View style={styles.orderExpandHint}>
-                      <Text style={styles.orderExpandHintText}>{hymn ? '가사' : '본문'}</Text>
+                      <Text style={styles.orderExpandHintText}>
+                        {langEn ? (hymn ? 'Lyrics' : 'Passage') : hymn ? '가사' : '본문'}
+                      </Text>
                       {isOpen ? (
                         <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
                       ) : (
@@ -559,7 +674,11 @@ function BulletinCards({
               </View>
             );
           })}
-          {hasAsterisk && <Text style={styles.orderFootnote}>* 표는 일어서 주시기 바랍니다.</Text>}
+          {hasAsterisk && (
+            <Text style={styles.orderFootnote}>
+              {isSingleService && orderLang === 'en' ? '* Please stand.' : '* 표는 일어서 주시기 바랍니다.'}
+            </Text>
+          )}
         </View>
       )}
 
