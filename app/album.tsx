@@ -657,6 +657,10 @@ export default function AlbumScreen() {
                 <Text style={styles.cardSub}>
                   {member?.name ? `${member.name}님, ` : ''}가입 승인 대기 중입니다.
                 </Text>
+              ) : memberState === 'revoked' ? (
+                <Text style={styles.cardSub}>
+                  {member?.name ? `${member.name}님, ` : ''}승인이 해제되었습니다.
+                </Text>
               ) : (
                 <View style={{ height: 16 }} />
               )}

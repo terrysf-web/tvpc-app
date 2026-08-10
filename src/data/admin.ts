@@ -143,6 +143,26 @@ export function useApprovedMembers(enabled: boolean) {
   return rows;
 }
 
+/** 승인 해제된 교인 목록 — 관리자 전용, 언제 해제했는지 리포트에 남기기 위함 */
+export function useRevokedMembers(enabled: boolean) {
+  const [rows, setRows] = useState<MemberDoc[]>([]);
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !enabled) return;
+    const q = query(collection(db, 'members'), where('status', '==', 'revoked'));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ ...(d.data() as Omit<MemberDoc, 'id'>), id: d.id }));
+        list.sort((a, b) => (b.revokedAt ?? 0) - (a.revokedAt ?? 0));
+        setRows(list);
+      },
+      () => setRows([]),
+    );
+  }, [enabled]);
+  return rows;
+}
+
 /** 교인 가입 승인 */
 export async function approveMember(uid: string): Promise<void> {
   await updateDoc(doc(requireDb(), 'members', uid), { status: 'approved' });
@@ -151,6 +171,16 @@ export async function approveMember(uid: string): Promise<void> {
 /** 교인 가입 거절 — 신청 문서 삭제 (다시 신청 가능) */
 export async function rejectMember(uid: string): Promise<void> {
   await deleteDoc(doc(requireDb(), 'members', uid));
+}
+
+/** 승인 해제 — 문서는 남기고 상태만 바꿔 언제 해제했는지 기록에 남긴다 */
+export async function revokeMember(uid: string): Promise<void> {
+  await updateDoc(doc(requireDb(), 'members', uid), { status: 'revoked', revokedAt: Date.now() });
+}
+
+/** 해제된 교인을 다시 승인 (실수로 해제한 경우) */
+export async function reapproveMember(uid: string): Promise<void> {
+  await updateDoc(doc(requireDb(), 'members', uid), { status: 'approved', revokedAt: null });
 }
 
 /** 헌금 내역 등록 — 교인 이메일로 대상을 찾아 본인만 볼 수 있게 저장 */

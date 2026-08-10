@@ -21,13 +21,16 @@ import {
   addOfferingRecord,
   approveMember,
   parsePassage,
+  reapproveMember,
   rejectMember,
+  revokeMember,
   saveEvent,
   saveNews,
   saveVerse,
   useAdminAuth,
   useApprovedMembers,
   usePendingMembers,
+  useRevokedMembers,
 } from '../src/data/admin';
 import {
   type AlertDoc,
@@ -285,30 +288,34 @@ export default function AdminScreen() {
   // 교인 승인 / 헌금 입력
   const pending = usePendingMembers(isAdmin);
   const approved = useApprovedMembers(isAdmin);
+  const revoked = useRevokedMembers(isAdmin);
   const [oEmail, setOEmail] = useState('');
   const [oItem, setOItem] = useState('');
   const [oDate, setODate] = useState(today());
   const [oAmount, setOAmount] = useState('');
 
-  /** 승인된 교인 명단을 CSV로 내려받는다 — 나중에 리포트로 제출할 때 사용 */
+  /** 승인·해제된 교인 명단을 CSV로 내려받는다 — 나중에 리포트로 제출할 때 사용.
+   * 해제된 교인도 언제 해제됐는지와 함께 남겨 기록이 되게 한다. */
   const exportApprovedCsv = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
       setMsg('명단 내려받기는 웹 브라우저에서 해주세요.');
       return;
     }
-    const header = ['이름', '이메일', '교인구분', '자기소개', '가입일'];
+    const header = ['이름', '이메일', '교인구분', '자기소개', '가입일', '상태', '해제일'];
     const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const rows = approved.map((m) =>
+    const toRow = (m: (typeof approved)[number]) =>
       [
         m.name,
         m.email,
         m.memberType === 'new' ? '새로 가입' : '기존 교인',
         m.bio ?? '',
         new Date(m.createdAt).toLocaleDateString('ko-KR'),
+        m.status === 'revoked' ? '해제됨' : '승인됨',
+        m.revokedAt ? new Date(m.revokedAt).toLocaleDateString('ko-KR') : '',
       ]
         .map(escape)
-        .join(','),
-    );
+        .join(',');
+    const rows = [...approved, ...revoked].map(toRow);
     // 앞에 BOM을 붙여야 엑셀에서 한글이 안 깨진다
     const csv = '\uFEFF' + [header.map(escape).join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1010,10 +1017,50 @@ export default function AdminScreen() {
                     <Text style={styles.pendingBio}>“{m.bio}”</Text>
                   )}
                 </View>
+                <Pressable
+                  style={styles.revokeBtn}
+                  onPress={() =>
+                    submit(() => revokeMember(m.id), `${m.name}님의 승인을 해제했습니다.`)
+                  }
+                >
+                  <Text style={styles.revokeBtnText}>해제</Text>
+                </Pressable>
               </View>
             ))}
             <Text style={styles.hintText}>
               웹 브라우저에서 CSV로 내려받아 리포트로 제출할 수 있습니다.
+            </Text>
+          </View>
+        )}
+
+        {tab === 'members' && revoked.length > 0 && (
+          <View style={[styles.card, shadows.card, { marginTop: 14 }]}>
+            <Text style={styles.blockTitle}>해제된 교인 ({revoked.length})</Text>
+            {revoked.map((m) => (
+              <View key={m.id} style={styles.pendingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingName}>{m.name}</Text>
+                  <Text style={styles.pendingMeta}>
+                    {[
+                      m.email,
+                      m.revokedAt ? `${new Date(m.revokedAt).toLocaleDateString('ko-KR')} 해제` : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                <Pressable
+                  style={styles.approveBtn}
+                  onPress={() =>
+                    submit(() => reapproveMember(m.id), `${m.name}님을 다시 승인했습니다.`)
+                  }
+                >
+                  <Text style={styles.approveBtnText}>재승인</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Text style={styles.hintText}>
+              해제 시각은 위 CSV 리포트에도 함께 기록됩니다.
             </Text>
           </View>
         )}
@@ -1286,6 +1333,13 @@ const styles = StyleSheet.create({
   approveBtnText: { fontFamily: font.bold, fontSize: 12.5, color: '#FFFFFF' },
   rejectBtn: { backgroundColor: colors.tagGrayBg, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
   rejectBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.muted },
+  revokeBtn: {
+    backgroundColor: colors.tagOrangeBg,
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  revokeBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.tagOrangeText },
   approvedHeader: {
     flexDirection: 'row',
     alignItems: 'center',

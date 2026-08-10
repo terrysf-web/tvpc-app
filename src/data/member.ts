@@ -19,8 +19,10 @@ export interface MemberDoc {
   memberType: 'existing' | 'new';
   /** 새로 가입하는 분의 자기소개 — 기존 교인은 비워 둠 */
   bio: string;
-  status: 'pending' | 'approved';
+  status: 'pending' | 'approved' | 'revoked';
   createdAt: number;
+  /** 승인 해제된 시각 — 언제 해제했는지 리포트에 남기기 위함 */
+  revokedAt?: number;
 }
 
 export type MemberState =
@@ -28,7 +30,8 @@ export type MemberState =
   | 'none' // 로그인 안 함(또는 익명)
   | 'noProfile' // 계정 로그인은 됐지만 교인 정보 미등록 (기존 관리자 계정 등)
   | 'pending' // 가입 신청, 승인 대기
-  | 'approved'; // 승인된 교인
+  | 'approved' // 승인된 교인
+  | 'revoked'; // 승인이 해제된 교인
 
 /**
  * 교인 인증 상태 훅. 로그인은 Google 계정으로만(이메일/비밀번호 없음) —
@@ -71,7 +74,7 @@ export function useMember() {
           }
           const m = { ...(snap.data() as Omit<MemberDoc, 'id'>), id: snap.id };
           setMember(m);
-          setState(m.status === 'approved' ? 'approved' : 'pending');
+          setState(m.status === 'approved' ? 'approved' : m.status === 'revoked' ? 'revoked' : 'pending');
         },
         () => setState('none'),
       );
