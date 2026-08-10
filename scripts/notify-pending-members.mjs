@@ -1,6 +1,6 @@
 /**
  * 가입 승인 대기 알림 — 새 가입 신청(members/status=pending)이 있으면
- * 관리자(admins 이메일로 로그인해 말씀 알림을 켠 기기)에게 푸시를 보낸다.
+ * 승인 담당자(daeho@tvpc.church로 로그인해 알림을 켠 기기)에게만 푸시를 보낸다.
  *
  * GitHub Actions(.github/workflows/notify-pending.yml)가 매시간 실행.
  * 이미 알린 신청은 notifiedAdminAt 필드로 건너뛴다.
@@ -8,6 +8,8 @@
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+
+const APPROVER_EMAIL = 'daeho@tvpc.church';
 
 const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!saRaw) {
@@ -23,14 +25,11 @@ const fresh = pendingSnap.docs.filter((d) => !d.get('notifiedAdminAt'));
 console.log(`승인 대기 ${pendingSnap.size}건, 새 신청 ${fresh.length}건`);
 if (fresh.length === 0) process.exit(0);
 
-// 관리자 이메일로 등록된 알림 토큰
-const adminEmails = new Set(
-  (await db.collection('admins').get()).docs.map((d) => d.id.toLowerCase()),
+// 승인 담당자(daeho@tvpc.church) 계정으로 로그인해 등록된 알림 토큰만
+const tokenDocs = (await db.collection('pushTokens').get()).docs.filter(
+  (d) => String(d.get('email') ?? '').toLowerCase() === APPROVER_EMAIL,
 );
-const tokenDocs = (await db.collection('pushTokens').get()).docs.filter((d) =>
-  adminEmails.has(String(d.get('email') ?? '').toLowerCase()),
-);
-console.log(`관리자 알림 기기 ${tokenDocs.length}대`);
+console.log(`${APPROVER_EMAIL} 알림 기기 ${tokenDocs.length}대`);
 
 if (tokenDocs.length > 0) {
   const names = fresh.map((d) => d.get('name')).filter(Boolean);
@@ -39,7 +38,7 @@ if (tokenDocs.length > 0) {
     (names.length === 1
       ? `${names[0]}님이 가입 승인을 기다립니다.`
       : `${names[0]}님 외 ${names.length - 1}명이 가입 승인을 기다립니다.`) +
-    ' 관리자 → 교인 탭에서 승인해 주세요.';
+    ' 관리자 → 가입 승인 탭에서 승인해 주세요.';
 
   const res = await getMessaging().sendEachForMulticast({
     tokens: tokenDocs.map((d) => d.id),
@@ -60,7 +59,9 @@ if (tokenDocs.length > 0) {
   }
   console.log(`발송 ${sent}대`);
 } else {
-  console.log('관리자 기기가 없습니다 — 관리자 계정으로 로그인 후 "말씀 알림"을 켜 주세요.');
+  console.log(
+    `${APPROVER_EMAIL} 계정으로 로그인해 알림을 켠 기기가 없습니다 — 그 계정으로 로그인 후 알림을 켜 주세요.`,
+  );
 }
 
 // 같은 신청을 반복 알림하지 않도록 표시
