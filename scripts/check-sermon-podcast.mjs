@@ -26,6 +26,8 @@ for (const d of docs) {
   console.log(`  youtubeId: ${d.youtubeId ?? '(없음)'}`);
   console.log(`  sermonUrl: ${d.sermonUrl ?? '(없음)'}`);
   console.log(`  imageUrl: ${d.imageUrl ?? '(없음)'}`);
+  console.log(`  preacher: "${d.preacher ?? ''}"`);
+  console.log(`  service/subtitle: "${d.service ?? ''}" / "${d.subtitle ?? ''}"`);
   if (d.youtubeId) console.log(`  → https://www.youtube.com/watch?v=${d.youtubeId}`);
   console.log('');
 }
