@@ -649,16 +649,16 @@ export default function AlbumScreen() {
               <View style={styles.iconChip}>
                 <Lock size={22} color={colors.primary} strokeWidth={1.9} />
               </View>
-              <Text style={styles.cardTitle}>교인 로그인이 필요합니다</Text>
-              <Text style={styles.cardSub}>
-                {memberState === 'pending'
-                  ? `${member?.name ? `${member.name}님, ` : ''}가입 신청이 승인 대기 중입니다. 관리자 승인 후 다시 열어 보세요.`
-                  : '교우 앨범은 승인된 교인만 볼 수 있습니다. 로그인하거나 가입 신청해 주세요.'}
-              </Text>
-              <Pressable style={styles.primaryBtn} onPress={() => router.push('/member-login')}>
-                <Text style={styles.primaryBtnText}>
-                  {memberState === 'pending' ? '가입 상태 보기' : '교인 로그인 / 가입'}
+              <Text style={styles.cardTitle}>로그인이 필요합니다</Text>
+              {memberState === 'pending' ? (
+                <Text style={styles.cardSub}>
+                  {member?.name ? `${member.name}님, ` : ''}가입 승인 대기 중입니다.
                 </Text>
+              ) : (
+                <View style={{ height: 16 }} />
+              )}
+              <Pressable style={styles.primaryBtn} onPress={() => router.push('/member-login')}>
+                <Text style={styles.primaryBtnText}>로그인</Text>
               </Pressable>
             </View>
           </ScrollView>
