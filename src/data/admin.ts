@@ -123,6 +123,26 @@ export function usePendingMembers(enabled: boolean) {
   return rows;
 }
 
+/** 승인된 교인 목록 — 관리자 전용, 리포트 제출용 명단 */
+export function useApprovedMembers(enabled: boolean) {
+  const [rows, setRows] = useState<MemberDoc[]>([]);
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !enabled) return;
+    const q = query(collection(db, 'members'), where('status', '==', 'approved'));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ ...(d.data() as Omit<MemberDoc, 'id'>), id: d.id }));
+        list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+        setRows(list);
+      },
+      () => setRows([]),
+    );
+  }, [enabled]);
+  return rows;
+}
+
 /** 교인 가입 승인 */
 export async function approveMember(uid: string): Promise<void> {
   await updateDoc(doc(requireDb(), 'members', uid), { status: 'approved' });

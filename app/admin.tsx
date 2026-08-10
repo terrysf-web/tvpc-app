@@ -26,6 +26,7 @@ import {
   saveNews,
   saveVerse,
   useAdminAuth,
+  useApprovedMembers,
   usePendingMembers,
 } from '../src/data/admin';
 import {
@@ -283,10 +284,41 @@ export default function AdminScreen() {
 
   // 교인 승인 / 헌금 입력
   const pending = usePendingMembers(isAdmin);
+  const approved = useApprovedMembers(isAdmin);
   const [oEmail, setOEmail] = useState('');
   const [oItem, setOItem] = useState('');
   const [oDate, setODate] = useState(today());
   const [oAmount, setOAmount] = useState('');
+
+  /** 승인된 교인 명단을 CSV로 내려받는다 — 나중에 리포트로 제출할 때 사용 */
+  const exportApprovedCsv = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      setMsg('명단 내려받기는 웹 브라우저에서 해주세요.');
+      return;
+    }
+    const header = ['이름', '이메일', '교인구분', '자기소개', '가입일'];
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const rows = approved.map((m) =>
+      [
+        m.name,
+        m.email,
+        m.memberType === 'new' ? '새로 가입' : '기존 교인',
+        m.bio ?? '',
+        new Date(m.createdAt).toLocaleDateString('ko-KR'),
+      ]
+        .map(escape)
+        .join(','),
+    );
+    // 앞에 BOM을 붙여야 엑셀에서 한글이 안 깨진다
+    const csv = '\uFEFF' + [header.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `교우명단_${today()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const doGoogleLogin = async () => {
     setLoginErr(null);
@@ -954,6 +986,38 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {tab === 'members' && (
+          <View style={[styles.card, shadows.card, { marginTop: 14 }]}>
+            <View style={styles.approvedHeader}>
+              <Text style={styles.blockTitle}>승인된 교인 ({approved.length})</Text>
+              <Pressable style={styles.exportBtn} onPress={exportApprovedCsv}>
+                <Text style={styles.exportBtnText}>리포트 내보내기(CSV)</Text>
+              </Pressable>
+            </View>
+            {approved.length === 0 && (
+              <Text style={styles.emptyText}>승인된 교인이 없습니다.</Text>
+            )}
+            {approved.map((m) => (
+              <View key={m.id} style={styles.pendingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingName}>{m.name}</Text>
+                  <Text style={styles.pendingMeta}>
+                    {[m.email, m.memberType === 'new' ? '새로 가입' : '기존 교인']
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                  {m.memberType === 'new' && !!m.bio && (
+                    <Text style={styles.pendingBio}>“{m.bio}”</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+            <Text style={styles.hintText}>
+              웹 브라우저에서 CSV로 내려받아 리포트로 제출할 수 있습니다.
+            </Text>
+          </View>
+        )}
+
         {tab === 'offering' && (
           <View style={[styles.card, shadows.card]}>
             <Text style={styles.blockTitle}>헌금 내역 등록</Text>
@@ -1222,6 +1286,19 @@ const styles = StyleSheet.create({
   approveBtnText: { fontFamily: font.bold, fontSize: 12.5, color: '#FFFFFF' },
   rejectBtn: { backgroundColor: colors.tagGrayBg, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
   rejectBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.muted },
+  approvedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  exportBtn: {
+    backgroundColor: colors.tagGreenBg,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  exportBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.tagGreenText },
 
   msg: { marginBottom: 12, fontFamily: font.medium, fontSize: 13.5 },
   msgOk: { color: colors.tagGreenText },
