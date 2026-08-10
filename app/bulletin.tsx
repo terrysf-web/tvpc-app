@@ -859,12 +859,7 @@ export default function BulletinScreen() {
     if (selected) router.replace(to);
     else router.push(to);
   };
-  // 주일인데 오늘 주보가 아직 안 올라왔으면 지난 주보를 대신 보여주지 않는다 —
-  // 지난주 내용을 오늘 것으로 오해하기 쉽기 때문. (날짜를 직접 고르면 볼 수 있다)
-  const todayKey = new Date().toLocaleDateString('en-CA');
-  const isSunday = new Date().getDay() === 0;
-  const todayMissing = !selected && !latestLoading && isSunday && latestDate !== todayKey;
-  const current = selected ?? (todayMissing ? null : latestDate);
+  const current = selected ?? latestDate;
   // 원본 이미지는 기본으로 접혀 있다 — 실제로 펼치기 전에는 무거운 페이지
   // 이미지를 받지 않아 카드형 내용이 훨씬 빨리 뜬다.
   const [showImages, setShowImages] = useState(false);
@@ -908,7 +903,7 @@ export default function BulletinScreen() {
         title={current ? `주보 · ${testDates.has(current) ? '테스트 주보' : fmtKo(current)}` : '주보'}
       />
       {/* 지난 주보 날짜 선택 — 날짜별 메모(●)도 함께 열린다 */}
-      {(dates.length > 1 || todayMissing) && (
+      {dates.length > 1 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -945,14 +940,6 @@ export default function BulletinScreen() {
           <Pressable style={styles.primaryBtn} onPress={() => router.push('/admin')}>
             <Text style={styles.primaryBtnText}>관리자 로그인</Text>
           </Pressable>
-        </View>
-      ) : todayMissing && !selected ? (
-        <View style={styles.waitingWrap}>
-          <Text style={styles.waitingTitle}>이번 주 주보는 준비 중입니다</Text>
-          <Text style={styles.waitingText}>
-            주보가 교회 홈페이지에 올라오면 앱에 자동으로 들어옵니다.{'\n'}
-            지난 주보는 위의 날짜를 눌러 보실 수 있습니다.
-          </Text>
         </View>
       ) : bulletin ? (
         <ScrollView
