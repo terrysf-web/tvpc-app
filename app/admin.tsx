@@ -1028,7 +1028,8 @@ export default function AdminScreen() {
               </View>
             ))}
             <Text style={styles.hintText}>
-              웹 브라우저에서 CSV로 내려받아 리포트로 제출할 수 있습니다.
+              해제 후 재승인 가능합니다. 웹 브라우저에서 CSV로 내려받아 리포트로 제출할 수
+              있습니다.
             </Text>
           </View>
         )}
