@@ -118,13 +118,14 @@ service cloud.firestore {
     }
 
     match /albums/{id} {
-      // 교회 앨범(사진 주소록) — 주보 QR과 같은 공개 자료
-      allow read: if true;
+      // 교회 앨범(교우 사진·연락처) — 교인 개인정보라 승인된 교인·관리자만
+      // 볼 수 있게 제한한다(관리자들과 상의해 결정).
+      allow read: if isAdmin() || isApprovedMember();
       allow write: if isAdmin();
 
       // 하위 컬렉션 전체(pages·rows 등) 동일 규칙
       match /{section}/{docId} {
-        allow read: if true;
+        allow read: if isAdmin() || isApprovedMember();
         allow write: if isAdmin();
       }
     }
@@ -206,8 +207,8 @@ service cloud.firestore {
     }
 
     match /prayers/{id} {
-      // 기도요청 — 앱 사용자는 익명 인증으로 자동 로그인되므로
-      // 별도 교인 로그인 없이 이용 (로그인은 관리자만 사용하는 정책)
+      // 기도요청 — 앱 사용자는 익명 인증으로 자동 로그인되므로 이 기능만은
+      // 별도 교인 로그인 없이 이용(다른 개인정보성 기능은 교인 로그인으로 제한)
       allow read: if request.auth != null;
 
       // 작성: 익명 인증 사용자, 필드 형식 검증 + 본문 1000자 제한

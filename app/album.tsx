@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
+import Lock from 'lucide-react-native/dist/esm/icons/lock.mjs';
 import Search from 'lucide-react-native/dist/esm/icons/search.mjs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -32,6 +33,7 @@ import {
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
 import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../src/firebase';
+import { useMember } from '../src/data/member';
 import { colors, font, shadows } from '../src/theme';
 
 interface AlbumPage {
@@ -448,6 +450,10 @@ export default function AlbumScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  // 교우 앨범은 승인된 교인만 볼 수 있다(관리자와 함께 정한 방침) —
+  // 클라이언트에서 화면을 막는 것과 별개로 firestore.rules에서도 강제한다.
+  const { state: memberState, member } = useMember();
+  const albumUnlocked = memberState === 'approved';
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [pages, setPages] = useState<(AlbumPage | null)[]>([]);
   const [index, setIndex] = useState<RowIndex[]>([]);
@@ -493,6 +499,9 @@ export default function AlbumScreen() {
   };
 
   useEffect(() => {
+    // 승인된 교인이 아니면 굳이 조회하지 않는다 — 어차피 firestore.rules가
+    // 막아서 매번 권한 오류만 나므로, 잠금 화면만 보여주고 대기한다.
+    if (!albumUnlocked) return;
     const db = getDb();
     if (!db) {
       setFailed(true);
@@ -595,7 +604,7 @@ export default function AlbumScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [albumUnlocked]);
 
   // 검색은 두 글자부터 동작 (한 글자는 무시하고 소개 페이지 유지)
   const filtering = !!cellFilter || norm(query).length >= 2;
@@ -631,7 +640,30 @@ export default function AlbumScreen() {
   return (
     <View style={styles.screen}>
       <OverlayHeader title="교우 앨범" />
-      {failed || !firebaseEnabled ? (
+      {!albumUnlocked ? (
+        memberState === 'loading' ? (
+          <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
+        ) : (
+          <ScrollView contentContainerStyle={styles.pages}>
+            <View style={[styles.card, shadows.card]}>
+              <View style={styles.iconChip}>
+                <Lock size={22} color={colors.primary} strokeWidth={1.9} />
+              </View>
+              <Text style={styles.cardTitle}>교인 로그인이 필요합니다</Text>
+              <Text style={styles.cardSub}>
+                {memberState === 'pending'
+                  ? `${member?.name ? `${member.name}님, ` : ''}가입 신청이 승인 대기 중입니다. 관리자 승인 후 다시 열어 보세요.`
+                  : '교우 앨범은 승인된 교인만 볼 수 있습니다. 로그인하거나 가입 신청해 주세요.'}
+              </Text>
+              <Pressable style={styles.primaryBtn} onPress={() => router.push('/member-login')}>
+                <Text style={styles.primaryBtnText}>
+                  {memberState === 'pending' ? '가입 상태 보기' : '교인 로그인 / 가입'}
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        )
+      ) : failed || !firebaseEnabled ? (
         <ScrollView contentContainerStyle={styles.pages}>
           <View style={[styles.card, shadows.card]}>
             <View style={styles.iconChip}>

@@ -60,13 +60,15 @@ import { ServiceItem, saveServices, useServices } from '../src/data/services';
 type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'info' | 'alert' | 'members' | 'offering';
 
 // 알림(긴급 공지)은 더보기의 전용 화면으로 이동. 주보는 토요일마다 홈페이지에서
-// 자동 동기화되고, 교인·헌금은 사용하지 않아 탭에서 제외 (코드는 유지 — 다시 넣으면 복원)
+// 자동 동기화된다. 교인 가입 승인은 교우 앨범이 로그인 전용으로 바뀌며 다시
+// 필요해져 탭을 복원했다 — 헌금은 아직 안 씀(코드는 유지, 다시 넣으면 복원).
 // 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정·교회정보를 관리한다.
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
   { key: 'info', label: '예배시간' },
+  { key: 'members', label: '가입 승인' },
 ];
 
 /** 다가오는 주일(오늘이 주일이면 오늘) — 주보 날짜 기본값 */
@@ -942,7 +944,7 @@ export default function AdminScreen() {
               </View>
             ))}
             <Text style={styles.hintText}>
-              승인된 교인은 주소록·기도요청·내 헌금 내역을 이용할 수 있습니다.
+              승인된 교인은 교우 앨범·주소록·기도요청·내 헌금 내역을 이용할 수 있습니다.
             </Text>
           </View>
         )}
