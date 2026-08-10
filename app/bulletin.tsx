@@ -310,6 +310,17 @@ function splitDetailParts(detail: string): string[] {
   return parts;
 }
 
+/** 파트 문구 끝의 "[곡 제목]"을 찾아 나머지 글(누가 하는지 + '*')와
+ * 곡 제목을 분리한다 — 곡 제목은 대괄호 대신 배지로 표시할 것이므로.
+ * 영어 모드의 "Hymn 1 [Blessed Assurance]*"처럼 대괄호 뒤에 '*'가 더
+ * 붙는 경우도 있어 그 별표는 다시 앞쪽(main) 글에 붙여준다. */
+function parseSongBadge(part: string): { main: string; song: string | null } {
+  const m = part.match(/^(.*?)\s*\[([^\]]+)\]\s*(\*)?$/);
+  if (!m) return { main: part, song: null };
+  const [, main, song, star] = m;
+  return { main: (main + (star ?? '')).trim(), song: song.trim() };
+}
+
 /** 한글 모드에서는 반대로 영어를 없앤다 — 칸이 좁은데 "책이름 [English]"
  * 처럼 뒤에 괄호로 덧붙은 영어까지 다 보여줄 필요는 없으니까. */
 function stripEnglishDuplicates(text: string): string {
@@ -680,11 +691,21 @@ function BulletinCards({
             const detail = asteriskOnly ? '' : shownDetail;
             const displayName = asteriskOnly ? `${name}*` : name;
             const parts = detail ? splitDetailParts(detail) : [];
-            const detailBlock = parts.map((part, pi) => (
-              <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
-                {parts.length > 1 ? `· ${part}` : part}
-              </Text>
-            ));
+            const detailBlock = parts.map((part, pi) => {
+              const { main, song } = parseSongBadge(part);
+              return (
+                <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
+                  {parts.length > 1 ? '· ' : ''}
+                  {main}
+                  {song ? (
+                    <>
+                      {main ? ' ' : ''}
+                      <Text style={styles.orderSongBadge}>{`♪ ${song}`}</Text>
+                    </>
+                  ) : null}
+                </Text>
+              );
+            });
             const hint = expandable && (
               <View style={styles.orderExpandHint}>
                 <Text style={styles.orderExpandHintText}>
@@ -1490,6 +1511,17 @@ const styles = StyleSheet.create({
   // 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)로 나뉜 세부 내용에서
   // 두 번째 파트부터 위와 살짝 떼어 구분되게.
   orderIconDetailPart: { marginTop: 3 },
+  // 찬양·찬송 제목 — "가사"/"본문" 안내 칩과 같은 배지 느낌으로,
+  // 설교 제목·사람 이름과 헷갈리지 않게 색으로 구분한다.
+  orderSongBadge: {
+    fontFamily: font.bold,
+    fontSize: 11,
+    color: '#7C5CBF',
+    backgroundColor: '#F1ECFB',
+    borderRadius: 20,
+    paddingHorizontal: 7,
+    overflow: 'hidden',
+  },
   // 일반 주일 — 원래 레이아웃(오른쪽 정렬 한 줄) 그대로 되돌린 스타일.
   orderIconNameOrig: { flex: 0.8, fontFamily: font.bold, fontSize: 13, color: colors.body },
   orderIconNameFull: { flex: 1 },
