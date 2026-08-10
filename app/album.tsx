@@ -34,6 +34,7 @@ import { OverlayHeader } from '../src/components/OverlayHeader';
 import { churchInfo } from '../src/churchInfo';
 import { ensureAnonymousAuth, firebaseEnabled, getDb } from '../src/firebase';
 import { useMember } from '../src/data/member';
+import { useAdminAuth } from '../src/data/admin';
 import { colors, font, shadows } from '../src/theme';
 
 interface AlbumPage {
@@ -450,10 +451,12 @@ export default function AlbumScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  // 교우 앨범은 승인된 교인만 볼 수 있다(관리자와 함께 정한 방침) —
+  // 교우 앨범은 승인된 교인·관리자만 볼 수 있다(관리자와 함께 정한 방침) —
   // 클라이언트에서 화면을 막는 것과 별개로 firestore.rules에서도 강제한다.
   const { state: memberState, member } = useMember();
-  const albumUnlocked = memberState === 'approved';
+  const { isAdmin, checking: adminChecking } = useAdminAuth();
+  const albumUnlocked = memberState === 'approved' || isAdmin;
+  const memberChecking = memberState === 'loading' || adminChecking;
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [pages, setPages] = useState<(AlbumPage | null)[]>([]);
   const [index, setIndex] = useState<RowIndex[]>([]);
@@ -641,7 +644,7 @@ export default function AlbumScreen() {
     <View style={styles.screen}>
       <OverlayHeader title="교우 앨범" />
       {!albumUnlocked ? (
-        memberState === 'loading' ? (
+        memberChecking ? (
           <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
         ) : (
           <ScrollView contentContainerStyle={styles.pages}>

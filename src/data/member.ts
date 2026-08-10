@@ -1,4 +1,3 @@
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import {
   collection,
   doc,
@@ -9,14 +8,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  adminSignIn,
-  adminSignOut,
-  firebaseEnabled,
-  getAuthOrNull,
-  getDb,
-  watchUser,
-} from '../firebase';
+import { adminSignOut, firebaseEnabled, getAuthOrNull, getDb, watchUser } from '../firebase';
 
 /** 교인 프로필 — members/{uid}. 승인된 교인의 정보가 곧 교회 주소록이 된다 */
 export interface MemberDoc {
@@ -39,9 +31,10 @@ export type MemberState =
   | 'approved'; // 승인된 교인
 
 /**
- * 교인 인증 상태 훅.
- * 회원가입 → members/{uid} 문서가 pending으로 생성 → 관리자 승인 후 approved.
- * 주소록·헌금 내역·기도요청은 approved 교인만 이용한다(보안 규칙 강제).
+ * 교인 인증 상태 훅. 로그인은 Google 계정으로만(이메일/비밀번호 없음) —
+ * 로그인 후 members/{uid} 문서가 없으면 이름·교인구분·자기소개만 받아
+ * pending으로 등록 → 관리자 승인 후 approved.
+ * 교우 앨범·주소록·헌금 내역·기도요청은 approved 교인만 이용한다(보안 규칙 강제).
  */
 export function useMember() {
   const [state, setState] = useState<MemberState>(firebaseEnabled ? 'loading' : 'none');
@@ -89,35 +82,7 @@ export function useMember() {
     };
   }, []);
 
-  const signUp = useCallback(
-    async (input: {
-      name: string;
-      email: string;
-      password: string;
-      memberType: 'existing' | 'new';
-      bio: string;
-    }) => {
-      const auth = getAuthOrNull();
-      const db = getDb();
-      if (!auth || !db) throw new Error('Firebase가 설정되지 않았습니다.');
-      const cred = await createUserWithEmailAndPassword(
-        auth,
-        input.email.trim(),
-        input.password,
-      );
-      await setDoc(doc(db, 'members', cred.user.uid), {
-        name: input.name.trim(),
-        email: input.email.trim().toLowerCase(),
-        memberType: input.memberType,
-        bio: input.memberType === 'new' ? input.bio.trim() : '',
-        status: 'pending',
-        createdAt: Date.now(),
-      });
-    },
-    [],
-  );
-
-  /** 이미 계정이 있는 사용자(기존 관리자 등)의 교인 정보 등록 */
+  /** Google 로그인은 됐지만 아직 교인 정보가 없을 때(첫 로그인) 가입 신청 */
   const createProfile = useCallback(
     async (input: { name: string; memberType: 'existing' | 'new'; bio: string }) => {
       const auth = getAuthOrNull();
@@ -136,17 +101,6 @@ export function useMember() {
     [],
   );
 
-  /** 비밀번호 재설정 메일 발송 */
-  const resetPassword = useCallback(async (email: string) => {
-    const auth = getAuthOrNull();
-    if (!auth) throw new Error('Firebase가 설정되지 않았습니다.');
-    await sendPasswordResetEmail(auth, email.trim());
-  }, []);
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    await adminSignIn(email, password); // 이메일/비밀번호 로그인 (교인·교역자 공용)
-  }, []);
-
   const signOut = useCallback(async () => {
     await adminSignOut(); // 로그아웃 후 익명 세션 복구
   }, []);
@@ -160,7 +114,7 @@ export function useMember() {
     [member],
   );
 
-  return { state, member, authEmail, signUp, signIn, signOut, updateProfile, createProfile, resetPassword };
+  return { state, member, authEmail, signOut, updateProfile, createProfile };
 }
 
 /** 교회 주소록 — 승인된 교인 목록 (승인 교인만 읽을 수 있음) */
