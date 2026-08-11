@@ -190,7 +190,7 @@ export default function MoreScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.gridLabel}>알림 받기</Text>
-              <Text style={styles.gridSub}>켜두면 교회 긴급 공지를 바로 받아요</Text>
+              <Text style={styles.gridSub}>이 기기로 알림을 받을 수 있게 켜 주세요</Text>
               {push.error ? <Text style={styles.pushError}>{push.error}</Text> : null}
             </View>
             {push.busy ? (
