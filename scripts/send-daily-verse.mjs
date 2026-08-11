@@ -1,6 +1,7 @@
 /**
  * 데일리브레드 푸시 발송 — 오늘(캘리포니아 기준) 등록된 말씀이 있으면
- * pushTokens에 등록된 모든 기기로 "오늘의 말씀" 알림을 보낸다.
+ * "오늘의 말씀" 알림을 선택한 기기로만 보낸다(긴급 공지와 달리 선택 가능한
+ * 알림 — pushTokens.topics에 'verse'가 있는 기기만 대상. src/push.ts 참고).
  *
  * GitHub Actions(.github/workflows/push-daily-verse.yml)가 매일 아침 실행.
  * 말씀이 아직 등록되지 않은 날은 조용히 건너뛴다.
@@ -30,9 +31,12 @@ const verse = snap.data();
 const title = `오늘의 말씀 · ${verse.reference}`;
 const body = String(verse.heroText || '').replace(/\s+/g, ' ').trim().slice(0, 160);
 
-const tokensSnap = await db.collection('pushTokens').get();
+const tokensSnap = await db
+  .collection('pushTokens')
+  .where('topics', 'array-contains', 'verse')
+  .get();
 const tokens = tokensSnap.docs.map((d) => d.id);
-console.log(`등록 기기 ${tokens.length}대`);
+console.log(`오늘의 말씀 알림 켠 기기 ${tokens.length}대`);
 if (tokens.length === 0) process.exit(0);
 
 const messaging = getMessaging();

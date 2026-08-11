@@ -1,6 +1,8 @@
 /**
  * 긴급 알림 즉시 발송 — 관리자가 alerts 문서를 등록하는 순간 실행돼
  * 알림을 켠 모든 기기(pushTokens)로 몇 초 안에 푸시를 보낸다.
+ * 다른 알림(오늘의 말씀 등)과 달리 선택 해제할 수 없다 — 알림을 켠 기기라면
+ * pushTokens.topics 값과 무관하게 무조건 받는다(src/push.ts 참고).
  *
  * GitHub 예비 발송(send-alert.yml, 5분 간격)과 같은 잠금 규약(pending→sending)을
  * 쓰므로 두 경로가 겹쳐도 알림은 한 번만 나간다.

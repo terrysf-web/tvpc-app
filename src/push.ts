@@ -1,4 +1,4 @@
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -12,6 +12,16 @@ export const VAPID_KEY =
   'BGG5Pv_FMPZ58eN27fOxJeP-1UsCHYuEx3We8l1m02Kuai-ddWgDOn2WHOx3AFGRKbatytpcir0hoennQUIetlE';
 
 export const pushConfigured = VAPID_KEY.length > 0;
+
+/**
+ * 선택 가능한 알림 종류 — 긴급 공지는 여기 없다(끄고 켜는 게 아니라, 알림을
+ * 켠 모든 기기에 무조건 감. sendAlert 함수·send-alert.mjs 참고).
+ * 새 알림 종류가 생기면 여기 한 줄만 추가하면 설정 화면에 바로 나타난다.
+ * (예: 감사일기 알림이 실제로 만들어지면 { key: 'gratitude', label: '감사일기' } 추가)
+ */
+export const NOTIFICATION_TOPICS = [{ key: 'verse', label: '오늘의 말씀' }] as const;
+export type NotificationTopicKey = (typeof NOTIFICATION_TOPICS)[number]['key'];
+const DEFAULT_TOPICS: NotificationTopicKey[] = ['verse'];
 
 const SAVED_KEY = 'tvpc.pushToken';
 
@@ -30,22 +40,37 @@ function messagingOrNull() {
 }
 
 /**
- * 데일리브레드(오늘의 말씀) 푸시 알림 on/off 훅.
- * 켜면 브라우저 알림 권한을 받고 FCM 토큰을 Firestore pushTokens에 등록,
- * 매일 아침 GitHub Actions가 그날 말씀을 이 토큰들로 발송한다.
+ * 푸시 알림 on/off + 알림 종류별 선택 훅.
+ * 켜면 브라우저 알림 권한을 받고 FCM 토큰을 Firestore pushTokens에 등록한다.
+ * 긴급 공지는 이 등록만으로 무조건 받고(선택 불가), 그 외 알림 종류(오늘의
+ * 말씀 등, NOTIFICATION_TOPICS)는 topics 배열로 따로 켜고 끌 수 있다.
  */
 export function usePushNotifications() {
   const [supported, setSupported] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [topics, setTopics] = useState<Set<NotificationTopicKey>>(new Set());
+  const [topicBusy, setTopicBusy] = useState<NotificationTopicKey | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !pushConfigured) return;
     isSupported()
-      .then((ok) => {
+      .then(async (ok) => {
         setSupported(ok);
-        if (ok) setEnabled(!!localStorage.getItem(SAVED_KEY));
+        if (!ok) return;
+        const saved = localStorage.getItem(SAVED_KEY);
+        setEnabled(!!saved);
+        if (!saved) return;
+        const db = getDb();
+        if (!db) return;
+        try {
+          const snap = await getDoc(doc(db, 'pushTokens', saved));
+          const list = (snap.get('topics') as NotificationTopicKey[] | undefined) ?? DEFAULT_TOPICS;
+          setTopics(new Set(list));
+        } catch {
+          setTopics(new Set(DEFAULT_TOPICS));
+        }
       })
       .catch(() => setSupported(false));
   }, []);
@@ -64,6 +89,7 @@ export function usePushNotifications() {
         if (saved) await deleteDoc(doc(db, 'pushTokens', saved)).catch(() => {});
         localStorage.removeItem(SAVED_KEY);
         setEnabled(false);
+        setTopics(new Set());
         return;
       }
 
@@ -98,9 +124,12 @@ export function usePushNotifications() {
         email: currentEmail ? currentEmail.toLowerCase() : null,
         name: memberName,
         ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 150) : '',
+        // 긴급 공지는 이 필드와 무관하게 무조건 감. 그 외 알림만 여기서 선택.
+        topics: DEFAULT_TOPICS,
       });
       localStorage.setItem(SAVED_KEY, token);
       setEnabled(true);
+      setTopics(new Set(DEFAULT_TOPICS));
     } catch (e) {
       setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
     } finally {
@@ -108,5 +137,37 @@ export function usePushNotifications() {
     }
   }, [enabled]);
 
-  return { supported: supported && pushConfigured, enabled, busy, error, toggle };
+  /** 알림 종류 하나를 켜거나 끈다(긴급 공지 제외) — pushTokens 문서의 topics만 갱신 */
+  const setTopic = useCallback(
+    async (topic: NotificationTopicKey, on: boolean) => {
+      const saved = localStorage.getItem(SAVED_KEY);
+      const db = getDb();
+      if (!saved || !db) return;
+      setError(null);
+      setTopicBusy(topic);
+      try {
+        const next = new Set(topics);
+        if (on) next.add(topic);
+        else next.delete(topic);
+        await updateDoc(doc(db, 'pushTokens', saved), { topics: [...next] });
+        setTopics(next);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
+      } finally {
+        setTopicBusy(null);
+      }
+    },
+    [topics],
+  );
+
+  return {
+    supported: supported && pushConfigured,
+    enabled,
+    busy,
+    error,
+    toggle,
+    topics,
+    topicBusy,
+    setTopic,
+  };
 }

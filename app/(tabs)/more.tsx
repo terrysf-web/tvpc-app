@@ -28,7 +28,7 @@ import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
 import { canAddToHome, deviceKind, isStandalone, openInstallGuide } from '../../src/installPrompt';
 import { openExternal } from '../../src/links';
-import { usePushNotifications } from '../../src/push';
+import { NOTIFICATION_TOPICS, usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
@@ -181,26 +181,48 @@ export default function MoreScreen() {
         <ChevronRight size={18} color={colors.faint2} strokeWidth={1.9} />
       </Pressable>
 
-      {/* 데일리브레드 알림 */}
+      {/* 알림 — 긴급 공지는 켜두면 무조건 오고, 그 외 알림 종류는 따로 선택 */}
       {push.supported && (
         <View style={[styles.pushCard, shadows.card]}>
-          <View style={[styles.gridChip, { backgroundColor: colors.tagOrangeBg, marginBottom: 0 }]}>
-            <BellRing size={20} color={colors.tagOrangeText} strokeWidth={1.9} />
+          <View style={styles.pushMainRow}>
+            <View style={[styles.gridChip, { backgroundColor: colors.tagOrangeBg, marginBottom: 0 }]}>
+              <BellRing size={20} color={colors.tagOrangeText} strokeWidth={1.9} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.gridLabel}>알림 받기</Text>
+              <Text style={styles.gridSub}>켜두면 교회 긴급 공지를 바로 받아요</Text>
+              {push.error ? <Text style={styles.pushError}>{push.error}</Text> : null}
+            </View>
+            {push.busy ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Switch
+                value={push.enabled}
+                onValueChange={push.toggle}
+                trackColor={{ false: colors.faint2, true: colors.primary }}
+                thumbColor="#FFFFFF"
+              />
+            )}
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.gridLabel}>알림 받기</Text>
-            <Text style={styles.gridSub}>매일 새벽예배 성경 말씀과 교회 긴급 공지를 알려드려요</Text>
-            {push.error ? <Text style={styles.pushError}>{push.error}</Text> : null}
-          </View>
-          {push.busy ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Switch
-              value={push.enabled}
-              onValueChange={push.toggle}
-              trackColor={{ false: colors.faint2, true: colors.primary }}
-              thumbColor="#FFFFFF"
-            />
+
+          {push.enabled && NOTIFICATION_TOPICS.length > 0 && (
+            <View style={styles.pushTopics}>
+              {NOTIFICATION_TOPICS.map((t) => (
+                <View key={t.key} style={styles.pushTopicRow}>
+                  <Text style={styles.pushTopicLabel}>{t.label}</Text>
+                  {push.topicBusy === t.key ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Switch
+                      value={push.topics.has(t.key)}
+                      onValueChange={(v) => push.setTopic(t.key, v)}
+                      trackColor={{ false: colors.faint2, true: colors.primary }}
+                      thumbColor="#FFFFFF"
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
           )}
         </View>
       )}
@@ -315,15 +337,27 @@ const styles = StyleSheet.create({
   },
 
   pushCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
   },
+  pushMainRow: { flexDirection: 'row', alignItems: 'center', gap: 13 },
   pushError: { marginTop: 4, fontFamily: font.regular, fontSize: 11.5, color: colors.heartActive },
+  pushTopics: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    gap: 2,
+  },
+  pushTopicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  pushTopicLabel: { fontFamily: font.medium, fontSize: 13.5, color: colors.body },
 
   menuCard: {
     backgroundColor: colors.card,

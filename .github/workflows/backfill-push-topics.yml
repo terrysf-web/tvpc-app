@@ -1,0 +1,20 @@
+# 일회성 — 알림 종류 선택 기능 추가 시, 기존에 등록된 기기에 topics 채우기
+name: Backfill push topics (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Backfill
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/backfill-push-topics.mjs
