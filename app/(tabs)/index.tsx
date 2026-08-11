@@ -79,7 +79,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   // 시간이 흐르면(오후 → 저녁) 인사말·배경이 저절로 바뀌도록 1분마다 갱신
   useClockTick();
-  const { verse, ready: verseReady } = useTodayVerse();
+  const { verse } = useTodayVerse();
   const { events } = useEvents();
   const { sermons } = useSermons();
   const { services } = useServices();
@@ -153,15 +153,15 @@ export default function HomeScreen() {
   // 주일 당일이지만 2부 예배가 끝난 오후·저녁 — "예배로 나아가요"가 아니라
   // 다녀온 예배를 돌아보는 문구로 (다시보기 버튼과 결을 맞춘다)
   const serviceOver = phase === 'after';
-  // 어떤 내용·배경이 정답인지 확정되기 전에는 히어로를 그리지 않는다 —
-  // 옛 구절이나 기본 그림이 번쩍였다가 바뀌면 혼란스럽기 때문.
-  const heroReady = isSunday
-    ? sunday.ready && (sunday.bg != null || bg.ready)
-    : verseReady && (verse.imageUrl ? true : bg.ready);
-  // 첫 그림이 확정되면 브랜드 스플래시를 내린다
+  // 히어로는 처음부터 바로 그린다 — 캐시(재방문자는 동기로 즉시 읽힘) 또는
+  // 번들 기본값(오늘의 말씀 샘플·시간대 배경)으로 시작해서, 실제 데이터가
+  // 늦게 와도 뒤에서 조용히 바뀐다. 처음 보는 방문자는 이 순간 웰컴
+  // 화면이 곧 덮으므로 안 보이고, 재방문자는 캐시라 번쩍임이 없다.
+  // (예전엔 실제 데이터가 확정될 때까지 빈 배경만 보여줬는데, 느린
+  // 통신에서 그 대기 자체가 체감·측정 로딩 속도를 몇 초씩 늦췄다)
   React.useEffect(() => {
-    if (heroReady) setAppReady();
-  }, [heroReady]);
+    setAppReady();
+  }, []);
   const sundayTimes = services
     .filter((s) => s.name.startsWith('주일예배'))
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
@@ -290,10 +290,7 @@ export default function HomeScreen() {
       {/* 2. 히어로 — 주중엔 오늘의 말씀, 주일엔 주일예배 안내 */}
       <FadeInUp delay={40}>
         <View style={[styles.heroWrap, shadows.hero]}>
-          {!heroReady ? (
-            // 로딩 중 — 은은한 중립 배경만 (샘플 구절·기본 그림 번쩍임 방지)
-            <LinearGradient colors={['#E9F1FA', '#D9E6F5']} style={styles.hero} />
-          ) : isSunday ? (
+          {isSunday ? (
             // 주일예배 안내도 시간대별 배경을 쓴다 (아침 예배 시간엔 아침 그림)
             <PhotoSlot uri={sb.uri} tone="deep" style={styles.hero}>
               {/* 위·아래 그늘 — 밝은 사진에서도 배지·날짜·글씨가 묻히지 않게 */}
