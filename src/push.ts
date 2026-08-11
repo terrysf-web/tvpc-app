@@ -23,7 +23,8 @@ export const NOTIFICATION_TOPICS = [
   { key: 'gratitude', label: '감사일기' },
 ] as const;
 export type NotificationTopicKey = (typeof NOTIFICATION_TOPICS)[number]['key'];
-const DEFAULT_TOPICS: NotificationTopicKey[] = ['verse', 'gratitude'];
+// 감사일기는 기본값 off — 원하는 사람만 알림 설정에서 직접 켠다.
+const DEFAULT_TOPICS: NotificationTopicKey[] = ['verse'];
 
 const SAVED_KEY = 'tvpc.pushToken';
 

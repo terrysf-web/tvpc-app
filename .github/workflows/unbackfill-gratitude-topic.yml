@@ -1,0 +1,21 @@
+# 일회성 — 감사일기 알림 기본값을 off로 바꾸면서, 이전 백필로 기존 기기에
+# 조용히 켜져 있던 gratitude topic을 다시 뺀다.
+name: Unbackfill gratitude topic (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  unbackfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Unbackfill
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/unbackfill-gratitude-topic.mjs
