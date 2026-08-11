@@ -19,8 +19,8 @@ export const pushConfigured = VAPID_KEY.length > 0;
  * 새 알림 종류가 생기면 여기 한 줄만 추가하면 설정 화면에 바로 나타난다.
  */
 export const NOTIFICATION_TOPICS = [
-  { key: 'verse', label: '오늘의 말씀' },
-  { key: 'gratitude', label: '감사일기' },
+  { key: 'verse', label: '오늘의 말씀', desc: '매일 아침 8시, 오늘의 말씀을 보내드려요' },
+  { key: 'gratitude', label: '감사일기', desc: '매일 저녁 7시, 하루를 돌아보며 적어보시라고 알려드려요' },
 ] as const;
 export type NotificationTopicKey = (typeof NOTIFICATION_TOPICS)[number]['key'];
 // 알림 종류는 전부 기본값 off — 본인이 알림 설정에서 직접 켜기 전까지는

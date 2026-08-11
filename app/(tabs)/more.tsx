@@ -215,7 +215,10 @@ export default function MoreScreen() {
             <View style={styles.pushTopics}>
               {NOTIFICATION_TOPICS.map((t) => (
                 <View key={t.key} style={styles.pushTopicRow}>
-                  <Text style={styles.pushTopicLabel}>{t.label}</Text>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.pushTopicLabel}>{t.label}</Text>
+                    <Text style={styles.pushTopicDesc}>{t.desc}</Text>
+                  </View>
                   {push.topicBusy === t.key ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
@@ -361,9 +364,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 7,
   },
   pushTopicLabel: { fontFamily: font.medium, fontSize: 13.5, color: colors.body },
+  pushTopicDesc: { marginTop: 2, fontFamily: font.regular, fontSize: 11.5, color: colors.muted3 },
 
   menuCard: {
     backgroundColor: colors.card,
