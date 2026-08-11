@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { useAdminAuth } from '../src/data/admin';
 import { useNews } from '../src/data/hooks';
+import { usePushNotifications } from '../src/push';
 import { colors, font, shadows } from '../src/theme';
 
 function fmtDate(d: string): string {
@@ -19,6 +20,7 @@ export default function AlertsScreen() {
   const router = useRouter();
   const { news } = useNews();
   const { role } = useAdminAuth();
+  const push = usePushNotifications();
   const alerts = news.filter((n) => n.alert);
 
   return (
@@ -54,8 +56,9 @@ export default function AlertsScreen() {
           </View>
         ))}
         <Text style={styles.hint}>
-          교회에서 보낸 긴급 알림이 여기에 보관됩니다. 알림을 받으려면 더보기
-          탭에서 "알림 받기"를 켜 주세요.
+          {push.enabled
+            ? '교회에서 보낸 긴급 알림이 여기에 보관됩니다. 지금 이 기기는 알림을 받고 있어요.'
+            : '교회에서 보낸 긴급 알림이 여기에 보관됩니다. 알림을 받으려면 더보기 탭에서 "알림 받기"를 켜 주세요.'}
         </Text>
       </ScrollView>
     </View>
