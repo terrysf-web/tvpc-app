@@ -10,8 +10,6 @@ import { font } from '../theme';
 
 /** 너무 빨리 사라지면 번쩍임으로 보인다 — 최소 표시 시간 */
 const MIN_SHOW_MS = 1800;
-/** 표어 조회를 이 시간까지는 기다려준다 — 앱 콘텐츠가 먼저 준비돼도 표어 없이 바로 닫지 않는다 */
-const MOTTO_TIMEOUT_MS = 3000;
 /** 신호가 안 와도 이 시간이 지나면 치운다 (다른 화면 딥링크·통신 두절) */
 const MAX_SHOW_MS = 4200;
 /** 홈 화면 아이콘으로 다시 열 때 — 이만큼 이상 백그라운드에 있었으면 재생 */
@@ -25,19 +23,20 @@ const FADE_MS = 260;
  * 처음 열 때는 앱이 첫 그림(말씀·배경)을 준비하는 동안 보이고,
  * 이미 떠 있는 앱을 홈 화면 아이콘으로 다시 열 때도(한참 뒤였다면) 잠깐 다시 보인다.
  *
- * 로고·이름·슬로건은 마운트 즉시 보인다 — 표어(Firestore 조회 필요)를
- * 기다리느라 화면이 통째로 비어 보이는 시간이 없게 하기 위해서다.
- * 다만 스플래시 자체를 치우는 시점은 표어 조회가 끝나거나(대부분) 포기할
- * 때까지 기다린다 — 안 그러면 앱 콘텐츠가 표어보다 먼저 준비됐을 때
- * (특히 첫 실행) 표어가 오기도 전에 스플래시가 사라져 그 표어를 영영
- * 보여줄 기회가 없어진다.
+ * 로고·이름·슬로건은 마운트 즉시 보인다. 표어(Firestore 조회 필요)는
+ * 도착하면 그 자리에서 페이드인만 시킬 뿐, 스플래시를 치우는 시점은
+ * 표어를 기다리지 않는다 — 새 표어를 아직 못 본 방문자에게는 어차피
+ * WelcomeScreen(웰컴 화면)이 표어를 곧이어 크게 보여주므로 여기서
+ * 표어를 기다렸다가 닫을 필요가 없다(첫 방문자에게는 순전히 낭비되는
+ * 대기 시간이었다). 이미 본 표어라 웰컴 화면이 안 뜨는 재방문자는
+ * useCurrentMotto가 기기 캐시를 먼저 동기로 읽어 오므로 대부분 즉시
+ * 표어가 준비돼 있다.
  */
 export function BrandSplash() {
   const [gone, setGone] = useState(Platform.OS !== 'web');
   const fade = useRef(new Animated.Value(1)).current;
   const mottoFade = useRef(new Animated.Value(0)).current;
   const born = useRef(Date.now());
-  const mottoSettledRef = useRef(false);
   const appReadyRef = useRef(false);
   const hiddenRef = useRef(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,7 +44,7 @@ export function BrandSplash() {
   const motto = useCurrentMotto();
 
   const doTryHide = useCallback(() => {
-    if (hiddenRef.current || !mottoSettledRef.current || !appReadyRef.current) return;
+    if (hiddenRef.current || !appReadyRef.current) return;
     if (hideTimer.current) clearTimeout(hideTimer.current);
     const wait = Math.max(0, MIN_SHOW_MS - (Date.now() - born.current));
     hideTimer.current = setTimeout(() => {
@@ -56,25 +55,11 @@ export function BrandSplash() {
     }, wait);
   }, [fade]);
 
-  // 표어는 도착하는 대로 그 자리에서 따로 페이드인 — 로고가 기다릴 필요는 없다
+  // 표어는 도착하는 대로 그 자리에서 따로 페이드인 — 닫는 시점과는 무관하다
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    let done = false;
-    if (motto) {
-      done = true;
-      mottoSettledRef.current = true;
-      Animated.timing(mottoFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-      doTryHide();
-      return;
-    }
-    const t = setTimeout(() => {
-      if (done) return;
-      // 표어를 못 받아도(오프라인 등) 로고는 이미 떠 있으니 여기서는 그냥 포기하고 닫기를 허용한다
-      mottoSettledRef.current = true;
-      doTryHide();
-    }, MOTTO_TIMEOUT_MS);
-    return () => clearTimeout(t);
-  }, [motto, mottoFade, doTryHide]);
+    if (Platform.OS !== 'web' || !motto) return;
+    Animated.timing(mottoFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  }, [motto, mottoFade]);
 
   useEffect(() => {
     if (gone) return;
@@ -87,7 +72,6 @@ export function BrandSplash() {
     const cap = setTimeout(() => {
       // 안전판: 무슨 신호도 안 와도 이 시간이 지나면 강제로 치운다
       appReadyRef.current = true;
-      mottoSettledRef.current = true;
       doTryHide();
     }, MAX_SHOW_MS);
     return () => {
