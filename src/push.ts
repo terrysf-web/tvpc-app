@@ -17,11 +17,13 @@ export const pushConfigured = VAPID_KEY.length > 0;
  * 선택 가능한 알림 종류 — 긴급 공지는 여기 없다(끄고 켜는 게 아니라, 알림을
  * 켠 모든 기기에 무조건 감. sendAlert 함수·send-alert.mjs 참고).
  * 새 알림 종류가 생기면 여기 한 줄만 추가하면 설정 화면에 바로 나타난다.
- * (예: 감사일기 알림이 실제로 만들어지면 { key: 'gratitude', label: '감사일기' } 추가)
  */
-export const NOTIFICATION_TOPICS = [{ key: 'verse', label: '오늘의 말씀' }] as const;
+export const NOTIFICATION_TOPICS = [
+  { key: 'verse', label: '오늘의 말씀' },
+  { key: 'gratitude', label: '감사일기' },
+] as const;
 export type NotificationTopicKey = (typeof NOTIFICATION_TOPICS)[number]['key'];
-const DEFAULT_TOPICS: NotificationTopicKey[] = ['verse'];
+const DEFAULT_TOPICS: NotificationTopicKey[] = ['verse', 'gratitude'];
 
 const SAVED_KEY = 'tvpc.pushToken';
 
