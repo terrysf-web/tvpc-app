@@ -10,6 +10,7 @@ import { WelcomeScreen } from '../src/components/WelcomeScreen';
 import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
 import '../src/downloadGuard';
+import { useNotificationNav } from '../src/notificationNav';
 import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -19,6 +20,8 @@ export default function RootLayout() {
   const pathname = usePathname();
   // 로그인 계정(목회자·관리자)의 개인 메모를 기기 간 자동 동기화
   useMemoSync();
+  // 알림을 눌렀을 때(앱이 이미 떠 있던 경우) 해당 화면으로 이동
+  useNotificationNav();
 
   useEffect(() => {
     // 글꼴을 기다리지 않고 바로 화면을 보여준다 — 느린 통신에서 몇 초씩

@@ -22,8 +22,14 @@ firebase.messaging();
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
-// 알림 탭 → 알림에 지정된 화면(기도요청함·알림 보관함 등)으로 이동.
+// 알림 탭 → 알림에 지정된 화면(감사일기·기도요청함·알림 보관함 등)으로 이동.
 // 이미 열린 앱 창이 있으면 포커스 후 그 화면으로, 없으면 새로 연다.
+//
+// 이미 열린 창이 있을 때는 postMessage로 앱(_layout.tsx)에 이동할 경로를
+// 알려서 라우터로 이동시키는 게 주 방법이다 — WindowClient.navigate()는
+// 사파리(특히 iOS 홈화면에 설치한 PWA)에서 안 먹히는 경우가 있어(포커스만
+// 되고 화면은 안 바뀜) 그것만 믿으면 "눌러도 안 열린다"는 문제가 생긴다.
+// navigate()도 되면 되는 대로 같이 시도 — 안 되면 그냥 무시된다.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const msg = event.notification && event.notification.data && event.notification.data.FCM_MSG;
@@ -40,8 +46,11 @@ self.addEventListener('notificationclick', (event) => {
       for (const c of list) {
         if ('focus' in c) {
           const p = c.focus();
-          if (path !== '/' && 'navigate' in c) {
-            return Promise.resolve(p).then(() => c.navigate(path)).catch(() => {});
+          if (path !== '/') {
+            if ('postMessage' in c) c.postMessage({ type: 'tvpc-navigate', path });
+            if ('navigate' in c) {
+              return Promise.resolve(p).then(() => c.navigate(path)).catch(() => {});
+            }
           }
           return p;
         }
