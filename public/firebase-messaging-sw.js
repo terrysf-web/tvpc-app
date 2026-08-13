@@ -22,29 +22,96 @@ firebase.messaging();
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
+// tvpc-sw DB v2 — kv(가려던 경로 등 1회성 값) + notifHistory(받은 알림 기록).
+// 버전을 올렸으므로 이 DB를 여는 모든 곳(여기, src/notificationNav.ts,
+// src/notifHistory.ts)이 같은 버전을 써야 한다(안 그러면 VersionError).
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('tvpc-sw', 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+      if (!db.objectStoreNames.contains('notifHistory')) {
+        db.createObjectStore('notifHistory', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
 // 앱이 완전히 닫혀 있던 상태(iOS 잠금화면 등)에서 알림을 눌러 새로
 // 열릴 때 — openWindow()에 준 URL을 사파리가 무시하고 그냥
 // start_url(홈)로 여는 경우가 있다(알려진 iOS PWA 제약). openWindow()만
 // 믿지 않고, 가려던 경로를 IndexedDB에 남겨뒀다가 앱이 뜬 뒤 직접
 // 확인해서 옮겨가게 한다(src/notificationNav.ts에서 읽음).
 function setPendingNav(path) {
-  return new Promise((resolve) => {
-    try {
-      const req = indexedDB.open('tvpc-sw', 1);
-      req.onupgradeneeded = () => req.result.createObjectStore('kv');
-      req.onsuccess = () => {
-        const db = req.result;
-        const tx = db.transaction('kv', 'readwrite');
-        tx.objectStore('kv').put({ path, ts: Date.now() }, 'pendingNav');
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
-      };
-      req.onerror = () => resolve();
-    } catch (e) {
-      resolve();
-    }
-  });
+  return openDb()
+    .then(
+      (db) =>
+        new Promise((resolve) => {
+          const tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put({ path, ts: Date.now() }, 'pendingNav');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        }),
+    )
+    .catch(() => {});
 }
+
+// 놓친 알림도 나중에 종 모양(알림 화면)에서 다시 볼 수 있게 — 알림이
+// 도착하는 순간(앱이 닫혀 있어도) 내용을 IndexedDB에 남겨둔다. 눌렀는지,
+// 화면에서 사라졌는지와 무관하게 "받았다"는 사실만으로 기록한다.
+// 긴급 공지(alert-*)는 news 컬렉션에 이미 전체가 저장돼 알림 화면에서
+// 그쪽으로 보여주므로 여기선 중복 저장하지 않는다(app/alerts.tsx 참고).
+const NOTIF_HISTORY_MAX = 40;
+
+function recordNotifHistory(event) {
+  if (!event.data) return Promise.resolve();
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch (e) {
+    return Promise.resolve();
+  }
+  const notif = (payload && payload.notification) || {};
+  const title = notif.title || '';
+  if (!title) return Promise.resolve();
+  const tag = notif.tag || '';
+  if (tag.indexOf('alert-') === 0) return Promise.resolve();
+  const link =
+    (payload.fcmOptions && payload.fcmOptions.link) ||
+    (payload.data && payload.data.link) ||
+    '/';
+  const item = { tag, title, body: notif.body || '', link, ts: Date.now() };
+
+  return openDb()
+    .then(
+      (db) =>
+        new Promise((resolve) => {
+          const tx = db.transaction('notifHistory', 'readwrite');
+          const store = tx.objectStore('notifHistory');
+          store.add(item);
+          // 너무 오래 쌓이지 않게 최근 NOTIF_HISTORY_MAX개만 남긴다
+          const cursorReq = store.openCursor(null, 'prev');
+          let seen = 0;
+          cursorReq.onsuccess = () => {
+            const cursor = cursorReq.result;
+            if (!cursor) return;
+            seen++;
+            if (seen > NOTIF_HISTORY_MAX) cursor.delete();
+            cursor.continue();
+          };
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        }),
+    )
+    .catch(() => {});
+}
+
+self.addEventListener('push', (event) => {
+  event.waitUntil(recordNotifHistory(event));
+});
 
 // 알림 탭 → 알림에 지정된 화면(감사일기·기도요청함·알림 보관함 등)으로 이동.
 // 이미 열린 앱 창이 있으면 포커스 후 그 화면으로, 없으면(앱이 완전히
