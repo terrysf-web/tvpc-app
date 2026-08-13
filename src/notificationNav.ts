@@ -117,16 +117,7 @@ export function useNotificationNav() {
       return;
     }
 
-    // 부팅 시 한 번 — 알림을 눌러 연 거라면 그 경로로, 아니라면 홈으로
-    // 보낼지 판단한다(순서가 중요 — pendingNav 확인이 끝난 뒤에만
-    // applyResumeGuard를 불러야 알림으로 연 화면을 홈으로 되돌리지 않는다).
-    readAndClearPendingNav().then((path) => {
-      if (path) {
-        if (path !== window.location.pathname) router.push(path as never);
-        return;
-      }
-      applyResumeGuard(router);
-    });
+    let cancelled = false;
 
     const checkPendingNav = () => {
       readAndClearPendingNav().then((path) => {
@@ -137,8 +128,6 @@ export function useNotificationNav() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') checkPendingNav();
     };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', checkPendingNav);
 
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; path?: string } | undefined;
@@ -147,7 +136,27 @@ export function useNotificationNav() {
       }
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
+
+    // 부팅 시 pendingNav를 딱 한 번만 읽는다. visibilitychange·focus
+    // 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이 막 뜨는
+    // 순간엔 visibilitychange도 거의 동시에 발생하는데, 둘 다 같은
+    // readAndClearPendingNav를 동시에 부르면(한쪽은 값을 읽어 지우고
+    // 다른 쪽은 이미 지워진 뒤라 못 읽는 경합) 부팅 쪽이 늦게 resolve될
+    // 경우 "알림이 아니다"로 오판해 applyResumeGuard가 이미 옮겨간 화면을
+    // 홈으로 되돌려 보내는 사고가 났다("말씀 알림 눌렀는데 홈으로 감").
+    readAndClearPendingNav().then((path) => {
+      if (cancelled) return;
+      if (path) {
+        if (path !== window.location.pathname) router.push(path as never);
+      } else {
+        applyResumeGuard(router);
+      }
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('focus', checkPendingNav);
+    });
+
     return () => {
+      cancelled = true;
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', checkPendingNav);
       navigator.serviceWorker.removeEventListener('message', onMessage);

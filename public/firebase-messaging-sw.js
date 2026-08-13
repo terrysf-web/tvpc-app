@@ -59,6 +59,23 @@ function setPendingNav(path) {
     .catch(() => {});
 }
 
+// 발송 쪽(scripts/send-scheduled-push.mjs, functions/index.js)이 알림마다
+// 붙이는 tag 접두어로 목적 화면을 알아낸다. FCM이 실제로 브라우저에
+// 넘기는 push payload의 정확한 구조(어디에 링크가 들어있는지)는 문서화가
+// 부실하고 실기기에서 확인하기도 어려워, fcmOptions.link 파싱에만 기대면
+// (실제로 그랬던 것처럼) 조용히 어긋날 수 있다 — tag는 우리가 직접
+// 붙인 값이라 훨씬 믿을 만해서, 아는 태그는 이걸 우선으로 쓴다.
+function pathFromTag(tag) {
+  if (!tag) return null;
+  if (tag.indexOf('verse-') === 0) return '/word';
+  if (tag.indexOf('gratitude-') === 0) return '/gratitude';
+  if (tag.indexOf('alert-') === 0) return '/alerts';
+  if (tag.indexOf('pray-started-') === 0) return '/pray-request';
+  if (tag.indexOf('pray-answer-') === 0) return '/pray-inbox';
+  if (tag.indexOf('pray-') === 0) return '/pray-inbox';
+  return null;
+}
+
 // 놓친 알림도 나중에 종 모양(알림 화면)에서 다시 볼 수 있게 — 알림이
 // 도착하는 순간(앱이 닫혀 있어도) 내용을 IndexedDB에 남겨둔다. 눌렀는지,
 // 화면에서 사라졌는지와 무관하게 "받았다"는 사실만으로 기록한다.
@@ -80,7 +97,9 @@ function recordNotifHistory(event) {
   const tag = notif.tag || '';
   if (tag.indexOf('alert-') === 0) return Promise.resolve();
   const link =
+    pathFromTag(tag) ||
     (payload.fcmOptions && payload.fcmOptions.link) ||
+    (payload.notification && payload.notification.click_action) ||
     (payload.data && payload.data.link) ||
     '/';
   const item = { tag, title, body: notif.body || '', link, ts: Date.now() };
@@ -128,7 +147,11 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const msg = event.notification && event.notification.data && event.notification.data.FCM_MSG;
+  // event.notification.tag는 실제로 화면에 띄운 알림 자체의 값이라
+  // FCM_MSG 파싱보다 확실하다 — 아는 태그면 이걸 우선으로 쓴다.
+  const tag = (event.notification && event.notification.tag) || '';
   const rawLink =
+    pathFromTag(tag) ||
     (msg && msg.fcmOptions && msg.fcmOptions.link) ||
     (msg && msg.notification && msg.notification.click_action) ||
     '/';
