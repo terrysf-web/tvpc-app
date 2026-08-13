@@ -10,7 +10,7 @@ import { markAlertsRead } from '../src/alertsUnread';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { useAdminAuth } from '../src/data/admin';
 import { useNews } from '../src/data/hooks';
-import { useNotifHistory } from '../src/notifHistory';
+import { pathFromTag, useNotifHistory } from '../src/notifHistory';
 import { usePushNotifications } from '../src/push';
 import { colors, font, shadows } from '../src/theme';
 
@@ -38,8 +38,15 @@ function localMeta(tag: string): { label: string; Icon: typeof BellRing; bg: str
   return { label: '알림', Icon: BellRing, bg: colors.tagOrangeBg, fg: colors.tagOrangeText };
 }
 
-/** 알림에 담긴 절대 URL(https://app.tvpc.church/word 등)을 앱 안 경로로 */
-function linkPath(link: string): string {
+/**
+ * 알림이 가리키는 화면 경로 — tag로 먼저 알아내고(항상 정확), 모르는
+ * tag일 때만 저장된 링크(https://app.tvpc.church/word 등)를 파싱한다.
+ * (한때 서비스워커의 링크 기록이 어긋난 적이 있어, 그때 저장된 옛
+ * 항목도 tag 덕분에 눌렀을 때 제 화면으로 가게 된다.)
+ */
+function entryPath(tag: string, link: string): string {
+  const byTag = pathFromTag(tag);
+  if (byTag) return byTag;
   try {
     return new URL(link).pathname || '/';
   } catch {
@@ -97,7 +104,7 @@ export default function AlertsScreen() {
         body: n.body,
         ts: n.ts,
         meta: localMeta(n.tag),
-        path: linkPath(n.link),
+        path: entryPath(n.tag, n.link),
       }),
     ),
   ].sort((a, b) => b.ts - a.ts);
