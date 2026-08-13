@@ -88,6 +88,9 @@ const TABS: { key: AdminTab; label: string }[] = [
   { key: 'errors', label: '오류' },
 ];
 
+// '오류' 탭은 개발 확인용이라 다른 관리자에게는 안 보이고 이 계정에만 보인다
+const OWNER_EMAIL = 'terrysf@gmail.com';
+
 // 승인 해제 사유 — 가나다순, "직접입력"은 항상 맨 아래
 const REVOKE_REASONS = ['교인사망', '교인이사', '다른 교회 이동', '불출석', '직접입력'] as const;
 
@@ -136,9 +139,10 @@ export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { email, isAdmin, role, checking, signOut } = useAdminAuth();
   const [tab, setTab] = useState<AdminTab>('verse');
-  const visibleTabs = TABS.filter((t) =>
-    role === 'pastor' ? t.key === 'verse' : t.key !== 'verse',
-  );
+  const visibleTabs = TABS.filter((t) => {
+    if (t.key === 'errors') return email === OWNER_EMAIL;
+    return role === 'pastor' ? t.key === 'verse' : t.key !== 'verse';
+  });
   // 역할이 정해지면 그 역할의 첫 탭으로 이동
   useEffect(() => {
     if (isAdmin && visibleTabs.length > 0 && !visibleTabs.some((t) => t.key === tab)) {
