@@ -1,5 +1,11 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import {
+  Analytics,
+  getAnalytics,
+  isSupported as analyticsSupported,
+  logEvent,
+} from 'firebase/analytics';
+import {
   Auth,
   EmailAuthProvider,
   getAuth,
@@ -27,6 +33,7 @@ export const firebaseEnabled = firebaseConfig != null;
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
+let analyticsPromise: Promise<Analytics | null> | null = null;
 
 function ensureApp(): FirebaseApp | null {
   if (!firebaseConfig) return null;
@@ -34,6 +41,39 @@ function ensureApp(): FirebaseApp | null {
     app = getApps()[0] ?? initializeApp(firebaseConfig);
   }
   return app;
+}
+
+/**
+ * 구글 애널리틱스(GA4) — "지금 몇 명이 접속했는지"는 여기서 확인한다
+ * (analytics.google.com → 실시간). firebaseConfig에 measurementId가
+ * 있어야 켜진다(Firebase 콘솔 → 프로젝트 설정 → 통합 → Google 애널리틱스
+ * 연결 후 얻는 값 — src/firebaseConfig.ts 주석 참고). 웹에서만 동작한다.
+ */
+function ensureAnalytics(): Promise<Analytics | null> {
+  if (analyticsPromise) return analyticsPromise;
+  analyticsPromise = (async () => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+    const a = ensureApp();
+    if (!a || !firebaseConfig?.measurementId) return null;
+    try {
+      const ok = await analyticsSupported();
+      return ok ? getAnalytics(a) : null;
+    } catch {
+      return null;
+    }
+  })();
+  return analyticsPromise;
+}
+
+/** 화면 하나를 봤다고 기록 — 애널리틱스 "실시간" 리포트의 화면별 집계 근거가 된다 */
+export function logPageView(path: string) {
+  ensureAnalytics().then((an) => {
+    if (!an) return;
+    logEvent(an, 'page_view', {
+      page_path: path,
+      page_location: typeof window !== 'undefined' ? window.location.href : path,
+    });
+  });
 }
 
 export function getDb(): Firestore | null {

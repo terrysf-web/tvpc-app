@@ -10,6 +10,7 @@ import { WelcomeScreen } from '../src/components/WelcomeScreen';
 import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
 import '../src/downloadGuard';
+import { logPageView } from '../src/firebase';
 import { useNotificationNav } from '../src/notificationNav';
 import { colors } from '../src/theme';
 
@@ -28,6 +29,12 @@ export default function RootLayout() {
     // 빈 화면이 보이던 문제. 글꼴은 준비되는 대로 자연스럽게 바뀐다.
     SplashScreen.hideAsync().catch(() => {});
   }, []);
+
+  // 화면을 옮길 때마다 애널리틱스에 기록 — "지금 몇 명이 접속했는지",
+  // 화면별로 몇 명이 보고 있는지는 구글 애널리틱스 실시간 리포트에서 확인
+  useEffect(() => {
+    logPageView(pathname);
+  }, [pathname]);
 
   const stack = (
     <Stack
