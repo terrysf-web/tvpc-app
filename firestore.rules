@@ -97,6 +97,20 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // 클라이언트에서 생긴 예외 기록 — 사용자가 알려주기 전에 관리자가 먼저
+    // 알기 위한 것(관리자 화면 '오류' 탭, src/errorReporting.ts가 전역에서
+    // 잡아 보냄). 익명 인증만 있으면 누구나 기록할 수 있고(누구나 에러를
+    // 만날 수 있으니), 목록 훑기는 관리자만.
+    match /errorLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 1000
+        && request.resource.data.ts is number;
+      allow update, delete: if false;
+    }
+
     // 소식 카드 배너 — 누구나 보고, 등록은 관리자만
     match /newsBanner/{id} {
       allow read: if true;

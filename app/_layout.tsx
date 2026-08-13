@@ -10,6 +10,7 @@ import { WelcomeScreen } from '../src/components/WelcomeScreen';
 import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
 import '../src/downloadGuard';
+import { useErrorReporting } from '../src/errorReporting';
 import { logPageView } from '../src/firebase';
 import { useNotificationNav } from '../src/notificationNav';
 import { colors } from '../src/theme';
@@ -23,6 +24,8 @@ export default function RootLayout() {
   useMemoSync();
   // 알림을 눌렀을 때(앱이 이미 떠 있던 경우) 해당 화면으로 이동
   useNotificationNav();
+  // 잡히지 않은 에러·처리 안 된 Promise 거부를 관리자 화면 '오류' 탭으로
+  useErrorReporting();
 
   useEffect(() => {
     // 글꼴을 기다리지 않고 바로 화면을 보여준다 — 느린 통신에서 몇 초씩

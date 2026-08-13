@@ -48,6 +48,7 @@ import {
   convertPdfToBulletinPages,
   saveBulletin,
 } from '../data/bulletin';
+import { type ErrorLogDoc, getRecentErrorLogs } from '../data/errorLog';
 import { colors, font, shadows } from '../theme';
 import { adminGoogleSignIn, getDb } from '../firebase';
 import { clearNewsBanner, saveNewsBanner } from '../newsBanner';
@@ -63,18 +64,28 @@ import {
 } from '../verseBg';
 import { ServiceItem, saveServices, useServices } from '../data/services';
 
-type AdminTab = 'verse' | 'bulletin' | 'news' | 'event' | 'info' | 'alert' | 'members' | 'offering';
+type AdminTab =
+  | 'verse'
+  | 'bulletin'
+  | 'news'
+  | 'event'
+  | 'info'
+  | 'alert'
+  | 'members'
+  | 'offering'
+  | 'errors';
 
 // 알림(긴급 공지)은 더보기의 전용 화면으로 이동. 주보는 토요일마다 홈페이지에서
 // 자동 동기화된다. 교인 가입 승인은 교우 앨범이 로그인 전용으로 바뀌며 다시
 // 필요해져 탭을 복원했다 — 헌금은 아직 안 씀(코드는 유지, 다시 넣으면 복원).
-// 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정·교회정보를 관리한다.
+// 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정·교회정보·오류를 관리한다.
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
   { key: 'info', label: '예배시간' },
   { key: 'members', label: '가입 승인' },
+  { key: 'errors', label: '오류' },
 ];
 
 // 승인 해제 사유 — 가나다순, "직접입력"은 항상 맨 아래
@@ -223,11 +234,16 @@ export default function AdminScreen() {
   const [aResult, setAResult] = useState<string | null>(null);
   const [aRecent, setARecent] = useState<AlertDoc[]>([]);
   const [aDevices, setADevices] = useState<PushDevice[] | null>(null);
+  // 오류 탭 — 잡히지 않은 예외를 사용자보다 먼저 발견하려고
+  const [errorLogs, setErrorLogs] = useState<ErrorLogDoc[] | null>(null);
 
   useEffect(() => {
     if (isAdmin && tab === 'alert') {
       getRecentAlerts(3).then(setARecent).catch(() => {});
       getPushDevices().then(setADevices).catch(() => setADevices(null));
+    }
+    if (isAdmin && tab === 'errors') {
+      getRecentErrorLogs(30).then(setErrorLogs).catch(() => setErrorLogs([]));
     }
   }, [isAdmin, tab]);
 
@@ -1002,6 +1018,42 @@ export default function AdminScreen() {
               긴급 알림은 위 기기들에만 도착합니다. 교인 가입(로그인)이 된 기기는
               이름이 보이고, 가입 없이 알림만 켠 기기는 "미가입 기기"로 표시됩니다.
               긴급할 때만 사용해 주세요.
+            </Text>
+          </View>
+        )}
+
+        {tab === 'errors' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>
+              최근 오류{errorLogs ? ` (${errorLogs.length}건)` : ''}
+            </Text>
+            {errorLogs === null && <ActivityIndicator color={colors.primary} />}
+            {errorLogs && errorLogs.length === 0 && (
+              <Text style={styles.emptyText}>최근에 기록된 오류가 없습니다.</Text>
+            )}
+            {(errorLogs ?? []).map((e) => (
+              <View key={e.id} style={styles.alertRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingName} numberOfLines={2}>
+                    {e.message}
+                  </Text>
+                  <Text style={styles.pendingMeta} numberOfLines={1}>
+                    {e.path ?? '알 수 없는 화면'} · {deviceKind(e.ua ?? '')} ·{' '}
+                    {new Date(e.ts).toLocaleString('ko-KR', {
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            <Text style={styles.hintText}>
+              앱을 쓰다가 잡히지 않은 오류가 생기면 여기 자동으로 남습니다(같은
+              오류가 반복되면 한 기기당 한 번만). 사용자에게 보이는 화면 문구는
+              이미 사람이 읽을 수 있게 바뀌어 있으니, 여기 원문은 원인을 찾을
+              때만 참고하시면 됩니다.
             </Text>
           </View>
         )}
