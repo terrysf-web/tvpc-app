@@ -65,9 +65,20 @@ function setPendingNav(path) {
 // 부실하고 실기기에서 확인하기도 어려워, fcmOptions.link 파싱에만 기대면
 // (실제로 그랬던 것처럼) 조용히 어긋날 수 있다 — tag는 우리가 직접
 // 붙인 값이라 훨씬 믿을 만해서, 아는 태그는 이걸 우선으로 쓴다.
+//
+// 말씀 알림(verse-YYYY-MM-DD)은 특히 — "오늘의 말씀"은 매일 바뀌므로,
+// 어제 온 알림을 오늘 눌러도 /word(오늘 것)로 보내면 알림 내용과 다른
+// 말씀이 뜬다. 알림에 적힌 그 날짜 그대로 보여주는 /verse/[date]로
+// 보낸다 — 단, 같은 날 안에 눌렀다면(가장 흔한 경우) 평소 쓰는 말씀
+// 탭(/word)으로 보낸다.
 function pathFromTag(tag) {
   if (!tag) return null;
-  if (tag.indexOf('verse-') === 0) return '/word';
+  if (tag.indexOf('verse-') === 0) {
+    const date = tag.slice('verse-'.length);
+    if (!date) return '/word';
+    const today = new Date().toLocaleDateString('en-CA');
+    return date === today ? '/word' : '/verse/' + date;
+  }
   if (tag.indexOf('gratitude-') === 0) return '/gratitude';
   if (tag.indexOf('alert-') === 0) return '/alerts';
   if (tag.indexOf('pray-started-') === 0) return '/pray-request';

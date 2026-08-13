@@ -56,10 +56,21 @@ function readAll(): Promise<NotifHistoryItem[]> {
  * 알림이냐에 따라 어긋나 있을 수 있어(과거 한 번 그랬다), 화면에 보여줄
  * 때는 늘 이 값을 링크 파싱보다 우선한다 — 예전에 잘못 기록된 항목도
  * 이 함수 덕에 눌렀을 때 제 화면으로 간다).
+ *
+ * 말씀 알림(verse-YYYY-MM-DD)은 특히 — "오늘의 말씀"은 매일 바뀌므로,
+ * 어제 온 알림을 오늘 열면 /word(오늘 것)로 보내면 알림 내용과 다른
+ * 말씀이 뜬다. 알림에 적힌 그 날짜 그대로 보여주는 /verse/[date]로
+ * 보낸다 — 단, 같은 날 안에 눌렀다면(가장 흔한 경우) 굳이 다를 게
+ * 없으니 평소 쓰는 말씀 탭(/word)으로 보낸다.
  */
 export function pathFromTag(tag: string): string | null {
   if (!tag) return null;
-  if (tag.startsWith('verse-')) return '/word';
+  if (tag.startsWith('verse-')) {
+    const date = tag.slice('verse-'.length);
+    if (!date) return '/word';
+    const today = new Date().toLocaleDateString('en-CA');
+    return date === today ? '/word' : `/verse/${date}`;
+  }
   if (tag.startsWith('gratitude-')) return '/gratitude';
   if (tag.startsWith('alert-')) return '/alerts';
   if (tag.startsWith('pray-started-')) return '/pray-request';
