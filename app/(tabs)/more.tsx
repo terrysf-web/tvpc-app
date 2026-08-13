@@ -29,7 +29,7 @@ import { churchInfo } from '../../src/churchInfo';
 import { useAdminAuth } from '../../src/data/admin';
 import { canAddToHome, deviceKind, isStandalone, openInstallGuide } from '../../src/installPrompt';
 import { openExternal } from '../../src/links';
-import { NOTIFICATION_TOPICS, usePushNotifications } from '../../src/push';
+import { NOTIFICATION_TIMES, NOTIFICATION_TOPICS, usePushNotifications } from '../../src/push';
 import { colors, font, shadows } from '../../src/theme';
 
 const MENU = [
@@ -213,24 +213,56 @@ export default function MoreScreen() {
 
           {push.enabled && NOTIFICATION_TOPICS.length > 0 && (
             <View style={styles.pushTopics}>
-              {NOTIFICATION_TOPICS.map((t) => (
-                <View key={t.key} style={styles.pushTopicRow}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.pushTopicLabel}>{t.label}</Text>
-                    <Text style={styles.pushTopicDesc}>{t.desc}</Text>
+              {NOTIFICATION_TOPICS.map((t) => {
+                const on = push.topics.has(t.key);
+                const time = push.topicTimes[t.key];
+                const timeLabel = NOTIFICATION_TIMES.find((n) => n.key === time)?.label ?? '';
+                return (
+                  <View key={t.key} style={styles.pushTopicBlock}>
+                    <View style={styles.pushTopicRow}>
+                      <View style={{ flex: 1, marginRight: 10 }}>
+                        <Text style={styles.pushTopicLabel}>{t.label}</Text>
+                        <Text style={styles.pushTopicDesc}>매일 {timeLabel}에 알려드려요</Text>
+                      </View>
+                      {push.topicBusy === t.key ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Switch
+                          value={on}
+                          onValueChange={(v) => push.setTopic(t.key, v)}
+                          trackColor={{ false: colors.faint2, true: colors.primary }}
+                          thumbColor="#FFFFFF"
+                        />
+                      )}
+                    </View>
+                    {on && (
+                      <View style={styles.pushTimeRow}>
+                        {NOTIFICATION_TIMES.map((nt) => {
+                          const active = time === nt.key;
+                          const busy = push.topicBusy === t.key;
+                          return (
+                            <Pressable
+                              key={nt.key}
+                              disabled={busy}
+                              style={[styles.pushTimePill, active && styles.pushTimePillActive]}
+                              onPress={() => push.setTopicTime(t.key, nt.key)}
+                            >
+                              <Text
+                                style={[
+                                  styles.pushTimePillText,
+                                  active && styles.pushTimePillTextActive,
+                                ]}
+                              >
+                                {nt.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
-                  {push.topicBusy === t.key ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Switch
-                      value={push.topics.has(t.key)}
-                      onValueChange={(v) => push.setTopic(t.key, v)}
-                      trackColor={{ false: colors.faint2, true: colors.primary }}
-                      thumbColor="#FFFFFF"
-                    />
-                  )}
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>
@@ -360,14 +392,22 @@ const styles = StyleSheet.create({
     borderTopColor: colors.divider,
     gap: 2,
   },
-  pushTopicRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 7,
-  },
+  pushTopicBlock: { paddingVertical: 7 },
+  pushTopicRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pushTopicLabel: { fontFamily: font.medium, fontSize: 13.5, color: colors.body },
   pushTopicDesc: { marginTop: 2, fontFamily: font.regular, fontSize: 11.5, color: colors.muted3 },
+  pushTimeRow: { flexDirection: 'row', gap: 8, marginTop: 9 },
+  pushTimePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.screenBg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  pushTimePillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  pushTimePillText: { fontFamily: font.medium, fontSize: 12, color: colors.muted },
+  pushTimePillTextActive: { color: '#FFFFFF' },
 
   menuCard: {
     backgroundColor: colors.card,

@@ -13,19 +13,38 @@ export const VAPID_KEY =
 
 export const pushConfigured = VAPID_KEY.length > 0;
 
+/** 알림을 보낼 수 있는 시각 — 사람마다 받고 싶은 시간이 달라 선택하게 한다 */
+export const NOTIFICATION_TIMES = [
+  { key: '08:00', label: '오전 8시' },
+  { key: '12:30', label: '오후 12:30' },
+  { key: '19:00', label: '오후 7시' },
+] as const;
+export type NotificationTimeKey = (typeof NOTIFICATION_TIMES)[number]['key'];
+
 /**
  * 선택 가능한 알림 종류 — 긴급 공지는 여기 없다(끄고 켜는 게 아니라, 알림을
  * 켠 모든 기기에 무조건 감. sendAlert 함수·send-alert.mjs 참고).
  * 새 알림 종류가 생기면 여기 한 줄만 추가하면 설정 화면에 바로 나타난다.
+ * defaultTime — 시각을 따로 고르지 않은 기존 기기에 그대로 적용되는 값
+ * (scripts/send-scheduled-push.mjs도 같은 기본값을 쓴다).
  */
 export const NOTIFICATION_TOPICS = [
-  { key: 'verse', label: '오늘의 말씀', desc: '매일 아침 8시, 오늘의 말씀을 보내드려요' },
-  { key: 'gratitude', label: '감사일기', desc: '매일 저녁 7시, 하루를 돌아보며 적어보시라고 알려드려요' },
+  { key: 'verse', label: '오늘의 말씀', defaultTime: '08:00' as NotificationTimeKey },
+  { key: 'gratitude', label: '감사일기', defaultTime: '19:00' as NotificationTimeKey },
 ] as const;
 export type NotificationTopicKey = (typeof NOTIFICATION_TOPICS)[number]['key'];
 // 알림 종류는 전부 기본값 off — 본인이 알림 설정에서 직접 켜기 전까지는
 // 강제로 켜지 않는다(긴급 공지만 예외, 위 주석 참고).
 const DEFAULT_TOPICS: NotificationTopicKey[] = [];
+
+function defaultTimeOf(topic: NotificationTopicKey): NotificationTimeKey {
+  return NOTIFICATION_TOPICS.find((t) => t.key === topic)?.defaultTime ?? '08:00';
+}
+
+/** Firestore pushTokens 문서 필드명 — topic별로 "{topic}Time" */
+function timeField(topic: NotificationTopicKey): string {
+  return `${topic}Time`;
+}
 
 const SAVED_KEY = 'tvpc.pushToken';
 
@@ -43,11 +62,27 @@ function messagingOrNull() {
   return au ? getMessaging(au.app) : null;
 }
 
+function readTopicTimes(snap: { get: (k: string) => unknown }): Record<NotificationTopicKey, NotificationTimeKey> {
+  const times = {} as Record<NotificationTopicKey, NotificationTimeKey>;
+  for (const t of NOTIFICATION_TOPICS) {
+    const v = snap.get(timeField(t.key)) as string | undefined;
+    times[t.key] = (NOTIFICATION_TIMES.find((n) => n.key === v)?.key ?? t.defaultTime) as NotificationTimeKey;
+  }
+  return times;
+}
+
+function defaultTopicTimes(): Record<NotificationTopicKey, NotificationTimeKey> {
+  const times = {} as Record<NotificationTopicKey, NotificationTimeKey>;
+  for (const t of NOTIFICATION_TOPICS) times[t.key] = t.defaultTime;
+  return times;
+}
+
 /**
- * 푸시 알림 on/off + 알림 종류별 선택 훅.
+ * 푸시 알림 on/off + 알림 종류·시각 선택 훅.
  * 켜면 브라우저 알림 권한을 받고 FCM 토큰을 Firestore pushTokens에 등록한다.
  * 긴급 공지는 이 등록만으로 무조건 받고(선택 불가), 그 외 알림 종류(오늘의
- * 말씀 등, NOTIFICATION_TOPICS)는 topics 배열로 따로 켜고 끌 수 있다.
+ * 말씀 등, NOTIFICATION_TOPICS)는 topics 배열로 따로 켜고 끌 수 있고, 각각
+ * 받고 싶은 시각(NOTIFICATION_TIMES)도 고를 수 있다.
  */
 export function usePushNotifications() {
   const [supported, setSupported] = useState(false);
@@ -56,6 +91,9 @@ export function usePushNotifications() {
   const [error, setError] = useState<string | null>(null);
   const [topics, setTopics] = useState<Set<NotificationTopicKey>>(new Set());
   const [topicBusy, setTopicBusy] = useState<NotificationTopicKey | null>(null);
+  const [topicTimes, setTopicTimes] = useState<Record<NotificationTopicKey, NotificationTimeKey>>(
+    defaultTopicTimes(),
+  );
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !pushConfigured) return;
@@ -72,6 +110,7 @@ export function usePushNotifications() {
           const snap = await getDoc(doc(db, 'pushTokens', saved));
           const list = (snap.get('topics') as NotificationTopicKey[] | undefined) ?? DEFAULT_TOPICS;
           setTopics(new Set(list));
+          setTopicTimes(readTopicTimes(snap));
         } catch {
           setTopics(new Set(DEFAULT_TOPICS));
         }
@@ -94,6 +133,7 @@ export function usePushNotifications() {
         localStorage.removeItem(SAVED_KEY);
         setEnabled(false);
         setTopics(new Set());
+        setTopicTimes(defaultTopicTimes());
         return;
       }
 
@@ -134,6 +174,7 @@ export function usePushNotifications() {
       localStorage.setItem(SAVED_KEY, token);
       setEnabled(true);
       setTopics(new Set(DEFAULT_TOPICS));
+      setTopicTimes(defaultTopicTimes());
     } catch (e) {
       setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
     } finally {
@@ -164,6 +205,26 @@ export function usePushNotifications() {
     [topics],
   );
 
+  /** 알림 종류 하나의 받고 싶은 시각을 바꾼다 */
+  const setTopicTime = useCallback(
+    async (topic: NotificationTopicKey, time: NotificationTimeKey) => {
+      const saved = localStorage.getItem(SAVED_KEY);
+      const db = getDb();
+      if (!saved || !db) return;
+      setError(null);
+      setTopicBusy(topic);
+      try {
+        await updateDoc(doc(db, 'pushTokens', saved), { [timeField(topic)]: time });
+        setTopicTimes((prev) => ({ ...prev, [topic]: time }));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
+      } finally {
+        setTopicBusy(null);
+      }
+    },
+    [],
+  );
+
   return {
     supported: supported && pushConfigured,
     enabled,
@@ -173,5 +234,7 @@ export function usePushNotifications() {
     topics,
     topicBusy,
     setTopic,
+    topicTimes,
+    setTopicTime,
   };
 }
