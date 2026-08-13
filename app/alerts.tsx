@@ -4,8 +4,9 @@ import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
 import Heart from 'lucide-react-native/dist/esm/icons/heart.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { markAlertsRead } from '../src/alertsUnread';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { useAdminAuth } from '../src/data/admin';
 import { useNews } from '../src/data/hooks';
@@ -71,6 +72,11 @@ export default function AlertsScreen() {
   const { role } = useAdminAuth();
   const push = usePushNotifications();
   const localHistory = useNotifHistory();
+
+  // 이 화면을 열면 홈 종 아이콘의 "안 읽음" 점을 지운다
+  useEffect(() => {
+    markAlertsRead();
+  }, []);
 
   const entries: Entry[] = [
     ...news

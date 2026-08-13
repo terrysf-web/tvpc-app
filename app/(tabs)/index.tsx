@@ -16,6 +16,7 @@ import Sunset from 'lucide-react-native/dist/esm/icons/sunset.mjs';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useHasUnreadAlerts } from '../../src/alertsUnread';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
@@ -83,6 +84,8 @@ export default function HomeScreen() {
   const { events } = useEvents();
   const { sermons } = useSermons();
   const { services } = useServices();
+  // 종 아이콘에 안 읽은 알림(긴급 공지·오늘의 말씀·감사일기 등)이 있으면 점 표시
+  const hasUnreadAlerts = useHasUnreadAlerts();
 
   // 홈 최근 설교 카드에는 실제 설교만 (팟캐스트·찬양 영상 제외)
   const onlySermons = sermons.filter((s) => (s.category ?? 'sermon') === 'sermon');
@@ -271,7 +274,7 @@ export default function HomeScreen() {
           <View style={styles.headBtns}>
             <Pressable style={styles.bellBtn} onPress={() => router.push('/alerts')} hitSlop={6}>
               <Bell size={20} color={colors.title} strokeWidth={1.9} />
-              <View style={styles.bellDot} />
+              {hasUnreadAlerts ? <View style={styles.bellDot} /> : null}
             </Pressable>
             {/* 앱이 낯선 분이 언제든 찾을 수 있게 물음표를 종 오른쪽에 둔다 */}
             <Pressable
