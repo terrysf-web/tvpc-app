@@ -24,5 +24,5 @@ export const firebaseConfig: FirebaseOptions | null = {
   storageBucket: 'tvpc-40043.firebasestorage.app',
   messagingSenderId: '447584603547',
   appId: '1:447584603547:web:33ff97f4aa3cf26b7de53e',
-  // measurementId: 'G-XXXXXXXXXX',
+  measurementId: 'G-Z31Q72SL09',
 };
