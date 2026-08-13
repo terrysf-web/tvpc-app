@@ -7,6 +7,7 @@ import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import HandCoins from 'lucide-react-native/dist/esm/icons/hand-coins.mjs';
+import Heart from 'lucide-react-native/dist/esm/icons/heart.mjs';
 import Home from 'lucide-react-native/dist/esm/icons/house.mjs';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
 import Music from 'lucide-react-native/dist/esm/icons/music.mjs';
@@ -129,21 +130,31 @@ function FigTabs() {
   );
 }
 
-/** 더보기 — 알림 받기 스위치가 켜진 모습 */
-function FigSwitch() {
+/** 더보기 — 알림 종류 하나를 켜고, 받고 싶은 시각을 고르는 모습 */
+function FigTopicTime() {
+  const times = ['오전 8시', '오후 12:30', '오후 7시'];
   return (
-    <View style={styles.switchRow}>
-      <View style={[styles.chip, { backgroundColor: colors.tagOrangeBg }]}>
-        <BellRing size={18} color={colors.tagOrangeText} strokeWidth={1.9} />
+    <View>
+      <View style={styles.switchRow}>
+        <View style={[styles.chip, { backgroundColor: colors.tagBlueBg, width: 30, height: 30, borderRadius: 10 }]}>
+          <BookOpen size={16} color={colors.primary} strokeWidth={1.9} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.switchLabel}>오늘의 말씀</Text>
+          <Text style={styles.switchSub}>매일 오전 8시에 알려드려요</Text>
+        </View>
+        <View style={styles.switchOn}>
+          <View style={styles.switchKnob} />
+        </View>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.switchLabel}>알림 받기</Text>
-        <Text style={styles.switchSub}>매일 새벽예배 성경 말씀과 교회 긴급 공지</Text>
+      <View style={styles.timePillRow}>
+        {times.map((label, i) => (
+          <View key={label} style={[styles.timePill, i === 0 && styles.timePillOn]}>
+            <Text style={[styles.timePillText, i === 0 && styles.timePillTextOn]}>{label}</Text>
+          </View>
+        ))}
+        <Here label="원하는 시각으로" />
       </View>
-      <View style={styles.switchOn}>
-        <View style={styles.switchKnob} />
-      </View>
-      <Here />
     </View>
   );
 }
@@ -314,12 +325,24 @@ export default function HelpScreen() {
       chipBg: colors.tagOrangeBg,
       title: '알림 받기',
       lines: [
-        '더보기 메뉴의 「알림 받기」를 켜시면 매일 새벽예배 성경 말씀과 교회 긴급 공지를 받아보실 수 있습니다.',
-        '전화기가 물어보면 「허용」을 눌러 주세요.',
+        '더보기 메뉴의 「알림 받기」를 켜시면 전화기가 물어봅니다. 「허용」을 눌러 주세요.',
+        '켜신 뒤에는 「오늘의 말씀」과 「감사일기」를 각각 따로 켜고 끄실 수 있고, 받고 싶은 시각도 오전 8시·낮 12시 30분·저녁 7시 중 원하시는 대로 고르실 수 있습니다.',
+        '교회의 긴급 공지는 알림을 켜두신 모든 분께 시각과 상관없이 바로 전해집니다.',
         '알림이 필요 없으시면 같은 자리에서 다시 끄시면 됩니다.',
       ],
-      figure: <FigSwitch />,
-      figureNote: '더보기 메뉴에 있는 「알림 받기」',
+      figure: <FigTopicTime />,
+      figureNote: '알림 종류마다 받고 싶은 시각을 따로 고를 수 있어요',
+    },
+    {
+      key: 'alerts',
+      icon: <Bell size={20} color={colors.tagOrangeText} strokeWidth={1.9} />,
+      chipBg: colors.tagOrangeBg,
+      title: '알림 다시 보기',
+      lines: [
+        '홈 화면 오른쪽 위 종 모양을 누르면 그동안 받은 알림이 모여 있습니다.',
+        '오늘의 말씀·감사일기·교회의 긴급 공지까지, 알림을 놓치거나 못 보고 지나치셨어도 여기서 다시 확인하고 눌러서 바로 열어보실 수 있습니다.',
+      ],
+      go: { label: '알림 열어보기', to: '/alerts' },
     },
     {
       key: 'install',
@@ -387,7 +410,7 @@ export default function HelpScreen() {
           {[
             '맨 아래 다섯 개의 아이콘(홈·말씀·설교·소식·더보기)이 앱의 전부입니다. 눌러서 오가시면 됩니다.',
             '더보기 메뉴 › 「홈 화면에 추가하기」로 전화기 첫 화면에 두시면 다음부터 바로 열립니다.',
-            '더보기 메뉴 › 「알림 받기」를 켜시면 매일 새벽예배 성경 말씀이 옵니다.',
+            '더보기 메뉴 › 「알림 받기」를 켜시면 매일 오늘의 말씀 알림이 옵니다.',
           ].map((t, i) => (
             <View key={i} style={styles.stepRow}>
               <View style={styles.stepNum}>
@@ -589,6 +612,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2.5,
   },
   switchKnob: { width: 17, height: 17, borderRadius: 9, backgroundColor: '#FFFFFF' },
+  timePillRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 9, flexWrap: 'wrap' },
+  timePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  timePillOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  timePillText: { fontFamily: font.medium, fontSize: 11, color: colors.faint },
+  timePillTextOn: { color: '#FFFFFF' },
 
   askCard: { backgroundColor: colors.tagBlueBg, borderRadius: 16, padding: 16, marginTop: 4 },
   askTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title },
