@@ -78,6 +78,25 @@ function defaultTopicTimes(): Record<NotificationTopicKey, NotificationTimeKey> 
 }
 
 /**
+ * Firestore SDK가 던진 원본 에러(코드·경로·토큰까지 들어있는 기술적 문구)를
+ * 화면에 그대로 보여주지 않기 위한 판별 — 우리가 직접 던진 Error(코드 없음,
+ * 이미 한국어로 친절한 문구)와 구분한다.
+ */
+function firestoreErrorCode(e: unknown): string | undefined {
+  return typeof e === 'object' && e !== null ? (e as { code?: string }).code : undefined;
+}
+
+/** 알림 설정 실패를 사용자에게 보여줄 문구로 — 기술적인 원문은 콘솔에만 남긴다 */
+function friendlyPushError(e: unknown, context: string): string {
+  const code = firestoreErrorCode(e);
+  if (!code) return e instanceof Error ? e.message : '알림 설정에 실패했습니다.';
+  console.warn(`[push] ${context} 실패(${code}):`, e);
+  // 등록 문서가 없어졌다 — 발송 스크립트가 무효 토큰을 정리했을 때 등
+  if (code === 'not-found') return '이 기기의 알림 등록이 만료됐어요. "알림 받기"를 다시 켜 주세요.';
+  return '알림 설정에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+}
+
+/**
  * 푸시 알림 on/off + 알림 종류·시각 선택 훅.
  * 켜면 브라우저 알림 권한을 받고 FCM 토큰을 Firestore pushTokens에 등록한다.
  * 긴급 공지는 이 등록만으로 무조건 받고(선택 불가), 그 외 알림 종류(오늘의
@@ -95,6 +114,18 @@ export function usePushNotifications() {
     defaultTopicTimes(),
   );
 
+  // 서버 쪽 등록(pushTokens 문서)이 사라졌을 때(무효 토큰 정리 등) 이 기기
+  // 상태도 "꺼짐"으로 되돌린다 — 그래야 실제로는 안 되는데 화면엔 켜진
+  // 것처럼 보이는 상태가 안 생긴다.
+  const resetToDisabled = useCallback(() => {
+    try {
+      localStorage.removeItem(SAVED_KEY);
+    } catch {}
+    setEnabled(false);
+    setTopics(new Set());
+    setTopicTimes(defaultTopicTimes());
+  }, []);
+
   useEffect(() => {
     if (Platform.OS !== 'web' || !pushConfigured) return;
     isSupported()
@@ -108,6 +139,10 @@ export function usePushNotifications() {
         if (!db) return;
         try {
           const snap = await getDoc(doc(db, 'pushTokens', saved));
+          if (!snap.exists()) {
+            resetToDisabled();
+            return;
+          }
           const list = (snap.get('topics') as NotificationTopicKey[] | undefined) ?? DEFAULT_TOPICS;
           setTopics(new Set(list));
           setTopicTimes(readTopicTimes(snap));
@@ -116,6 +151,7 @@ export function usePushNotifications() {
         }
       })
       .catch(() => setSupported(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggle = useCallback(async () => {
@@ -176,7 +212,7 @@ export function usePushNotifications() {
       setTopics(new Set(DEFAULT_TOPICS));
       setTopicTimes(defaultTopicTimes());
     } catch (e) {
-      setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
+      setError(friendlyPushError(e, 'toggle'));
     } finally {
       setBusy(false);
     }
@@ -197,12 +233,13 @@ export function usePushNotifications() {
         await updateDoc(doc(db, 'pushTokens', saved), { topics: [...next] });
         setTopics(next);
       } catch (e) {
-        setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
+        if (firestoreErrorCode(e) === 'not-found') resetToDisabled();
+        setError(friendlyPushError(e, 'setTopic'));
       } finally {
         setTopicBusy(null);
       }
     },
-    [topics],
+    [topics, resetToDisabled],
   );
 
   /** 알림 종류 하나의 받고 싶은 시각을 바꾼다 */
@@ -217,12 +254,13 @@ export function usePushNotifications() {
         await updateDoc(doc(db, 'pushTokens', saved), { [timeField(topic)]: time });
         setTopicTimes((prev) => ({ ...prev, [topic]: time }));
       } catch (e) {
-        setError(e instanceof Error ? e.message : '알림 설정에 실패했습니다.');
+        if (firestoreErrorCode(e) === 'not-found') resetToDisabled();
+        setError(friendlyPushError(e, 'setTopicTime'));
       } finally {
         setTopicBusy(null);
       }
     },
-    [],
+    [resetToDisabled],
   );
 
   return {
