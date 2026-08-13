@@ -15,8 +15,18 @@ const PENDING_NAV_MAX_AGE_MS = 10 * 60 * 1000;
 function readAndClearPendingNav(): Promise<string | null> {
   return new Promise((resolve) => {
     try {
-      const req = indexedDB.open('tvpc-sw', 1);
-      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      // tvpc-sw DB v2 — kv(가려던 경로 등) + notifHistory(받은 알림 기록,
+      // src/notifHistory.ts). 서비스워커가 이미 v2로 올려둬서, 여기서 계속
+      // v1로 열면 VersionError로 조용히 실패해 가려던 경로를 영영 못 읽는다
+      // — 버전은 반드시 세 곳(여기·notifHistory.ts·서비스워커) 다 같아야 한다.
+      const req = indexedDB.open('tvpc-sw', 2);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+        if (!db.objectStoreNames.contains('notifHistory')) {
+          db.createObjectStore('notifHistory', { keyPath: 'id', autoIncrement: true });
+        }
+      };
       req.onsuccess = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('kv')) {
@@ -54,6 +64,15 @@ function readAndClearPendingNav(): Promise<string | null> {
  *    IndexedDB에 남겨둔 "가려던 경로"를 앱이 뜨자마자 확인해서 옮긴다
  *    (openWindow()가 준 URL을 사파리가 무시하고 시작 화면으로 여는
  *    경우의 대비책).
+ * 3) 앱이 완전히 닫힌 것도, 멀쩡히 떠 있던 것도 아닌 애매한 상태 —
+ *    한참 백그라운드에 있다가(iOS가 화면은 꺼두고 멈춰만 둔 상태)
+ *    알림을 눌러 되살아난 경우 — 도 있다. 이때는 서비스워커가 매칭되는
+ *    창을 찾아 postMessage를 보내긴 하지만, 멈춰 있던 페이지가 완전히
+ *    되살아나기 전에 메시지가 씹혀 화면이 안 바뀌는 경우가 있었다
+ *    ("눌렀는데 마지막에 보던 화면 그대로"). postMessage 하나만 믿지
+ *    않고, 화면이 다시 보이는 시점(visibilitychange·focus)마다 2)의
+ *    "가려던 경로"를 한 번 더 확인해서 옮긴다 — 이미 다 옮겨간
+ *    뒤라면(현재 경로와 같으면) 아무 일도 안 한다.
  */
 export function useNotificationNav() {
   const router = useRouter();
@@ -61,9 +80,19 @@ export function useNotificationNav() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.serviceWorker) return;
 
-    readAndClearPendingNav().then((path) => {
-      if (path && path !== window.location.pathname) router.push(path as never);
-    });
+    const checkPendingNav = () => {
+      readAndClearPendingNav().then((path) => {
+        if (path && path !== window.location.pathname) router.push(path as never);
+      });
+    };
+
+    checkPendingNav();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkPendingNav();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', checkPendingNav);
 
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; path?: string } | undefined;
@@ -72,7 +101,11 @@ export function useNotificationNav() {
       }
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', checkPendingNav);
+      navigator.serviceWorker.removeEventListener('message', onMessage);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
