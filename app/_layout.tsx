@@ -13,6 +13,7 @@ import '../src/downloadGuard';
 import { useErrorReporting } from '../src/errorReporting';
 import { logPageView } from '../src/firebase';
 import { useNotificationNav } from '../src/notificationNav';
+import { useServiceWorkerUpdate } from '../src/swUpdate';
 import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -26,6 +27,8 @@ export default function RootLayout() {
   useNotificationNav();
   // 잡히지 않은 에러·처리 안 된 Promise 거부를 관리자 화면 '오류' 탭으로
   useErrorReporting();
+  // 알림을 이미 켜둔 기기가 앱을 열 때마다 서비스워커가 최신인지 확인
+  useServiceWorkerUpdate();
 
   useEffect(() => {
     // 글꼴을 기다리지 않고 바로 화면을 보여준다 — 느린 통신에서 몇 초씩
