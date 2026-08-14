@@ -45,13 +45,13 @@ function openDb() {
 // start_url(홈)로 여는 경우가 있다(알려진 iOS PWA 제약). openWindow()만
 // 믿지 않고, 가려던 경로를 IndexedDB에 남겨뒀다가 앱이 뜬 뒤 직접
 // 확인해서 옮겨가게 한다(src/notificationNav.ts에서 읽음).
-function setPendingNav(path) {
+function setPendingNav(path, debug) {
   return openDb()
     .then(
       (db) =>
         new Promise((resolve) => {
           const tx = db.transaction('kv', 'readwrite');
-          tx.objectStore('kv').put({ path, ts: Date.now() }, 'pendingNav');
+          tx.objectStore('kv').put({ path, ts: Date.now(), debug: debug || null }, 'pendingNav');
           tx.oncomplete = () => resolve();
           tx.onerror = () => resolve();
         }),
@@ -179,8 +179,14 @@ self.addEventListener('notificationclick', (event) => {
     }
   } catch (e) {}
   event.waitUntil(
-    (path !== '/' ? setPendingNav(path) : Promise.resolve()).then(() =>
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    // clients.matchAll을 먼저 해서 매칭된 창 개수를 pendingNav에 함께
+    // 남긴다 — "홈으로 갔다"는 신고가 재현될 때, 이미 열린 창이 있어서
+    // postMessage/navigate 경로를 탔는지, 새 창을 열었는지 구분하기
+    // 위한 진단용(src/notificationNav.ts가 앱이 뜨면 이 값을 읽어 보고함).
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const debug = { tag: tag, rawLink: rawLink, matches: list.length };
+      const writePending = path !== '/' ? setPendingNav(path, debug) : Promise.resolve();
+      return writePending.then(() => {
         for (const c of list) {
           if ('focus' in c) {
             const p = c.focus();
@@ -194,7 +200,7 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         return clients.openWindow(absoluteLink);
-      }),
-    ),
+      });
+    }),
   );
 });

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { logClientError } from './data/errorLog';
 
 /** 서비스워커가 남겨둔 값이 이보다 오래됐으면 무시(오래된 재실행 방지) */
 const PENDING_NAV_MAX_AGE_MS = 10 * 60 * 1000;
@@ -25,7 +26,13 @@ const SESSION_BOOTED_KEY = 'tvpc.booted';
  * openWindow()에 준 URL을 무시하고 그냥 시작 화면으로 여는 경우가 있어
  * 그 대비책이다. 있으면 지운다(한 번만 쓰고 버림).
  */
-function readAndClearPendingNav(): Promise<string | null> {
+interface PendingNavResult {
+  path: string;
+  /** 서비스워커가 남겨둔 진단 정보(태그·매칭된 창 개수 등) — 있으면만 */
+  debug?: unknown;
+}
+
+function readAndClearPendingNav(): Promise<PendingNavResult | null> {
   return new Promise((resolve) => {
     try {
       // tvpc-sw DB v2 — kv(가려던 경로 등) + notifHistory(받은 알림 기록,
@@ -49,10 +56,10 @@ function readAndClearPendingNav(): Promise<string | null> {
         const tx = db.transaction('kv', 'readwrite');
         const getReq = tx.objectStore('kv').get('pendingNav');
         getReq.onsuccess = () => {
-          const val = getReq.result as { path?: string; ts?: number } | undefined;
+          const val = getReq.result as { path?: string; ts?: number; debug?: unknown } | undefined;
           tx.objectStore('kv').delete('pendingNav');
           if (val?.path && val.ts && Date.now() - val.ts < PENDING_NAV_MAX_AGE_MS) {
-            resolve(val.path);
+            resolve({ path: val.path, debug: val.debug });
           } else {
             resolve(null);
           }
@@ -81,6 +88,10 @@ function applyResumeGuard(router: ReturnType<typeof useRouter>) {
 
   const path = window.location.pathname;
   if (path !== '/' && !ALWAYS_RESUME_PATHS.includes(path)) {
+    // 진단용 기록 — "알림 눌렀는데 홈으로 감"이 재현될 때, pendingNav를
+    // 못 찾아서 이 규칙이 실행된 건지 실제로 확인하기 위해 남긴다
+    // (관리자 화면 '오류' 탭에서 확인, src/data/errorLog.ts).
+    logClientError(`[알림 진단] pendingNav 못 찾음 → 홈으로 리셋 (원래 경로: ${path})`);
     router.replace('/');
   }
 }
@@ -119,46 +130,61 @@ export function useNotificationNav() {
 
     let cancelled = false;
 
-    const checkPendingNav = () => {
-      readAndClearPendingNav().then((path) => {
-        if (path && path !== window.location.pathname) router.push(path as never);
+    const checkPendingNav = (source: string) => {
+      readAndClearPendingNav().then((result) => {
+        if (result && result.path !== window.location.pathname) {
+          logClientError(
+            `[알림 진단] ${source}에서 pendingNav 발견 → ${result.path}로 이동 (${JSON.stringify(result.debug ?? {})})`,
+          );
+          router.push(result.path as never);
+        }
       });
     };
 
     const onVisible = () => {
-      if (document.visibilityState === 'visible') checkPendingNav();
+      if (document.visibilityState === 'visible') checkPendingNav('visibilitychange');
     };
+    const onFocus = () => checkPendingNav('focus');
+    // bfcache(뒤로/앞으로 캐시)에서 되살아날 때는 visibilitychange 대신
+    // pageshow만 오는 경우가 있어(사파리에서 특히) 같이 잡아둔다
+    const onPageShow = () => checkPendingNav('pageshow');
 
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; path?: string } | undefined;
       if (data?.type === 'tvpc-navigate' && data.path) {
+        logClientError(`[알림 진단] postMessage로 ${data.path} 수신`);
         router.push(data.path as never);
       }
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
 
-    // 부팅 시 pendingNav를 딱 한 번만 읽는다. visibilitychange·focus
-    // 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이 막 뜨는
-    // 순간엔 visibilitychange도 거의 동시에 발생하는데, 둘 다 같은
+    // 부팅 시 pendingNav를 딱 한 번만 읽는다. visibilitychange·focus·
+    // pageshow 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이
+    // 막 뜨는 순간엔 이 이벤트들도 거의 동시에 발생하는데, 다 같은
     // readAndClearPendingNav를 동시에 부르면(한쪽은 값을 읽어 지우고
     // 다른 쪽은 이미 지워진 뒤라 못 읽는 경합) 부팅 쪽이 늦게 resolve될
     // 경우 "알림이 아니다"로 오판해 applyResumeGuard가 이미 옮겨간 화면을
     // 홈으로 되돌려 보내는 사고가 났다("말씀 알림 눌렀는데 홈으로 감").
-    readAndClearPendingNav().then((path) => {
+    readAndClearPendingNav().then((result) => {
       if (cancelled) return;
-      if (path) {
-        if (path !== window.location.pathname) router.push(path as never);
+      if (result) {
+        logClientError(
+          `[알림 진단] 부팅 시 pendingNav 발견 → ${result.path} (${JSON.stringify(result.debug ?? {})})`,
+        );
+        if (result.path !== window.location.pathname) router.push(result.path as never);
       } else {
         applyResumeGuard(router);
       }
       document.addEventListener('visibilitychange', onVisible);
-      window.addEventListener('focus', checkPendingNav);
+      window.addEventListener('focus', onFocus);
+      window.addEventListener('pageshow', onPageShow);
     });
 
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', checkPendingNav);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onPageShow);
       navigator.serviceWorker.removeEventListener('message', onMessage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
