@@ -27,7 +27,7 @@ import {
   toggleHighlight,
   type VerseHighlight,
 } from '../../src/data/verseMarks';
-import { colors, font, shadows, textShadow } from '../../src/theme';
+import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 
 type WordTab = 'text' | 'note' | 'med' | 'app' | 'pray';
@@ -180,14 +180,21 @@ export default function WordScreen() {
       <PhotoSlot uri={verse.imageUrl ?? bg.uri} tone="deep" style={styles.hero}>
         {/* 기본(밝은) 배경은 진한 남색 글씨, 어두운 사진은 흰 글씨 + 덮개 */}
         {verse.imageUrl ? (
-          <LinearGradient
-            colors={['rgba(18,38,68,0.05)', 'rgba(12,28,54,0.62)']}
-            style={StyleSheet.absoluteFill}
-          />
+          <LinearGradient colors={[...scrim]} style={StyleSheet.absoluteFill} />
         ) : null}
         <View style={styles.heroBottom}>
-          {/* 밝은 배경에서는 반투명 흰 패널을 깔아 제목이 그림에 묻히지 않게 */}
-          <View style={!verse.imageUrl && !bg.dark ? styles.heroPanel : undefined}>
+          {/* 밝은 배경에서는 반투명 흰 패널을, 관리자가 올린 사진(밝기를
+              가리지 않음)에는 반투명 어두운 패널을 깔아 어떤 사진이 와도
+              제목이 묻히지 않게 */}
+          <View
+            style={
+              !verse.imageUrl && !bg.dark
+                ? styles.heroPanel
+                : verse.imageUrl
+                  ? styles.heroPanelDark
+                  : undefined
+            }
+          >
             <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
               {verse.passageTitle}
             </Text>
@@ -426,6 +433,13 @@ const styles = StyleSheet.create({
   heroPanel: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.78)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  heroPanelDark: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(10,22,44,0.52)',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,

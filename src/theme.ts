@@ -97,8 +97,9 @@ export const shadows = {
   },
 } as const;
 
-/** 이미지 위 텍스트 스크림 (상→하) */
-export const scrim = ['rgba(18,38,68,0.18)', 'rgba(12,28,54,0.66)'] as const;
+/** 이미지 위 텍스트 스크림 (상→하) — 밝은 사진 위에서도 흰 글씨가 잘 보이게
+ * 충분히 어둡게 잡는다(옅은 하늘·바다처럼 밝은 사진에서 글씨가 묻히던 문제). */
+export const scrim = ['rgba(15,32,58,0.32)', 'rgba(10,22,44,0.8)'] as const;
 
 export const textShadow = {
   textShadowColor: 'rgba(10,22,44,0.35)',

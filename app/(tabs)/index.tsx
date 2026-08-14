@@ -366,15 +366,20 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <View style={styles.heroBottom}>
-                <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
-                  {verse.reference}
-                </Text>
-                <Text
-                  style={[styles.heroVerse, !verse.imageUrl && !bg.dark && styles.heroVerseDark]}
-                  numberOfLines={2}
-                >
-                  {verse.heroText}
-                </Text>
+                {/* 관리자가 올린 사진(verse.imageUrl)은 밝기를 가리지 않아
+                    흰 글씨가 묻힐 수 있다 — 뒤에 반투명 어두운 패널을 깔아
+                    어떤 사진이 와도 늘 또렷하게 */}
+                <View style={verse.imageUrl ? styles.heroTextPanelDark : undefined}>
+                  <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
+                    {verse.reference}
+                  </Text>
+                  <Text
+                    style={[styles.heroVerse, !verse.imageUrl && !bg.dark && styles.heroVerseDark]}
+                    numberOfLines={2}
+                  >
+                    {verse.heroText}
+                  </Text>
+                </View>
                 <Pressable
                   style={[styles.heroBtn, !verse.imageUrl && !bg.dark && styles.heroBtnDark]}
                   onPress={() => router.push('/word')}
@@ -564,6 +569,14 @@ const styles = StyleSheet.create({
     ...textShadow,
   },
   heroBottom: { marginTop: 9 },
+  heroTextPanelDark: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(10,22,44,0.52)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
   heroRef: {
     fontFamily: font.bold,
     fontSize: 13,
