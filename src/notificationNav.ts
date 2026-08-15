@@ -73,6 +73,29 @@ function readAndClearPendingNav(): Promise<PendingNavResult | null> {
   });
 }
 
+/** 재시도 없이 한 번 읽었을 때 못 찾으면 이만큼 기다렸다가 한 번 더 확인 —
+ * 실기기에서 실제로 확인된 경합(아래 주석) 대비책 */
+const PENDING_NAV_RETRY_DELAY_MS = 400;
+
+/**
+ * pendingNav를 읽되, 못 찾으면 짧게 한 번 더 시도한다. 사파리가 알림
+ * 링크로 정확히 새 창을 열어줬는데도(URL은 맞게 열림), 서비스워커가 막
+ * 써놓은 pendingNav 값이 그 새 페이지에 즉시 안 보이는 경합이 실기기에서
+ * 실제로 확인됐다 — 그 상태에서 못 찾음으로 단정하면 applyResumeGuard가
+ * 이미 제대로 연 화면을 홈으로 되돌려 보내는 사고가 난다
+ * ("감사일기 알림 눌렀는데 홈으로 감" — 관리자 오류 탭 진단 기록으로 확인).
+ */
+function readPendingNavWithRetry(): Promise<PendingNavResult | null> {
+  return readAndClearPendingNav().then((result) => {
+    if (result) return result;
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        readAndClearPendingNav().then(resolve);
+      }, PENDING_NAV_RETRY_DELAY_MS);
+    });
+  });
+}
+
 /**
  * 알림으로 온 게 아니라면(그냥 브라우저/OS가 마지막 화면을 되살린 것뿐
  * 이라면) 새 세션에서 홈이 아닌 화면, 그중에서도 ALWAYS_RESUME_PATHS에
@@ -131,7 +154,7 @@ export function useNotificationNav() {
     let cancelled = false;
 
     const checkPendingNav = (source: string) => {
-      readAndClearPendingNav().then((result) => {
+      readPendingNavWithRetry().then((result) => {
         if (result && result.path !== window.location.pathname) {
           logClientError(
             `[알림 진단] ${source}에서 pendingNav 발견 → ${result.path}로 이동 (${JSON.stringify(result.debug ?? {})})`,
@@ -158,14 +181,15 @@ export function useNotificationNav() {
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
 
-    // 부팅 시 pendingNav를 딱 한 번만 읽는다. visibilitychange·focus·
+    // 부팅 시 pendingNav를 읽는다(못 찾으면 짧게 한 번 더 — 위
+    // readPendingNavWithRetry 주석 참고). visibilitychange·focus·
     // pageshow 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이
     // 막 뜨는 순간엔 이 이벤트들도 거의 동시에 발생하는데, 다 같은
     // readAndClearPendingNav를 동시에 부르면(한쪽은 값을 읽어 지우고
     // 다른 쪽은 이미 지워진 뒤라 못 읽는 경합) 부팅 쪽이 늦게 resolve될
     // 경우 "알림이 아니다"로 오판해 applyResumeGuard가 이미 옮겨간 화면을
     // 홈으로 되돌려 보내는 사고가 났다("말씀 알림 눌렀는데 홈으로 감").
-    readAndClearPendingNav().then((result) => {
+    readPendingNavWithRetry().then((result) => {
       if (cancelled) return;
       if (result) {
         logClientError(
