@@ -1050,7 +1050,11 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
     const VERSE_NUM = /^(\d{1,3})\s*[.．]\s*/;
     let pendingVerseNum = null;
     for (const raw of f) {
-      const t = raw.replace(/\s{2,}/g, ' ').trim();
+      // '¶'는 원본 디자인의 장식 따옴표(" ")가 폰트 인식 오류로 깨져 나온
+      // 것이라(cleanText 쪽 주석 참고) 찬송가 가사·성경 본문에서도 항상
+      // 제거한다 — 안 그러면 "1. ¶ This is my Father's world…"처럼
+      // 화면에 그대로 보인다.
+      const t = raw.replace(/¶/g, ' ').replace(/\s{2,}/g, ' ').trim();
       if (!t) continue; // 문단 중간의 빈 span 줄 — cur는 끊지 않는다
 
       const hm = t.match(HYMN_HEADER);
@@ -1061,6 +1065,10 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
         if (!hymns.has(number)) {
           hymns.set(number, { number, titleKo: '', titleEn: '', lyricsKo: [], lyricsEn: [] });
         }
+        // 일회성 진단 — 가사 뒷부분에 앞 절이 그대로 반복되는 문제 확인용.
+        // 원본 면(face) 줄 구성을 그대로 찍어본다(작업 끝나면 지울 것).
+        console.log(`[진단-찬송중복] ${number}장 면 원본 줄:`);
+        for (const l of f) console.log(`      · ${JSON.stringify(l)}`);
         hymns.get(number)[lang === 'ko' ? 'titleKo' : 'titleEn'] = title;
         cur = { kind: 'hymn', key: number };
         pendingVerseNum = null;
