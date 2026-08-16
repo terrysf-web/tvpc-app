@@ -488,3 +488,43 @@ export function useBulletinShareQuestions(date: string | null): {
 
   return { shareQuestions, loading };
 }
+
+/**
+ * 최신 주보의 성경 본문 전체(한글/영문 병기, 있는 주보만)만 가볍게 조회 —
+ * "설교 메모" 화면에서 English 탭으로 넘어왔을 때, verses/{날짜}의 한글
+ * 본문 대신 실제 인쇄된 영문 본문을 보여주기 위한 용도.
+ */
+export function useBulletinScriptures(date: string | null): {
+  scriptures: BulletinScripture[];
+  loading: boolean;
+} {
+  const [scriptures, setScriptures] = useState<BulletinScripture[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !date) {
+      setScriptures([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const docSnap = await getDoc(doc(db, 'bulletins', date));
+        if (cancelled) return;
+        setScriptures((docSnap.get('scriptures') as BulletinScripture[] | undefined) ?? []);
+      } catch {
+        if (!cancelled) setScriptures([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  return { scriptures, loading };
+}
