@@ -924,22 +924,41 @@ function orderVaryCols(detailLines) {
   };
 }
 
+// 접두어만 보면 '찬송'이 '찬송가'까지 집어삼키므로, 라벨 바로 뒤가 공백·'*'·끝
+// 중 하나일 때만(=단어 경계) 라벨로 인정한다.
+function matchOrderLabel(t) {
+  return ORDER_LABELS.find(
+    (l) => t.startsWith(l) && (t.length === l.length || ' *'.includes(t[l.length])),
+  );
+}
+
 /** 1면 — 예배 순서(1부/2부 다른 부분은 두 칸) + 설교 제목/본문/설교자 */
 function extractOrderAndSermon(lines) {
   const raw = [];
-  for (const line of lines) {
-    // 야외예배 주보는 pdftohtml 스팬 사이 공백이 두 칸 이상으로 나오기도 해
-    // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음).
-    const t = line.trim().replace(/\s+/g, ' ');
-    if (!t) continue;
+  // 야외예배 주보는 pdftohtml 스팬 사이 공백이 두 칸 이상으로 나오기도 해
+  // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음).
+  const cleaned = lines.map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  for (let i = 0; i < cleaned.length; i++) {
+    let t = cleaned[i];
     if (raw.length && /^\*\s*표는/.test(t)) break;
-    // 접두어만 보면 '찬송'이 '찬송가'까지 집어삼키므로, 라벨 바로 뒤가 공백·'*'·끝
-    // 중 하나일 때만(=단어 경계) 라벨로 인정한다.
-    const label = ORDER_LABELS.find(
-      (l) => t.startsWith(l) && (t.length === l.length || ' *'.includes(t[l.length])),
-    );
-    if (label) raw.push({ name: label, detailLines: [t.slice(label.length)] });
-    else if (raw.length) raw[raw.length - 1].detailLines.push(t);
+
+    let label = matchOrderLabel(t);
+    // "참회의 기도/신앙고백"·"교회소식 / 새가족환영"처럼 긴 라벨은 칸이 좁으면
+    // 원본 PDF 자체에서 두 줄로 줄바꿈돼 나온다("참회의" / "기도/신앙고백*") —
+    // 이 줄이 어떤 라벨의 앞부분과 정확히 일치하면 다음 줄과 이어붙여 다시
+    // 확인한다. 안 그러면 라벨을 못 찾아 앞 항목 상세줄로 잘못 붙어버린다.
+    let j = i;
+    while (!label && ORDER_LABELS.some((l) => l !== t && l.startsWith(t)) && j + 1 < cleaned.length) {
+      j++;
+      t = `${t} ${cleaned[j]}`;
+      label = matchOrderLabel(t);
+    }
+    if (label) {
+      raw.push({ name: label, detailLines: [t.slice(label.length)] });
+      i = j;
+    } else if (raw.length) {
+      raw[raw.length - 1].detailLines.push(cleaned[i]);
+    }
   }
   if (!raw.length) return { order: [], sermon: null };
 
@@ -1404,11 +1423,6 @@ try {
   let noticesFace = [];
   try {
     orderFace = findOrderFace(faces);
-    // 일회성 진단 — "참회의 기도/신앙고백"·"교회소식 / 새가족환영" 항목이
-    // 앞 항목에 합쳐져 나오는 문제 확인용. 원본 줄 그대로 찍어본다
-    // (작업 끝나면 지울 것).
-    console.log('[진단-예배순서] orderFace 원본 줄:');
-    for (const l of orderFace) console.log(`      · ${JSON.stringify(l)}`);
     const r = extractOrderAndSermon(orderFace);
     orderOfWorship = r.order;
     sermonInfo = r.sermon;
