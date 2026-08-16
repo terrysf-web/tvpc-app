@@ -189,17 +189,42 @@ function findPdfInPost(postHtml, postAnchors) {
 
 if (!pdfUrl) {
   // 게시글 후보: KBoard 글 링크(?mod=document&uid=) 중 "M/D/YYYY 주보" 제목의 최신 날짜.
+  // 야외예배 등 특별 주보는 "8/16 주보"처럼 연도 없이 올라오기도 해(2026-08-16 확인),
+  // 그런 제목은 오늘(LA 기준)과 가장 가까운 해로 연도를 추정해서 채워 넣는다 —
+  // 안 그러면 날짜 있는 글 목록에서 아예 빠져 지난주 주보를 잘못 고르게 된다.
+  function inferYear(month, day) {
+    const la = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    let best = la.getFullYear();
+    let bestDiff = Infinity;
+    for (const cy of [la.getFullYear() - 1, la.getFullYear(), la.getFullYear() + 1]) {
+      const diff = Math.abs(new Date(cy, month - 1, day) - la);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = cy;
+      }
+    }
+    return best;
+  }
   const dated = [];
   const seen = new Set();
   for (const a of anchors) {
     if (!/uid=\d+/.test(a.href) || /mod=(editor|remove)/.test(a.href)) continue;
     const uid = a.href.match(/uid=(\d+)/)[1];
-    if (seen.has(uid)) continue;
-    const m =
-      a.text.match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/) ??
-      a.text.match(/(20\d{2})[-.년\s]*(\d{1,2})[-.월\s]*(\d{1,2})/);
-    if (!m || !/주보/.test(a.text)) continue;
-    const [y, mo, d] = m[1].length === 4 ? [m[1], m[2], m[3]] : [m[3], m[1], m[2]];
+    if (seen.has(uid) || !/주보/.test(a.text)) continue;
+    let y;
+    let mo;
+    let d;
+    let m = a.text.match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/);
+    if (m) {
+      [mo, d, y] = [m[1], m[2], m[3]];
+    } else if ((m = a.text.match(/(20\d{2})[-.년\s]*(\d{1,2})[-.월\s]*(\d{1,2})/))) {
+      [y, mo, d] = [m[1], m[2], m[3]];
+    } else if ((m = a.text.match(/(?<![\d/])(\d{1,2})\/(\d{1,2})(?![\d/])/))) {
+      [mo, d] = [m[1], m[2]];
+      y = String(inferYear(Number(mo), Number(d)));
+    } else {
+      continue;
+    }
     seen.add(uid);
     dated.push({ ...a, key: `${y}${mo.padStart(2, '0')}${d.padStart(2, '0')}` });
   }
