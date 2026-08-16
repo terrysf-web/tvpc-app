@@ -1069,6 +1069,23 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
         continue;
       }
 
+      // 페이지 맨 아래 교회 주소·연락처 안내(📍…)가 본문 마지막 줄과 같은
+      // 가로줄에 붙어 나오는 경우가 있어(찬송가 가사·성경 본문 모두), 그
+      // 표시를 만나면 그 앞부분까지만 본문으로 쓰고 이후 줄은 무시한다 —
+      // 안 그러면 "...that had been made known to them. 📍5925 W. Las
+      // Positas Blvd. ..."처럼 본문 끝에 주소가 그대로 붙어버린다.
+      const footerAt = t.search(/📍|온라인\s*바로가기/);
+      if (footerAt >= 0) {
+        const before = t.slice(0, footerAt).trim();
+        if (before && cur) {
+          const lang = HAS_HANGUL.test(before) ? 'ko' : 'en';
+          if (cur.kind === 'hymn') hymns.get(cur.key)[lang === 'ko' ? 'lyricsKo' : 'lyricsEn'].push(before);
+          else scriptures.get(cur.key)[lang === 'ko' ? 'textKo' : 'textEn'].push(before);
+        }
+        cur = null;
+        continue;
+      }
+
       if (!cur) continue;
       const lang = HAS_HANGUL.test(t) ? 'ko' : 'en';
       if (cur.kind === 'hymn') hymns.get(cur.key)[lang === 'ko' ? 'lyricsKo' : 'lyricsEn'].push(t);
