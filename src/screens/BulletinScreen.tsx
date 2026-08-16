@@ -559,17 +559,19 @@ function BulletinCards({
               {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
             </Text>
           </View>
-          {/* 야외예배 등 단일 예배 미리보기는 verses/{날짜} 문서가 따로
-              없어(sync-bulletin.mjs의 정규 파이프라인을 안 거침) 이 버튼을
-              누르면 "말씀을 불러오지 못했습니다" 오류만 뜬다. 본문은 예배
-              순서 카드에서 성경봉독을 펼쳐 보면 되므로, 이 버튼 자체를
-              숨긴다. */}
-          {!isSingleService && (
+          {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
+              여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
+              떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
+              본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
+              다르게 쓴다. */}
+          {!!bulletin.sermon.scripture && (
             <Pressable
               style={styles.heroBtn}
               onPress={() => router.push(`/verse/${bulletin.date}`)}
             >
-              <Text style={styles.heroBtnText}>성경말씀보기</Text>
+              <Text style={styles.heroBtnText}>
+                {isSingleService ? '설교 메모' : '성경말씀보기'}
+              </Text>
               <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
             </Pressable>
           )}
