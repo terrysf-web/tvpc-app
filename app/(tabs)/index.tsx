@@ -143,7 +143,6 @@ export default function HomeScreen() {
   const bg = useVerseBg();
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
   const sunday = useSundayBg();
-  const sb = sunday.bg ?? bg;
   // 주일·월요일에는 히어로가 오늘의 말씀 대신 주일예배 화면으로 바뀐다.
   // (화요일 새벽 12시 1분에 평일 화면으로 돌아간다)
   // 여행 중이어도 예배 안내는 교회 현지(태평양) 시각을 따른다.
@@ -181,6 +180,12 @@ export default function HomeScreen() {
   const isSingleServiceWeek =
     bulletinOrder.length > 0 && bulletinOrder.every((o) => !o.service1 && !o.service2);
   const weekServiceHeading = isSingleServiceWeek ? (latestBulletin?.serviceHeading ?? null) : null;
+  // 야외예배 당일만 쓰는 배경 사진(작년 야외예배 사진) — 어두운 사진이라
+  // 기존 sb.dark=true 톤(흰 글씨)을 그대로 쓰면 된다. 다른 주는 기존처럼
+  // 관리자가 등록한 주일 배경(또는 시간대 배경)을 그대로 쓴다.
+  const sb = isSingleServiceWeek
+    ? { uri: '/hero-outdoor-2026.jpg', dark: true }
+    : (sunday.bg ?? bg);
   // 단일 예배 주는 히어로 큰 글씨도 "오늘은 주일입니다" 대신 오늘 예배가 실제로
   // 어떤 형태인지 안내한다 — 달력에 등록된 오늘 일정 제목("야외 예배 및
   // 체육대회")을 쓰고, 마침 등록된 일정이 없으면 주보 예배 안내 줄에서
