@@ -73,27 +73,41 @@ function readAndClearPendingNav(): Promise<PendingNavResult | null> {
   });
 }
 
-/** 재시도 없이 한 번 읽었을 때 못 찾으면 이만큼 기다렸다가 한 번 더 확인 —
- * 실기기에서 실제로 확인된 경합(아래 주석) 대비책 */
-const PENDING_NAV_RETRY_DELAY_MS = 400;
+/** 재시도 간격 — 실기기에서 실제로 확인된 경합(아래 주석) 대비책.
+ * 한 번으로는 가끔 더 부족한 경우가 있어(느린 기기 등) 두 번 재시도한다. */
+const PENDING_NAV_RETRY_DELAYS_MS = [400, 800];
 
 /**
- * pendingNav를 읽되, 못 찾으면 짧게 한 번 더 시도한다. 사파리가 알림
+ * pendingNav를 읽되, 못 찾으면 짧게 재시도한다. 사파리가 알림
  * 링크로 정확히 새 창을 열어줬는데도(URL은 맞게 열림), 서비스워커가 막
  * 써놓은 pendingNav 값이 그 새 페이지에 즉시 안 보이는 경합이 실기기에서
  * 실제로 확인됐다 — 그 상태에서 못 찾음으로 단정하면 applyResumeGuard가
  * 이미 제대로 연 화면을 홈으로 되돌려 보내는 사고가 난다
  * ("감사일기 알림 눌렀는데 홈으로 감" — 관리자 오류 탭 진단 기록으로 확인).
  */
-function readPendingNavWithRetry(): Promise<PendingNavResult | null> {
+function readPendingNavWithRetry(delays = PENDING_NAV_RETRY_DELAYS_MS): Promise<PendingNavResult | null> {
   return readAndClearPendingNav().then((result) => {
-    if (result) return result;
+    if (result || delays.length === 0) return result;
     return new Promise((resolve) => {
       setTimeout(() => {
-        readAndClearPendingNav().then(resolve);
-      }, PENDING_NAV_RETRY_DELAY_MS);
+        readPendingNavWithRetry(delays.slice(1)).then(resolve);
+      }, delays[0]);
     });
   });
+}
+
+/** 알림이 갈 수 있는 화면만 — 나머지 화면(관리자·소식·설교 등)에 새 세션이
+ * 열렸을 때는 pendingNav가 없는 게 당연하므로 "알림 진단" 기록을 남기지
+ * 않는다(그동안 그냥 탭을 오래 열어 두다 새로 켠 것뿐인 정상 동작까지도
+ * 매번 '오류'로 잡혀 관리자 오류 탭을 채웠다 — /sermon 등에서 확인). */
+function isNotifTargetPath(path: string): boolean {
+  return (
+    path === '/gratitude' ||
+    path === '/alerts' ||
+    path === '/pray-request' ||
+    path === '/pray-inbox' ||
+    path.startsWith('/verse/')
+  );
 }
 
 /**
@@ -111,10 +125,14 @@ function applyResumeGuard(router: ReturnType<typeof useRouter>) {
 
   const path = window.location.pathname;
   if (path !== '/' && !ALWAYS_RESUME_PATHS.includes(path)) {
-    // 진단용 기록 — "알림 눌렀는데 홈으로 감"이 재현될 때, pendingNav를
-    // 못 찾아서 이 규칙이 실행된 건지 실제로 확인하기 위해 남긴다
-    // (관리자 화면 '오류' 탭에서 확인, src/data/errorLog.ts).
-    logClientError(`[알림 진단] pendingNav 못 찾음 → 홈으로 리셋 (원래 경로: ${path})`);
+    if (isNotifTargetPath(path)) {
+      // 진단용 기록 — "알림 눌렀는데 홈으로 감"이 재현될 때, pendingNav를
+      // 못 찾아서 이 규칙이 실행된 건지 실제로 확인하기 위해 남긴다
+      // (관리자 화면 '오류' 탭에서 확인, src/data/errorLog.ts). 알림이
+      // 갈 수 없는 화면(설교·소식 등)은 그냥 오래 열어 둔 탭을 새로 켠
+      // 정상적인 경우라 기록하지 않는다.
+      logClientError(`[알림 진단] pendingNav 못 찾음 → 홈으로 리셋 (원래 경로: ${path})`);
+    }
     router.replace('/');
   }
 }
