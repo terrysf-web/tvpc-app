@@ -1034,6 +1034,12 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
   const hymns = new Map(); // 장 번호 → { number, titleKo, titleEn, lyricsKo:[], lyricsEn:[] }
   const scriptures = new Map(); // "책이름 장:절" → { reference, textKo:[], textEn:[] }
   const seen = new Set(); // 인쇄용으로 양면 중복된 페이지(영어 가사 삽지 등) 걸러내기
+  // 찬송가 삽지 면이 "1,2,3절" → (다른 면에서) "4,5,6절"처럼 번호만 이어서
+  // 같은 가사가 통째로 또 인쇄되는 경우가 실제로 있었다(원본 PDF 자체의
+  // 조판 문제로 보임 — 절 번호가 이어져 있어 seen의 그대로-일치 비교로는
+  // 못 걸러짐). 같은 찬송·같은 언어 가사를 이미 다 모았으면 그 언어의
+  // 면이 또 나와도 건너뛴다.
+  const hymnLangDone = new Set(); // "장번호:ko"|"장번호:en"
 
   for (const f of faces) {
     if (excludeFaces.includes(f)) continue;
@@ -1065,12 +1071,16 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
         if (!hymns.has(number)) {
           hymns.set(number, { number, titleKo: '', titleEn: '', lyricsKo: [], lyricsEn: [] });
         }
-        // 일회성 진단 — 가사 뒷부분에 앞 절이 그대로 반복되는 문제 확인용.
-        // 원본 면(face) 줄 구성을 그대로 찍어본다(작업 끝나면 지울 것).
-        console.log(`[진단-찬송중복] ${number}장 면 원본 줄:`);
-        for (const l of f) console.log(`      · ${JSON.stringify(l)}`);
         hymns.get(number)[lang === 'ko' ? 'titleKo' : 'titleEn'] = title;
-        cur = { kind: 'hymn', key: number };
+        const langKey = `${number}:${lang}`;
+        if (hymnLangDone.has(langKey)) {
+          // 같은 찬송·같은 언어 가사를 이미 다 모았다 — 번호만 이어서
+          // 또 나온 중복 면이니 이번 면의 가사는 쌓지 않는다.
+          cur = null;
+        } else {
+          hymnLangDone.add(langKey);
+          cur = { kind: 'hymn', key: number };
+        }
         pendingVerseNum = null;
         continue;
       }
