@@ -103,6 +103,11 @@ export interface Bulletin {
   /** 예배 순서 — 주보 PDF에서 자동 추출(면 텍스트 기반, 실패하면 빈 배열) */
   order?: BulletinOrderItem[];
   sermon?: BulletinSermon | null;
+  /** "주일 야외예배 (오전 10시)"처럼 그 주 예배 자체를 소개하는 줄 — 1부/2부
+   * 없는 단일 예배 주(야외예배 등)에만 있다. 홈 화면이 그 주의 실제 예배
+   * 시간·형태를 안내하는 데 쓴다(평소엔 관리자가 등록한 고정 예배 시간표를
+   * 그대로 보여준다). */
+  serviceHeading?: string | null;
   /** 교회 소식(공지) */
   notices?: BulletinNotice[];
   /** 교우 동정(부고·이사·선교 등) — 교회 소식과 원본에서도 다른 카테고리.
@@ -347,6 +352,7 @@ export function useBulletin(
           noteLines: ((docSnap.get('noteLines') as string[] | undefined) ?? []).map(String),
           order: (docSnap.get('order') as BulletinOrderItem[] | undefined) ?? [],
           sermon: (docSnap.get('sermon') as BulletinSermon | null | undefined) ?? null,
+          serviceHeading: (docSnap.get('serviceHeading') as string | null | undefined) ?? null,
           notices: (docSnap.get('notices') as BulletinNotice[] | undefined) ?? [],
           familyNews: (docSnap.get('familyNews') as BulletinNotice[] | undefined) ?? [],
           offering: (docSnap.get('offering') as BulletinOffering | null | undefined) ?? null,

@@ -932,9 +932,15 @@ function matchOrderLabel(t) {
   );
 }
 
+// 예배 순서 항목 라벨이 시작되기 전, "주일 야외예배 (오전 10시)"처럼 그 주
+// 예배 자체를 소개하는 줄 — 있으면 홈 화면이 그 주만 다른 예배 시간·형태를
+// 안내하는 데 쓴다(1부/2부 없는 단일 예배 주 등).
+const SERVICE_HEADING = /\((?:오전|오후)\s*\d{1,2}시.*?\)/;
+
 /** 1면 — 예배 순서(1부/2부 다른 부분은 두 칸) + 설교 제목/본문/설교자 */
 function extractOrderAndSermon(lines) {
   const raw = [];
+  let serviceHeading = null;
   // 야외예배 주보는 pdftohtml 스팬 사이 공백이 두 칸 이상으로 나오기도 해
   // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음).
   const cleaned = lines.map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
@@ -958,9 +964,11 @@ function extractOrderAndSermon(lines) {
       i = j;
     } else if (raw.length) {
       raw[raw.length - 1].detailLines.push(cleaned[i]);
+    } else if (!serviceHeading && SERVICE_HEADING.test(cleaned[i])) {
+      serviceHeading = cleanText(cleaned[i]);
     }
   }
-  if (!raw.length) return { order: [], sermon: null };
+  if (!raw.length) return { order: [], sermon: null, serviceHeading };
 
   const scriptureItem = raw.find((r) => r.name === '성경봉독');
   const sermonItem = raw.find((r) => r.name === '설교');
@@ -1000,7 +1008,11 @@ function extractOrderAndSermon(lines) {
     return { name: item.name, shared };
   });
 
-  return { order, sermon: title || preacher || scripture ? { title, scripture, preacher } : null };
+  return {
+    order,
+    sermon: title || preacher || scripture ? { title, scripture, preacher } : null,
+    serviceHeading,
+  };
 }
 
 // 새벽예배 칸은 "책이름 N장" 아니면 QT 교재를 보는 "생명의 삶" 둘 중 하나뿐이다
@@ -1405,6 +1417,7 @@ let noteLines = [];
 let shareQuestions = [];
 let orderOfWorship = [];
 let sermonInfo = null;
+let serviceHeading = null;
 let notices = [];
 let familyNews = [];
 let offering = null;
@@ -1426,7 +1439,9 @@ try {
     const r = extractOrderAndSermon(orderFace);
     orderOfWorship = r.order;
     sermonInfo = r.sermon;
+    serviceHeading = r.serviceHeading;
     if (orderOfWorship.length) console.log(`[주보] 예배 순서 ${orderOfWorship.length}개 항목 추출`);
+    if (serviceHeading) console.log(`[주보] 예배 안내 줄 추출: ${serviceHeading}`);
     const dr = extractDawnReadings(orderFace);
     dawnReadings = dr.dawn;
     fridayReading = dr.friday;
@@ -1522,6 +1537,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   patchIfChanged('shareQuestions', shareQuestions);
   patchIfChanged('order', orderOfWorship);
   patchIfChanged('sermon', sermonInfo);
+  patchIfChanged('serviceHeading', serviceHeading);
   patchIfChanged('notices', notices);
   patchIfChanged('familyNews', familyNews);
   patchIfChanged('offering', offering);
@@ -1594,6 +1610,7 @@ await db.doc(`bulletins/${date}`).set({
   shareQuestions,
   order: orderOfWorship,
   sermon: sermonInfo,
+  serviceHeading,
   notices,
   familyNews,
   offering,

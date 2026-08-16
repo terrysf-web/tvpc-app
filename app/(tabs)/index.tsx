@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHasUnreadAlerts } from '../../src/alertsUnread';
 import { FadeInUp } from '../../src/components/FadeInUp';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
+import { useBulletin, useLatestBulletinDate } from '../../src/data/bulletin';
 import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/data/hooks';
 import { useServices } from '../../src/data/services';
 import { churchInfo } from '../../src/churchInfo';
@@ -169,6 +170,17 @@ export default function HomeScreen() {
     .filter((s) => s.name.startsWith('주일예배'))
     .map((s) => `${s.name.replace('주일예배 ', '')} ${s.time.replace('주일 ', '')}`)
     .join(' · ');
+
+  // 야외예배 등 1부/2부 없는 단일 예배 주는 관리자가 등록해 둔 고정 예배
+  // 시간표(위 sundayTimes)가 아니라 이번 주 주보에서 뽑아낸 실제 예배
+  // 안내("주일 야외예배 (오전 10시)")를 보여준다 — 시간도 다르고 본당이
+  // 아니라 온라인 중계도 없다.
+  const { date: latestBulletinDate } = useLatestBulletinDate(isSunday);
+  const { bulletin: latestBulletin } = useBulletin(latestBulletinDate, false);
+  const bulletinOrder = latestBulletin?.order ?? [];
+  const isSingleServiceWeek =
+    bulletinOrder.length > 0 && bulletinOrder.every((o) => !o.service1 && !o.service2);
+  const weekServiceHeading = isSingleServiceWeek ? (latestBulletin?.serviceHeading ?? null) : null;
 
   // 주일 메뉴 — 온라인예배는 위 카드에 있으므로 뺀다
   const quickMenu = isSunday
@@ -324,26 +336,31 @@ export default function HomeScreen() {
                 <Text style={[styles.sundayTimes, !sb.dark && styles.sundayTimesDark]}>
                   {isMonday
                     ? '어제 받은 말씀을 품고 한 주를 시작해요'
-                    : `${sundayTimes} · 본당`}
+                    : weekServiceHeading
+                      ? weekServiceHeading
+                      : `${sundayTimes} · 본당`}
                 </Text>
-                <View style={styles.heroBtnRow}>
-                  {/* 1부는 온라인 중계가 없어 2부만 안내한다.
-                      예배가 끝난 뒤(주일 오후~월요일)에는 재생목록 페이지가 아니라
-                      가장 최근 설교 영상을 바로 튼다 — 등록된 영상이 아직 없을
-                      때만 재생목록으로 안내한다. */}
-                  <Pressable
-                    style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
-                    onPress={() => {
-                      if (!liveEnded) return openLiveWorship();
-                      if (latestSermon) return playSermon(latestSermon);
-                      return openWorshipReplay();
-                    }}
-                  >
-                    <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                      {liveEnded ? '▶ 주일 온라인예배 다시보기' : '▶ 2부 온라인예배'}
-                    </Text>
-                  </Pressable>
-                </View>
+                {/* 야외예배 등 단일 예배 주는 온라인 중계가 없다 — 버튼 자체를 숨긴다. */}
+                {!isSingleServiceWeek && (
+                  <View style={styles.heroBtnRow}>
+                    {/* 1부는 온라인 중계가 없어 2부만 안내한다.
+                        예배가 끝난 뒤(주일 오후~월요일)에는 재생목록 페이지가 아니라
+                        가장 최근 설교 영상을 바로 튼다 — 등록된 영상이 아직 없을
+                        때만 재생목록으로 안내한다. */}
+                    <Pressable
+                      style={[styles.heroBtn, !sb.dark && styles.heroBtnDark]}
+                      onPress={() => {
+                        if (!liveEnded) return openLiveWorship();
+                        if (latestSermon) return playSermon(latestSermon);
+                        return openWorshipReplay();
+                      }}
+                    >
+                      <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
+                        {liveEnded ? '▶ 주일 온라인예배 다시보기' : '▶ 2부 온라인예배'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             </PhotoSlot>
           ) : (
