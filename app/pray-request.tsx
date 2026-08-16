@@ -20,6 +20,14 @@ import {
 } from '../src/data/prayerRequests';
 import { colors, font, shadows } from '../src/theme';
 
+/** 이름 칸에 이름이 아닌 글자(숫자·기호·이모지 등)가 섞여 들어가지 않게 —
+ * 목사님이 기도 대상을 부르며 기도하실 때 이름만 깔끔하게 남아야 해서,
+ * 한글·영문·띄어쓰기·가운뎃점(복수 이름 "김성도·이믿음")만 남기고 나머지는
+ * 입력하는 순간 걸러낸다. */
+function sanitizeName(s: string): string {
+  return s.replace(/[^가-힣a-zA-Z\s·]/g, '');
+}
+
 /** "7월 27일" 처럼 짧게 */
 function fmtWhen(ms: number): string {
   const d = new Date(ms);
@@ -111,7 +119,7 @@ export default function PrayRequestScreen() {
             <TextInput
               style={styles.input}
               value={name}
-              onChangeText={setName}
+              onChangeText={(t) => setName(sanitizeName(t))}
               placeholder="예: 김성도"
               placeholderTextColor={colors.faint}
             />
