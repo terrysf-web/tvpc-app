@@ -21,7 +21,8 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { ensureAnonymousAuth, getDb } from '../firebase';
 
@@ -262,6 +263,91 @@ export function useLatestBulletinDate(enabled: boolean): { date: string | null; 
   }, [enabled]);
 
   return { date, loading };
+}
+
+const WEEK_INFO_CACHE_KEY = 'tvpc.cache.latestBulletinWeekInfo';
+
+interface LatestBulletinWeekInfo {
+  date: string;
+  order: BulletinOrderItem[];
+  serviceHeading: string | null;
+}
+
+function readWeekInfoCacheSync(): LatestBulletinWeekInfo | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(WEEK_INFO_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as LatestBulletinWeekInfo) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 홈 화면 히어로가 "이번 주가 1부/2부 있는 보통 주일인지, 야외예배 같은
+ * 단일 예배 주인지" 그리는 데 필요한 최소 정보(최신 주보 날짜·예배
+ * 순서·예배 안내줄)만 가볍게 조회한다. useLatestBulletinDate+useBulletin을
+ * 그대로 쓰면 서버 응답이 오기 전까지는 항상 "보통 주" 상태라, 앱을 열
+ * 때마다 보통 히어로가 잠깐 보였다가 오늘(야외예배 등) 히어로로 바뀌는
+ * 번쩍임이 있었다 — 기기 캐시를 먼저 그려서(재방문자 기준) 없앤다.
+ */
+export function useLatestBulletinWeekInfo(enabled: boolean): {
+  date: string | null;
+  order: BulletinOrderItem[];
+  serviceHeading: string | null;
+} {
+  const [info, setInfo] = useState<LatestBulletinWeekInfo | null>(() => readWeekInfoCacheSync());
+  const liveRef = useRef(false);
+
+  // 네이티브(AsyncStorage는 비동기)용 캐시 복원 — 서버 데이터가 먼저 오면 건너뜀
+  useEffect(() => {
+    let stale = false;
+    AsyncStorage.getItem(WEEK_INFO_CACHE_KEY)
+      .then((raw) => {
+        if (stale || liveRef.current || !raw) return;
+        setInfo(JSON.parse(raw) as LatestBulletinWeekInfo);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureAnonymousAuth();
+        const snap = await getDocs(query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(1)));
+        const docSnap = snap.docs[0];
+        if (cancelled || !docSnap) return;
+        const next: LatestBulletinWeekInfo = {
+          date: docSnap.id,
+          order: (docSnap.get('order') as BulletinOrderItem[] | undefined) ?? [],
+          serviceHeading: (docSnap.get('serviceHeading') as string | null | undefined) ?? null,
+        };
+        liveRef.current = true;
+        setInfo(next);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(WEEK_INFO_CACHE_KEY, JSON.stringify(next));
+          }
+        } catch {
+          /* 저장 실패는 무시 */
+        }
+        AsyncStorage.setItem(WEEK_INFO_CACHE_KEY, JSON.stringify(next)).catch(() => {});
+      } catch {
+        // 오프라인 등 — 캐시 값(있다면) 그대로 유지
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  return { date: info?.date ?? null, order: info?.order ?? [], serviceHeading: info?.serviceHeading ?? null };
 }
 
 /** 저장된 주보 날짜 목록(최신순) — 지난 주보 열람용.
