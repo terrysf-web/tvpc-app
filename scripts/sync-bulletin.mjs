@@ -46,6 +46,13 @@ if (TARGET_DATE && !/^\d{4}-\d{2}-\d{2}$/.test(TARGET_DATE)) {
 }
 if (TARGET_DATE) console.log(`[주보] 특정 날짜 지정: ${TARGET_DATE} 주보를 찾습니다.`);
 
+// 같은 날짜로 게시글이 두 개 올라온 경우(먼저 올린 글에 실수가 있어 새로
+// 고쳐 다시 올린 경우 등) — 제목/날짜 매칭으로는 어느 쪽인지 알 수 없어
+// 게시글 URL을 직접 지정한다. TARGET_BULLETIN_DATE와 같이 쓰면 그 날짜로
+// 등록하되 PDF는 이 게시글에서 찾는다.
+const TARGET_URL = process.env.TARGET_BULLETIN_URL?.trim() || null;
+if (TARGET_URL) console.log(`[주보] 특정 게시글 지정: ${TARGET_URL}`);
+
 // ── 쿠키 유지 fetch ────────────────────────────────────────────
 const jar = new Map();
 function storeCookies(res) {
@@ -153,10 +160,11 @@ function dumpInteresting(list, html) {
 // PDF 직링크가 목록에 바로 있으면 그것부터, 없으면 최신 게시글로 들어가서 찾는다.
 const abs = (h) => (h.startsWith('http') ? h : ORIGIN + (h.startsWith('/') ? h : `/${h}`));
 const listUrl = `${ORIGIN}/wp/jubo/`;
-// TARGET_DATE가 있으면 목록의 "가장 최근" PDF 직링크를 그냥 집어오면 안 되므로,
-// 이 지름길을 건너뛰고 아래 게시글 제목(날짜) 매칭 경로로 보낸다.
-let pdfUrl = TARGET_DATE ? null : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
-let pdfLabel = TARGET_DATE ? '' : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
+// TARGET_DATE/TARGET_URL이 있으면 목록의 "가장 최근" PDF 직링크를 그냥
+// 집어오면 안 되므로, 이 지름길을 건너뛰고 아래 경로로 보낸다.
+const skipShortcut = TARGET_DATE || TARGET_URL;
+let pdfUrl = skipShortcut ? null : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
+let pdfLabel = skipShortcut ? '' : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
 
 /** 게시글 HTML에서 주보 PDF 링크 찾기 — 없으면 null */
 function findPdfInPost(postHtml, postAnchors) {
@@ -185,6 +193,28 @@ function findPdfInPost(postHtml, postAnchors) {
     })() ??
     null
   );
+}
+
+if (!pdfUrl && TARGET_URL) {
+  // 게시글 URL을 직접 지정한 경우 — 목록에서 후보를 고르지 않고 그 글만 연다.
+  const postUrl = abs(TARGET_URL);
+  console.log(`  → 게시글 확인(직접 지정): ${postUrl}`);
+  const postHtml = await (await jfetch(postUrl)).text();
+  const postAnchors = [];
+  for (const m of postHtml.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    postAnchors.push({
+      href: unescapeHtml(m[1]),
+      text: unescapeHtml(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(),
+    });
+  }
+  const cand = findPdfInPost(postHtml, postAnchors);
+  if (!cand) {
+    console.error('  ✗ 지정한 게시글에서 PDF 링크를 찾지 못했습니다.');
+    dumpInteresting(postAnchors, postHtml);
+    process.exit(1);
+  }
+  pdfLabel = cand.text || pdfLabel;
+  pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
 }
 
 if (!pdfUrl) {
