@@ -520,14 +520,6 @@ function BulletinCards({
     if (item.service1 || item.service2) {
       return (svcTab === '1' ? item.service1 || item.service2 : item.service2 || item.service1) ?? '';
     }
-    if (item.name === '설교' && bulletin.sermon?.title) {
-      // 예배 순서의 "설교" 항목엔 설교자만 있고 제목은 위 히어로 카드에만
-      // 있었다 — 여기서도 제목을 같이 보여준다. 제목은 "한글" (English)
-      // 형태로 저장돼 있어, 한글/English 탭 전환 시 기존 번역 로직
-      // (stripEnglishDuplicates/stripKoreanDuplicates)이 알아서 그 탭
-      // 언어만 남긴다.
-      return item.shared ? `${bulletin.sermon.title} · ${item.shared}` : bulletin.sermon.title;
-    }
     return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
   };
   const SERVICE_INFO = [
@@ -544,47 +536,6 @@ function BulletinCards({
 
   return (
     <>
-      {bulletin.sermon ? (
-        <View
-          style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
-          onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
-        >
-          <Image
-            source={{ uri: '/hero-sunday-bg-v3.jpg' }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>이번주 말씀</Text>
-          </View>
-          <View style={styles.heroMid}>
-            <Text style={styles.heroDate}>
-              {fmtKo(bulletin.date)}
-              {hasCommunion ? ' · 성찬식' : ''}
-            </Text>
-            <Text style={styles.heroMeta}>
-              {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
-            </Text>
-          </View>
-          {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
-              여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
-              떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
-              본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
-              다르게 쓴다. */}
-          {!!bulletin.sermon.scripture && (
-            <Pressable
-              style={styles.heroBtn}
-              onPress={() => router.push(`/verse/${bulletin.date}`)}
-            >
-              <Text style={styles.heroBtnText}>
-                {isSingleService ? '설교 메모' : '성경말씀보기'}
-              </Text>
-              <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
-            </Pressable>
-          )}
-        </View>
-      ) : null}
-
       {/* 1부/2부가 있는 주에만 의미가 있다 — 야외예배 등 단일 예배 주에는 고를
           예배가 하나뿐이라 이 카드 자체를 보여주지 않는다. */}
       {order.length > 0 && !isSingleService && (
@@ -690,6 +641,57 @@ function BulletinCards({
                 })}
           </View>
           {order.map((item, i) => {
+            // "설교" 차례에는 평범한 줄 대신, 원래 맨 위에 있던 히어로
+            // 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·본문·설교자·
+            // 메모 버튼)를 그 자리 그대로 옮겨 보여준다.
+            if (item.name === '설교' && bulletin.sermon) {
+              return (
+                <View
+                  key={i}
+                  style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
+                  onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
+                >
+                  <Image
+                    source={{ uri: '/hero-sunday-bg-v3.jpg' }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.heroBadge}>
+                    <Text style={styles.heroBadgeText}>이번주 말씀</Text>
+                  </View>
+                  <View style={styles.heroMid}>
+                    <Text style={styles.heroDate}>
+                      {fmtKo(bulletin.date)}
+                      {hasCommunion ? ' · 성찬식' : ''}
+                    </Text>
+                    {bulletin.sermon.title ? (
+                      <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text>
+                    ) : null}
+                    <Text style={styles.heroMeta}>
+                      {[bulletin.sermon.scripture, bulletin.sermon.preacher]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </View>
+                  {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
+                      여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
+                      떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
+                      본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
+                      다르게 쓴다. */}
+                  {!!bulletin.sermon.scripture && (
+                    <Pressable
+                      style={styles.heroBtn}
+                      onPress={() => router.push(`/verse/${bulletin.date}`)}
+                    >
+                      <Text style={styles.heroBtnText}>
+                        {isSingleService ? '설교 메모' : '성경말씀보기'}
+                      </Text>
+                      <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
+                    </Pressable>
+                  )}
+                </View>
+              );
+            }
             const rawDetail = svcDetail(item);
             const hymn = hymns.length ? findHymnForItem(rawDetail, hymns) : null;
             const scripture = !hymn && scriptures.length ? findScriptureForItem(rawDetail, scriptures) : null;
