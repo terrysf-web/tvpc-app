@@ -1042,6 +1042,13 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
     seen.add(sig);
 
     let cur = null; // { kind: 'hymn'|'scripture', key }
+    // 성경 본문은 "10.  느헤미야가…"처럼 한글 문단에만 절 번호가 인쇄되고,
+    // 바로 뒤따르는 영어 문단에는 번호가 없다(원본 PDF 자체가 그렇게
+    // 조판됨) — 한글 줄에서 절 번호를 보면 기억해뒀다가, 그다음 처음 나오는
+    // 영어 문단 앞에 같은 번호를 붙여준다(줄바꿈으로 이어지는 문단의 두
+    // 번째 줄부터는 다시 붙이지 않는다).
+    const VERSE_NUM = /^(\d{1,3})\s*[.．]\s*/;
+    let pendingVerseNum = null;
     for (const raw of f) {
       const t = raw.replace(/\s{2,}/g, ' ').trim();
       if (!t) continue; // 문단 중간의 빈 span 줄 — cur는 끊지 않는다
@@ -1056,6 +1063,7 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
         }
         hymns.get(number)[lang === 'ko' ? 'titleKo' : 'titleEn'] = title;
         cur = { kind: 'hymn', key: number };
+        pendingVerseNum = null;
         continue;
       }
 
@@ -1066,10 +1074,7 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
         const key = `${korBook} ${ref}`;
         if (!scriptures.has(key)) scriptures.set(key, { reference: key, textKo: [], textEn: [] });
         cur = { kind: 'scripture', key };
-        // 일회성 진단 — 영어 본문에 절 번호(10,11,12 등)가 왜 안 보이는지 확인용.
-        // 원본 줄 구성을 그대로 찍어본다(작업 끝나면 지울 것).
-        console.log(`[진단-절번호] ${key} 면 원본 줄:`);
-        for (const l of f) console.log(`      · ${JSON.stringify(l)}`);
+        pendingVerseNum = null;
         continue;
       }
 
@@ -1087,13 +1092,26 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
           else scriptures.get(cur.key)[lang === 'ko' ? 'textKo' : 'textEn'].push(before);
         }
         cur = null;
+        pendingVerseNum = null;
         continue;
       }
 
       if (!cur) continue;
       const lang = HAS_HANGUL.test(t) ? 'ko' : 'en';
-      if (cur.kind === 'hymn') hymns.get(cur.key)[lang === 'ko' ? 'lyricsKo' : 'lyricsEn'].push(t);
-      else scriptures.get(cur.key)[lang === 'ko' ? 'textKo' : 'textEn'].push(t);
+      if (cur.kind === 'hymn') {
+        hymns.get(cur.key)[lang === 'ko' ? 'lyricsKo' : 'lyricsEn'].push(t);
+        continue;
+      }
+      if (cur.kind === 'scripture' && lang === 'ko') {
+        const vm = t.match(VERSE_NUM);
+        if (vm) pendingVerseNum = vm[1];
+        scriptures.get(cur.key).textKo.push(t);
+        continue;
+      }
+      // 영어 문단 — 절 번호를 기다리고 있었으면(=이 문단의 첫 줄) 붙이고 비운다
+      const enLine = pendingVerseNum ? `${pendingVerseNum}. ${t}` : t;
+      pendingVerseNum = null;
+      scriptures.get(cur.key).textEn.push(enLine);
     }
   }
 
