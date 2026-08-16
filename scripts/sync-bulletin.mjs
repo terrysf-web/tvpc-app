@@ -1404,6 +1404,11 @@ try {
   let noticesFace = [];
   try {
     orderFace = findOrderFace(faces);
+    // 일회성 진단 — "참회의 기도/신앙고백"·"교회소식 / 새가족환영" 항목이
+    // 앞 항목에 합쳐져 나오는 문제 확인용. 원본 줄 그대로 찍어본다
+    // (작업 끝나면 지울 것).
+    console.log('[진단-예배순서] orderFace 원본 줄:');
+    for (const l of orderFace) console.log(`      · ${JSON.stringify(l)}`);
     const r = extractOrderAndSermon(orderFace);
     orderOfWorship = r.order;
     sermonInfo = r.sermon;
