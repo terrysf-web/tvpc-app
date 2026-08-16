@@ -1381,7 +1381,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '6.5%',
-    right: '34%',
+    // 배경 십자가 그림이 가로 75% 지점부터 시작해(hero-sunday-bg-v3.jpg
+    // 실측), 28%까지는 안 겹치면서 여유를 더 준 값 — 공동 설교자가 있어
+    // "허성영 목사 / 최재하 전도사"처럼 메타 줄이 긴 주에도 한 줄에 들어가게.
+    right: '28%',
     transform: [{ translateY: -45 }],
   },
   heroDate: {
