@@ -520,6 +520,14 @@ function BulletinCards({
     if (item.service1 || item.service2) {
       return (svcTab === '1' ? item.service1 || item.service2 : item.service2 || item.service1) ?? '';
     }
+    if (item.name === '설교' && bulletin.sermon?.title) {
+      // 예배 순서의 "설교" 항목엔 설교자만 있고 제목은 위 히어로 카드에만
+      // 있었다 — 여기서도 제목을 같이 보여준다. 제목은 "한글" (English)
+      // 형태로 저장돼 있어, 한글/English 탭 전환 시 기존 번역 로직
+      // (stripEnglishDuplicates/stripKoreanDuplicates)이 알아서 그 탭
+      // 언어만 남긴다.
+      return item.shared ? `${bulletin.sermon.title} · ${item.shared}` : bulletin.sermon.title;
+    }
     return item.shared || (item.name === '성찬식' || item.name === '봉헌' ? '다같이' : '');
   };
   const SERVICE_INFO = [
