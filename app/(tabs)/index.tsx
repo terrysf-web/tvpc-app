@@ -181,6 +181,17 @@ export default function HomeScreen() {
   const isSingleServiceWeek =
     bulletinOrder.length > 0 && bulletinOrder.every((o) => !o.service1 && !o.service2);
   const weekServiceHeading = isSingleServiceWeek ? (latestBulletin?.serviceHeading ?? null) : null;
+  // 단일 예배 주는 히어로 큰 글씨도 "오늘은 주일입니다" 대신 오늘 예배가 실제로
+  // 어떤 형태인지 안내한다 — 달력에 등록된 오늘 일정 제목("야외 예배 및
+  // 체육대회")을 쓰고, 마침 등록된 일정이 없으면 주보 예배 안내 줄에서
+  // 예배 이름만 뽑아 대신 쓴다.
+  const todayOutdoorEvent = isSingleServiceWeek
+    ? events.find((e) => eventKey(e) === todayKey && /야외|체육대회/.test(e.title))
+    : undefined;
+  const weekServiceName = weekServiceHeading?.replace(/^주일\s*/, '').replace(/\s*\(.*?\)\s*$/, '');
+  const weekHeroVerse = isSingleServiceWeek
+    ? `오늘 주일예배는\n${todayOutdoorEvent?.title ?? weekServiceName ?? '특별예배'}로 드립니다`
+    : null;
 
   // 주일 메뉴 — 온라인예배는 위 카드에 있으므로 뺀다
   const quickMenu = isSunday
@@ -331,7 +342,7 @@ export default function HomeScreen() {
                     ? '주일의 은혜가\n한 주간 이어지기를'
                     : serviceOver
                       ? '은혜로운 예배였기를\n바랍니다'
-                      : '오늘은 주일입니다\n예배로 함께 나아가요'}
+                      : (weekHeroVerse ?? '오늘은 주일입니다\n예배로 함께 나아가요')}
                 </Text>
                 <Text style={[styles.sundayTimes, !sb.dark && styles.sundayTimesDark]}>
                   {isMonday
