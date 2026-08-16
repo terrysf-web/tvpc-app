@@ -562,7 +562,6 @@ function BulletinCards({
               {fmtKo(bulletin.date)}
               {hasCommunion ? ' · 성찬식' : ''}
             </Text>
-            {bulletin.sermon.title ? <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text> : null}
             <Text style={styles.heroMeta}>
               {[bulletin.sermon.scripture, bulletin.sermon.preacher].filter(Boolean).join(' · ')}
             </Text>
