@@ -1066,6 +1066,10 @@ function extractHymnsAndScriptures(faces, excludeFaces) {
         const key = `${korBook} ${ref}`;
         if (!scriptures.has(key)) scriptures.set(key, { reference: key, textKo: [], textEn: [] });
         cur = { kind: 'scripture', key };
+        // 일회성 진단 — 영어 본문에 절 번호(10,11,12 등)가 왜 안 보이는지 확인용.
+        // 원본 줄 구성을 그대로 찍어본다(작업 끝나면 지울 것).
+        console.log(`[진단-절번호] ${key} 면 원본 줄:`);
+        for (const l of f) console.log(`      · ${JSON.stringify(l)}`);
         continue;
       }
 
