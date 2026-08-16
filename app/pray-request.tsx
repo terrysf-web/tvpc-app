@@ -76,6 +76,12 @@ export default function PrayRequestScreen() {
   };
 
   const send = async () => {
+    // 목사님이 기도 대상을 부르며 기도하시길 원해 이름을 꼭 받는다 —
+    // 이전엔 비워두면 익명으로 보냈지만, 이제 이름은 필수다.
+    if (!name.trim()) {
+      setErr('이름을 적어주세요.');
+      return;
+    }
     if (!text.trim()) {
       setErr('기도 제목을 적어주세요.');
       return;
@@ -117,7 +123,7 @@ export default function PrayRequestScreen() {
               목사님께 나누고 싶은 기도 제목이나 마음의 짐이 있다면 편하게
               적어주세요. 목사님만 볼 수 있습니다.
             </Text>
-            <Text style={styles.fieldLabel}>이름 (비워두면 익명)</Text>
+            <Text style={styles.fieldLabel}>이름</Text>
             <TextInput
               style={styles.input}
               value={name}
