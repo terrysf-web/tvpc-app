@@ -39,6 +39,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../components/OverlayHeader';
+import { FillInCard, SermonNoteCard, ShareQuestionsCard } from '../components/SermonNoteCards';
 import { churchInfo } from '../churchInfo';
 import type {
   Bulletin,
@@ -486,6 +487,10 @@ function BulletinCards({
   // 순서에서 해당 항목을 눌러 펼쳐 볼 수 있다.
   const hymns = bulletin.hymns ?? [];
   const scriptures = bulletin.scriptures ?? [];
+  // 설교 노트 — 주보의 괄호 채우기·나눔 질문(있는 주만) + 자유 메모(항상).
+  // 내용은 이 전화기에만 저장된다(src/components/SermonNoteCards.tsx).
+  const noteLines = bulletin.noteLines ?? [];
+  const shareQuestions = bulletin.shareQuestions ?? [];
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const notices = bulletin.notices ?? [];
   // 교우 동정(부고·이사·선교 등) — 교회 소식과 원본에서도 다른 카테고리라
@@ -575,6 +580,19 @@ function BulletinCards({
           )}
         </View>
       ) : null}
+
+      {/* 설교 메모 — 주보 인쇄본의 "말씀 메모란"과 같은 자리. 괄호 채우기·
+          나눔 질문은 주보에 그게 있는 주에만, 자유 메모 칸은 설교가 있는
+          주엔 항상 보여준다. 내용은 이 전화기에만 저장된다. */}
+      {bulletin.sermon && (
+        <>
+          {noteLines.length > 0 && <FillInCard date={bulletin.date} lines={noteLines} />}
+          <SermonNoteCard date={bulletin.date} />
+          {shareQuestions.length > 0 && (
+            <ShareQuestionsCard date={bulletin.date} questions={shareQuestions} />
+          )}
+        </>
+      )}
 
       {/* 1부/2부가 있는 주에만 의미가 있다 — 야외예배 등 단일 예배 주에는 고를
           예배가 하나뿐이라 이 카드 자체를 보여주지 않는다. */}
@@ -1394,7 +1412,17 @@ const styles = StyleSheet.create({
     color: '#3A2A1D',
     marginTop: 6,
   },
-  heroMeta: { fontFamily: font.medium, fontSize: 12.5, color: '#6B4A35', marginTop: 6 },
+  heroMeta: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    color: '#6B4A35',
+    marginTop: 6,
+    // 한글은 공백 없는 단어(예: "전도사")도 글자 단위로 줄바꿈될 수 있어
+    // "최재하 전도" 다음 줄에 "사"만 외로 남는 경우가 있다 — 공백에서만
+    // 줄바꿈되게 한다(웹 전용 CSS 속성, 네이티브엔 없어 타입에서 빠져 있음).
+    // @ts-expect-error react-native-web 전용 속성
+    wordBreak: 'keep-all',
+  },
   // 버튼은 아래쪽 선 밑 좁은 틈에 욱여넣는 대신, 선 위에 걸치듯 배치 —
   // 어떤 화면 폭에서도 여백 부족으로 잘리지 않는다.
   heroBtn: {
