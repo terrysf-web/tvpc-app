@@ -515,6 +515,9 @@ function BulletinCards({
   // 모든 항목이 service1/service2 없이 shared만 쓰면 1부/2부 구분 없는 단일
   // 예배 주보(야외예배 등)다.
   const isSingleService = order.length > 0 && order.every((o) => !o.service1 && !o.service2);
+  // 단일 예배 주의 한글/English 탭 — 히어로 카드(설교 차례)도 이 탭을 따라
+  // 제목을 바꿔 보여준다.
+  const langEn = isSingleService && orderLang === 'en';
   const svcDetail = (item: (typeof order)[number]) => {
     if (item.name === '성도의 교제') return '교회 소식';
     if (item.service1 || item.service2) {
@@ -665,13 +668,13 @@ function BulletinCards({
                       {hasCommunion ? ' · 성찬식' : ''}
                     </Text>
                     {bulletin.sermon.title ? (
-                      <Text style={styles.heroTitle}>{bulletin.sermon.title}</Text>
+                      <Text style={styles.heroTitle}>
+                        {langEn
+                          ? stripKoreanDuplicates(bulletin.sermon.title)
+                          : stripEnglishDuplicates(bulletin.sermon.title)}
+                      </Text>
                     ) : null}
-                    <Text style={styles.heroMeta}>
-                      {[bulletin.sermon.scripture, bulletin.sermon.preacher]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
+                    <Text style={styles.heroMeta}>{bulletin.sermon.preacher}</Text>
                   </View>
                   {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
                       여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
@@ -698,7 +701,6 @@ function BulletinCards({
             const expandable = !!(hymn || scripture);
             const isOpen = expandable && expandedIdx === i;
             const Row = expandable ? Pressable : View;
-            const langEn = isSingleService && orderLang === 'en';
             const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
             const shownDetail = langEn
               ? translateOrderDetail(item.name, rawDetail, hymn, scripture)
