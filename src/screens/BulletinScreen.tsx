@@ -60,6 +60,14 @@ function fmtKo(date: string): string {
   return `${y}년 ${m}월 ${d}일`;
 }
 
+function fmtEn(date: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 /**
  * 주보 뷰어 — 관리자가 올린 페이지 이미지를 전화기 화면 폭에 맞춰 한 장씩 보여준다.
  * 인쇄물 QR 코드(app.tvpc.church/bulletin)로 누구나 열 수 있는 공개 화면.
@@ -660,12 +668,14 @@ function BulletinCards({
                     resizeMode="cover"
                   />
                   <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>이번주 말씀</Text>
+                    <Text style={styles.heroBadgeText}>
+                      {langEn ? "This Week's Message" : '이번주 말씀'}
+                    </Text>
                   </View>
                   <View style={styles.heroMid}>
                     <Text style={styles.heroDate}>
-                      {fmtKo(bulletin.date)}
-                      {hasCommunion ? ' · 성찬식' : ''}
+                      {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
+                      {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
                     </Text>
                     {bulletin.sermon.title ? (
                       <Text style={styles.heroTitle}>
@@ -674,7 +684,9 @@ function BulletinCards({
                           : stripEnglishDuplicates(bulletin.sermon.title)}
                       </Text>
                     ) : null}
-                    <Text style={styles.heroMeta}>{bulletin.sermon.preacher}</Text>
+                    <Text style={styles.heroMeta}>
+                      {langEn ? translateNamesEn(bulletin.sermon.preacher) : bulletin.sermon.preacher}
+                    </Text>
                   </View>
                   {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
                       여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
@@ -687,7 +699,13 @@ function BulletinCards({
                       onPress={() => router.push(`/verse/${bulletin.date}`)}
                     >
                       <Text style={styles.heroBtnText}>
-                        {isSingleService ? '설교 메모' : '성경말씀보기'}
+                        {isSingleService
+                          ? langEn
+                            ? 'Sermon Notes'
+                            : '설교 메모'
+                          : langEn
+                            ? 'View Scripture'
+                            : '성경말씀보기'}
                       </Text>
                       <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
                     </Pressable>
