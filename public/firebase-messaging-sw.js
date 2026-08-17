@@ -169,14 +169,15 @@ self.addEventListener('notificationclick', (event) => {
   let path = '/';
   let absoluteLink = self.location.origin + '/';
   try {
-    if (/^https?:/i.test(rawLink)) {
-      const u = new URL(rawLink);
-      path = u.pathname || '/';
-      absoluteLink = u.href;
-    } else {
-      path = rawLink;
-      absoluteLink = new URL(rawLink, self.location.origin).href;
-    }
+    const u = /^https?:/i.test(rawLink) ? new URL(rawLink) : new URL(rawLink, self.location.origin);
+    path = u.pathname || '/';
+    // 이 열기/이동이 알림을 눌러서 난 것임을 표시하는 물음표 매개변수 —
+    // pendingNav(IndexedDB)를 못 찾는 경합이 있어도(src/notificationNav.ts
+    // 쪽 주석 참고), openWindow()/navigate()가 준 URL 자체를 사파리가
+    // 그대로 열어줬다면 이 값만으로 "알림으로 열렸다"를 확실히 알 수 있다
+    // — IndexedDB 읽기 타이밍에 기대지 않는 훨씬 확실한 신호.
+    u.searchParams.set('pn', '1');
+    absoluteLink = u.href;
   } catch (e) {}
   event.waitUntil(
     // clients.matchAll을 먼저 해서 매칭된 창 개수를 pendingNav에 함께

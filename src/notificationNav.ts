@@ -111,11 +111,32 @@ function isNotifTargetPath(path: string): boolean {
 }
 
 /**
+ * 서비스워커가 openWindow()/navigate()에 준 URL에 붙여둔 "이건 알림을
+ * 눌러서 연 거다" 표시(?pn=1, public/firebase-messaging-sw.js 참고)를
+ * 확인한다. pendingNav(IndexedDB)는 못 찾는 경합이 실기기에서 확인됐지만
+ * (readPendingNavWithRetry 주석 참고), 이 값은 사파리가 실제로 열어준
+ * 주소 자체에 들어 있어 그런 경합이 없다 — "사파리가 URL은 맞게 열어줬는데
+ * (path는 맞음) 그걸 우리가 못 믿고 홈으로 되돌려 보내는" 사고를 pendingNav
+ * 조회 결과와 무관하게 막을 수 있다. 있으면 주소에서 지우고(새로고침해도
+ * 다시 안 걸리게), 이번 세션은 이미 알림으로 확인됐다고 표시해 둔다
+ * (applyResumeGuard가 그 표시를 보고 건너뛴다).
+ */
+function consumeNotifUrlMarker(): boolean {
+  if (typeof window === 'undefined') return false;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('pn') !== '1') return false;
+  url.searchParams.delete('pn');
+  window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(SESSION_BOOTED_KEY, '1');
+  return true;
+}
+
+/**
  * 알림으로 온 게 아니라면(그냥 브라우저/OS가 마지막 화면을 되살린 것뿐
  * 이라면) 새 세션에서 홈이 아닌 화면, 그중에서도 ALWAYS_RESUME_PATHS에
  * 없는 화면으로 열렸을 때만 홈으로 보낸다. 알림을 눌러서 열린 경우는
- * checkPendingNav 쪽에서 이미 처리했으니 이 규칙을 적용하지 않는다
- * (그래서 이 함수는 pendingNav 확인이 끝난 뒤에만 부른다).
+ * checkPendingNav 쪽 또는 consumeNotifUrlMarker에서 이미 처리했으니 이
+ * 규칙을 적용하지 않는다(그래서 이 함수는 그 확인이 끝난 뒤에만 부른다).
  */
 function applyResumeGuard(router: ReturnType<typeof useRouter>) {
   if (typeof sessionStorage === 'undefined') return;
@@ -163,9 +184,16 @@ export function useNotificationNav() {
   const router = useRouter();
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.serviceWorker) {
+    if (Platform.OS !== 'web') return;
+    // URL 자체에 "알림으로 열렸다" 표시가 있으면(consumeNotifUrlMarker 주석
+    // 참고) pendingNav 조회 결과와 무관하게 이번 세션은 이미 확인된 것 —
+    // 아래 부팅 시 pendingNav 조회·resume guard를 건너뛴다(그래도 이
+    // 탭이 열려 있는 동안 또 알림을 받을 수 있으니 리스너들은 그대로 붙인다).
+    const openedFromNotif = consumeNotifUrlMarker();
+
+    if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
       // 알림 기능이 아예 안 되는 환경이어도 홈 이동 규칙은 그대로 적용
-      if (Platform.OS === 'web') applyResumeGuard(router);
+      if (!openedFromNotif) applyResumeGuard(router);
       return;
     }
 
@@ -199,28 +227,38 @@ export function useNotificationNav() {
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
 
-    // 부팅 시 pendingNav를 읽는다(못 찾으면 짧게 한 번 더 — 위
-    // readPendingNavWithRetry 주석 참고). visibilitychange·focus·
-    // pageshow 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이
-    // 막 뜨는 순간엔 이 이벤트들도 거의 동시에 발생하는데, 다 같은
-    // readAndClearPendingNav를 동시에 부르면(한쪽은 값을 읽어 지우고
-    // 다른 쪽은 이미 지워진 뒤라 못 읽는 경합) 부팅 쪽이 늦게 resolve될
-    // 경우 "알림이 아니다"로 오판해 applyResumeGuard가 이미 옮겨간 화면을
-    // 홈으로 되돌려 보내는 사고가 났다("말씀 알림 눌렀는데 홈으로 감").
-    readPendingNavWithRetry().then((result) => {
-      if (cancelled) return;
-      if (result) {
-        logClientError(
-          `[알림 진단] 부팅 시 pendingNav 발견 → ${result.path} (${JSON.stringify(result.debug ?? {})})`,
-        );
-        if (result.path !== window.location.pathname) router.push(result.path as never);
-      } else {
-        applyResumeGuard(router);
-      }
+    const attachRecheckListeners = () => {
       document.addEventListener('visibilitychange', onVisible);
       window.addEventListener('focus', onFocus);
       window.addEventListener('pageshow', onPageShow);
-    });
+    };
+
+    if (openedFromNotif) {
+      // URL의 알림 표시로 이미 확인됐다 — pendingNav 조회·resume guard 없이
+      // 바로 이후(이 탭이 열려 있는 동안 또 받을 알림 대비) 리스너만 붙인다.
+      attachRecheckListeners();
+    } else {
+      // 부팅 시 pendingNav를 읽는다(못 찾으면 짧게 한 번 더 — 위
+      // readPendingNavWithRetry 주석 참고). visibilitychange·focus·
+      // pageshow 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이
+      // 막 뜨는 순간엔 이 이벤트들도 거의 동시에 발생하는데, 다 같은
+      // readAndClearPendingNav를 동시에 부르면(한쪽은 값을 읽어 지우고
+      // 다른 쪽은 이미 지워진 뒤라 못 읽는 경합) 부팅 쪽이 늦게 resolve될
+      // 경우 "알림이 아니다"로 오판해 applyResumeGuard가 이미 옮겨간 화면을
+      // 홈으로 되돌려 보내는 사고가 났다("말씀 알림 눌렀는데 홈으로 감").
+      readPendingNavWithRetry().then((result) => {
+        if (cancelled) return;
+        if (result) {
+          logClientError(
+            `[알림 진단] 부팅 시 pendingNav 발견 → ${result.path} (${JSON.stringify(result.debug ?? {})})`,
+          );
+          if (result.path !== window.location.pathname) router.push(result.path as never);
+        } else {
+          applyResumeGuard(router);
+        }
+        attachRecheckListeners();
+      });
+    }
 
     return () => {
       cancelled = true;
