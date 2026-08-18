@@ -191,13 +191,22 @@ self.addEventListener('notificationclick', (event) => {
         for (const c of list) {
           if ('focus' in c) {
             const p = c.focus();
-            if (path !== '/') {
-              if ('postMessage' in c) c.postMessage({ type: 'tvpc-navigate', path });
-              if ('navigate' in c) {
-                return Promise.resolve(p).then(() => c.navigate(absoluteLink)).catch(() => {});
-              }
-            }
-            return p;
+            if (path === '/') return p;
+            if ('postMessage' in c) c.postMessage({ type: 'tvpc-navigate', path });
+            const navigated = 'navigate' in c
+              ? Promise.resolve(p).then(() => c.navigate(absoluteLink)).catch(() => {})
+              : Promise.resolve(p);
+            // 탭이 완전히 멈춰(freeze) 있다가 이 알림으로 되살아나는
+            // 경우, 방금 보낸 postMessage/navigate를 페이지가 아직 깨어나기
+            // 전이라 놓치는 일이 실기기에서 있었다("눌렀는데 마지막에 보던
+            // 화면 그대로") — 조금 뒤(페이지가 완전히 깨어날 시간을 두고)
+            // 한 번 더 보낸다. 서비스워커가 그새 죽지 않게 이 지연도
+            // event.waitUntil 사슬에 그대로 얹는다.
+            return navigated
+              .then(() => new Promise((resolve) => setTimeout(resolve, 1500)))
+              .then(() => {
+                if ('postMessage' in c) c.postMessage({ type: 'tvpc-navigate', path });
+              });
           }
         }
         return clients.openWindow(absoluteLink);

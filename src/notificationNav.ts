@@ -227,10 +227,22 @@ export function useNotificationNav() {
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
 
+    // visibilitychange·focus·pageshow는 iOS가 "화면은 꺼두고 멈춰만 둔"
+    // 페이지를 되살릴 때 아예 안 오는 경우가 실기기에서 확인됐다("감사일기
+    // 알림 눌렀는데 마지막에 보던 화면 그대로" — 이벤트 자체가 없으니
+    // checkPendingNav도 안 불림). 이벤트에만 기대지 않고, 이 탭이 열려
+    // 있는 동안은 몇 초마다 pendingNav를 한 번씩 직접 들여다본다 —
+    // IndexedDB 조회 하나뿐이라 배터리·성능 부담은 무시할 만하고, 페이지가
+    // 실제로 멈춰 있는 동안은 타이머 자체가 못 돌다가 되살아나는 순간
+    // 다음 tick에 바로 잡힌다.
+    const POLL_INTERVAL_MS = 4000;
+    let pollId: ReturnType<typeof setInterval> | undefined;
+
     const attachRecheckListeners = () => {
       document.addEventListener('visibilitychange', onVisible);
       window.addEventListener('focus', onFocus);
       window.addEventListener('pageshow', onPageShow);
+      pollId = setInterval(() => checkPendingNav('poll'), POLL_INTERVAL_MS);
     };
 
     if (openedFromNotif) {
@@ -265,6 +277,7 @@ export function useNotificationNav() {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('pageshow', onPageShow);
+      if (pollId != null) clearInterval(pollId);
       navigator.serviceWorker.removeEventListener('message', onMessage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
