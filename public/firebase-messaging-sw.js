@@ -20,7 +20,28 @@ firebase.messaging();
 // 새 버전 서비스 워커가 앱 완전 종료를 기다리지 않고 바로 교체되게 —
 // 더보기의 "앱 새로고침"만으로 알림 동작 변경까지 적용된다
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+// 이 서비스워커가 실제로 활성화될 때마다 IndexedDB(kv.swBuild)에 이 값을
+// 남긴다 — iOS Safari는 홈 화면 PWA의 서비스워커 갱신이 몇 시간~며칠씩
+// 늦게 반영되는 경우가 실제로 있어서(알림 문제가 여러 번 재현된 유력한
+// 원인), "지금 이 기기가 실제로 어느 버전을 쓰고 있는지"를 관리자 오류
+// 탭에서 직접 확인할 수 있게 해 둔다. 이 파일을 고칠 때마다 값을 올린다.
+const SW_BUILD = '2026-08-18-02';
+self.addEventListener('activate', (event) =>
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      openDb().then(
+        (db) =>
+          new Promise((resolve) => {
+            const tx = db.transaction('kv', 'readwrite');
+            tx.objectStore('kv').put({ build: SW_BUILD, activatedAt: Date.now() }, 'swBuild');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          }),
+      ),
+    ]),
+  ),
+);
 
 // tvpc-sw DB v2 — kv(가려던 경로 등 1회성 값) + notifHistory(받은 알림 기록).
 // 버전을 올렸으므로 이 DB를 여는 모든 곳(여기, src/notificationNav.ts,

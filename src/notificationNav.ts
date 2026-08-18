@@ -73,6 +73,45 @@ function readAndClearPendingNav(): Promise<PendingNavResult | null> {
   });
 }
 
+/**
+ * 서비스워커가 activate될 때마다 남겨두는 빌드 표시(kv.swBuild,
+ * public/firebase-messaging-sw.js의 SW_BUILD)를 읽는다 — pendingNav 못
+ * 찾음을 기록할 때 같이 남겨서, iOS가 이 기기에 실제로 어느 버전의
+ * 서비스워커를 쓰고 있었는지(최신 수정이 반영된 뒤인지 전인지) 관리자
+ * 오류 탭에서 바로 확인할 수 있게 한다 — 알림 관련 서비스워커 갱신이
+ * 며칠씩 늦게 반영되는 경우가 실기기에서 있었기 때문(읽기 전용, 안 지움).
+ */
+function readSwBuild(): Promise<{ build: string; activatedAt: number } | null> {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open('tvpc-sw', 2);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+        if (!db.objectStoreNames.contains('notifHistory')) {
+          db.createObjectStore('notifHistory', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('kv')) {
+          resolve(null);
+          return;
+        }
+        const getReq = db.transaction('kv', 'readonly').objectStore('kv').get('swBuild');
+        getReq.onsuccess = () => {
+          const val = getReq.result as { build?: string; activatedAt?: number } | undefined;
+          resolve(val?.build ? { build: val.build, activatedAt: val.activatedAt ?? 0 } : null);
+        };
+        getReq.onerror = () => resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 /** 재시도 간격 — 실기기에서 실제로 확인된 경합(아래 주석) 대비책.
  * 한 번으로는 가끔 더 부족한 경우가 있어(느린 기기 등) 두 번 재시도한다. */
 const PENDING_NAV_RETRY_DELAYS_MS = [400, 800];
@@ -151,8 +190,13 @@ function applyResumeGuard(router: ReturnType<typeof useRouter>) {
       // 못 찾아서 이 규칙이 실행된 건지 실제로 확인하기 위해 남긴다
       // (관리자 화면 '오류' 탭에서 확인, src/data/errorLog.ts). 알림이
       // 갈 수 없는 화면(설교·소식 등)은 그냥 오래 열어 둔 탭을 새로 켠
-      // 정상적인 경우라 기록하지 않는다.
-      logClientError(`[알림 진단] pendingNav 못 찾음 → 홈으로 리셋 (원래 경로: ${path})`);
+      // 정상적인 경우라 기록하지 않는다. 화면 전환을 늦추지 않게, 빌드
+      // 표시를 붙이는 건 기록만 비동기로 — 이동 자체는 그대로 바로 한다.
+      readSwBuild().then((sw) => {
+        logClientError(
+          `[알림 진단] pendingNav 못 찾음 → 홈으로 리셋 (원래 경로: ${path}, 서비스워커: ${sw ? `${sw.build}, 적용 ${new Date(sw.activatedAt).toLocaleString('ko-KR')}` : '확인 안 됨'})`,
+        );
+      });
     }
     router.replace('/');
   }
