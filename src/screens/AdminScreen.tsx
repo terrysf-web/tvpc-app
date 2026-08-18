@@ -48,7 +48,7 @@ import {
   convertPdfToBulletinPages,
   saveBulletin,
 } from '../data/bulletin';
-import { type ErrorLogDoc, getRecentErrorLogs } from '../data/errorLog';
+import { deleteAllErrorLogs, type ErrorLogDoc, getRecentErrorLogs } from '../data/errorLog';
 import { colors, font, shadows } from '../theme';
 import { adminGoogleSignIn, getDb } from '../firebase';
 import { clearNewsBanner, saveNewsBanner } from '../newsBanner';
@@ -422,6 +422,27 @@ export default function AdminScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // 오류 탭 '전체 지우기' — 확인한 옛 기록을 지워서, 이후 새로 쌓이는
+  // 기록만 보면 지금도 나는 문제인지 바로 알 수 있게 한다.
+  const clearErrorLogs = async () => {
+    const question = `오류 기록 ${errorLogs?.length ?? 0}건을 모두 지울까요?`;
+    const ok = await new Promise<boolean>((resolve) => {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        resolve(window.confirm(question));
+      } else {
+        Alert.alert('오류 기록 지우기', question, [
+          { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+          { text: '지우기', style: 'destructive', onPress: () => resolve(true) },
+        ]);
+      }
+    });
+    if (!ok) return;
+    await submit(async () => {
+      await deleteAllErrorLogs();
+      setErrorLogs([]);
+    }, '오류 기록을 모두 지웠습니다.');
   };
 
   const saveVerseForm = () =>
@@ -1028,9 +1049,16 @@ export default function AdminScreen() {
 
         {tab === 'errors' && (
           <View style={[styles.card, shadows.card]}>
-            <Text style={styles.blockTitle}>
-              최근 오류{errorLogs ? ` (${errorLogs.length}건)` : ''}
-            </Text>
+            <View style={styles.errorHeadRow}>
+              <Text style={[styles.blockTitle, { marginBottom: 0 }]}>
+                최근 오류{errorLogs ? ` (${errorLogs.length}건)` : ''}
+              </Text>
+              {!!errorLogs?.length && (
+                <Pressable onPress={clearErrorLogs} disabled={busy} hitSlop={8}>
+                  <Text style={styles.errorClearBtnText}>전체 지우기</Text>
+                </Pressable>
+              )}
+            </View>
             {errorLogs === null && <ActivityIndicator color={colors.primary} />}
             {errorLogs && errorLogs.length === 0 && (
               <Text style={styles.emptyText}>최근에 기록된 오류가 없습니다.</Text>
@@ -1548,6 +1576,13 @@ const styles = StyleSheet.create({
   },
 
   blockTitle: { fontFamily: font.extraBold, fontSize: 15, color: colors.title, marginBottom: 12 },
+  errorHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  errorClearBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.heartActive },
   emptyText: { fontFamily: font.regular, fontSize: 13, color: colors.faint, marginBottom: 8 },
   hintText: { marginTop: 12, fontFamily: font.regular, fontSize: 11.5, lineHeight: 17, color: colors.faint },
   syncBox: {

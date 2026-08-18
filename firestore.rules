@@ -109,7 +109,10 @@ service cloud.firestore {
         && request.resource.data.message.size() > 0
         && request.resource.data.message.size() <= 1000
         && request.resource.data.ts is number;
-      allow update, delete: if false;
+      allow update: if false;
+      // 오류 탭에서 '전체 지우기' — 고친 문제인지 다시 나는 문제인지 구분하기
+      // 쉽게, 확인한 기록을 지우고 새로 쌓이는 것만 볼 수 있게 한다.
+      allow delete: if request.auth != null && request.auth.token.email == 'terrysf@gmail.com';
     }
 
     // 소식 카드 배너 — 누구나 보고, 등록은 관리자만

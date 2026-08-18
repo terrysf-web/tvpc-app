@@ -1,4 +1,13 @@
-import { addDoc, collection, getDocs, limit as fsLimit, orderBy, query } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  limit as fsLimit,
+  orderBy,
+  query,
+} from 'firebase/firestore';
 import { Platform } from 'react-native';
 import { getDb } from '../firebase';
 
@@ -58,4 +67,16 @@ export async function getRecentErrorLogs(count = 30): Promise<ErrorLogDoc[]> {
     query(collection(requireDb(), 'errorLogs'), orderBy('ts', 'desc'), fsLimit(count)),
   );
   return snap.docs.map((d) => ({ ...(d.data() as Omit<ErrorLogDoc, 'id'>), id: d.id }));
+}
+
+/**
+ * 지금까지 쌓인 오류 기록을 전부 지운다 — 확인을 마친 옛 기록과 앞으로
+ * 새로 쌓일 기록을 구분하기 위한 용도(관리자 화면 '오류' 탭 '전체 지우기').
+ * 한 번에 최대 500개(getRecentErrorLogs 조회 개수보다 넉넉하게)까지 지운다.
+ */
+export async function deleteAllErrorLogs(): Promise<void> {
+  const snap = await getDocs(
+    query(collection(requireDb(), 'errorLogs'), orderBy('ts', 'desc'), fsLimit(500)),
+  );
+  await Promise.all(snap.docs.map((d) => deleteDoc(doc(requireDb(), 'errorLogs', d.id))));
 }
