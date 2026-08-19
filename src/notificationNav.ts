@@ -73,45 +73,6 @@ function readAndClearPendingNav(): Promise<PendingNavResult | null> {
   });
 }
 
-/**
- * 서비스워커가 activate될 때마다 남겨두는 빌드 표시(kv.swBuild,
- * public/firebase-messaging-sw.js의 SW_BUILD)를 읽는다 — pendingNav 못
- * 찾음을 기록할 때 같이 남겨서, iOS가 이 기기에 실제로 어느 버전의
- * 서비스워커를 쓰고 있었는지(최신 수정이 반영된 뒤인지 전인지) 관리자
- * 오류 탭에서 바로 확인할 수 있게 한다 — 알림 관련 서비스워커 갱신이
- * 며칠씩 늦게 반영되는 경우가 실기기에서 있었기 때문(읽기 전용, 안 지움).
- */
-function readSwBuild(): Promise<{ build: string; activatedAt: number } | null> {
-  return new Promise((resolve) => {
-    try {
-      const req = indexedDB.open('tvpc-sw', 2);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
-        if (!db.objectStoreNames.contains('notifHistory')) {
-          db.createObjectStore('notifHistory', { keyPath: 'id', autoIncrement: true });
-        }
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('kv')) {
-          resolve(null);
-          return;
-        }
-        const getReq = db.transaction('kv', 'readonly').objectStore('kv').get('swBuild');
-        getReq.onsuccess = () => {
-          const val = getReq.result as { build?: string; activatedAt?: number } | undefined;
-          resolve(val?.build ? { build: val.build, activatedAt: val.activatedAt ?? 0 } : null);
-        };
-        getReq.onerror = () => resolve(null);
-      };
-      req.onerror = () => resolve(null);
-    } catch {
-      resolve(null);
-    }
-  });
-}
-
 /** 재시도 간격 — 실기기에서 실제로 확인된 경합(아래 주석) 대비책.
  * 한 번으로는 가끔 더 부족한 경우가 있어(느린 기기 등) 두 번 재시도한다. */
 const PENDING_NAV_RETRY_DELAYS_MS = [400, 800];
@@ -172,10 +133,16 @@ function consumeNotifUrlMarker(): boolean {
 
 /**
  * 알림으로 온 게 아니라면(그냥 브라우저/OS가 마지막 화면을 되살린 것뿐
- * 이라면) 새 세션에서 홈이 아닌 화면, 그중에서도 ALWAYS_RESUME_PATHS에
- * 없는 화면으로 열렸을 때만 홈으로 보낸다. 알림을 눌러서 열린 경우는
- * checkPendingNav 쪽 또는 consumeNotifUrlMarker에서 이미 처리했으니 이
- * 규칙을 적용하지 않는다(그래서 이 함수는 그 확인이 끝난 뒤에만 부른다).
+ * 이라면) 새 세션에서 홈이 아닌 화면, 그중에서도 ALWAYS_RESUME_PATHS·
+ * isNotifTargetPath에 없는 화면으로 열렸을 때만 홈으로 보낸다.
+ *
+ * 알림이 갈 수 있는 화면(감사일기·알림·기도요청함·기도응답함·verse/*)은
+ * pendingNav 조회 결과와 무관하게 애초에 리셋하지 않는다 — ?pn=1 URL
+ * 표시(consumeNotifUrlMarker)도, pendingNav(IndexedDB) 재시도도 실기기
+ * (iOS)에서 계속 타이밍이 맞지 않아 "감사일기 알림 눌렀는데 홈으로 감"이
+ * 반복됐다(관리자 오류 탭 기록으로 여러 번 확인). 그 화면들은 "우연히
+ * 그 화면이 떠 있던 탭을 새로 켠" 경우에 그대로 남아도 크게 헷갈리지
+ * 않는 화면들이라, 애매하면 리셋하지 않는 쪽이 낫다고 판단했다.
  */
 function applyResumeGuard(router: ReturnType<typeof useRouter>) {
   if (typeof sessionStorage === 'undefined') return;
@@ -184,20 +151,7 @@ function applyResumeGuard(router: ReturnType<typeof useRouter>) {
   if (alreadyBooted) return; // 같은 세션 안의 새로고침 — 하던 화면 그대로 둔다
 
   const path = window.location.pathname;
-  if (path !== '/' && !ALWAYS_RESUME_PATHS.includes(path)) {
-    if (isNotifTargetPath(path)) {
-      // 진단용 기록 — "알림 눌렀는데 홈으로 감"이 재현될 때, pendingNav를
-      // 못 찾아서 이 규칙이 실행된 건지 실제로 확인하기 위해 남긴다
-      // (관리자 화면 '오류' 탭에서 확인, src/data/errorLog.ts). 알림이
-      // 갈 수 없는 화면(설교·소식 등)은 그냥 오래 열어 둔 탭을 새로 켠
-      // 정상적인 경우라 기록하지 않는다. 화면 전환을 늦추지 않게, 빌드
-      // 표시를 붙이는 건 기록만 비동기로 — 이동 자체는 그대로 바로 한다.
-      readSwBuild().then((sw) => {
-        logClientError(
-          `[알림 진단] pendingNav 못 찾음 → 홈으로 리셋 (원래 경로: ${path}, 서비스워커: ${sw ? `${sw.build}, 적용 ${new Date(sw.activatedAt).toLocaleString('ko-KR')}` : '확인 안 됨'})`,
-        );
-      });
-    }
+  if (path !== '/' && !ALWAYS_RESUME_PATHS.includes(path) && !isNotifTargetPath(path)) {
     router.replace('/');
   }
 }
