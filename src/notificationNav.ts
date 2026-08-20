@@ -160,23 +160,13 @@ function applyResumeGuard(router: ReturnType<typeof useRouter>) {
  * 알림을 눌러서 앱이 열렸을 때 목적 화면으로 이동시킨다. 알림이 아니라면
  * 새로 켠 세션인지 보고 홈으로 보낼지 판단한다(applyResumeGuard).
  *
- * 1) 이미 열려 있던 창이었다면 — 서비스워커가 postMessage로 보내주는
- *    경로를 받아 라우터로 옮긴다. WindowClient.navigate()만 믿으면
- *    사파리(특히 iOS 홈화면에 설치한 PWA)에서 포커스만 되고 화면은 안
- *    바뀌는 경우가 있어("눌러도 안 열린다") — 이쪽이 훨씬 확실하다.
- * 2) 앱이 완전히 닫혀 있다가 알림으로 새로 열린 거라면 — 서비스워커가
- *    IndexedDB에 남겨둔 "가려던 경로"를 앱이 뜨자마자 확인해서 옮긴다
- *    (openWindow()가 준 URL을 사파리가 무시하고 시작 화면으로 여는
- *    경우의 대비책).
- * 3) 앱이 완전히 닫힌 것도, 멀쩡히 떠 있던 것도 아닌 애매한 상태 —
- *    한참 백그라운드에 있다가(iOS가 화면은 꺼두고 멈춰만 둔 상태)
- *    알림을 눌러 되살아난 경우 — 도 있다. 이때는 서비스워커가 매칭되는
- *    창을 찾아 postMessage를 보내긴 하지만, 멈춰 있던 페이지가 완전히
- *    되살아나기 전에 메시지가 씹혀 화면이 안 바뀌는 경우가 있었다
- *    ("눌렀는데 마지막에 보던 화면 그대로"). postMessage 하나만 믿지
- *    않고, 화면이 다시 보이는 시점(visibilitychange·focus)마다 2)의
- *    "가려던 경로"를 한 번 더 확인해서 옮긴다 — 이미 다 옮겨간
- *    뒤라면(현재 경로와 같으면) 아무 일도 안 한다.
+ * 서비스워커(notificationclick)는 이제 이미 열린 창을 손으로 조작하려
+ * 하지 않고 매번 clients.openWindow()만 쓴다 — 그래서 알림을 눌렀을 때
+ * 이 앱이 뜨는 경우는 항상 그 목적 경로로의 진짜(브라우저 차원의) 이동
+ * 이라, 이 훅은 그 경로가 애초에 "제대로 뜬 화면"인지만 판단하면 된다.
+ * 유일한 예외는 사파리가 openWindow()에 준 경로를 무시하고 시작 화면
+ * (홈)으로 열어버리는 경우인데 — 그 대비책으로 서비스워커가 IndexedDB에
+ * 남겨둔 "가려던 경로"(pendingNav)를 부팅 시 한 번 확인해서 옮긴다.
  */
 export function useNotificationNav() {
   const router = useRouter();
@@ -184,99 +174,33 @@ export function useNotificationNav() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     // URL 자체에 "알림으로 열렸다" 표시가 있으면(consumeNotifUrlMarker 주석
-    // 참고) pendingNav 조회 결과와 무관하게 이번 세션은 이미 확인된 것 —
-    // 아래 부팅 시 pendingNav 조회·resume guard를 건너뛴다(그래도 이
-    // 탭이 열려 있는 동안 또 알림을 받을 수 있으니 리스너들은 그대로 붙인다).
+    // 참고) pendingNav 조회 결과와 무관하게 이번 세션은 이미 확인된 것.
     const openedFromNotif = consumeNotifUrlMarker();
+    if (openedFromNotif) return;
 
     if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
       // 알림 기능이 아예 안 되는 환경이어도 홈 이동 규칙은 그대로 적용
-      if (!openedFromNotif) applyResumeGuard(router);
+      applyResumeGuard(router);
       return;
     }
 
     let cancelled = false;
-
-    const checkPendingNav = (source: string) => {
-      readPendingNavWithRetry().then((result) => {
-        if (result && result.path !== window.location.pathname) {
-          logClientError(
-            `[알림 진단] ${source}에서 pendingNav 발견 → ${result.path}로 이동 (${JSON.stringify(result.debug ?? {})})`,
-          );
-          router.push(result.path as never);
-        }
-      });
-    };
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') checkPendingNav('visibilitychange');
-    };
-    const onFocus = () => checkPendingNav('focus');
-    // bfcache(뒤로/앞으로 캐시)에서 되살아날 때는 visibilitychange 대신
-    // pageshow만 오는 경우가 있어(사파리에서 특히) 같이 잡아둔다
-    const onPageShow = () => checkPendingNav('pageshow');
-
-    const onMessage = (event: MessageEvent) => {
-      const data = event.data as { type?: string; path?: string } | undefined;
-      if (data?.type === 'tvpc-navigate' && data.path) {
-        logClientError(`[알림 진단] postMessage로 ${data.path} 수신`);
-        router.push(data.path as never);
+    // 부팅 시 pendingNav를 읽는다(못 찾으면 짧게 한 번 더 — 위
+    // readPendingNavWithRetry 주석 참고).
+    readPendingNavWithRetry().then((result) => {
+      if (cancelled) return;
+      if (result) {
+        logClientError(
+          `[알림 진단] 부팅 시 pendingNav 발견 → ${result.path} (${JSON.stringify(result.debug ?? {})})`,
+        );
+        if (result.path !== window.location.pathname) router.push(result.path as never);
+      } else {
+        applyResumeGuard(router);
       }
-    };
-    navigator.serviceWorker.addEventListener('message', onMessage);
-
-    // visibilitychange·focus·pageshow는 iOS가 "화면은 꺼두고 멈춰만 둔"
-    // 페이지를 되살릴 때 아예 안 오는 경우가 실기기에서 확인됐다("감사일기
-    // 알림 눌렀는데 마지막에 보던 화면 그대로" — 이벤트 자체가 없으니
-    // checkPendingNav도 안 불림). 이벤트에만 기대지 않고, 이 탭이 열려
-    // 있는 동안은 몇 초마다 pendingNav를 한 번씩 직접 들여다본다 —
-    // IndexedDB 조회 하나뿐이라 배터리·성능 부담은 무시할 만하고, 페이지가
-    // 실제로 멈춰 있는 동안은 타이머 자체가 못 돌다가 되살아나는 순간
-    // 다음 tick에 바로 잡힌다.
-    const POLL_INTERVAL_MS = 4000;
-    let pollId: ReturnType<typeof setInterval> | undefined;
-
-    const attachRecheckListeners = () => {
-      document.addEventListener('visibilitychange', onVisible);
-      window.addEventListener('focus', onFocus);
-      window.addEventListener('pageshow', onPageShow);
-      pollId = setInterval(() => checkPendingNav('poll'), POLL_INTERVAL_MS);
-    };
-
-    if (openedFromNotif) {
-      // URL의 알림 표시로 이미 확인됐다 — pendingNav 조회·resume guard 없이
-      // 바로 이후(이 탭이 열려 있는 동안 또 받을 알림 대비) 리스너만 붙인다.
-      attachRecheckListeners();
-    } else {
-      // 부팅 시 pendingNav를 읽는다(못 찾으면 짧게 한 번 더 — 위
-      // readPendingNavWithRetry 주석 참고). visibilitychange·focus·
-      // pageshow 리스너는 이 확인이 끝난 뒤에야 붙인다 — 알림을 눌러 앱이
-      // 막 뜨는 순간엔 이 이벤트들도 거의 동시에 발생하는데, 다 같은
-      // readAndClearPendingNav를 동시에 부르면(한쪽은 값을 읽어 지우고
-      // 다른 쪽은 이미 지워진 뒤라 못 읽는 경합) 부팅 쪽이 늦게 resolve될
-      // 경우 "알림이 아니다"로 오판해 applyResumeGuard가 이미 옮겨간 화면을
-      // 홈으로 되돌려 보내는 사고가 났다("말씀 알림 눌렀는데 홈으로 감").
-      readPendingNavWithRetry().then((result) => {
-        if (cancelled) return;
-        if (result) {
-          logClientError(
-            `[알림 진단] 부팅 시 pendingNav 발견 → ${result.path} (${JSON.stringify(result.debug ?? {})})`,
-          );
-          if (result.path !== window.location.pathname) router.push(result.path as never);
-        } else {
-          applyResumeGuard(router);
-        }
-        attachRecheckListeners();
-      });
-    }
+    });
 
     return () => {
       cancelled = true;
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('pageshow', onPageShow);
-      if (pollId != null) clearInterval(pollId);
-      navigator.serviceWorker.removeEventListener('message', onMessage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

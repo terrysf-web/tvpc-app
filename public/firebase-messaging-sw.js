@@ -25,7 +25,7 @@ self.addEventListener('install', () => self.skipWaiting());
 // 늦게 반영되는 경우가 실제로 있어서(알림 문제가 여러 번 재현된 유력한
 // 원인), "지금 이 기기가 실제로 어느 버전을 쓰고 있는지"를 관리자 오류
 // 탭에서 직접 확인할 수 있게 해 둔다. 이 파일을 고칠 때마다 값을 올린다.
-const SW_BUILD = '2026-08-18-02';
+const SW_BUILD = '2026-08-19-01';
 self.addEventListener('activate', (event) =>
   event.waitUntil(
     Promise.all([
@@ -165,17 +165,17 @@ self.addEventListener('push', (event) => {
 });
 
 // 알림 탭 → 알림에 지정된 화면(감사일기·기도요청함·알림 보관함 등)으로 이동.
-// 이미 열린 앱 창이 있으면 포커스 후 그 화면으로, 없으면(앱이 완전히
-// 닫혀 있던 상태 — 잠금화면에서 바로 누른 경우 등) 새로 연다.
-//
-// 이미 열린 창이 있을 때는 postMessage로 앱(_layout.tsx)에 이동할 경로를
-// 알려서 라우터로 이동시키는 게 주 방법이다 — WindowClient.navigate()는
-// 사파리(특히 iOS 홈화면에 설치한 PWA)에서 안 먹히는 경우가 있어(포커스만
-// 되고 화면은 안 바뀜) 그것만 믿으면 "눌러도 안 열린다"는 문제가 생긴다.
-// navigate()도 되면 되는 대로 같이 시도 — 안 되면 그냥 무시된다.
-//
-// 새로 열 때(openWindow)와 navigate()는 상대경로 대신 절대 URL을
-// 넘긴다 — 사파리에서 상대경로 처리가 불안정한 경우가 있었다.
+// focus()+postMessage()+navigate()로 "이미 열린 창을 그대로 재활용"하려는
+// 시도를 여러 번 보강해 봤지만(포커스만 되고 화면은 안 바뀜, 멈춰 있던
+// 탭이 메시지를 놓침 등) 실기기(iOS)에서 계속 조금씩 다르게 실패했다 —
+// "눌렀는데 마지막 보던 화면 그대로"라는 신고가 그 결과다. 더 정교하게
+// 다듬는 대신, 아예 매번 clients.openWindow()만 쓰기로 했다 — 이미 열려
+// 있는 창이 있어도 openWindow()는 OS 차원의 "그 앱을 이 주소로 열기"
+// 경로를 타서, 우리가 손으로 흉내 낸 focus/postMessage/navigate 조합보다
+// 훨씬 잘 먹힌다(경로 자체는 실기기에서 여러 번 정확히 열리는 게 이미
+// 확인됐다 — 안 되던 건 "이미 켜진 탭을 그 자리에서 이동시키는" 부분).
+// 이미 설치된 PWA(홈 화면 앱)는 openWindow()가 새 창을 또 띄우는 대신
+// 기존 앱을 그 주소로 가져온다 — 여러 개로 안 늘어난다.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const msg = event.notification && event.notification.data && event.notification.data.FCM_MSG;
@@ -192,46 +192,18 @@ self.addEventListener('notificationclick', (event) => {
   try {
     const u = /^https?:/i.test(rawLink) ? new URL(rawLink) : new URL(rawLink, self.location.origin);
     path = u.pathname || '/';
-    // 이 열기/이동이 알림을 눌러서 난 것임을 표시하는 물음표 매개변수 —
+    // 이 열기가 알림을 눌러서 난 것임을 표시하는 물음표 매개변수 —
     // pendingNav(IndexedDB)를 못 찾는 경합이 있어도(src/notificationNav.ts
-    // 쪽 주석 참고), openWindow()/navigate()가 준 URL 자체를 사파리가
-    // 그대로 열어줬다면 이 값만으로 "알림으로 열렸다"를 확실히 알 수 있다
-    // — IndexedDB 읽기 타이밍에 기대지 않는 훨씬 확실한 신호.
+    // 쪽 주석 참고), openWindow()가 준 URL 자체를 사파리가 그대로 열어줬다면
+    // 이 값만으로 "알림으로 열렸다"를 확실히 알 수 있다. (실기기에서 이
+    // 매개변수만 사라지고 경로는 남는 사례도 있었지만, 경로 자체가 이미
+    // 목적 화면과 같으므로 그 경우도 결과적으로 문제없다.)
     u.searchParams.set('pn', '1');
     absoluteLink = u.href;
   } catch (e) {}
   event.waitUntil(
-    // clients.matchAll을 먼저 해서 매칭된 창 개수를 pendingNav에 함께
-    // 남긴다 — "홈으로 갔다"는 신고가 재현될 때, 이미 열린 창이 있어서
-    // postMessage/navigate 경로를 탔는지, 새 창을 열었는지 구분하기
-    // 위한 진단용(src/notificationNav.ts가 앱이 뜨면 이 값을 읽어 보고함).
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      const debug = { tag: tag, rawLink: rawLink, matches: list.length };
-      const writePending = path !== '/' ? setPendingNav(path, debug) : Promise.resolve();
-      return writePending.then(() => {
-        for (const c of list) {
-          if ('focus' in c) {
-            const p = c.focus();
-            if (path === '/') return p;
-            if ('postMessage' in c) c.postMessage({ type: 'tvpc-navigate', path });
-            const navigated = 'navigate' in c
-              ? Promise.resolve(p).then(() => c.navigate(absoluteLink)).catch(() => {})
-              : Promise.resolve(p);
-            // 탭이 완전히 멈춰(freeze) 있다가 이 알림으로 되살아나는
-            // 경우, 방금 보낸 postMessage/navigate를 페이지가 아직 깨어나기
-            // 전이라 놓치는 일이 실기기에서 있었다("눌렀는데 마지막에 보던
-            // 화면 그대로") — 조금 뒤(페이지가 완전히 깨어날 시간을 두고)
-            // 한 번 더 보낸다. 서비스워커가 그새 죽지 않게 이 지연도
-            // event.waitUntil 사슬에 그대로 얹는다.
-            return navigated
-              .then(() => new Promise((resolve) => setTimeout(resolve, 1500)))
-              .then(() => {
-                if ('postMessage' in c) c.postMessage({ type: 'tvpc-navigate', path });
-              });
-          }
-        }
-        return clients.openWindow(absoluteLink);
-      });
-    }),
+    (path !== '/' ? setPendingNav(path, { tag: tag, rawLink: rawLink }) : Promise.resolve()).then(
+      () => clients.openWindow(absoluteLink),
+    ),
   );
 });
