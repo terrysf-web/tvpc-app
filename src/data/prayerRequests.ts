@@ -21,7 +21,7 @@ import { savedPushToken } from '../push';
 
 export interface PrayerRequest {
   id: string;
-  /** 보낸 사람 이름 — 비워두면 익명 */
+  /** 보낸 사람 이름 — 새 요청은 필수(pray-request.tsx에서 검증), 예전 요청 중엔 빈 값(익명)도 있다 */
   name: string;
   text: string;
   createdAt: number;
