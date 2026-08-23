@@ -289,15 +289,25 @@ function splitDetailParts(detail: string): string[] {
   return parts;
 }
 
-/** 파트 문구 끝의 "[곡 제목]"을 찾아 나머지 글(누가 하는지 + '*')와
- * 곡 제목을 분리한다 — 곡 제목은 대괄호 대신 배지로 표시할 것이므로.
- * 영어 모드의 "Hymn 1 [Blessed Assurance]*"처럼 대괄호 뒤에 '*'가 더
- * 붙는 경우도 있어 그 별표는 다시 앞쪽(main) 글에 붙여준다. */
-function parseSongBadge(part: string): { main: string; song: string | null } {
-  const m = part.match(/^(.*?)\s*\[([^\]]+)\]\s*(\*)?$/);
-  if (!m) return { main: part, song: null };
-  const [, main, song, star] = m;
-  return { main: (main + (star ?? '')).trim(), song: song.trim() };
+/** 파트 문구 안의 "[곡 제목]"을 전부 찾아 곡 제목은 배지로, 나머지 글은
+ * 그대로 보여줄 조각들로 나눈다 — "결단의 찬양" 같은 항목은 "[나는 믿네],
+ * [꽃들도]"처럼 곡이 여러 개 이어질 수 있는데, 예전엔 문구 끝에 있는
+ * 마지막 대괄호 하나만 배지로 바꾸고 앞쪽 대괄호는 원문 그대로("[나는
+ * 믿네]") 보여서 대괄호 표기를 안 쓰기로 한 원칙이 깨졌었다. */
+function splitSongBadges(part: string): { text: string; isSong: boolean }[] {
+  const segments: { text: string; isSong: boolean }[] = [];
+  const re = /\[([^\]]+)\]/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(part))) {
+    const before = part.slice(last, m.index);
+    if (before) segments.push({ text: before, isSong: false });
+    segments.push({ text: m[1].trim(), isSong: true });
+    last = re.lastIndex;
+  }
+  const after = part.slice(last);
+  if (after) segments.push({ text: after, isSong: false });
+  return segments;
 }
 
 /** 한글 모드에서는 반대로 영어를 없앤다 — 칸이 좁은데 "책이름 [English]"
@@ -705,17 +715,17 @@ function BulletinCards({
             const displayName = asteriskOnly ? `${name}*` : name;
             const parts = detail ? splitDetailParts(detail) : [];
             const detailBlock = parts.map((part, pi) => {
-              const { main, song } = parseSongBadge(part);
+              const segments = splitSongBadges(part);
               return (
                 <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
                   {parts.length > 1 ? '· ' : ''}
-                  {main}
-                  {song ? (
-                    <>
-                      {main ? ' ' : ''}
-                      <Text style={styles.orderSongBadge}>{`♪ ${song}`}</Text>
-                    </>
-                  ) : null}
+                  {segments.map((seg, si) =>
+                    seg.isSong ? (
+                      <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
+                    ) : (
+                      seg.text
+                    ),
+                  )}
                 </Text>
               );
             });
