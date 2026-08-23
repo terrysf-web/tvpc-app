@@ -31,6 +31,10 @@ const db = getFirestore();
 const messaging = getMessaging();
 
 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+// 주일엔 예배에서 말씀을 이미 듣기 때문에 "오늘의 말씀" 알림은 굳이 필요
+// 없다고 판단 — verse 알림만 주일을 건너뛴다(감사일기는 그대로 보낸다).
+const isSunday =
+  new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short' }) === 'Sun';
 
 async function sendTopic({ topic, defaultTime, timeField, build }) {
   const tokensSnap = await db.collection('pushTokens').where('topics', 'array-contains', topic).get();
@@ -82,6 +86,7 @@ await sendTopic({
   defaultTime: '08:00',
   timeField: 'verseTime',
   build: async () => {
+    if (isSunday) return null;
     const snap = await db.doc(`verses/${today}`).get();
     if (!snap.exists) return null;
     const verse = snap.data();
