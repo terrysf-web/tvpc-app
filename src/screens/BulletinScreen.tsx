@@ -770,7 +770,25 @@ function BulletinCards({
                       <Text style={[styles.orderIconNameOrig, !detail && styles.orderIconNameFull]}>
                         {displayName}
                       </Text>
-                      {!!detail && <Text style={styles.orderIconDetailOrig}>{detail}</Text>}
+                      {!!detail && (
+                        <Text style={styles.orderIconDetailOrig}>
+                          {parts.map((part, pi) => {
+                            const segments = splitSongBadges(part);
+                            return (
+                              <Text key={pi}>
+                                {pi > 0 ? '\n' : ''}
+                                {segments.map((seg, si) =>
+                                  seg.isSong ? (
+                                    <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
+                                  ) : (
+                                    seg.text
+                                  ),
+                                )}
+                              </Text>
+                            );
+                          })}
+                        </Text>
+                      )}
                       {hint}
                     </>
                   )}
