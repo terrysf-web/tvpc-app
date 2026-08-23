@@ -1298,17 +1298,26 @@ function extractOffering(lines) {
   // 그게 유초등부·중고등부(앞쪽) 중 어디가 빈 건지 알 수 없다. 실제로는 거의
   // 항상 한어부·영어부(뒤쪽)에만 값이 있으므로, 칸 수가 모자라면 앞쪽을 '–'로
   // 채워 뒤쪽 칸에 값이 맞춰지게 한다.
-  const toValues = (cols) => {
-    const raw = cols.slice(1).map((v) => v || '–');
+  const toValues = (cols, wholeAsValues = false) => {
+    const raw = (wholeAsValues ? cols : cols.slice(1)).map((v) => v || '–');
     const pad = Math.max(0, columns.length - raw.length);
     return [...Array(pad).fill('–'), ...raw].slice(0, columns.length);
   };
+  // 칸이 하나뿐인 표(야외예배처럼 1부/2부 구분 없는 단일 예배 주)는 라벨과
+  // 값이 세로로 어긋나면 값 줄에 라벨 칸 자체가 없다 — "1,050.00"처럼
+  // 숫자 하나만 있는 줄이 cols[0]에 그대로 들어와 라벨로 오인되고(진짜
+  // 라벨인 "주일헌금"은 값을 못 받아 '–'로 남는다). 그런 줄은 라벨이
+  // 아니라 값으로 보고, 통째로(cols.slice(1)이 아니라 cols 그대로) 앞
+  // 항목에 이어붙인다.
+  const NUMERIC_ONLY = /^[\d,]+(\.\d+)?$/;
   for (let i = start + 1; i < lines.length; i++) {
     const t = lines[i].trim();
     if (!t) continue;
     if (/예배위원\s*안내/.test(t)) break;
     const cols = splitPillar(t);
-    const label = cols[0].replace(/\s+/g, '');
+    const rawLabel = cols[0].replace(/\s+/g, '');
+    const isNumericOnly = NUMERIC_ONLY.test(rawLabel);
+    const label = isNumericOnly ? '' : rawLabel;
     if (!columns) {
       if (label === '구분') columns = cols.slice(1).map((c) => c.replace(/\s+/g, ''));
       continue;
@@ -1317,7 +1326,7 @@ function extractOffering(lines) {
       // 라벨과 값이 세로로 살짝 어긋나 두 줄로 쪼개진 경우(예: "선교 헌금" 다음
       // 줄에 "800.00"만 단독으로 찍힘) — 버리지 않고 바로 앞 항목에 이어붙인다.
       if (rows.length) {
-        const cont = toValues(cols);
+        const cont = toValues(cols, isNumericOnly);
         const prev = rows[rows.length - 1].values;
         for (let k = 0; k < prev.length; k++) {
           if (prev[k] === '–' && cont[k] !== '–') prev[k] = cont[k];
