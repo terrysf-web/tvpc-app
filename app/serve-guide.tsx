@@ -1,6 +1,7 @@
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
 import ChevronUp from 'lucide-react-native/dist/esm/icons/chevron-up.mjs';
 import ExternalLink from 'lucide-react-native/dist/esm/icons/external-link.mjs';
+import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -41,7 +42,8 @@ export default function ServeGuideScreen() {
         <View style={[styles.listCard, shadows.card]}>
           {SERVE_ROLES.map((role, i) => {
             const isOpen = openKey === role.key;
-            const text = guides[role.key]?.trim();
+            const text = guides[role.key]?.text?.trim();
+            const pdfUrl = guides[role.key]?.pdfUrl?.trim();
             return (
               <View key={role.key}>
                 <Pressable
@@ -60,8 +62,20 @@ export default function ServeGuideScreen() {
                     style={[styles.panel, i < SERVE_ROLES.length - 1 && styles.rowDivider]}
                   >
                     <Text style={styles.panelText}>
-                      {text || '아직 안내 내용이 준비되지 않았습니다. 담당 교역자·부서장에게 문의해 주세요.'}
+                      {text ||
+                        (pdfUrl
+                          ? ''
+                          : '아직 안내 내용이 준비되지 않았습니다. 담당 교역자·부서장에게 문의해 주세요.')}
                     </Text>
+                    {!!pdfUrl && (
+                      <Pressable
+                        style={[styles.pdfBtn, !!text && { marginTop: 10 }]}
+                        onPress={() => openExternal(pdfUrl)}
+                      >
+                        <FileText size={15} color={colors.primary} strokeWidth={2} />
+                        <Text style={styles.pdfBtnText}>PDF 매뉴얼 보기</Text>
+                      </Pressable>
+                    )}
                   </View>
                 )}
               </View>
@@ -120,4 +134,15 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, fontFamily: font.medium, fontSize: 14, color: colors.body },
   panel: { paddingBottom: 16, paddingRight: 24 },
   panelText: { fontFamily: font.regular, fontSize: 13, lineHeight: 20, color: colors.muted },
+  pdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  pdfBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
 });

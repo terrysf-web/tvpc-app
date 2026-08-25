@@ -63,7 +63,7 @@ import {
   saveSundayBg,
 } from '../verseBg';
 import { ServiceItem, saveServices, useServices } from '../data/services';
-import { SERVE_ROLES, saveServeGuide, useServeGuides } from '../data/serveGuides';
+import { SERVE_ROLES, type ServeGuideEntry, saveServeGuide, useServeGuides } from '../data/serveGuides';
 
 type AdminTab =
   | 'verse'
@@ -196,7 +196,7 @@ export default function AdminScreen() {
   // 섬김이 안내 — 역할별 안내문 편집. 저장은 한 번에 다 하지 않고 역할별로
   // 따로 저장한다(여러 담당자가 각자 자기 역할만 손보는 경우가 많아서).
   const { guides: liveGuides, ready: guidesReady } = useServeGuides();
-  const [guideDrafts, setGuideDrafts] = useState<Record<string, string>>({});
+  const [guideDrafts, setGuideDrafts] = useState<Record<string, ServeGuideEntry>>({});
   const [guidesLoaded, setGuidesLoaded] = useState(false);
   useEffect(() => {
     if (guidesReady && !guidesLoaded) {
@@ -204,14 +204,14 @@ export default function AdminScreen() {
       setGuidesLoaded(true);
     }
   }, [guidesReady, guidesLoaded, liveGuides]);
-  const updateGuide = (key: string, v: string) =>
-    setGuideDrafts((m) => ({ ...m, [key]: v }));
+  const updateGuide = (key: string, field: keyof ServeGuideEntry, v: string) =>
+    setGuideDrafts((m) => ({ ...m, [key]: { ...m[key], [field]: v } }));
   const [savingGuideKey, setSavingGuideKey] = useState<string | null>(null);
   const saveGuideRow = async (key: string) => {
     setSavingGuideKey(key);
     setMsg(null);
     try {
-      await saveServeGuide(key, guideDrafts[key] ?? '');
+      await saveServeGuide(key, guideDrafts[key] ?? {});
       setMsg('✓ 저장했습니다.');
     } catch (e) {
       setMsg(`저장 실패: ${e instanceof Error ? e.message : '권한을 확인해 주세요.'}`);
@@ -1354,14 +1354,20 @@ export default function AdminScreen() {
               <View key={role.key} style={{ marginBottom: 14 }}>
                 <Field
                   label={role.label}
-                  value={guideDrafts[role.key] ?? ''}
-                  onChange={(t) => updateGuide(role.key, t)}
+                  value={guideDrafts[role.key]?.text ?? ''}
+                  onChange={(t) => updateGuide(role.key, 'text', t)}
                   placeholder="이 역할을 맡은 분이 알아야 할 사용법·절차를 적어주세요"
                   multiline
                   lines={3}
                 />
+                <Field
+                  label="PDF 매뉴얼 링크 (선택)"
+                  value={guideDrafts[role.key]?.pdfUrl ?? ''}
+                  onChange={(t) => updateGuide(role.key, 'pdfUrl', t)}
+                  placeholder="구글 드라이브 등 PDF 공유 링크 (https://...)"
+                />
                 <Pressable
-                  style={[styles.ghostBtn, { alignSelf: 'flex-start', marginTop: -8 }]}
+                  style={[styles.ghostBtn, { alignSelf: 'flex-start', marginTop: -2 }]}
                   onPress={() => saveGuideRow(role.key)}
                   disabled={savingGuideKey === role.key}
                 >

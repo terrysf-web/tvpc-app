@@ -41,7 +41,21 @@ export const SERVE_FORM_URL = 'https://forms.gle/eKnerRMxQwFDDoam7';
 
 const CACHE_KEY = 'tvpc.serveGuidesCache';
 
-type GuideMap = Record<string, string>;
+/** 안내 내용 — 텍스트, PDF 링크(구글 드라이브 등 공유 링크) 둘 다 선택 사항.
+ * 텍스트만/PDF만/둘 다 있을 수 있고, 관리자가 아직 안 채웠으면 둘 다 없다. */
+export interface ServeGuideEntry {
+  text?: string;
+  pdfUrl?: string;
+}
+
+type GuideMap = Record<string, ServeGuideEntry>;
+
+// 옛 저장 형식(문자열 하나 = 안내 텍스트)도 그대로 보여줄 수 있게 변환한다.
+function normalizeGuide(v: unknown): ServeGuideEntry {
+  if (typeof v === 'string') return { text: v };
+  if (v && typeof v === 'object') return v as ServeGuideEntry;
+  return {};
+}
 
 function readCache(): GuideMap | null {
   try {
@@ -79,7 +93,9 @@ export function useServeGuides(): { guides: GuideMap; ready: boolean } {
         }
         await ensureAnonymousAuth();
         const snap = await getDoc(doc(db, 'content', 'serveGuides'));
-        const map = (snap.exists() ? (snap.get('guides') as GuideMap | undefined) : undefined) ?? {};
+        const raw = (snap.exists() ? (snap.get('guides') as Record<string, unknown> | undefined) : undefined) ?? {};
+        const map: GuideMap = {};
+        for (const [k, v] of Object.entries(raw)) map[k] = normalizeGuide(v);
         writeCache(map);
         if (on) setState({ map, ready: true });
       } catch {
@@ -95,8 +111,12 @@ export function useServeGuides(): { guides: GuideMap; ready: boolean } {
 }
 
 /** 관리자 화면 — 한 역할의 안내문 저장(다른 역할 안내문은 그대로 둔다) */
-export async function saveServeGuide(key: string, content: string): Promise<void> {
+export async function saveServeGuide(key: string, entry: ServeGuideEntry): Promise<void> {
   const db = getDb();
   if (!db) throw new Error('데이터베이스 연결이 없습니다.');
-  await setDoc(doc(db, 'content', 'serveGuides'), { guides: { [key]: content.trim() } }, { merge: true });
+  const cleaned: ServeGuideEntry = {
+    text: entry.text?.trim() || '',
+    pdfUrl: entry.pdfUrl?.trim() || '',
+  };
+  await setDoc(doc(db, 'content', 'serveGuides'), { guides: { [key]: cleaned } }, { merge: true });
 }
