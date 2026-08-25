@@ -63,6 +63,7 @@ import {
   saveSundayBg,
 } from '../verseBg';
 import { ServiceItem, saveServices, useServices } from '../data/services';
+import { SERVE_ROLES, saveServeGuide, useServeGuides } from '../data/serveGuides';
 
 type AdminTab =
   | 'verse'
@@ -73,6 +74,7 @@ type AdminTab =
   | 'alert'
   | 'members'
   | 'offering'
+  | 'serveGuide'
   | 'errors';
 
 // 알림(긴급 공지)은 더보기의 전용 화면으로 이동. 주보는 토요일마다 홈페이지에서
@@ -84,6 +86,7 @@ const TABS: { key: AdminTab; label: string }[] = [
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
   { key: 'info', label: '예배시간' },
+  { key: 'serveGuide', label: '봉사 안내' },
   { key: 'members', label: '가입 승인' },
   { key: 'errors', label: '오류' },
 ];
@@ -189,6 +192,33 @@ export default function AdminScreen() {
     setSvc((list) => list.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)));
   const removeSvc = (i: number) => setSvc((list) => list.filter((_, idx) => idx !== i));
   const addSvc = () => setSvc((list) => [...list, { name: '', time: '', place: '' }]);
+
+  // 봉사 안내 — 역할별 안내문 편집. 저장은 한 번에 다 하지 않고 역할별로
+  // 따로 저장한다(여러 담당자가 각자 자기 역할만 손보는 경우가 많아서).
+  const { guides: liveGuides, ready: guidesReady } = useServeGuides();
+  const [guideDrafts, setGuideDrafts] = useState<Record<string, string>>({});
+  const [guidesLoaded, setGuidesLoaded] = useState(false);
+  useEffect(() => {
+    if (guidesReady && !guidesLoaded) {
+      setGuideDrafts({ ...liveGuides });
+      setGuidesLoaded(true);
+    }
+  }, [guidesReady, guidesLoaded, liveGuides]);
+  const updateGuide = (key: string, v: string) =>
+    setGuideDrafts((m) => ({ ...m, [key]: v }));
+  const [savingGuideKey, setSavingGuideKey] = useState<string | null>(null);
+  const saveGuideRow = async (key: string) => {
+    setSavingGuideKey(key);
+    setMsg(null);
+    try {
+      await saveServeGuide(key, guideDrafts[key] ?? '');
+      setMsg('✓ 저장했습니다.');
+    } catch (e) {
+      setMsg(`저장 실패: ${e instanceof Error ? e.message : '권한을 확인해 주세요.'}`);
+    } finally {
+      setSavingGuideKey(null);
+    }
+  };
 
   // 주보 업로드
   const [bDate, setBDate] = useState(upcomingSunday());
@@ -1310,6 +1340,37 @@ export default function AdminScreen() {
             >
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '예배 시간 저장'}</Text>
             </Pressable>
+          </View>
+        )}
+
+        {tab === 'serveGuide' && (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.blockTitle}>봉사 분야별 안내</Text>
+            <Text style={styles.bgHint}>
+              더보기 › 봉사 안내에서 해당 분야를 눌렀을 때 보이는 내용입니다.
+              비워두면 "아직 준비되지 않았습니다"로 표시됩니다.
+            </Text>
+            {SERVE_ROLES.map((role) => (
+              <View key={role.key} style={{ marginBottom: 14 }}>
+                <Field
+                  label={role.label}
+                  value={guideDrafts[role.key] ?? ''}
+                  onChange={(t) => updateGuide(role.key, t)}
+                  placeholder="이 역할을 맡은 분이 알아야 할 사용법·절차를 적어주세요"
+                  multiline
+                  lines={3}
+                />
+                <Pressable
+                  style={[styles.ghostBtn, { alignSelf: 'flex-start', marginTop: -8 }]}
+                  onPress={() => saveGuideRow(role.key)}
+                  disabled={savingGuideKey === role.key}
+                >
+                  <Text style={styles.ghostBtnText}>
+                    {savingGuideKey === role.key ? '저장 중…' : '이 항목 저장'}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>

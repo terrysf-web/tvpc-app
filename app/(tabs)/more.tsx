@@ -5,6 +5,7 @@ import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import Heart from 'lucide-react-native/dist/esm/icons/heart.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
+import HandHelping from 'lucide-react-native/dist/esm/icons/hand-helping.mjs';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
 import Info from 'lucide-react-native/dist/esm/icons/info.mjs';
 import Mail from 'lucide-react-native/dist/esm/icons/mail.mjs';
@@ -36,6 +37,7 @@ const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
   { key: 'gratitude', label: '감사일기', icon: Heart },
+  { key: 'serveGuide', label: '봉사 안내', icon: HandHelping },
   { key: 'album', label: '교우 앨범', icon: Images },
   { key: 'contact', label: '도움받기', icon: MessageCircle },
   { key: 'memoBackup', label: '메모 백업/복원', icon: Download },
@@ -93,6 +95,10 @@ export default function MoreScreen() {
     }
     if (key === 'gratitude') {
       router.push('/gratitude');
+      return;
+    }
+    if (key === 'serveGuide') {
+      router.push('/serve-guide');
       return;
     }
     const pages: Record<string, string> = {
