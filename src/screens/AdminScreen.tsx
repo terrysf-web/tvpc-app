@@ -86,7 +86,7 @@ const TABS: { key: AdminTab; label: string }[] = [
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
   { key: 'info', label: '예배시간' },
-  { key: 'serveGuide', label: '봉사 안내' },
+  { key: 'serveGuide', label: '섬김이 안내' },
   { key: 'members', label: '가입 승인' },
   { key: 'errors', label: '오류' },
 ];
@@ -193,7 +193,7 @@ export default function AdminScreen() {
   const removeSvc = (i: number) => setSvc((list) => list.filter((_, idx) => idx !== i));
   const addSvc = () => setSvc((list) => [...list, { name: '', time: '', place: '' }]);
 
-  // 봉사 안내 — 역할별 안내문 편집. 저장은 한 번에 다 하지 않고 역할별로
+  // 섬김이 안내 — 역할별 안내문 편집. 저장은 한 번에 다 하지 않고 역할별로
   // 따로 저장한다(여러 담당자가 각자 자기 역할만 손보는 경우가 많아서).
   const { guides: liveGuides, ready: guidesReady } = useServeGuides();
   const [guideDrafts, setGuideDrafts] = useState<Record<string, string>>({});
@@ -1347,7 +1347,7 @@ export default function AdminScreen() {
           <View style={[styles.card, shadows.card]}>
             <Text style={styles.blockTitle}>봉사 분야별 안내</Text>
             <Text style={styles.bgHint}>
-              더보기 › 봉사 안내에서 해당 분야를 눌렀을 때 보이는 내용입니다.
+              더보기 › 섬김이 안내에서 해당 분야를 눌렀을 때 보이는 내용입니다.
               비워두면 "아직 준비되지 않았습니다"로 표시됩니다.
             </Text>
             {SERVE_ROLES.map((role) => (

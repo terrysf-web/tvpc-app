@@ -10,7 +10,7 @@ import { openExternal } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 
 /**
- * 더보기 > 봉사 안내 — 봉사 지원은 구글 폼으로 받고(위쪽 버튼), 이미
+ * 더보기 > 섬김이 안내 — 봉사 지원은 구글 폼으로 받고(위쪽 버튼), 이미
  * 봉사 중인 분들을 위해 역할별 실제 사용법(음향·프리젠테이션·방송 등)을
  * 눌러서 펼쳐 볼 수 있게 한다. 안내문은 관리자 화면에서 채워 넣으며,
  * 아직 안 채운 역할은 "준비 중" 문구를 대신 보여준다.
@@ -21,7 +21,7 @@ export default function ServeGuideScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="봉사 안내" />
+      <OverlayHeader title="섬김이 안내" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable
           style={[styles.applyCard, shadows.card]}

@@ -37,7 +37,7 @@ const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
   { key: 'gratitude', label: '감사일기', icon: Heart },
-  { key: 'serveGuide', label: '봉사 안내', icon: HandHelping },
+  { key: 'serveGuide', label: '섬김이 안내', icon: HandHelping },
   { key: 'album', label: '교우 앨범', icon: Images },
   { key: 'contact', label: '도움받기', icon: MessageCircle },
   { key: 'memoBackup', label: '메모 백업/복원', icon: Download },
