@@ -48,7 +48,16 @@ jobs:
             echo "태평양 12:30까지 $(( (target - now) / 60 ))분 대기"
             sleep $((target - now))
           else
-            echo "이미 태평양 12:30이 지나 바로 보냅니다"
+            late=$(( (now - target) / 60 ))
+            echo "이미 태평양 12:30이 지나 바로 보냅니다 (${late}분 늦음)"
+            # 깃허브 예약 실행 대기열이 유독 밀리면 몇 시간씩 늦게 시작하기도
+            # 한다(실측: 오전 8시 알림이 오후 3시에 도착한 사례) — 그렇게
+            # 늦으면 "오늘의 말씀"이 오히려 혼란스러우니 3시간 넘게
+            # 늦었으면 오늘은 건너뛴다.
+            if [ "$late" -gt 180 ]; then
+              echo "3시간 넘게 늦어(${late}분) 오늘은 건너뜁니다"
+              echo "skip=true" >> "$GITHUB_ENV"
+            fi
           fi
 
       - name: Send push
