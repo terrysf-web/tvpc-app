@@ -328,7 +328,7 @@ async function sendScheduledPush(targetTime) {
 const SCHEDULED_PUSH_OPTS = {
   timeZone: 'America/Los_Angeles',
   memory: '256MiB',
-  timeoutSeconds: 300,
+  timeoutSeconds: 540,
   retry: false,
 };
 
