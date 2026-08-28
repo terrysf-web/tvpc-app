@@ -119,7 +119,9 @@ export default function MoreScreen() {
 
       {/* 관리자 전용 — 긴급 공지 바로가기. 목회자는 이것만(가입 승인은
           목회자 화면엔 아예 없는 탭이라 자리만 차지해서 뺀다), 일반
-          관리자는 가장 자주 쓰는 가입 승인과 나란히 절반씩 보여준다. */}
+          관리자는 가장 자주 쓰는 가입 승인과 나란히 절반씩 보여준다.
+          일반 교인 눈에는 안 보이는 카드라 위에 작게 표시해 둔다. */}
+      {isAdmin && <Text style={styles.adminTag}>관리자</Text>}
       {isAdmin && role === 'pastor' && (
         <Pressable
           style={[styles.alertCard, shadows.card]}
@@ -298,6 +300,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     color: colors.title,
     marginBottom: 16,
+  },
+
+  // 관리자만 보이는 카드 위에 다는 작은 표시 — 오른쪽 위, 옅은 글씨
+  adminTag: {
+    alignSelf: 'flex-end',
+    fontFamily: font.bold,
+    fontSize: 11,
+    letterSpacing: 0.2,
+    color: colors.faint2,
+    marginBottom: 6,
   },
 
   alertCard: {
