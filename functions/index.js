@@ -12,6 +12,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 initializeApp();
 setGlobalOptions({ maxInstances: 2 });
@@ -217,4 +218,131 @@ export const notifyPrayerAnswer = onDocumentUpdated(
     });
     console.log(`응답 나눔 알림: 목회자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
   },
+);
+
+/**
+ * "오늘의 말씀" + "감사일기" 예약 발송 — 태평양 시각 08:00/12:30/19:00
+ * 정각에 맞춰 보낸다.
+ *
+ * 원래 깃허브 Actions 예약 실행(scripts/send-scheduled-push.mjs)이
+ * 맡았었는데, 깃허브의 예약 실행은 공용 대기열이라 몇 시간씩 밀리는
+ * 일이 있다(2026-08-27 실측 — 오전 8시 알림이 오후 3시에야 도착,
+ * 12:30 알림은 6시간 가까이 밀림). Cloud Scheduler는 구글이 직접
+ * 관리하는 전용 크론이라 정각에 훨씬 안정적으로 실행되므로, 알림
+ * 시각의 정확도가 중요한 이 기능만 여기로 옮겼다.
+ */
+async function sendScheduledPush(targetTime) {
+  const db = getFirestore();
+  const messaging = getMessaging();
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  // 주일엔 예배에서 말씀을 이미 듣기 때문에 "오늘의 말씀" 알림은 건너뛴다
+  // (감사일기는 그대로 보낸다).
+  const isSunday =
+    new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short' }) ===
+    'Sun';
+
+  async function sendTopic({ topic, defaultTime, timeField, build }) {
+    const tokensSnap = await db
+      .collection('pushTokens')
+      .where('topics', 'array-contains', topic)
+      .get();
+    const targets = tokensSnap.docs.filter((d) => (d.get(timeField) ?? defaultTime) === targetTime);
+    console.log(`[${topic}] ${targetTime} 타임 대상 ${targets.length}대 (전체 ${tokensSnap.size}대 중)`);
+    if (targets.length === 0) return;
+
+    const content = await build();
+    if (!content) {
+      console.log(`[${topic}] 오늘 보낼 내용이 없어 건너뜁니다.`);
+      return;
+    }
+    const { title, body, link, tag } = content;
+
+    const tokens = targets.map((d) => d.id);
+    let sent = 0;
+    let removed = 0;
+    for (let i = 0; i < tokens.length; i += 500) {
+      const chunk = tokens.slice(i, i + 500);
+      const res = await messaging.sendEachForMulticast({
+        tokens: chunk,
+        notification: { title, body },
+        webpush: {
+          notification: { icon: '/icon-192.png', tag },
+          fcmOptions: { link },
+        },
+      });
+      for (let j = 0; j < res.responses.length; j++) {
+        const r = res.responses[j];
+        if (r.success) {
+          sent++;
+        } else {
+          const code = r.error?.code || '';
+          if (
+            code.includes('registration-token-not-registered') ||
+            code.includes('invalid-argument')
+          ) {
+            await db.doc(`pushTokens/${chunk[j]}`).delete().catch(() => {});
+            removed++;
+          } else {
+            console.log(`  ! [${topic}] 발송 실패(${code})`);
+          }
+        }
+      }
+    }
+    console.log(`[${topic}] 완료: ${sent}대 발송, 무효 토큰 ${removed}개 정리`);
+  }
+
+  await sendTopic({
+    topic: 'verse',
+    defaultTime: '08:00',
+    timeField: 'verseTime',
+    build: async () => {
+      if (isSunday) return null;
+      const snap = await db.doc(`verses/${today}`).get();
+      if (!snap.exists) return null;
+      const verse = snap.data();
+      return {
+        title: `오늘의 말씀 · ${verse.reference}`,
+        body: String(verse.heroText || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 160),
+        link: 'https://app.tvpc.church/word',
+        tag: `verse-${today}`,
+      };
+    },
+  });
+
+  await sendTopic({
+    topic: 'gratitude',
+    defaultTime: '19:00',
+    timeField: 'gratitudeTime',
+    build: async () => ({
+      title: '감사일기',
+      body: '오늘도 하나님의 은혜 안에 지내셨나요? 작은 것 하나라도 적어보세요.',
+      link: 'https://app.tvpc.church/gratitude',
+      tag: `gratitude-${today}`,
+    }),
+  });
+}
+
+const SCHEDULED_PUSH_OPTS = {
+  timeZone: 'America/Los_Angeles',
+  memory: '256MiB',
+  timeoutSeconds: 300,
+  retry: false,
+};
+
+export const pushScheduled0800 = onSchedule(
+  { schedule: '0 8 * * *', ...SCHEDULED_PUSH_OPTS },
+  () => sendScheduledPush('08:00'),
+);
+
+export const pushScheduled1230 = onSchedule(
+  { schedule: '30 12 * * *', ...SCHEDULED_PUSH_OPTS },
+  () => sendScheduledPush('12:30'),
+);
+
+export const pushScheduled1900 = onSchedule(
+  { schedule: '0 19 * * *', ...SCHEDULED_PUSH_OPTS },
+  () => sendScheduledPush('19:00'),
 );
