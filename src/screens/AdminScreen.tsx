@@ -81,13 +81,15 @@ type AdminTab =
 // 자동 동기화된다. 교인 가입 승인은 교우 앨범이 로그인 전용으로 바뀌며 다시
 // 필요해져 탭을 복원했다 — 헌금은 아직 안 씀(코드는 유지, 다시 넣으면 복원).
 // 역할 구분: 목회자(pastor)는 말씀만, 관리자(admin)는 소식·일정·교회정보·오류를 관리한다.
+// 가입 승인이 관리자가 가장 자주 쓰는 탭이라 맨 앞에 둔다(목회자는 '말씀'
+// 하나만 보이므로 이 순서와 무관).
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
+  { key: 'members', label: '가입 승인' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
   { key: 'info', label: '예배시간' },
   { key: 'serveGuide', label: '섬김이 안내' },
-  { key: 'members', label: '가입 승인' },
   { key: 'errors', label: '오류' },
 ];
 
