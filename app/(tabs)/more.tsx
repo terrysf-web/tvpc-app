@@ -161,7 +161,7 @@ export default function MoreScreen() {
               </View>
               <Text style={[styles.gridLabel, { color: '#2C5E3A' }]}>가입 승인</Text>
             </View>
-            <Text style={[styles.gridSub, { color: '#5F8A6C' }]}>새 교인 승인하기</Text>
+            <Text style={[styles.gridSub, { color: '#5F8A6C' }]}>교인 로그인 승인하기</Text>
           </Pressable>
         </View>
       )}
