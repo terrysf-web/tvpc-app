@@ -130,7 +130,7 @@ export default function AlertSendScreen() {
               style={[styles.input, styles.inputMulti]}
               value={body}
               onChangeText={setBody}
-              placeholder="예: 오늘 저녁 예배는 폭설로 온라인으로 전환합니다."
+              placeholder="예: 오늘 저녁 예배는 폭우로 온라인으로 전환합니다."
               placeholderTextColor={colors.faint}
               multiline
             />

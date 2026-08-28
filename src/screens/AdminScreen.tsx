@@ -991,7 +991,7 @@ export default function AdminScreen() {
               label="내용"
               value={aBody}
               onChange={setABody}
-              placeholder="예: 오늘 저녁 예배는 폭설로 온라인으로 전환합니다."
+              placeholder="예: 오늘 저녁 예배는 폭우로 온라인으로 전환합니다."
               multiline
               lines={4}
             />
