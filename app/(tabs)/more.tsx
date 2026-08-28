@@ -117,8 +117,10 @@ export default function MoreScreen() {
     >
       <Text style={styles.screenTitle}>더보기</Text>
 
-      {/* 관리자 전용 — 긴급 공지 바로가기 */}
-      {isAdmin && (
+      {/* 관리자 전용 — 긴급 공지 바로가기. 목회자는 이것만(가입 승인은
+          목회자 화면엔 아예 없는 탭이라 자리만 차지해서 뺀다), 일반
+          관리자는 가장 자주 쓰는 가입 승인과 나란히 절반씩 보여준다. */}
+      {isAdmin && role === 'pastor' && (
         <Pressable
           style={[styles.alertCard, shadows.card]}
           onPress={() => router.push('/alert-send')}
@@ -132,6 +134,30 @@ export default function MoreScreen() {
           </View>
           <ChevronRight size={18} color="#E5A9A4" strokeWidth={2} />
         </Pressable>
+      )}
+      {isAdmin && role !== 'pastor' && (
+        <View style={styles.gridRow}>
+          <Pressable
+            style={[styles.gridCard, shadows.card, { backgroundColor: '#FFF5F4' }]}
+            onPress={() => router.push('/alert-send')}
+          >
+            <View style={[styles.gridChip, { backgroundColor: colors.heartActive }]}>
+              <BellRing size={20} color="#FFFFFF" strokeWidth={1.9} />
+            </View>
+            <Text style={[styles.gridLabel, { color: '#8F3B33' }]}>긴급 공지</Text>
+            <Text style={[styles.gridSub, { color: '#B07068' }]}>모든 교인에게 알림</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.gridCard, shadows.card, { backgroundColor: '#F2FAF4' }]}
+            onPress={() => router.push('/admin')}
+          >
+            <View style={[styles.gridChip, { backgroundColor: colors.tagGreenText }]}>
+              <UserRound size={20} color="#FFFFFF" strokeWidth={1.9} />
+            </View>
+            <Text style={[styles.gridLabel, { color: '#2C5E3A' }]}>가입 승인</Text>
+            <Text style={[styles.gridSub, { color: '#5F8A6C' }]}>새 교인 승인하기</Text>
+          </Pressable>
+        </View>
       )}
 
       {/* 목회자 전용 — 기도요청함 */}
