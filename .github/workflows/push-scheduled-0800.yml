@@ -1,0 +1,67 @@
+# 오전 8시(태평양) 타임 — 오늘의 말씀·감사일기 통합 발송.
+# 알림 시각을 오전 8시로 고른 기기들만 대상(더보기 탭 알림 설정,
+# src/push.ts의 NOTIFICATION_TIMES 참고). scripts/send-scheduled-push.mjs가
+# 실제 발송을 맡는다.
+name: Push scheduled 08:00
+
+on:
+  schedule:
+    # 깃허브 예약 실행은 공용 대기줄이라 1시간 반~2시간 반씩 늦게 시작하는
+    # 일이 잦다(실측). 그래서 넉넉히 일찍(12:05 UTC = 태평양 새벽 5시경)
+    # 깨어난 뒤, 아래 '8시까지 대기' 단계에서 시각을 정확히 맞춰 보낸다.
+    - cron: '5 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install firebase-admin
+        if: env.skip != 'true'
+        run: npm install --no-save firebase-admin
+
+      # 예약 실행이 얼마나 늦게 시작하든 발송은 태평양 8:00 정각에 —
+      # 이미 8시가 지나 시작했다면 그냥 바로 보낸다.
+      # (손으로 돌리는 workflow_dispatch 는 기다리지 않는다)
+      - name: Wait until 8:00 AM Pacific
+        if: env.skip != 'true' && github.event_name == 'schedule'
+        run: |
+          target=$(TZ=America/Los_Angeles date -d '08:00' +%s)
+          now=$(date +%s)
+          if [ "$now" -lt "$target" ]; then
+            echo "태평양 8시까지 $(( (target - now) / 60 ))분 대기"
+            sleep $((target - now))
+          else
+            late=$(( (now - target) / 60 ))
+            echo "이미 태평양 8시가 지나 바로 보냅니다 (${late}분 늦음)"
+            # 깃허브 예약 실행 대기열이 유독 밀리면 몇 시간씩 늦게 시작하기도
+            # 한다(실측: 오전 8시 알림이 오후 3시에 도착한 사례) — 그렇게
+            # 늦으면 "오늘의 말씀"이 오히려 혼란스러우니 3시간 넘게
+            # 늦었으면 오늘은 건너뛴다.
+            if [ "$late" -gt 180 ]; then
+              echo "3시간 넘게 늦어(${late}분) 오늘은 건너뜁니다"
+              echo "skip=true" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      - name: Send push
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TARGET_TIME: '08:00'
+        run: node scripts/send-scheduled-push.mjs
