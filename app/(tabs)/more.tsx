@@ -141,20 +141,24 @@ export default function MoreScreen() {
             style={[styles.gridCard, shadows.card, { backgroundColor: '#FFF5F4' }]}
             onPress={() => router.push('/alert-send')}
           >
-            <View style={[styles.gridChip, { backgroundColor: colors.heartActive }]}>
-              <BellRing size={20} color="#FFFFFF" strokeWidth={1.9} />
+            <View style={styles.gridHeadRow}>
+              <View style={[styles.gridChip, styles.gridChipInline, { backgroundColor: colors.heartActive }]}>
+                <BellRing size={16} color="#FFFFFF" strokeWidth={1.9} />
+              </View>
+              <Text style={[styles.gridLabel, { color: '#8F3B33' }]}>긴급 공지</Text>
             </View>
-            <Text style={[styles.gridLabel, { color: '#8F3B33' }]}>긴급 공지</Text>
             <Text style={[styles.gridSub, { color: '#B07068' }]}>모든 교인에게 알림</Text>
           </Pressable>
           <Pressable
             style={[styles.gridCard, shadows.card, { backgroundColor: '#F2FAF4' }]}
             onPress={() => router.push('/admin')}
           >
-            <View style={[styles.gridChip, { backgroundColor: colors.tagGreenText }]}>
-              <UserRound size={20} color="#FFFFFF" strokeWidth={1.9} />
+            <View style={styles.gridHeadRow}>
+              <View style={[styles.gridChip, styles.gridChipInline, { backgroundColor: colors.tagGreenText }]}>
+                <UserRound size={16} color="#FFFFFF" strokeWidth={1.9} />
+              </View>
+              <Text style={[styles.gridLabel, { color: '#2C5E3A' }]}>가입 승인</Text>
             </View>
-            <Text style={[styles.gridLabel, { color: '#2C5E3A' }]}>가입 승인</Text>
             <Text style={[styles.gridSub, { color: '#5F8A6C' }]}>새 교인 승인하기</Text>
           </Pressable>
         </View>
@@ -183,10 +187,12 @@ export default function MoreScreen() {
           style={[styles.gridCard, shadows.card]}
           onPress={() => router.push('/pray-request')}
         >
-          <View style={[styles.gridChip, { backgroundColor: colors.tagGreenBg }]}>
-            <Text style={styles.prayEmoji}>🙏</Text>
+          <View style={styles.gridHeadRow}>
+            <View style={[styles.gridChip, styles.gridChipInline, { backgroundColor: colors.tagGreenBg }]}>
+              <Text style={styles.prayEmoji}>🙏</Text>
+            </View>
+            <Text style={styles.gridLabel}>함께기도해요</Text>
           </View>
-          <Text style={styles.gridLabel}>함께기도해요</Text>
           <Text style={styles.gridSub}>
             목사님께 나누고 싶은 기도 제목이나 마음의 짐이 있다면 편하게
             적어주세요. 목사님이 함께 기도합니다
@@ -196,10 +202,12 @@ export default function MoreScreen() {
           style={[styles.gridCard, shadows.card]}
           onPress={() => openEmail('admin@tvpc.church', '도움 요청')}
         >
-          <View style={[styles.gridChip, { backgroundColor: colors.tagBlueBg }]}>
-            <Mail size={22} color={colors.primary} strokeWidth={1.9} />
+          <View style={styles.gridHeadRow}>
+            <View style={[styles.gridChip, styles.gridChipInline, { backgroundColor: colors.tagBlueBg }]}>
+              <Mail size={17} color={colors.primary} strokeWidth={1.9} />
+            </View>
+            <Text style={styles.gridLabel}>도움받기</Text>
           </View>
-          <Text style={styles.gridLabel}>도움받기</Text>
           <Text style={styles.gridSub}>도움이 필요하시면 언제든지 말씀해 주세요</Text>
         </Pressable>
       </View>
@@ -350,8 +358,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 6,
   },
+  // 아이콘을 글자 위가 아니라 옆에 두는 줄 — 설명(gridSub)은 그 아래 그대로 둔다
+  gridHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  gridChipInline: { width: 30, height: 30, borderRadius: 10, marginBottom: 0 },
   gridLabel: { fontFamily: font.bold, fontSize: 14.5, color: colors.title },
-  prayEmoji: { fontSize: 21, lineHeight: 26 },
+  prayEmoji: { fontSize: 16, lineHeight: 19 },
   gridSub: { fontFamily: font.regular, fontSize: 12, color: colors.muted },
 
   praiseCard: {
