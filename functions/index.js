@@ -346,3 +346,52 @@ export const pushScheduled1900 = onSchedule(
   { schedule: '0 19 * * *', ...SCHEDULED_PUSH_OPTS },
   () => sendScheduledPush('19:00'),
 );
+
+/**
+ * 성경(개역개정판) 저작권 사용허가 갱신 알림 — 관리자로 로그인한 기기에
+ * 재신청을 알린다.
+ *
+ * 대한성서공회 사용허가 공문(대성공 : 저2026-042)에 따르면 이번 허가
+ * 기간은 2026-08-01~2027-07-31(1년)이고, 만료 한 달 전까지는 재신청서를
+ * 내야 한다. 앞으로도 같은 주기(1년, 8월 시작)로 갱신될 걸로 보고 매년
+ * 6월 30일에 알리도록 했다 — 다음 허가 기간이 달라지면 이 날짜를
+ * 다시 조정하면 된다.
+ */
+export const remindBibleLicense = onSchedule(
+  {
+    schedule: '0 9 30 6 *',
+    timeZone: 'America/Los_Angeles',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+    retry: false,
+  },
+  async () => {
+    const db = getFirestore();
+    const adminsSnap = await db.collection('admins').get();
+    const emails = adminsSnap.docs
+      .map((d) => String(d.data().email || d.id).toLowerCase())
+      .slice(0, 30);
+    if (emails.length === 0) {
+      console.log('관리자 계정이 없어 건너뜁니다.');
+      return;
+    }
+    const tokensSnap = await db.collection('pushTokens').where('email', 'in', emails).get();
+    const tokens = tokensSnap.docs.map((d) => d.id);
+    if (tokens.length === 0) {
+      console.log('관리자 로그인 기기에 알림 등록이 없어 건너뜁니다.');
+      return;
+    }
+    const res = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: '📖 성경 저작권 사용허가 갱신',
+        body: '대한성서공회 개역개정판 사용허가 만료(7/31)가 한 달 남았습니다. 재신청서를 제출해주세요.',
+      },
+      webpush: {
+        notification: { icon: '/icon-192.png', tag: 'bible-license-reminder' },
+        fcmOptions: { link: 'https://app.tvpc.church/admin' },
+      },
+    });
+    console.log(`성경 저작권 갱신 알림: 관리자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
+  },
+);
