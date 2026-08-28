@@ -120,13 +120,14 @@ export default function MoreScreen() {
       {/* 관리자 전용 — 긴급 공지 바로가기. 목회자는 이것만(가입 승인은
           목회자 화면엔 아예 없는 탭이라 자리만 차지해서 뺀다), 일반
           관리자는 가장 자주 쓰는 가입 승인과 나란히 절반씩 보여준다.
-          일반 교인 눈에는 안 보이는 카드라 위에 작게 표시해 둔다. */}
-      {isAdmin && <Text style={styles.adminTag}>관리자</Text>}
+          일반 교인 눈에는 안 보이는 카드라 각 카드 오른쪽 위에 작게
+          표시해 둔다. */}
       {isAdmin && role === 'pastor' && (
         <Pressable
           style={[styles.alertCard, shadows.card]}
           onPress={() => router.push('/alert-send')}
         >
+          <Text style={styles.cardAdminTag}>관리자</Text>
           <View style={styles.alertChip}>
             <BellRing size={20} color="#FFFFFF" strokeWidth={2} />
           </View>
@@ -143,6 +144,7 @@ export default function MoreScreen() {
             style={[styles.gridCard, shadows.card, { backgroundColor: '#FFF5F4' }]}
             onPress={() => router.push('/alert-send')}
           >
+            <Text style={styles.cardAdminTag}>관리자</Text>
             <View style={styles.gridHeadRow}>
               <View style={[styles.gridChip, styles.gridChipInline, { backgroundColor: colors.heartActive }]}>
                 <BellRing size={16} color="#FFFFFF" strokeWidth={1.9} />
@@ -155,6 +157,7 @@ export default function MoreScreen() {
             style={[styles.gridCard, shadows.card, { backgroundColor: '#F2FAF4' }]}
             onPress={() => router.push('/admin')}
           >
+            <Text style={styles.cardAdminTag}>관리자</Text>
             <View style={styles.gridHeadRow}>
               <View style={[styles.gridChip, styles.gridChipInline, { backgroundColor: colors.tagGreenText }]}>
                 <UserRound size={16} color="#FFFFFF" strokeWidth={1.9} />
@@ -302,14 +305,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // 관리자만 보이는 카드 위에 다는 작은 표시 — 오른쪽 위, 옅은 글씨
-  adminTag: {
-    alignSelf: 'flex-end',
+  // 관리자만 보이는 카드 안, 오른쪽 위 구석에 다는 작은 표시
+  cardAdminTag: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
     fontFamily: font.bold,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 0.2,
     color: colors.faint2,
-    marginBottom: 6,
   },
 
   alertCard: {
