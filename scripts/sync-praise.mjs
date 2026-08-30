@@ -94,27 +94,52 @@ async function findWeeklyPlaylists(handle) {
     }
   }
 
+  // 제목("YYMMDD[태그]") 위치를 모두 찾은 뒤, 각 제목에 가장 가까운
+  // playlistId를 짝지어준다 — JSON 구조상 둘 사이 거리가 꽤 멀 수 있어
+  // "근처"보다 "가장 가까운 것"으로 찾는 게 더 안정적이다.
+  const titleRe = /(\d{2})(\d{2})(\d{2})\s*\[([^\]]+)\]/g;
+  const titles = [];
+  let tm;
+  while ((tm = titleRe.exec(html))) {
+    titles.push({
+      index: tm.index,
+      date: `20${tm[1]}-${tm[2]}-${tm[3]}`,
+      tag: tm[4].trim(),
+    });
+  }
+
   const weekly = [];
-  const weeklySeen = new Set();
-  for (const { playlistId, index } of ids) {
-    // 앞뒤로 넉넉히 봐야 한다 — 제목 텍스트가 playlistId보다 앞에 나오는 경우도 있다
-    const window = html.slice(Math.max(0, index - 300), index + 600);
-    const tm = window.match(/(\d{2})(\d{2})(\d{2})\s*\[([^\]]+)\]/);
-    if (tm && !weeklySeen.has(playlistId)) {
-      weeklySeen.add(playlistId);
-      weekly.push({
-        playlistId,
-        date: `20${tm[1]}-${tm[2]}-${tm[3]}`,
-        tag: tm[4].trim(),
-      });
+  const usedIds = new Set();
+  for (const t of titles) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const { playlistId, index } of ids) {
+      if (usedIds.has(playlistId)) continue;
+      const dist = Math.abs(index - t.index);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = playlistId;
+      }
+    }
+    // 너무 멀면(5000자 이상) 관계없는 텍스트로 보고 건너뜀
+    if (best && bestDist < 5000) {
+      usedIds.add(best);
+      weekly.push({ playlistId: best, date: t.date, tag: t.tag });
     }
   }
 
   if (weekly.length === 0) {
-    console.log(`  (디버그) 재생목록 ID ${ids.length}개 발견, "YYMMDD[태그]" 패턴 매치 0개`);
+    console.log(
+      `  (디버그) 재생목록 ID ${ids.length}개, "YYMMDD[태그]" 텍스트 ${titles.length}개 발견 — 매치 0개`,
+    );
+    if (titles.length > 0) {
+      const t = titles[0];
+      console.log(
+        `  (디버그) 첫 제목("${t.date} ${t.tag}") 주변: ${html.slice(Math.max(0, t.index - 250), t.index + 100)}`,
+      );
+    }
     if (ids.length > 0) {
-      const { index } = ids[0];
-      console.log(`  (디버그) 첫 재생목록 주변: ${html.slice(Math.max(0, index - 200), index + 400)}`);
+      console.log(`  (디버그) 재생목록 ID 위치들: ${ids.map((x) => x.index).join(', ')}`);
     }
   }
   return weekly;
