@@ -17,6 +17,7 @@ import type {
   EventDoc,
   NewsDoc,
   PhotoDoc,
+  PraiseVideoDoc,
   PrayerCategory,
   PrayerDoc,
   SermonDoc,
@@ -25,6 +26,7 @@ import type {
 import {
   sampleEvents,
   sampleNews,
+  samplePraiseVideos,
   samplePrayers,
   sampleSermons,
   sampleVerse,
@@ -164,6 +166,18 @@ export function useNews(): { news: NewsDoc[]; loading: boolean } {
 export function usePhotos(): { photos: PhotoDoc[]; loading: boolean; ready: boolean } {
   const { data, loading, ready } = useCollection<PhotoDoc>('photos', [], 'date', 'desc', 60);
   return { photos: data, loading, ready };
+}
+
+/** 은혜안에 찬양팀 유튜브 채널 영상 — 교회 미디어 "찬양" 탭 (매주 자동 동기화) */
+export function usePraiseVideos(): { videos: PraiseVideoDoc[]; loading: boolean; ready: boolean } {
+  const { data, loading, ready } = useCollection<PraiseVideoDoc>(
+    'praiseVideos',
+    samplePraiseVideos,
+    'date',
+    'desc',
+    100,
+  );
+  return { videos: data, loading, ready };
 }
 
 export function useEvents(): { events: EventDoc[]; loading: boolean } {

@@ -7,17 +7,23 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { PhotoSlot } from '../src/components/PhotoSlot';
 import { SegmentTabs } from '../src/components/SegmentTabs';
-import { usePhotos, useSermons } from '../src/data/hooks';
+import { usePhotos, usePraiseVideos, useSermons } from '../src/data/hooks';
 import { playSermon, sermonThumb } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
-import type { SermonDoc } from '../src/types';
+import type { PraiseVideoDoc, SermonDoc } from '../src/types';
 
-type MediaTab = 'photo' | 'video';
+type MediaTab = 'photo' | 'video' | 'praise';
 
 const TABS: { key: MediaTab; label: string }[] = [
   { key: 'photo', label: '사진' },
   { key: 'video', label: '영상' },
+  { key: 'praise', label: '찬양' },
 ];
+
+/** 찬양 탭 유튜브 썸네일 — sermonThumb과 같은 규칙(hqdefault) */
+function praiseThumb(v: PraiseVideoDoc): string | null {
+  return v.youtubeId ? `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg` : null;
+}
 
 function fmtDate(d: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
@@ -35,6 +41,7 @@ export default function MediaScreen() {
   const [tab, setTab] = useState<MediaTab>('photo');
   const { photos, ready } = usePhotos();
   const { sermons, loading: videoLoading } = useSermons();
+  const { videos: praiseVideos, loading: praiseLoading } = usePraiseVideos();
 
   // 설교·팟캐스트를 뺀 나머지(찬양·기타) — 성가대 찬양, 워십팀, 연주, 행사 영상
   const videos = sermons.filter((s) => s.category === 'praise' || s.category === 'etc');
@@ -137,6 +144,41 @@ export default function MediaScreen() {
                 </Pressable>
               ))}
               <Text style={styles.hint}>교회 유튜브 채널에서 자동으로 가져옵니다.</Text>
+            </>
+          ))}
+
+        {tab === 'praise' &&
+          (praiseLoading && praiseVideos.length === 0 ? (
+            <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
+          ) : praiseVideos.length === 0 ? (
+            <View style={[styles.card, shadows.card, styles.emptyCard]}>
+              <Video size={26} color={colors.faint2} strokeWidth={1.7} />
+              <Text style={styles.emptyText}>아직 등록된 영상이 없습니다.</Text>
+            </View>
+          ) : (
+            <>
+              {praiseVideos.map((v) => (
+                <Pressable
+                  key={v.id}
+                  style={[styles.card, shadows.imageCard]}
+                  onPress={() =>
+                    router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } })
+                  }
+                >
+                  <PhotoSlot uri={praiseThumb(v)} alt={v.title} tone="deep" style={styles.coverVideo}>
+                    <View style={styles.playBtn}>
+                      <Play size={17} color={colors.primary} fill={colors.primary} strokeWidth={0} />
+                    </View>
+                  </PhotoSlot>
+                  <View style={styles.cardText}>
+                    <Text style={styles.title} numberOfLines={2}>
+                      {v.title}
+                    </Text>
+                    <Text style={styles.meta}>{fmtDate(v.date)}</Text>
+                  </View>
+                </Pressable>
+              ))}
+              <Text style={styles.hint}>은혜안에 찬양팀 유튜브 채널에서 자동으로 가져옵니다.</Text>
             </>
           ))}
       </ScrollView>

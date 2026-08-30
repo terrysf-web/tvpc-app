@@ -2,6 +2,7 @@ import type {
   EventDoc,
   NewsDoc,
   OfferingRecord,
+  PraiseVideoDoc,
   PrayerDoc,
   SermonDoc,
   VerseDoc,
@@ -115,6 +116,8 @@ export const sampleSermons: SermonDoc[] = [
     imageUrl: null,
   },
 ];
+
+export const samplePraiseVideos: PraiseVideoDoc[] = [];
 
 export const sampleNews: NewsDoc[] = [];
 

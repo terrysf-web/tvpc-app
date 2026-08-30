@@ -60,6 +60,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 은혜안에 찬양팀 유튜브 채널 자동 동기화 — 교회 미디어 "찬양" 탭. 누구나 보기, 기록은 서버만
+    match /praiseVideos/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /news/{id} {
       allow read: if true;
       allow write: if isAdmin();

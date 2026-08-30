@@ -103,6 +103,15 @@ export interface PrayerDoc {
   prayCount: number;
 }
 
+/** 은혜안에 찬양팀 유튜브 채널 영상 — 교회 미디어 "찬양" 탭 */
+export interface PraiseVideoDoc {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD */
+  date: string;
+  youtubeId: string;
+}
+
 export interface OfferingRecord {
   id: string;
   item: string;
