@@ -464,6 +464,7 @@ function classify(title) {
 // 때도 똑같이 적용한다.
 const OCR_NAME_FIXES = {
   원송환: '원승환',
+  원숭환: '원승환',
 };
 function applyNameFixes(s) {
   let out = s;
