@@ -1,13 +1,15 @@
 # 교회 홈페이지에 로그인해 최신 주보 PDF를 받아 앱용 페이지 이미지로 등록.
 # TVPC_WEB_USER / TVPC_WEB_PASS / FIREBASE_SERVICE_ACCOUNT 시크릿 필요.
+#
+# 예약 실행은 여기(깃허브 자체 cron) 대신 Cloud Scheduler가 맡는다 —
+# functions/index.js의 triggerBulletinSyncSat/Sun이 정확한 시각(토요일
+# 오후 5시~밤 11시, 일요일 밤 12시~오후 2시, 태평양 시간)에 이
+# workflow_dispatch를 대신 호출한다. 깃허브 자체 예약 실행(cron)은
+# 공용 대기열이라 통째로 씹히는 날이 있었다(2026-08-30 실측 — 새벽부터
+# 한 번도 안 돎) — Cloud Scheduler는 구글이 직접 관리해 훨씬 안정적.
 name: Sync bulletin PDF from church website
 
 on:
-  schedule:
-    # 토요일 오후 5시(태평양)부터 주일 오후까지 매시간 — 주보가 올라오는 대로 반영.
-    # UTC 기준 일요일 00:45–20:45 = 태평양(PDT) 토 17:45 ~ 일 13:45
-    # (겨울 PST에는 한 시간 이른 토 16:45부터 시작 — 무해)
-    - cron: '45 0-20 * * 0'
   workflow_dispatch:
     inputs:
       target_date:
