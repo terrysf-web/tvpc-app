@@ -10,12 +10,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import sharp from 'sharp';
 
 const CHANNEL_HANDLE = process.env.CHANNEL_HANDLE || '@tri-valley';
 const MAX_VIDEOS = Number(process.env.MAX_VIDEOS || 15);
@@ -223,6 +219,7 @@ function parseVideo(rawTitle, published) {
   let category = 'sermon';
   let date = published.slice(0, 10);
   let scripture = '';
+  let speaker = '';
 
   if (/\[?\s*말씀\s*팟캐스트\s*\]?/.test(title)) {
     category = 'podcast';
@@ -240,6 +237,18 @@ function parseVideo(rawTitle, published) {
     title = title.slice(dm[0].length).trim();
   }
 
+  // 팟캐스트는 발표자 이름이 제목 맨 앞 대괄호에 "[우연희, 원승환]"처럼
+  // 그대로 글자로 들어 있다 — 예전엔 썸네일 그림을 OCR로 읽었지만, 제목에
+  // 이미 정확한 이름이 있으니 그걸 쓴다(OCR은 오독 위험도 있고 이중 표시라
+  // 이제 안 쓴다). 화면에도 두 번 안 겹치게 이 대괄호는 제목에서 지운다.
+  if (category === 'podcast') {
+    const speakerMatch = title.match(/^\[([^\]]+)\]\s*/);
+    if (speakerMatch) {
+      speaker = applyNameFixes(speakerMatch[1].replace(/\s*,\s*/g, ' · ').trim());
+      title = title.slice(speakerMatch[0].length).trim();
+    }
+  }
+
   // 성경구절 접미 "(시편 23:6)" — 숫자가 포함된 괄호만
   const sm = title.match(/\(([^()]*\d[^()]*)\)\s*$/);
   if (sm) {
@@ -247,7 +256,7 @@ function parseVideo(rawTitle, published) {
     title = title.slice(0, sm.index).trim();
   }
 
-  return { title, category, date, scripture };
+  return { title, category, date, scripture, speaker };
 }
 
 /* ---------------- 교회 홈페이지(/wp/sermons/) 정식 설교 정보 ---------------- */
@@ -472,70 +481,6 @@ function applyNameFixes(s) {
   return out;
 }
 
-/**
- * 팟캐스트 오프닝 화면 가운데 아래쪽에 발표자 이름이 "문장석 · 진선미"처럼
- * 그림으로 박혀 있다(제목·설명·홈페이지 어디에도 글자로는 없음 — 실제로
- * 확인함). 담임목사님이 아니라 매회 다른 성도가 발표하므로, 썸네일에서
- * 그 영역만 잘라 OCR로 읽는다. 실패해도 무해(빈 값 → 화면에 이름 표시 안 함).
- */
-async function ocrPodcastSpeaker(videoId) {
-  try {
-    let buf = null;
-    let chosen = '';
-    for (const name of ['maxresdefault', 'sddefault', 'hqdefault']) {
-      const res = await fetch(`https://i.ytimg.com/vi/${videoId}/${name}.jpg`);
-      if (!res.ok) continue;
-      const b = Buffer.from(await res.arrayBuffer());
-      if (b.length > 2000) {
-        buf = b;
-        chosen = name;
-        break;
-      }
-    }
-    if (!buf) {
-      console.log('    (썸네일을 못 받아옴)');
-      return '';
-    }
-    const img = sharp(buf);
-    const { width, height } = await img.metadata();
-    if (!width || !height) return '';
-    console.log(`    (썸네일 ${chosen} ${width}x${height})`);
-    const dir = mkdtempSync(join(tmpdir(), 'ocr-'));
-    const cropPath = join(dir, 'crop.png');
-    // 이름은 화면 가운데, 제목 아래쪽 띠에 나온다(오른쪽 아래가 아니었다 —
-    // 실제 썸네일을 잘라 눈으로 확인해서 잡은 좌표). 그 영역만 잘라 확대하면
-    // 배경 그림의 다른 무늬에 안 걸리고 인식률도 올라간다.
-    const extractOpts = {
-      left: Math.round(width * 0.15),
-      top: Math.round(height * 0.65),
-      width: Math.round(width * 0.7),
-      height: Math.round(height * 0.2),
-    };
-    await sharp(buf).extract(extractOpts).greyscale().normalize().resize({ width: 900 }).toFile(cropPath);
-    // 진단용 — DEBUG_OCR=true일 때만 썸네일 전체·크롭 영역을 base64로 찍어
-    // 실제로 어디를 잘랐는지 눈으로 확인할 수 있게 한다(평소엔 로그 낭비라 끈다).
-    if (process.env.DEBUG_OCR === 'true') {
-      const smallFull = await sharp(buf).resize({ width: 480 }).png().toBuffer();
-      console.log(`    (전체 썸네일 base64: ${smallFull.toString('base64')})`);
-      const cropRaw = await sharp(buf).extract(extractOpts).png().toBuffer();
-      console.log(`    (크롭 영역 base64: ${cropRaw.toString('base64')})`);
-    }
-    // --psm 7(한 줄)은 가운데 점(·)을 종종 틀리게 읽어 실패했다 —
-    // --psm 6(균일한 블록)이 훨씬 안정적으로 읽는다(배경 무늬가 위에 잡음
-    // 한 줄로 더 끼어들 수 있어 아래 정규식이 그 잡음은 걸러낸다).
-    const text = execFileSync('tesseract', [cropPath, 'stdout', '-l', 'kor', '--psm', '6'], {
-      encoding: 'utf8',
-    });
-    const raw = text.replace(/\s+/g, ' ').trim();
-    console.log(`    (OCR 원문: "${raw}")`);
-    const m = raw.match(/([가-힣]{2,4})\s*[·/,ㆍ.~-]\s*([가-힣]{2,4})/);
-    return m ? applyNameFixes(`${m[1]} · ${m[2]}`) : '';
-  } catch (e) {
-    console.log(`    ! 발표자 OCR 실패(무해): ${e.message}`);
-    return '';
-  }
-}
-
 const BACKFILL = process.env.BACKFILL === 'true';
 
 const channelId = await resolveChannelId(CHANNEL_HANDLE);
@@ -657,31 +602,13 @@ if (videos.length === 0) console.log('가져올 영상이 없습니다.');
 
 const LABEL = { sermon: '설교', podcast: '팟캐스트', praise: '찬양', etc: '기타' };
 
-// 팟캐스트는 담임목사님이 아니라 매회 다른 성도가 발표한다 — 이미 이름을
-// 읽어둔 회차는(값이 있고 옛 기본값이 아니면) 매번 다시 OCR하지 않는다.
-const existingPodcastPreachers = new Map();
-try {
-  const snap = await db.collection('sermons').where('category', '==', 'podcast').get();
-  for (const d of snap.docs) existingPodcastPreachers.set(d.id, d.get('preacher') || '');
-} catch (e) {
-  console.log(`  ! 기존 팟캐스트 발표자 조회 실패(무해): ${e.message}`);
-}
-
 let wrote = 0;
 for (const v of videos) {
   const p = parseVideo(v.title, v.published);
   const service = p.category === 'sermon' ? classify(v.title) : LABEL[p.category];
-  let preacher = p.category === 'sermon' ? PREACHER_DEFAULT : '';
-  if (p.category === 'podcast') {
-    const already = existingPodcastPreachers.get(`yt-${v.id}`);
-    const fixed = already ? applyNameFixes(already) : already;
-    if (fixed && fixed !== PREACHER_DEFAULT) {
-      preacher = fixed;
-    } else {
-      preacher = await ocrPodcastSpeaker(v.id);
-      console.log(preacher ? `    → 발표자 인식: ${preacher}` : '    → 발표자 인식 실패(빈 값)');
-    }
-  }
+  // 팟캐스트는 담임목사님이 아니라 매회 다른 성도가 발표한다 — 이름은
+  // 제목 맨 앞 대괄호에서 그대로 읽는다(더 이상 썸네일을 OCR로 읽지 않음).
+  const preacher = p.category === 'sermon' ? PREACHER_DEFAULT : p.speaker;
   await db.doc(`sermons/yt-${v.id}`).set(
     {
       category: p.category,
