@@ -46,33 +46,6 @@ jobs:
         if: env.skip != 'true' && inputs.backfill == 'true'
         run: pip install --quiet yt-dlp
 
-      # 임시 진단: 팟캐스트 문서 전체에서 preacher 값이 비어있는 게
-      # 몇 개나 되는지 확인. 확인 끝나면 이 스텝은 지운다.
-      - name: Debug - current preacher values
-        if: env.skip != 'true'
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          node - <<'EOF'
-          import('firebase-admin/app').then(async ({ cert, initializeApp }) => {
-            const { getFirestore } = await import('firebase-admin/firestore');
-            const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            initializeApp({ credential: cert(sa) });
-            const db = getFirestore();
-            const snap = await db.collection('sermons').where('category', '==', 'podcast').get();
-            const rows = [];
-            snap.forEach((doc) => {
-              const d = doc.data();
-              rows.push({ id: doc.id, date: d.date, title: d.title, preacher: d.preacher });
-            });
-            rows.sort((a, b) => (a.date < b.date ? 1 : -1));
-            for (const r of rows) {
-              console.log(`${r.date}  [${r.preacher || '(없음)'}]  ${r.title}  (${r.id})`);
-            }
-            process.exit(0);
-          });
-          EOF
-
       - name: Sync sermons
         if: env.skip != 'true'
         env:
