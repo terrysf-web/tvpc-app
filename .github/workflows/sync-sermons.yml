@@ -46,9 +46,8 @@ jobs:
         if: env.skip != 'true' && inputs.backfill == 'true'
         run: pip install --quiet yt-dlp
 
-      # 임시 진단: 옛 팟캐스트 문서에 지금 저장된 preacher 값이 실제로
-      # 비어 있는지(예전 OCR 값이 최근 커밋들에서 지워졌는지) 확인.
-      # 확인 끝나면 이 스텝은 지운다.
+      # 임시 진단: 팟캐스트 문서 전체에서 preacher 값이 비어있는 게
+      # 몇 개나 되는지 확인. 확인 끝나면 이 스텝은 지운다.
       - name: Debug - current preacher values
         if: env.skip != 'true'
         env:
@@ -60,10 +59,15 @@ jobs:
             const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
             initializeApp({ credential: cert(sa) });
             const db = getFirestore();
-            const ids = ['yt-T7t-h8fcVEM', 'yt-poYcJr4H9f4'];
-            for (const id of ids) {
-              const doc = await db.doc(`sermons/${id}`).get();
-              console.log(id, JSON.stringify(doc.data()));
+            const snap = await db.collection('sermons').where('category', '==', 'podcast').get();
+            const rows = [];
+            snap.forEach((doc) => {
+              const d = doc.data();
+              rows.push({ id: doc.id, date: d.date, title: d.title, preacher: d.preacher });
+            });
+            rows.sort((a, b) => (a.date < b.date ? 1 : -1));
+            for (const r of rows) {
+              console.log(`${r.date}  [${r.preacher || '(없음)'}]  ${r.title}  (${r.id})`);
             }
             process.exit(0);
           });
