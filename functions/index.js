@@ -13,6 +13,7 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { defineSecret } from 'firebase-functions/params';
 
 initializeApp();
 setGlobalOptions({ maxInstances: 2 });
@@ -394,4 +395,66 @@ export const remindBibleLicense = onSchedule(
     });
     console.log(`성경 저작권 갱신 알림: 관리자 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
   },
+);
+
+/**
+ * 주보 동기화(sync-bulletin.yml) 예약 실행 트리거 — 실제 동기화 로직
+ * (playwright 로그인, poppler PDF 렌더링)은 그대로 깃허브 Actions에
+ * 두고, 이 함수는 "지금 실행해" 신호만 깃허브 API로 보낸다.
+ *
+ * 깃허브 자체 예약 실행(cron)은 공용 대기열이라 통째로 씹히는 날이
+ * 있었다(2026-08-30 실측 — 새벽부터 한 번도 안 돎). Cloud Scheduler는
+ * 구글이 직접 관리해 훨씬 안정적이므로, "버튼을 눌러주는 역할"만
+ * 여기로 옮겼다 — workflow_dispatch는 사람이 수동 실행할 때와 똑같이
+ * 항상 잘 작동했기 때문에, 그 경로를 정확한 시각에 대신 눌러주는
+ * 것만으로 충분하다.
+ *
+ * GITHUB_PAT 시크릿 필요 — 저장소 Actions 쓰기 권한이 있는 깃허브
+ * personal access token(fine-grained, Actions: Read and write).
+ *   firebase functions:secrets:set GITHUB_PAT --project tvpc-40043
+ */
+const githubPat = defineSecret('GITHUB_PAT');
+const BULLETIN_REPO = 'terrysf-web/tvpc-app';
+const BULLETIN_BRANCH = 'claude/react-native-firebase-app-e0vg1r';
+
+async function triggerBulletinSync() {
+  const res = await fetch(
+    `https://api.github.com/repos/${BULLETIN_REPO}/actions/workflows/sync-bulletin.yml/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${githubPat.value()}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'tvpc-app-cloud-scheduler',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: BULLETIN_BRANCH }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`깃허브 워크플로 트리거 실패: HTTP ${res.status} ${text}`);
+  }
+  console.log('주보 동기화 워크플로 트리거 성공');
+}
+
+const BULLETIN_TRIGGER_OPTS = {
+  timeZone: 'America/Los_Angeles',
+  memory: '128MiB',
+  timeoutSeconds: 30,
+  retry: false,
+  secrets: [githubPat],
+};
+
+// 토요일 오후 5시 ~ 밤 11시(태평양) — 자정을 넘어가는 구간은 별도 함수로 분리
+export const triggerBulletinSyncSat = onSchedule(
+  { schedule: '0 17-23 * * 6', ...BULLETIN_TRIGGER_OPTS },
+  triggerBulletinSync,
+);
+
+// 일요일 밤 12시 ~ 오후 2시(태평양)
+export const triggerBulletinSyncSun = onSchedule(
+  { schedule: '0 0-14 * * 0', ...BULLETIN_TRIGGER_OPTS },
+  triggerBulletinSync,
 );
