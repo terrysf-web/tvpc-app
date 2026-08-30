@@ -482,6 +482,14 @@ function applyNameFixes(s) {
   return out;
 }
 
+// 제목에 발표자 이름을 넣기 시작한 건 최근 영상부터라, 그 이전 팟캐스트는
+// 제목에서 이름을 못 찾는다(화면 스캔은 더 이상 하지 않음) — 사람이 직접
+// 확인해서 넣어준 이름을 영상 ID로 고정해 둔다.
+const MANUAL_PREACHER_OVERRIDES = {
+  'T7t-h8fcVEM': '김미현 · 진선미', // 2026-07-19 표현되지 못한 사랑, 늦기 전에 전해야 할 고백
+  poYcJr4H9f4: '김미현 · 진선미', // 2026-07-15 보이지 않아도 하나님은 일하고 계십니다
+};
+
 const BACKFILL = process.env.BACKFILL === 'true';
 
 const channelId = await resolveChannelId(CHANNEL_HANDLE);
@@ -629,6 +637,8 @@ for (const v of videos) {
     payload.preacher = PREACHER_DEFAULT;
   } else if (p.speaker) {
     payload.preacher = p.speaker;
+  } else if (MANUAL_PREACHER_OVERRIDES[v.id]) {
+    payload.preacher = MANUAL_PREACHER_OVERRIDES[v.id];
   }
   await db.doc(`sermons/yt-${v.id}`).set(payload, { merge: true });
   console.log(`  ✓ [${LABEL[p.category]}] ${p.date}  ${p.title}${p.scripture ? ` (${p.scripture})` : ''}`);
