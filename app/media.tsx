@@ -8,7 +8,7 @@ import { OverlayHeader } from '../src/components/OverlayHeader';
 import { PhotoSlot } from '../src/components/PhotoSlot';
 import { SegmentTabs } from '../src/components/SegmentTabs';
 import { usePhotos, usePraiseVideos, useSermons } from '../src/data/hooks';
-import { playSermon, sermonThumb } from '../src/links';
+import { openYouTubeUrl, playSermon, sermonThumb } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 import type { PraiseVideoDoc, SermonDoc } from '../src/types';
 
@@ -53,6 +53,16 @@ export default function MediaScreen() {
       router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } });
     } else {
       playSermon(v);
+    }
+  };
+
+  // 재생목록(그 주 세트리스트)이면 유튜브에서 재생목록째로 열고,
+  // 그 외(채널 직접 업로드 영상)는 앱 안 재생기로 연다.
+  const openPraise = (v: PraiseVideoDoc) => {
+    if (v.playlistId) {
+      openYouTubeUrl(`https://www.youtube.com/playlist?list=${v.playlistId}`);
+    } else {
+      router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } });
     }
   };
 
@@ -161,9 +171,7 @@ export default function MediaScreen() {
                 <Pressable
                   key={v.id}
                   style={[styles.card, shadows.imageCard]}
-                  onPress={() =>
-                    router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } })
-                  }
+                  onPress={() => openPraise(v)}
                 >
                   <PhotoSlot uri={praiseThumb(v)} alt={v.title} tone="deep" style={styles.coverVideo}>
                     <View style={styles.playBtn}>
@@ -174,7 +182,10 @@ export default function MediaScreen() {
                     <Text style={styles.title} numberOfLines={2}>
                       {v.title}
                     </Text>
-                    <Text style={styles.meta}>{fmtDate(v.date)}</Text>
+                    <Text style={styles.meta}>
+                      {fmtDate(v.date)}
+                      {v.playlistId ? ' · 재생목록' : ''}
+                    </Text>
                   </View>
                 </Pressable>
               ))}

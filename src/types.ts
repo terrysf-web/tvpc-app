@@ -103,13 +103,22 @@ export interface PrayerDoc {
   prayCount: number;
 }
 
-/** 은혜안에 찬양팀 유튜브 채널 영상 — 교회 미디어 "찬양" 탭 */
+/**
+ * 은혜안에 찬양팀 유튜브 채널 콘텐츠 — 교회 미디어 "찬양" 탭.
+ * 채널에 직접 올린 영상은 개별 문서(youtubeId만), 매주 만드는 "세트리스트"
+ * 재생목록은 playlistId가 있는 문서로 저장된다 — 재생목록은 다른 팀 원곡이
+ * 섞여 있을 수 있어 낱개로 안 보여주고 재생목록째로만 연다.
+ */
 export interface PraiseVideoDoc {
   id: string;
+  /** 영상 제목, 또는 재생목록이면 태그(예: "금요찬양") */
   title: string;
   /** YYYY-MM-DD */
   date: string;
+  /** 썸네일용 — 재생목록이면 그 안 첫 영상의 ID */
   youtubeId: string;
+  /** 있으면 이 문서는 재생목록 — 누르면 이 재생목록을 유튜브에서 연다 */
+  playlistId?: string | null;
 }
 
 export interface OfferingRecord {

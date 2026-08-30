@@ -4,21 +4,22 @@
  *
  * scripts/sync-sermons.mjs와 같은 방식(유튜브 RSS 피드, API 키 불필요).
  *
- * 실제로 확인해보니 이 팀은 매주 영상을 채널에 바로 공개 업로드하는 게
- * 아니라("채널 전체 동기화, 재생목록 안 골라도 됨"이라 짐작했던 것과 달리),
- * 매주 "260906[금요찬양]"처럼 "YYMMDD[태그]" 이름의 재생목록을 새로 만들고
- * 그 안에 그 주 영상들을 넣는 방식을 쓴다 — 이런 영상은 채널 목록(RSS)에
- * 안 잡힌다(일부 비공개 목록 전용으로 올림). 그래서:
+ * 이 채널은 두 가지 콘텐츠가 섞여 있다:
  *
- * 1) 채널 전체 업로드 RSS도 계속 확인하고(직접 공개 업로드하는 영상 대비),
- * 2) 채널의 "재생목록" 탭을 함께 훑어서 "YYMMDD[태그]" 이름 패턴에 맞는
- *    주간 재생목록을 찾아, 그 재생목록 전용 RSS(?playlist_id=)로 그 안의
- *    영상들도 가져온다 — 이 방식으로 새 재생목록이 생겨도 사람이 링크를
- *    알려줄 필요 없이 자동으로 찾는다.
+ * 1) 채널에 직접 공개 업로드하는 영상 — 찬양팀이 실제로 찍은 실황
+ *    (예: "나의 갈 길 다 가도록 [은혜안에 워십 LIVE]"). 채널 업로드
+ *    RSS로 잡아서 개별 영상으로 저장, 앱 안 재생기(/watch)로 바로 재생.
  *
- * 날짜는 재생목록 이름(YYMMDD)이 실제 예배 날짜라 이걸 우선 쓰고, 채널
- * 업로드 RSS로만 잡힌 영상은 제목에 같은 형식이 있으면 그걸, 없으면
- * 업로드일을 쓴다.
+ * 2) 매주 "260906[금요찬양]"처럼 "YYMMDD[태그]" 이름으로 새로 만드는
+ *    재생목록 — 그 주 예배에서 부를 곡들의 "세트리스트"라, 안에 들어있는
+ *    영상은 찬양팀이 만든 게 아니라 다른 팀·가수의 원곡/커버 영상이다
+ *    (어노인팅, Feast Family, 마커스워십 등). 이건 개별 영상을 우리
+ *    영상인 것처럼 보여주면 안 되고, 재생목록 카드 하나로만 보여준 뒤
+ *    누르면 유튜브에서 그 재생목록을 그대로 재생하게 한다.
+ *
+ * 재생목록은 채널의 "재생목록" 탭을 훑어서 "YYMMDD[태그]" 이름 패턴에
+ * 맞는 것을 자동으로 찾는다 — 매주 새로 생겨도 사람이 링크를 알려줄
+ * 필요가 없다.
  *
  * GitHub Actions(.github/workflows/sync-praise.yml)가 주기적으로 실행한다.
  *
@@ -185,10 +186,11 @@ function parseVideo(rawTitle, fallbackDate) {
   return { title: title || rawTitle.trim(), date };
 }
 
+/** 개별 영상(채널 직접 업로드) 저장 */
 async function saveVideo(id, title, date) {
   const ref = db.doc(`praiseVideos/${id}`);
   const existing = await ref.get();
-  const payload = { title, date, youtubeId: id, updatedAt: Date.now() };
+  const payload = { title, date, youtubeId: id, playlistId: null, updatedAt: Date.now() };
   if (existing.exists) {
     // 이미 있으면 제목·날짜만 갱신(수동으로 고친 값이 없으므로 그냥 덮어써도 안전)
     await ref.set(payload, { merge: true });
@@ -199,6 +201,46 @@ async function saveVideo(id, title, date) {
   return 'added';
 }
 
+/**
+ * 주간 재생목록 저장 — 안의 영상들을 낱개로 안 보여주고 재생목록 카드
+ * 하나로만 저장한다(썸네일은 첫 영상 것을 빌려온다). 예전 버전이
+ * 실수로 낱개 영상으로 저장해뒀던 문서가 있으면 여기서 지운다.
+ */
+async function saveWeeklyPlaylist(pl, entries) {
+  const thumbId = entries[0]?.id ?? null;
+  const ref = db.doc(`praiseVideos/${pl.playlistId}`);
+  const existing = await ref.get();
+  const payload = {
+    title: pl.tag,
+    date: pl.date,
+    youtubeId: thumbId,
+    playlistId: pl.playlistId,
+    updatedAt: Date.now(),
+  };
+  let result;
+  if (existing.exists) {
+    await ref.set(payload, { merge: true });
+    result = 'updated';
+  } else {
+    await ref.set({ ...payload, createdAt: Date.now() });
+    console.log(`  + ${pl.date} [${pl.tag}] (재생목록, 영상 ${entries.length}개)`);
+    result = 'added';
+  }
+
+  // 예전 버전이 이 재생목록 안 영상들을 낱개 문서로 잘못 저장해뒀으면 정리
+  for (const e of entries) {
+    if (e.id === pl.playlistId) continue;
+    const strayRef = db.doc(`praiseVideos/${e.id}`);
+    const stray = await strayRef.get();
+    if (stray.exists && !stray.data().playlistId) {
+      await strayRef.delete();
+      console.log(`  - (정리) 낱개로 잘못 저장된 문서 삭제: ${e.id}`);
+    }
+  }
+
+  return result;
+}
+
 async function main() {
   console.log(`[찬양] 채널 ${CHANNEL_HANDLE} 확인 중...`);
   const channelId = await resolveChannelId(CHANNEL_HANDLE);
@@ -206,22 +248,20 @@ async function main() {
 
   let added = 0;
   let updated = 0;
-  const seenIds = new Set();
 
-  // 1) 채널 전체 업로드 RSS — 직접 공개 업로드된 영상
+  // 1) 채널 전체 업로드 RSS — 직접 공개 업로드된 영상(찬양팀 실황)
   const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
   const channelEntries = parseFeed(xml);
   console.log(`  ✓ 채널 업로드 RSS ${channelEntries.length}건 확인`);
   for (const e of channelEntries) {
-    if (seenIds.has(e.id)) continue;
-    seenIds.add(e.id);
     const { title, date } = parseVideo(e.title, e.published.slice(0, 10));
     const r = await saveVideo(e.id, title, date);
     if (r === 'added') added++;
     else updated++;
   }
 
-  // 2) 주간 재생목록("YYMMDD[태그]") — 재생목록에만 올라간(비공개 목록 전용) 영상
+  // 2) 주간 재생목록("YYMMDD[태그]") — 그 주 세트리스트(다른 팀 원곡 포함일 수
+  //    있어 낱개 영상이 아니라 재생목록 카드 하나로만 저장)
   let weeklyPlaylists = [];
   try {
     weeklyPlaylists = await findWeeklyPlaylists(CHANNEL_HANDLE);
@@ -237,21 +277,15 @@ async function main() {
       );
       const plEntries = parseFeed(plXml);
       console.log(`  · ${pl.date} [${pl.tag}] 재생목록 영상 ${plEntries.length}건`);
-      for (const e of plEntries) {
-        if (seenIds.has(e.id)) continue;
-        seenIds.add(e.id);
-        // 개별 영상 제목에 날짜가 없으면(대부분 이 경우) 재생목록 날짜를 그대로 쓴다
-        const { title, date } = parseVideo(e.title, pl.date);
-        const r = await saveVideo(e.id, title, date);
-        if (r === 'added') added++;
-        else updated++;
-      }
+      const r = await saveWeeklyPlaylist(pl, plEntries);
+      if (r === 'added') added++;
+      else updated++;
     } catch (e) {
       console.log(`  ! 재생목록 ${pl.playlistId} 확인 실패(건너뜀): ${e.message}`);
     }
   }
 
-  console.log(`완료: 새 영상 ${added}건, 기존 갱신 ${updated}건 (전체 ${seenIds.size}건)`);
+  console.log(`완료: 새로 등록 ${added}건, 기존 갱신 ${updated}건`);
 }
 
 main().catch((e) => {
