@@ -237,12 +237,13 @@ function parseVideo(rawTitle, published) {
     title = title.slice(dm[0].length).trim();
   }
 
-  // 팟캐스트는 발표자 이름이 제목 맨 앞 대괄호에 "[우연희, 원승환]"처럼
-  // 그대로 글자로 들어 있다 — 예전엔 썸네일 그림을 OCR로 읽었지만, 제목에
+  // 팟캐스트는 발표자 이름이 제목 맨 앞에 "| 우연희, 원승환]"처럼(여는
+  // 괄호가 아니라 세로줄 "|"로 시작해 "]"로 닫힌다 — 실제 제목으로 확인함)
+  // 그대로 글자로 들어 있다. 예전엔 썸네일 그림을 OCR로 읽었지만, 제목에
   // 이미 정확한 이름이 있으니 그걸 쓴다(OCR은 오독 위험도 있고 이중 표시라
-  // 이제 안 쓴다). 화면에도 두 번 안 겹치게 이 대괄호는 제목에서 지운다.
+  // 이제 안 쓴다). 화면에도 두 번 안 겹치게 이 부분은 제목에서 지운다.
   if (category === 'podcast') {
-    const speakerMatch = title.match(/^\[([^\]]+)\]\s*/);
+    const speakerMatch = title.match(/^[\[|｜\s]+([가-힣][가-힣,·ㆍ\s]*[가-힣])\]\s*/);
     if (speakerMatch) {
       speaker = applyNameFixes(speakerMatch[1].replace(/\s*,\s*/g, ' · ').trim());
       title = title.slice(speakerMatch[0].length).trim();
