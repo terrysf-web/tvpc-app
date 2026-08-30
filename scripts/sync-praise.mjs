@@ -49,13 +49,19 @@ async function fetchText(url, attempts = 3) {
   throw lastErr;
 }
 
-/** @handle 페이지에서 채널 ID(UC...) 추출 */
+/** @handle 페이지에서 채널 ID(UC...) 추출 — 페이지 구조가 바뀔 수 있어 여러 패턴을 시도 */
 async function resolveChannelId(handle) {
   const html = await fetchText(`https://www.youtube.com/${handle}`);
   const m =
     html.match(/"channelId":"(UC[\w-]+)"/) ||
-    html.match(/<meta itemprop="channelId" content="(UC[\w-]+)">/);
-  if (!m) throw new Error(`채널 ID를 못 찾음: ${handle}`);
+    html.match(/<meta itemprop="channelId" content="(UC[\w-]+)">/) ||
+    html.match(/"externalId":"(UC[\w-]+)"/) ||
+    html.match(/"browseId":"(UC[\w-]+)"/) ||
+    html.match(/youtube\.com\/channel\/(UC[\w-]+)/);
+  if (!m) {
+    console.error(`  (디버그) 응답 길이 ${html.length}자, 앞부분: ${html.slice(0, 300)}`);
+    throw new Error(`채널 ID를 못 찾음: ${handle}`);
+  }
   return m[1];
 }
 
