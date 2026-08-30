@@ -1020,6 +1020,18 @@ function extractOrderAndSermon(lines) {
       else rest.push(l);
     }
     titleParts.push(...rest);
+    // 평소 설교 항목 상세줄은 제목(+가끔 줄바꿈) 1~2개뿐이다 — 이보다 많으면
+    // ORDER_LABELS에 없는 새 예배 순서(이번 "선교사 파송" 같은 경우)가 라벨로
+    // 안 끊기고 그대로 설교 항목에 붙어버렸을 가능성이 크다. 이때 잠자코
+    // 넘어가면 설교 제목이 뒤섞인 채로 조용히 배포되니, 관리자 오류 탭에
+    // 남겨 사람이 알아채기 전에 먼저 알 수 있게 한다(동기화 자체는 계속 진행).
+    if (rest.length > 2) {
+      const msg = `주보 동기화: "설교" 항목 상세줄이 ${rest.length}개(평소 1~2개)라 다른 예배 순서가 섞였을 수 있음 — "${rest.join(' / ')}"`;
+      console.log(`  ! ${msg}`);
+      db.collection('errorLogs')
+        .add({ message: msg.slice(0, 1000), path: 'sync-bulletin(자동 진단)', ua: 'GitHub Actions', ts: Date.now() })
+        .catch(() => {});
+    }
   }
   const title = cleanText(titleParts.join(' '));
 
