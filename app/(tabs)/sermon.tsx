@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -38,8 +39,19 @@ function scriptureBook(scripture: string): string {
 
 export default function SermonScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { sermons: all } = useSermons();
   const [tab, setTab] = useState<SermonTab>('recent');
+
+  // 팟캐스트는 유튜브로 바로 나가면 광고가 뜬다는 지적 — 앱 안 재생기(/watch)로
+  // 연다. 일반 설교는 실황이라 앱 안 재생이 막힌 영상이 있어 그대로 유튜브로.
+  const openItem = (s: SermonDoc) => {
+    if (s.category === 'podcast' && s.youtubeId) {
+      router.push({ pathname: '/watch', params: { v: s.youtubeId, t: s.title } });
+    } else {
+      playSermon(s);
+    }
+  };
 
   // 설교 탭·말씀별 탭에는 설교만, 팟캐스트는 별도. 찬양·기타 영상은 표시하지 않음
   const sermons = all.filter(isSermon);
@@ -70,7 +82,7 @@ export default function SermonScreen() {
   }, [tab, sermons]);
 
   const listItem = (s: SermonDoc) => (
-    <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => playSermon(s)}>
+    <Pressable key={s.id} style={[styles.item, shadows.card]} onPress={() => openItem(s)}>
       <PhotoSlot uri={sermonThumb(s)} alt={s.title} tone="deep" style={styles.thumb}>
         {s.duration ? (
           <View style={styles.thumbBadge}>
