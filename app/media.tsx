@@ -60,7 +60,12 @@ export default function MediaScreen() {
   // 그 외(채널 직접 업로드 영상)는 앱 안 재생기로 연다.
   const openPraise = (v: PraiseVideoDoc) => {
     if (v.playlistId) {
-      openYouTubeUrl(`https://www.youtube.com/playlist?list=${v.playlistId}`);
+      // 재생목록 "목록" 페이지(playlist?list=)는 바로 재생되지 않고 목록만
+      // 보여준다 — 첫 영상의 watch 주소에 list를 붙여 열어야 그 영상부터
+      // 바로 재생되고, 끝나면 이어서 재생목록 다음 곡으로 자동 재생된다.
+      openYouTubeUrl(
+        `https://www.youtube.com/watch?v=${v.youtubeId}&list=${v.playlistId}`,
+      );
     } else {
       router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } });
     }
