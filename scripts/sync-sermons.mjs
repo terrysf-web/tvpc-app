@@ -609,23 +609,28 @@ for (const v of videos) {
   const service = p.category === 'sermon' ? classify(v.title) : LABEL[p.category];
   // 팟캐스트는 담임목사님이 아니라 매회 다른 성도가 발표한다 — 이름은
   // 제목 맨 앞 대괄호에서 그대로 읽는다(더 이상 썸네일을 OCR로 읽지 않음).
-  const preacher = p.category === 'sermon' ? PREACHER_DEFAULT : p.speaker;
-  await db.doc(`sermons/yt-${v.id}`).set(
-    {
-      category: p.category,
-      title: p.title,
-      subtitle: service,
-      preacher,
-      scripture: p.scripture,
-      date: p.date,
-      service,
-      duration: '',
-      series: p.scripture ? p.scripture.replace(/\s*\d.*$/, '') : service,
-      youtubeId: v.id,
-      imageUrl: null,
-    },
-    { merge: true },
-  );
+  // 이름을 제목에 넣기 시작한 건 최근 영상부터라, 그 이전 영상은 제목에서
+  // 못 찾는다(p.speaker === ''). 그런 옛날 영상까지 매번 발표자를 빈 값으로
+  // 덮어쓰면 예전에 화면 스캔으로 채워 둔 이름이 지워지므로, 새로 못 찾았을
+  // 때는 payload에서 아예 빼서 기존 값을 그대로 둔다.
+  const payload = {
+    category: p.category,
+    title: p.title,
+    subtitle: service,
+    scripture: p.scripture,
+    date: p.date,
+    service,
+    duration: '',
+    series: p.scripture ? p.scripture.replace(/\s*\d.*$/, '') : service,
+    youtubeId: v.id,
+    imageUrl: null,
+  };
+  if (p.category === 'sermon') {
+    payload.preacher = PREACHER_DEFAULT;
+  } else if (p.speaker) {
+    payload.preacher = p.speaker;
+  }
+  await db.doc(`sermons/yt-${v.id}`).set(payload, { merge: true });
   console.log(`  ✓ [${LABEL[p.category]}] ${p.date}  ${p.title}${p.scripture ? ` (${p.scripture})` : ''}`);
   wrote++;
 }
