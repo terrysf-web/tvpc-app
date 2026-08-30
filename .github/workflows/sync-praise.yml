@@ -7,8 +7,10 @@ name: Sync praise videos from YouTube
 
 on:
   schedule:
-    # 매주 월요일 오전 9시(UTC) — 주말 예배 영상이 올라온 뒤 반영
-    - cron: '0 9 * * 1'
+    # 매주 수요일 저녁 7시(태평양 시간, PDT UTC-7 기준 → 목요일 오전 2시 UTC).
+    # 깃허브 Actions cron은 UTC 고정이라 서머타임이 끝나면(11월) 실제
+    # 태평양 시간 기준 1시간씩 밀린다 — 필요하면 그때 다시 조정.
+    - cron: '0 2 * * 4'
   workflow_dispatch:
 
 jobs:
