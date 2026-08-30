@@ -83,25 +83,41 @@ async function resolveChannelId(handle) {
  */
 async function findWeeklyPlaylists(handle) {
   const html = await fetchText(`https://www.youtube.com/${handle}/playlists`);
-  const found = [];
   const seen = new Set();
   const idRe = /"playlistId":"(PL[\w-]+)"/g;
+  const ids = [];
   let m;
   while ((m = idRe.exec(html))) {
-    const playlistId = m[1];
-    if (seen.has(playlistId)) continue;
-    const window = html.slice(m.index, m.index + 500);
+    if (!seen.has(m[1])) {
+      seen.add(m[1]);
+      ids.push({ playlistId: m[1], index: m.index });
+    }
+  }
+
+  const weekly = [];
+  const weeklySeen = new Set();
+  for (const { playlistId, index } of ids) {
+    // 앞뒤로 넉넉히 봐야 한다 — 제목 텍스트가 playlistId보다 앞에 나오는 경우도 있다
+    const window = html.slice(Math.max(0, index - 300), index + 600);
     const tm = window.match(/(\d{2})(\d{2})(\d{2})\s*\[([^\]]+)\]/);
-    if (tm) {
-      seen.add(playlistId);
-      found.push({
+    if (tm && !weeklySeen.has(playlistId)) {
+      weeklySeen.add(playlistId);
+      weekly.push({
         playlistId,
         date: `20${tm[1]}-${tm[2]}-${tm[3]}`,
         tag: tm[4].trim(),
       });
     }
   }
-  return found;
+
+  if (weekly.length === 0) {
+    console.log(`  (디버그) 재생목록 ID ${ids.length}개 발견, "YYMMDD[태그]" 패턴 매치 0개`);
+    if (ids.length > 0) {
+      const { index } = ids[0];
+      console.log(`  (디버그) 첫 재생목록 주변: ${html.slice(Math.max(0, index - 200), index + 400)}`);
+    }
+  }
+  return weekly;
 }
 
 /** RSS 피드 파싱 — 의존성 없이 정규식으로 entry 추출 */
