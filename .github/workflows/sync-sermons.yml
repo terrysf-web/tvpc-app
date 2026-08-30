@@ -46,6 +46,27 @@ jobs:
         if: env.skip != 'true' && inputs.backfill == 'true'
         run: pip install --quiet yt-dlp
 
+      # 임시 진단: 옛 팟캐스트 영상(제목에 발표자 이름이 없는 회차)의
+      # RSS 설명(media:description)에 이름이 텍스트로 들어있는지 확인.
+      # 확인 끝나면 이 스텝은 지운다.
+      - name: Debug - RSS description
+        if: env.skip != 'true'
+        run: |
+          curl -s "https://www.youtube.com/feeds/videos.xml?channel_id=UCZrRfMxUpuVv7e4JqlesJ1w" -o /tmp/feed.xml
+          python3 - <<'EOF'
+          import re
+          xml = open('/tmp/feed.xml', encoding='utf-8').read()
+          entries = re.findall(r'<entry>(.*?)</entry>', xml, re.S)
+          targets = ['표현되지 못한 사랑', '보이지 않아도 하나님은']
+          for e in entries:
+              title_m = re.search(r'<title>(.*?)</title>', e, re.S)
+              title = title_m.group(1) if title_m else ''
+              if any(t in title for t in targets):
+                  print('=== TITLE:', title)
+                  print(e)
+                  print('=== END')
+          EOF
+
       - name: Sync sermons
         if: env.skip != 'true'
         env:
