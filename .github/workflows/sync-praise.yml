@@ -36,6 +36,16 @@ jobs:
         if: env.skip != 'true'
         run: npm install --no-save firebase-admin
 
+      # 임시 진단: 재생목록 4개의 실제 제목이 뭔지 확인 — "YYMMDD[태그]"
+      # 패턴 매치가 0개로 나와서, 실제 이름이 그 형식이 아닌 것 같다.
+      - name: Debug - playlist titles
+        if: env.skip != 'true'
+        run: |
+          for pid in $(curl -s "https://www.youtube.com/@EUNHYEANEWORSHIP/playlists" | grep -oE '"playlistId":"PL[A-Za-z0-9_-]+"' | sed -E 's/.*"(PL[A-Za-z0-9_-]+)"/\1/' | sort -u); do
+            title=$(curl -s "https://www.youtube.com/feeds/videos.xml?playlist_id=$pid" | grep -oE '<title>[^<]*</title>' | head -1)
+            echo "$pid -> $title"
+          done
+
       - name: Sync praise videos
         if: env.skip != 'true'
         env:
