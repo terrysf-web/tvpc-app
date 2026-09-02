@@ -88,16 +88,15 @@ export default function WatchScreen() {
               ref: (el: HTMLElement | null) => {
                 frameRef.current = el;
               },
-              // 재생목록이면 첫 곡부터("videoseries") 자동재생 — 특정
-              // 영상 ID를 같이 넘기면 그 영상이 재생목록 소속이 아닐 때
-              // 엉뚱한 영상이 재생될 수 있다. 곡을 고르면(pickSong) 이
-              // src를 다시 바꾸는 게 아니라 postMessage 명령으로 그
-              // 자리에서 곡만 바꾼다 — src를 바꿔 다시 불러오면 자동재생이
-              // 브라우저 정책에 막힐 수 있어서다. enablejsapi·origin은
-              // 그 postMessage 명령을 재생기가 받아주는 데 필요하다.
-              src: list
-                ? `https://www.youtube-nocookie.com/embed/videoseries?list=${list}&autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(origin)}`
-                : `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(origin)}`,
+              // v는 항상 그 재생목록의 첫 곡 ID(sync-praise.mjs가
+              // entries[0]와 같은 값으로 저장) — "videoseries"만 넘겼을
+              // 때보다 특정 영상 ID를 같이 주는 단일 영상 임베드가
+              // 자동재생이 더 확실히 되어 이 형태를 쓴다. list는 그대로
+              // 붙여 재생목록 문맥(다음 곡 이어재생)은 유지한다. 곡을
+              // 고르면(pickSong) 이 src를 다시 바꾸는 게 아니라
+              // postMessage 명령으로 그 자리에서 곡만 바꾼다 —
+              // enablejsapi·origin은 그 명령을 재생기가 받아주는 데 필요.
+              src: `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(origin)}${list ? `&list=${list}` : ''}`,
               style: { width: '100%', height: '100%', border: 0, display: 'block' },
               allow:
                 'accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share',
