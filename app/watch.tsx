@@ -52,6 +52,28 @@ export default function WatchScreen() {
     win?.postMessage(JSON.stringify({ event: 'command', func: 'loadVideoById', args: [id] }), '*');
   };
 
+  // 재생목록 안 곡은 다른 팀 채널 것도 섞여 있어, 그 채널이 "다른
+  // 사이트에 퍼가기(임베드)"를 막아둔 곡이 있으면 재생 대신 "유튜브에서
+  // 보기" 카드만 뜬다 — 재생기가 이럴 때 보내는 onError 신호를 받으면
+  // 자동으로 목록의 다음 곡으로 넘어간다.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onMessage = (e: MessageEvent) => {
+      let data: { event?: string } | null = null;
+      try {
+        data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (data?.event !== 'onError') return;
+      const idx = entries.findIndex((en) => en.id === currentVideoId);
+      const next = idx >= 0 ? entries[idx + 1] : undefined;
+      if (next) pickSong(next.id);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [entries, currentVideoId]);
+
   // 화면을 꽉 채우되 영상 비율(16:9)은 유지 — 가로가 좁으면 폭 기준, 넓으면 높이 기준
   const avail = { w: width, h: Math.max(height - insets.top - insets.bottom - 96, 180) };
   const byWidth = { w: avail.w, h: (avail.w * 9) / 16 };
