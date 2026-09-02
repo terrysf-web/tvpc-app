@@ -148,7 +148,45 @@ async function findWeeklyPlaylists(handle) {
       console.log(`  (디버그) 재생목록 ID 위치들: ${ids.map((x) => x.index).join(', ')}`);
     }
   }
-  return weekly;
+  return { weekly, ids: ids.map((x) => x.playlistId) };
+}
+
+/**
+ * 날짜 이름 패턴("YYMMDD[태그]")으로 하나도 못 찾았을 때 쓰는 대안 —
+ * 채널이 매주 새 재생목록을 만드는 대신, 이름은 고정("[금요예배 새
+ * 찬양 미리 배우기]" 등)이고 안의 영상만 매주 새로 채우는 "고정
+ * 재생목록" 방식으로 바뀐 경우다. 각 재생목록 ID의 실제 제목(RSS
+ * feed의 <title>)을 확인해 "금요"가 들어간 것을 그 주 찬양 재생목록으로
+ * 본다 — 이 채널은 그 재생목록 하나만 매주 갱신하는 용도로 쓴다.
+ */
+async function findKeywordPlaylist(playlistIds, keyword) {
+  for (const playlistId of playlistIds) {
+    let xml;
+    try {
+      xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`);
+    } catch {
+      continue;
+    }
+    const titleMatch = xml.match(/<title>([^<]*)<\/title>/);
+    const title = titleMatch ? decodeEntities(titleMatch[1].trim()) : '';
+    if (title.includes(keyword)) {
+      const entries = parseFeed(xml);
+      // 제목에 날짜가 없으니, 그 안 영상 중 가장 최근 업로드일을 대신 쓴다
+      const latest = entries
+        .map((e) => e.published?.slice(0, 10))
+        .filter(Boolean)
+        .sort()
+        .at(-1);
+      return {
+        playlistId,
+        date: latest || new Date().toISOString().slice(0, 10),
+        tag: keyword,
+        rawTitle: title,
+        entries,
+      };
+    }
+  }
+  return null;
 }
 
 /** HTML에서 흔히 나오는 이스케이프만 풀어준다(제목에 &, 따옴표 등 있을 때) */
@@ -278,11 +316,21 @@ async function main() {
     else updated++;
   }
 
-  // 2) 주간 재생목록("YYMMDD[태그]") — 그 주 세트리스트(다른 팀 원곡 포함일 수
-  //    있어 낱개 영상이 아니라 재생목록 카드 하나로만 저장)
+  // 2) 주간 찬양 재생목록 — 그 주 세트리스트(다른 팀 원곡 포함일 수 있어
+  //    낱개 영상이 아니라 재생목록 카드 하나로만 저장). 채널이 매주 새
+  //    이름("YYYYMMDD[태그]")의 재생목록을 만드는 방식과, 이름은
+  //    고정해두고 안의 영상만 매주 갈아끼우는 방식 둘 다 지원한다.
   let weeklyPlaylists = [];
   try {
-    weeklyPlaylists = await findWeeklyPlaylists(CHANNEL_HANDLE);
+    const { weekly, ids } = await findWeeklyPlaylists(CHANNEL_HANDLE);
+    weeklyPlaylists = weekly;
+    if (weeklyPlaylists.length === 0 && ids.length > 0) {
+      const kw = await findKeywordPlaylist(ids, '금요');
+      if (kw) {
+        console.log(`  ✓ 날짜 이름 패턴 대신 고정 재생목록으로 확인: "${kw.rawTitle}"`);
+        weeklyPlaylists = [kw];
+      }
+    }
     console.log(`  ✓ 주간 재생목록 ${weeklyPlaylists.length}개 확인`);
   } catch (e) {
     console.log(`  ! 재생목록 탭 확인 실패(건너뜀): ${e.message}`);
@@ -290,10 +338,12 @@ async function main() {
 
   for (const pl of weeklyPlaylists) {
     try {
-      const plXml = await fetchText(
-        `https://www.youtube.com/feeds/videos.xml?playlist_id=${pl.playlistId}`,
-      );
-      const plEntries = parseFeed(plXml);
+      // findKeywordPlaylist는 이미 영상 목록을 같이 가져왔으니 재요청하지 않는다
+      const plEntries =
+        pl.entries ??
+        parseFeed(
+          await fetchText(`https://www.youtube.com/feeds/videos.xml?playlist_id=${pl.playlistId}`),
+        );
       console.log(`  · ${pl.date} [${pl.tag}] 재생목록 영상 ${plEntries.length}건`);
       const r = await saveWeeklyPlaylist(pl, plEntries);
       if (r === 'added') added++;
