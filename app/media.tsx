@@ -8,7 +8,7 @@ import { OverlayHeader } from '../src/components/OverlayHeader';
 import { PhotoSlot } from '../src/components/PhotoSlot';
 import { SegmentTabs } from '../src/components/SegmentTabs';
 import { usePhotos, usePraiseVideos, useSermons } from '../src/data/hooks';
-import { openYouTubeUrl, playSermon, sermonThumb } from '../src/links';
+import { playSermon, sermonThumb } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
 import type { PraiseVideoDoc, SermonDoc } from '../src/types';
 
@@ -56,19 +56,15 @@ export default function MediaScreen() {
     }
   };
 
-  // 재생목록(그 주 세트리스트)이면 유튜브에서 재생목록째로 열고,
-  // 그 외(채널 직접 업로드 영상)는 앱 안 재생기로 연다.
+  // 재생목록(그 주 세트리스트)도, 채널 직접 업로드 영상도 모두 앱 안
+  // 재생기로 연다 — 재생목록은 list를 함께 넘겨 유튜브가 제공하는 목록
+  // 패널을 그대로 보여주므로, 자동재생되는 첫 곡 말고 다른 곡도 그
+  // 패널에서 직접 골라 들을 수 있다.
   const openPraise = (v: PraiseVideoDoc) => {
-    if (v.playlistId) {
-      // 재생목록 "목록" 페이지(playlist?list=)는 바로 재생되지 않고 목록만
-      // 보여준다 — 첫 영상의 watch 주소에 list를 붙여 열어야 그 영상부터
-      // 바로 재생되고, 끝나면 이어서 재생목록 다음 곡으로 자동 재생된다.
-      openYouTubeUrl(
-        `https://www.youtube.com/watch?v=${v.youtubeId}&list=${v.playlistId}`,
-      );
-    } else {
-      router.push({ pathname: '/watch', params: { v: v.youtubeId, t: v.title } });
-    }
+    router.push({
+      pathname: '/watch',
+      params: { v: v.youtubeId, t: v.title, ...(v.playlistId ? { list: v.playlistId } : {}) },
+    });
   };
 
   // 앨범을 앱 안 사진첩으로 연다. 사진을 아직 못 가져온 앨범만 홈페이지로.

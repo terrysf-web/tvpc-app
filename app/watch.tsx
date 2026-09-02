@@ -16,7 +16,7 @@ import { font } from '../src/theme';
 export default function WatchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { v, t } = useLocalSearchParams<{ v: string; t?: string }>();
+  const { v, t, list } = useLocalSearchParams<{ v: string; t?: string; list?: string }>();
   const { width, height } = useWindowDimensions();
   const frameRef = useRef<HTMLElement | null>(null);
 
@@ -25,11 +25,15 @@ export default function WatchScreen() {
   const byWidth = { w: avail.w, h: (avail.w * 9) / 16 };
   const size = byWidth.h <= avail.h ? byWidth : { w: (avail.h * 16) / 9, h: avail.h };
 
+  // 재생목록으로 들어왔으면 그 영상의 watch 주소(list 포함)를 써야
+  // 유튜브 앱/사이트에서도 같은 재생목록으로 열린다.
+  const externalUrl = `https://www.youtube.com/watch?v=${v}${list ? `&list=${list}` : ''}`;
+
   useEffect(() => {
     if (Platform.OS !== 'web' && v) {
-      openExternal(`https://www.youtube.com/watch?v=${v}`);
+      openExternal(externalUrl);
     }
-  }, [v]);
+  }, [v, list]);
 
   // 기기 전체화면 — 안드로이드·컴퓨터에서 동작. 아이폰은 재생기 안 전체화면 버튼을 쓴다.
   const goFullscreen = () => {
@@ -52,7 +56,10 @@ export default function WatchScreen() {
               ref: (el: HTMLElement | null) => {
                 frameRef.current = el;
               },
-              src: `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1`,
+              // list를 함께 넘기면 유튜브 재생기 자체 메뉴에 재생목록
+              // 곡 선택 패널이 생겨, 자동재생되는 첫 곡 말고 다른 곡도
+              // 직접 골라 들을 수 있다.
+              src: `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1${list ? `&list=${list}` : ''}`,
               style: { width: '100%', height: '100%', border: 0, display: 'block' },
               allow:
                 'accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share',
@@ -74,11 +81,7 @@ export default function WatchScreen() {
         {/* 영상에 따라 앱 안 재생이 막혀 있을 수 있어(저작권 설정),
             그럴 때 유튜브로 넘어갈 수 있는 길을 항상 남겨 둔다 */}
         {Platform.OS === 'web' && v ? (
-          <Pressable
-            style={styles.ytLinkBtn}
-            onPress={() => openExternal(`https://www.youtube.com/watch?v=${v}`)}
-            hitSlop={8}
-          >
+          <Pressable style={styles.ytLinkBtn} onPress={() => openExternal(externalUrl)} hitSlop={8}>
             <Text style={styles.ytLinkText}>유튜브에서 보기 ›</Text>
           </Pressable>
         ) : null}
