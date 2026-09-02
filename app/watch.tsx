@@ -67,6 +67,14 @@ export default function WatchScreen() {
     }
   }, [v, list, pickedId]);
 
+  // 이 화면으로 바로 들어와서(예: 즐겨찾기·새로고침 등) 뒤로 갈 히스토리가
+  // 없으면 router.back()이 아무 반응도 안 한다 — 그럴 땐 교회 미디어
+  // 화면으로 대신 이동해 닫기 버튼이 항상 동작하게 한다.
+  const close = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/media');
+  };
+
   // 기기 전체화면 — 안드로이드·컴퓨터에서 동작. 아이폰은 재생기 안 전체화면 버튼을 쓴다.
   const goFullscreen = () => {
     const el = frameRef.current as (HTMLElement & {
@@ -148,7 +156,7 @@ export default function WatchScreen() {
       {/* 닫기 · 전체화면 — 영상 위에 떠 있는 버튼 */}
       <Pressable
         style={[styles.iconBtn, { top: insets.top + 8, left: 12 }]}
-        onPress={() => router.back()}
+        onPress={close}
         hitSlop={10}
       >
         <X size={20} color="#FFFFFF" strokeWidth={2.2} />
