@@ -56,10 +56,14 @@ export default function WatchScreen() {
               ref: (el: HTMLElement | null) => {
                 frameRef.current = el;
               },
-              // list를 함께 넘기면 유튜브 재생기 자체 메뉴에 재생목록
-              // 곡 선택 패널이 생겨, 자동재생되는 첫 곡 말고 다른 곡도
-              // 직접 골라 들을 수 있다.
-              src: `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1${list ? `&list=${list}` : ''}`,
+              // 재생목록이면 특정 영상 ID 대신 "videoseries"로 열어야
+              // 그 재생목록 안의 곡만 재생·선택된다 — 영상 ID를 같이
+              // 넘기면 그 영상이 재생목록 소속이 아닐 때 엉뚱한 영상이
+              // 재생되거나, 끝난 뒤 재생목록과 무관한 영상으로 넘어갈 수
+              // 있다.
+              src: list
+                ? `https://www.youtube-nocookie.com/embed/videoseries?list=${list}&autoplay=1&playsinline=1&rel=0&modestbranding=1`
+                : `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1`,
               style: { width: '100%', height: '100%', border: 0, display: 'block' },
               allow:
                 'accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share',
