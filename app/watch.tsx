@@ -1,9 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Maximize from 'lucide-react-native/dist/esm/icons/maximize.mjs';
 import X from 'lucide-react-native/dist/esm/icons/x.mjs';
-import React, { useEffect, useRef } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePraiseVideos } from '../src/data/hooks';
 import { openExternal } from '../src/links';
 import { font } from '../src/theme';
 
@@ -20,20 +29,33 @@ export default function WatchScreen() {
   const { width, height } = useWindowDimensions();
   const frameRef = useRef<HTMLElement | null>(null);
 
+  // 재생목록이면 그 안 곡 목록을 보여줘 직접 골라 들을 수 있게 한다 —
+  // 유튜브 임베드 재생기 자체엔 이런 선택 목록이 뜨지 않아 우리가 직접
+  // 그려준다. praiseVideos에서 이 재생목록 문서를 찾아 목록을 꺼낸다.
+  const { videos } = usePraiseVideos();
+  const playlistDoc = list ? videos.find((p) => p.playlistId === list) : undefined;
+  const entries = playlistDoc?.entries ?? [];
+
+  // 곡을 직접 고르면 그 영상 하나만 확실히 재생한다(재생목록 문맥을
+  // 다시 넘기면, 그 영상이 재생목록 소속이 아닐 때 엉뚱한 걸 재생하는
+  // 문제가 있었다). 안 고르면 재생목록 첫 곡부터 자동재생.
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const currentVideoId = pickedId ?? v;
+
   // 화면을 꽉 채우되 영상 비율(16:9)은 유지 — 가로가 좁으면 폭 기준, 넓으면 높이 기준
   const avail = { w: width, h: Math.max(height - insets.top - insets.bottom - 96, 180) };
   const byWidth = { w: avail.w, h: (avail.w * 9) / 16 };
   const size = byWidth.h <= avail.h ? byWidth : { w: (avail.h * 16) / 9, h: avail.h };
 
-  // 재생목록으로 들어왔으면 그 영상의 watch 주소(list 포함)를 써야
-  // 유튜브 앱/사이트에서도 같은 재생목록으로 열린다.
-  const externalUrl = `https://www.youtube.com/watch?v=${v}${list ? `&list=${list}` : ''}`;
+  // 재생목록으로 들어왔으면(아직 곡을 직접 안 골랐으면) 그 영상의 watch
+  // 주소(list 포함)를 써야 유튜브 앱/사이트에서도 같은 재생목록으로 열린다.
+  const externalUrl = `https://www.youtube.com/watch?v=${currentVideoId}${list && !pickedId ? `&list=${list}` : ''}`;
 
   useEffect(() => {
     if (Platform.OS !== 'web' && v) {
       openExternal(externalUrl);
     }
-  }, [v, list]);
+  }, [v, list, pickedId]);
 
   // 기기 전체화면 — 안드로이드·컴퓨터에서 동작. 아이폰은 재생기 안 전체화면 버튼을 쓴다.
   const goFullscreen = () => {
@@ -56,14 +78,14 @@ export default function WatchScreen() {
               ref: (el: HTMLElement | null) => {
                 frameRef.current = el;
               },
-              // 재생목록이면 특정 영상 ID 대신 "videoseries"로 열어야
-              // 그 재생목록 안의 곡만 재생·선택된다 — 영상 ID를 같이
-              // 넘기면 그 영상이 재생목록 소속이 아닐 때 엉뚱한 영상이
-              // 재생되거나, 끝난 뒤 재생목록과 무관한 영상으로 넘어갈 수
-              // 있다.
-              src: list
-                ? `https://www.youtube-nocookie.com/embed/videoseries?list=${list}&autoplay=1&playsinline=1&rel=0&modestbranding=1`
-                : `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1`,
+              // 곡을 아직 안 골랐으면 재생목록 첫 곡부터("videoseries")
+              // 자동재생 — 특정 영상 ID를 같이 넘기면 그 영상이 재생목록
+              // 소속이 아닐 때 엉뚱한 영상이 재생될 수 있다. 곡을 직접
+              // 고르면 그 영상 하나만 확실히 재생한다.
+              src:
+                list && !pickedId
+                  ? `https://www.youtube-nocookie.com/embed/videoseries?list=${list}&autoplay=1&playsinline=1&rel=0&modestbranding=1`
+                  : `https://www.youtube-nocookie.com/embed/${currentVideoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`,
               style: { width: '100%', height: '100%', border: 0, display: 'block' },
               allow:
                 'accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share',
@@ -81,6 +103,27 @@ export default function WatchScreen() {
           <Text style={styles.title} numberOfLines={2}>
             {t}
           </Text>
+        ) : null}
+        {entries.length > 0 ? (
+          <ScrollView style={styles.songList} contentContainerStyle={styles.songListContent}>
+            {entries.map((e) => {
+              const active = e.id === currentVideoId;
+              return (
+                <Pressable
+                  key={e.id}
+                  style={[styles.songItem, active && styles.songItemActive]}
+                  onPress={() => setPickedId(e.id)}
+                >
+                  <Text
+                    style={[styles.songItemText, active && styles.songItemTextActive]}
+                    numberOfLines={1}
+                  >
+                    {e.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         ) : null}
         {/* 영상에 따라 앱 안 재생이 막혀 있을 수 있어(저작권 설정),
             그럴 때 유튜브로 넘어갈 수 있는 길을 항상 남겨 둔다 */}
@@ -128,6 +171,12 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: 'rgba(255,255,255,0.6)',
   },
+  songList: { maxHeight: 160, marginTop: 12, marginHorizontal: 18 },
+  songListContent: { gap: 4, paddingBottom: 2 },
+  songItem: { borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
+  songItemActive: { backgroundColor: 'rgba(255,255,255,0.14)' },
+  songItemText: { fontFamily: font.medium, fontSize: 13.5, color: 'rgba(255,255,255,0.72)' },
+  songItemTextActive: { fontFamily: font.bold, color: '#FFFFFF' },
   ytLinkBtn: { marginTop: 10, alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 14 },
   ytLinkText: { fontFamily: font.medium, fontSize: 13, color: 'rgba(255,255,255,0.62)' },
   iconBtn: {

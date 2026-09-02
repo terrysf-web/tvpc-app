@@ -269,6 +269,10 @@ async function saveWeeklyPlaylist(pl, entries) {
     date: pl.date,
     youtubeId: thumbId,
     playlistId: pl.playlistId,
+    // 앱에서 자동재생되는 첫 곡 말고 다른 곡도 직접 골라 들을 수 있게
+    // 목록을 같이 저장한다(유튜브 임베드 재생기 자체엔 이런 선택 목록이
+    // 안 뜬다 — 우리가 직접 그려줘야 한다).
+    entries: entries.slice(0, 30).map((e) => ({ id: e.id, title: e.title })),
     updatedAt: Date.now(),
   };
   let result;

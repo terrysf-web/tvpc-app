@@ -111,14 +111,16 @@ export interface PrayerDoc {
  */
 export interface PraiseVideoDoc {
   id: string;
-  /** 영상 제목, 또는 재생목록이면 태그(예: "금요찬양") */
+  /** 영상 제목, 또는 재생목록이면 유튜브 재생목록 제목 그대로 */
   title: string;
   /** YYYY-MM-DD */
   date: string;
   /** 썸네일용 — 재생목록이면 그 안 첫 영상의 ID */
   youtubeId: string;
-  /** 있으면 이 문서는 재생목록 — 누르면 이 재생목록을 유튜브에서 연다 */
+  /** 있으면 이 문서는 재생목록 — 앱 안 재생기에서 이 재생목록을 연다 */
   playlistId?: string | null;
+  /** 재생목록일 때만 — 안의 곡 목록(직접 골라 들을 수 있게) */
+  entries?: { id: string; title: string }[];
 }
 
 export interface OfferingRecord {
