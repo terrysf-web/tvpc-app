@@ -109,6 +109,8 @@ async function findWeeklyPlaylists(handle) {
       index: tm.index,
       date: `${year}-${tm[2]}-${tm[3]}`,
       tag: tm[4].trim(),
+      // 유튜브에 있는 재생목록 제목 그대로(파싱해서 자르지 않고) 표시용으로 쓴다
+      rawTitle: decodeEntities(tm[0].trim()),
     });
   }
 
@@ -128,7 +130,7 @@ async function findWeeklyPlaylists(handle) {
     // 너무 멀면(5000자 이상) 관계없는 텍스트로 보고 건너뜀
     if (best && bestDist < 5000) {
       usedIds.add(best);
-      weekly.push({ playlistId: best, date: t.date, tag: t.tag });
+      weekly.push({ playlistId: best, date: t.date, tag: t.tag, rawTitle: t.rawTitle });
     }
   }
 
@@ -147,6 +149,16 @@ async function findWeeklyPlaylists(handle) {
     }
   }
   return weekly;
+}
+
+/** HTML에서 흔히 나오는 이스케이프만 풀어준다(제목에 &, 따옴표 등 있을 때) */
+function decodeEntities(s) {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
 /** RSS 피드 파싱 — 의존성 없이 정규식으로 entry 추출 */
@@ -216,7 +228,8 @@ async function saveWeeklyPlaylist(pl, entries) {
   const ref = db.doc(`praiseVideos/${pl.playlistId}`);
   const existing = await ref.get();
   const payload = {
-    title: pl.tag,
+    // 파싱해서 자른 태그가 아니라 유튜브 재생목록 제목을 그대로 쓴다
+    title: pl.rawTitle || pl.tag,
     date: pl.date,
     youtubeId: thumbId,
     playlistId: pl.playlistId,
