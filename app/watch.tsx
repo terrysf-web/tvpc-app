@@ -28,6 +28,7 @@ export default function WatchScreen() {
   const { v, t, list } = useLocalSearchParams<{ v: string; t?: string; list?: string }>();
   const { width, height } = useWindowDimensions();
   const frameRef = useRef<HTMLElement | null>(null);
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
   // 재생목록이면 그 안 곡 목록을 보여줘 직접 골라 들을 수 있게 한다 —
   // 유튜브 임베드 재생기 자체엔 이런 선택 목록이 뜨지 않아 우리가 직접
@@ -41,6 +42,15 @@ export default function WatchScreen() {
   // 문제가 있었다). 안 고르면 재생목록 첫 곡부터 자동재생.
   const [pickedId, setPickedId] = useState<string | null>(null);
   const currentVideoId = pickedId ?? v;
+
+  // 곡을 고르면 iframe의 src를 통째로 바꾸지 않고(다시 불러오면 자동재생이
+  // 브라우저에 막힐 수 있다), 이미 떠 있는 재생기에 유튜브 postMessage
+  // 명령(loadVideoById)만 보내 그 자리에서 바로 이어서 재생한다.
+  const pickSong = (id: string) => {
+    setPickedId(id);
+    const win = (frameRef.current as unknown as { contentWindow?: Window } | null)?.contentWindow;
+    win?.postMessage(JSON.stringify({ event: 'command', func: 'loadVideoById', args: [id] }), '*');
+  };
 
   // 화면을 꽉 채우되 영상 비율(16:9)은 유지 — 가로가 좁으면 폭 기준, 넓으면 높이 기준
   const avail = { w: width, h: Math.max(height - insets.top - insets.bottom - 96, 180) };
@@ -78,14 +88,16 @@ export default function WatchScreen() {
               ref: (el: HTMLElement | null) => {
                 frameRef.current = el;
               },
-              // 곡을 아직 안 골랐으면 재생목록 첫 곡부터("videoseries")
-              // 자동재생 — 특정 영상 ID를 같이 넘기면 그 영상이 재생목록
-              // 소속이 아닐 때 엉뚱한 영상이 재생될 수 있다. 곡을 직접
-              // 고르면 그 영상 하나만 확실히 재생한다.
-              src:
-                list && !pickedId
-                  ? `https://www.youtube-nocookie.com/embed/videoseries?list=${list}&autoplay=1&playsinline=1&rel=0&modestbranding=1`
-                  : `https://www.youtube-nocookie.com/embed/${currentVideoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`,
+              // 재생목록이면 첫 곡부터("videoseries") 자동재생 — 특정
+              // 영상 ID를 같이 넘기면 그 영상이 재생목록 소속이 아닐 때
+              // 엉뚱한 영상이 재생될 수 있다. 곡을 고르면(pickSong) 이
+              // src를 다시 바꾸는 게 아니라 postMessage 명령으로 그
+              // 자리에서 곡만 바꾼다 — src를 바꿔 다시 불러오면 자동재생이
+              // 브라우저 정책에 막힐 수 있어서다. enablejsapi·origin은
+              // 그 postMessage 명령을 재생기가 받아주는 데 필요하다.
+              src: list
+                ? `https://www.youtube-nocookie.com/embed/videoseries?list=${list}&autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(origin)}`
+                : `https://www.youtube-nocookie.com/embed/${v}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(origin)}`,
               style: { width: '100%', height: '100%', border: 0, display: 'block' },
               allow:
                 'accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share',
@@ -112,7 +124,7 @@ export default function WatchScreen() {
                 <Pressable
                   key={e.id}
                   style={[styles.songItem, active && styles.songItemActive]}
-                  onPress={() => setPickedId(e.id)}
+                  onPress={() => pickSong(e.id)}
                 >
                   <Text
                     style={[styles.songItemText, active && styles.songItemTextActive]}
