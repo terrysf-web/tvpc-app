@@ -152,6 +152,27 @@ async function findWeeklyPlaylists(handle) {
 }
 
 /**
+ * 오늘(태평양 시간 기준) 이후 가장 가까운 금요일 날짜(YYYY-MM-DD) —
+ * 이미 금요일이면 오늘. "금요찬양" 재생목록은 그 주 금요예배용이라,
+ * 동기화를 확인한 날(보통 수요일 저녁)이 아니라 그 주 금요일 날짜를
+ * 보여줘야 한다.
+ */
+function upcomingFridayDate() {
+  const pacificToday = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Los_Angeles',
+  }); // YYYY-MM-DD
+  const [y, m, d] = pacificToday.split('-').map(Number);
+  const anchor = Date.UTC(y, m - 1, d);
+  const dow = new Date(anchor).getUTCDay(); // 0=일 .. 6=토
+  const daysUntilFriday = (5 - dow + 7) % 7;
+  const friday = new Date(anchor + daysUntilFriday * 86400000);
+  const yyyy = friday.getUTCFullYear();
+  const mm = String(friday.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(friday.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
  * 날짜 이름 패턴("YYMMDD[태그]")으로 하나도 못 찾았을 때 쓰는 대안 —
  * 채널이 매주 새 재생목록을 만드는 대신, 이름은 고정("[금요예배 새
  * 찬양 미리 배우기]" 등)이고 안의 영상만 매주 새로 채우는 "고정
@@ -173,11 +194,11 @@ async function findKeywordPlaylist(playlistIds, keyword) {
       const entries = parseFeed(xml);
       // 안의 영상은 다른 팀·가수의 원곡/커버라 업로드일이 몇 년 전일 수도
       // 있어(그 영상 자체가 오래전에 올라온 것) 날짜로 못 쓴다 — 이
-      // 재생목록은 이름에 날짜가 없는 "고정" 방식이라, 지금 확인한
-      // 날짜(오늘)를 대신 쓴다.
+      // 재생목록은 이름에 날짜가 없는 "고정" 방식이라, 그 주 금요예배
+      // 날짜(가장 가까운 금요일)를 대신 쓴다.
       return {
         playlistId,
-        date: new Date().toISOString().slice(0, 10),
+        date: upcomingFridayDate(),
         tag: keyword,
         rawTitle: title,
         entries,
