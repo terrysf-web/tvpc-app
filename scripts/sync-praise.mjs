@@ -171,15 +171,13 @@ async function findKeywordPlaylist(playlistIds, keyword) {
     const title = titleMatch ? decodeEntities(titleMatch[1].trim()) : '';
     if (title.includes(keyword)) {
       const entries = parseFeed(xml);
-      // 제목에 날짜가 없으니, 그 안 영상 중 가장 최근 업로드일을 대신 쓴다
-      const latest = entries
-        .map((e) => e.published?.slice(0, 10))
-        .filter(Boolean)
-        .sort()
-        .at(-1);
+      // 안의 영상은 다른 팀·가수의 원곡/커버라 업로드일이 몇 년 전일 수도
+      // 있어(그 영상 자체가 오래전에 올라온 것) 날짜로 못 쓴다 — 이
+      // 재생목록은 이름에 날짜가 없는 "고정" 방식이라, 지금 확인한
+      // 날짜(오늘)를 대신 쓴다.
       return {
         playlistId,
-        date: latest || new Date().toISOString().slice(0, 10),
+        date: new Date().toISOString().slice(0, 10),
         tag: keyword,
         rawTitle: title,
         entries,
