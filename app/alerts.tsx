@@ -4,9 +4,9 @@ import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
 import Heart from 'lucide-react-native/dist/esm/icons/heart.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { markAlertsRead } from '../src/alertsUnread';
+import { isEntryRead, markEntryRead, migrateLegacyReadState } from '../src/alertsUnread';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { useAdminAuth } from '../src/data/admin';
 import { useNews } from '../src/data/hooks';
@@ -66,6 +66,11 @@ type Entry =
       path: string;
     };
 
+/** 읽음 기록 key — "alert-<id>" 또는 "local-<id>" */
+function entryKey(e: Entry): string {
+  return e.kind === 'alert' ? `alert-${e.id}` : `local-${e.id}`;
+}
+
 /**
  * 알림 보관함 — 홈 우측 상단 종 아이콘으로 진입. 긴급 공지(교회에서 보낸
  * 전체 공지 — news 컬렉션에 저장돼 있어 알림을 안 켠 기기도 볼 수 있음)와
@@ -79,11 +84,11 @@ export default function AlertsScreen() {
   const { role } = useAdminAuth();
   const push = usePushNotifications();
   const localHistory = useNotifHistory();
-
-  // 이 화면을 열면 홈 종 아이콘의 "안 읽음" 점을 지운다
-  useEffect(() => {
-    markAlertsRead();
-  }, []);
+  // isEntryRead()는 localStorage를 그때그때 읽어오므로, 항목을 읽음
+  // 처리한 뒤(markEntryRead) 카드의 "안 읽음" 점이 바로 사라지도록 이
+  // 값을 바꿔 다시 그리게 한다.
+  const [, setReadVersion] = useState(0);
+  const didMigrate = useRef(false);
 
   const entries: Entry[] = [
     ...news
@@ -109,6 +114,22 @@ export default function AlertsScreen() {
     ),
   ].sort((a, b) => b.ts - a.ts);
 
+  // 데이터가 처음 다 불러와진 시점에 딱 한 번 — 옛 "마지막으로 연 시각"
+  // 이전 항목들은 이미 본 걸로 간주해 한꺼번에 읽음 처리(마이그레이션)한다.
+  useEffect(() => {
+    if (didMigrate.current || entries.length === 0) return;
+    didMigrate.current = true;
+    migrateLegacyReadState(entries.map((e) => ({ key: entryKey(e), ts: e.ts })));
+    setReadVersion((v) => v + 1);
+  }, [entries]);
+
+  const readEntry = (e: Entry) => {
+    const key = entryKey(e);
+    if (isEntryRead(key)) return;
+    markEntryRead(key);
+    setReadVersion((v) => v + 1);
+  };
+
   return (
     <View style={styles.screen}>
       <OverlayHeader title="알림" />
@@ -129,27 +150,37 @@ export default function AlertsScreen() {
             <Text style={styles.emptyText}>받은 알림이 없습니다.</Text>
           </View>
         )}
-        {entries.map((e) =>
-          e.kind === 'alert' ? (
-            <View key={`alert-${e.id}`} style={[styles.card, shadows.card]}>
+        {entries.map((e) => {
+          const unread = !isEntryRead(entryKey(e));
+          return e.kind === 'alert' ? (
+            <Pressable
+              key={`alert-${e.id}`}
+              style={[styles.card, shadows.card]}
+              onPress={() => readEntry(e)}
+            >
               <View style={styles.titleRow}>
                 <View style={styles.iconChip}>
                   <BellRing size={16} color={colors.tagOrangeText} strokeWidth={2} />
+                  {unread ? <View style={styles.unreadDot} /> : null}
                 </View>
                 <Text style={styles.title}>{e.title}</Text>
               </View>
               {e.body ? <Text style={styles.body}>{e.body}</Text> : null}
               <Text style={styles.date}>{fmtDate(e.date)}</Text>
-            </View>
+            </Pressable>
           ) : (
             <Pressable
               key={`local-${e.id}`}
               style={[styles.card, shadows.card]}
-              onPress={() => router.push(e.path as never)}
+              onPress={() => {
+                readEntry(e);
+                router.push(e.path as never);
+              }}
             >
               <View style={styles.titleRow}>
                 <View style={[styles.iconChip, { backgroundColor: e.meta.bg }]}>
                   <e.meta.Icon size={16} color={e.meta.fg} strokeWidth={2} />
+                  {unread ? <View style={styles.unreadDot} /> : null}
                 </View>
                 <Text style={styles.title}>{e.title}</Text>
                 <ChevronRight size={16} color={colors.faint2} strokeWidth={2} />
@@ -157,8 +188,8 @@ export default function AlertsScreen() {
               {e.body ? <Text style={styles.body}>{e.body}</Text> : null}
               <Text style={styles.date}>{fmtTs(e.ts)}</Text>
             </Pressable>
-          ),
-        )}
+          );
+        })}
         <Text style={styles.hint}>
           {push.enabled
             ? '이 기기가 받은 알림이 여기에 모아서 보관됩니다. 놓친 알림도 다시 볼 수 있어요.'
@@ -205,6 +236,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tagOrangeBg,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  /** 아직 안 읽은 알림 카드 표시 — 아이콘 배지 위에 작은 점 */
+  unreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.badge,
+    borderWidth: 1.5,
+    borderColor: colors.card,
   },
   title: { flex: 1, fontFamily: font.bold, fontSize: 15, color: colors.title },
   body: {
