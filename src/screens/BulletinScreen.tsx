@@ -665,6 +665,7 @@ function BulletinCards({
     const detail = asteriskOnly ? '' : compact ? shownDetail.replace(/\*/g, '').trim() : shownDetail;
     const displayName = asteriskOnly && !compact ? `${name}*` : name;
     const parts = detail ? splitDetailParts(detail) : [];
+    const detailBelow = compact && parts.some((p) => splitSongBadges(p).some((sg) => sg.isSong));
     const detailBlock = parts.map((part, pi) => {
       const segments = splitSongBadges(part);
       return (
@@ -703,32 +704,29 @@ function BulletinCards({
           onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
         >
           {compact ? (
-            <>
-              <Text style={styles.orderStarMark}>{starred ? '✻' : ''}</Text>
-              <Text style={[styles.orderCompactName, !detail && styles.orderIconNameFull]}>
-                {displayName}
-              </Text>
-              {!!detail && (
-                <Text style={styles.orderIconDetailOrig}>
-                  {parts.map((part, pi) => {
-                    const segments = splitSongBadges(part);
-                    return (
+            // 곡 제목 배지가 있는 내용("[그 사랑을 찬양해] 성가대")은 이름 옆
+            // 좁은 칸에 두면 배지 뒤 이름이 다음 줄로 쪼개진다 — 이름 줄 아래에
+            // 폭 전체를 쓰는 별도 줄로 내려서 곡 제목과 뒤 이름이 한 줄에 나온다.
+            <View style={styles.orderCompactCol}>
+              <View style={styles.orderTopRow}>
+                <Text style={styles.orderStarMark}>{starred ? '✻' : ''}</Text>
+                <Text style={[styles.orderCompactName, !detail && styles.orderIconNameFull]}>
+                  {displayName}
+                </Text>
+                {!!detail && !detailBelow && (
+                  <Text style={styles.orderIconDetailOrig}>
+                    {parts.map((part, pi) => (
                       <Text key={pi}>
                         {pi > 0 ? '\n' : ''}
-                        {segments.map((seg, si) =>
-                          seg.isSong ? (
-                            <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
-                          ) : (
-                            seg.text
-                          ),
-                        )}
+                        {part}
                       </Text>
-                    );
-                  })}
-                </Text>
-              )}
-              {hint}
-            </>
+                    ))}
+                  </Text>
+                )}
+                {hint}
+              </View>
+              {detailBelow && <View style={styles.orderCompactDetailBelow}>{detailBlock}</View>}
+            </View>
           ) : isSingleService ? (
             // 야외예배 등 단일 예배 주보 — 항목 이름 길이가 들쭉날쭉하고
             // English 모드는 특히 길어서, 이름 줄 아래에 세부 내용이
@@ -1711,6 +1709,10 @@ const styles = StyleSheet.create({
   // 구간 칸 안 줄의 맨 앞 ✻(일어서기) 자리 — 없어도 자리는 차지해 이름이 줄 맞는다.
   // 구간 칸 안 줄의 이름 — 내용 쪽에 폭을 최대한 주려고 글자 길이만큼만 차지한다.
   orderCompactName: { flexShrink: 0, marginRight: 10, fontFamily: font.bold, fontSize: 13, color: colors.body },
+  orderCompactCol: { flex: 1, minWidth: 0 },
+  // 구간 칸 안 줄에서 곡 제목 배지가 든 내용을 이름 아래로 내린 줄 — ✻ 자리(14)만큼
+  // 들여써서 이름 글자 시작 위치에 맞춘다.
+  orderCompactDetailBelow: { marginTop: 4, marginLeft: 14 },
   orderStarMark: { width: 14, fontFamily: font.bold, fontSize: 12, color: colors.body, textAlign: 'center' },
   orderTopRow: {
     flexDirection: 'row',
