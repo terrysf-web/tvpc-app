@@ -1480,6 +1480,14 @@ let hymns = [];
 let scriptures = [];
 try {
   const faces = buildFaces();
+  // 임시 진단 — 이번 주 주보에서 예배 순서·새벽예배·찬송/성경 칸이 전부 빈
+  // 값으로 나온 원인(포맷 변경 의심)을 보려고, 각 면의 원문 줄을 그대로 찍는다.
+  // 확인 끝나면 지운다.
+  console.log(`[진단] faces: ${faces.length}개`);
+  faces.forEach((f, i) => {
+    console.log(`--- face[${i}] (${f.length}줄) ---`);
+    f.forEach((l) => console.log(`    ${l}`));
+  });
   noteLines = extractNoteLines(faces);
   shareQuestions = extractShareQuestions(faces);
 
