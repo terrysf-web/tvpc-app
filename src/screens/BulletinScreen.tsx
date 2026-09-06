@@ -568,74 +568,79 @@ function BulletinCards({
 
   // 예배 순서 한 줄(항목 하나)을 그린다 — 아래 orderGroups 렌더링에서 구간마다
   // 불러 쓴다. i는 visibleOrder 안에서의 위치(펼침 상태·마지막 줄 판정용).
+  // 설교 히어로 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·설교자·본문 버튼).
+  // 예전 서식은 "설교" 줄 자리에 그대로 들어가고, 구간 칸이 있는 새 서식은
+  // 칸 옆 좁은 폭에 넣으면 배지·날짜가 겹쳐 깨지므로 순서 목록 맨 위에 폭
+  // 전체로 한 번 두고 "설교" 줄은 종이 주보처럼 제목·설교자만 적는다.
+  const renderHeroCard = (key: React.Key) => {
+    if (!bulletin.sermon) return null;
+    return (
+          <View
+            key={key}
+            style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
+            onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
+          >
+            <Image
+              source={{ uri: '/hero-sunday-bg-v3.jpg' }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>
+                {langEn ? "This Week's Message" : '이번주 말씀'}
+              </Text>
+            </View>
+            <View style={styles.heroMid}>
+              <Text style={styles.heroDate}>
+                {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
+                {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
+              </Text>
+              {bulletin.sermon.title ? (
+                <Text style={styles.heroTitle}>
+                  {langEn
+                    ? stripKoreanDuplicates(bulletin.sermon.title)
+                    : stripEnglishDuplicates(bulletin.sermon.title)}
+                </Text>
+              ) : null}
+              <Text style={styles.heroMeta}>
+                {langEn ? translateNamesEn(bulletin.sermon.preacher) : bulletin.sermon.preacher}
+              </Text>
+            </View>
+            {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
+                여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
+                떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
+                본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
+                다르게 쓴다. */}
+            {!!bulletin.sermon.scripture && (
+              <Pressable
+                style={styles.heroBtn}
+                onPress={() =>
+                  router.push(
+                    langEn ? `/verse/${bulletin.date}?lang=en` : `/verse/${bulletin.date}`,
+                  )
+                }
+              >
+                <Text style={styles.heroBtnText}>
+                  {isSingleService
+                    ? langEn
+                      ? 'Sermon Notes'
+                      : '설교 메모'
+                    : langEn
+                      ? 'View Scripture'
+                      : '성경말씀보기'}
+                </Text>
+                <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
+              </Pressable>
+            )}
+          </View>
+    );
+  };
+
   // compact: 구간 칸(모임/말씀/성찬/파송) 안의 줄 — 종이 주보처럼 아이콘 없이
   // 왼쪽에 ✻(일어서기) 표시, 이름, 오른쪽에 내용만 둔다.
   const renderOrderItem = (item: (typeof order)[number], i: number, compact = false) => {
     // "설교" 차례에는 평범한 줄 대신, 원래 맨 위에 있던 히어로
-    // 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·본문·설교자·
-    // 메모 버튼)를 그 자리 그대로 옮겨 보여준다.
-    if (item.name === '설교' && bulletin.sermon) {
-      return (
-        <View
-          key={i}
-          style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
-          onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
-        >
-          <Image
-            source={{ uri: '/hero-sunday-bg-v3.jpg' }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>
-              {langEn ? "This Week's Message" : '이번주 말씀'}
-            </Text>
-          </View>
-          <View style={styles.heroMid}>
-            <Text style={styles.heroDate}>
-              {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
-              {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
-            </Text>
-            {bulletin.sermon.title ? (
-              <Text style={styles.heroTitle}>
-                {langEn
-                  ? stripKoreanDuplicates(bulletin.sermon.title)
-                  : stripEnglishDuplicates(bulletin.sermon.title)}
-              </Text>
-            ) : null}
-            <Text style={styles.heroMeta}>
-              {langEn ? translateNamesEn(bulletin.sermon.preacher) : bulletin.sermon.preacher}
-            </Text>
-          </View>
-          {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
-              여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
-              떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
-              본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
-              다르게 쓴다. */}
-          {!!bulletin.sermon.scripture && (
-            <Pressable
-              style={styles.heroBtn}
-              onPress={() =>
-                router.push(
-                  langEn ? `/verse/${bulletin.date}?lang=en` : `/verse/${bulletin.date}`,
-                )
-              }
-            >
-              <Text style={styles.heroBtnText}>
-                {isSingleService
-                  ? langEn
-                    ? 'Sermon Notes'
-                    : '설교 메모'
-                  : langEn
-                    ? 'View Scripture'
-                    : '성경말씀보기'}
-              </Text>
-              <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
-            </Pressable>
-          )}
-        </View>
-      );
-    }
+    if (item.name === '설교' && bulletin.sermon && !compact) return renderHeroCard(i);
     const rawDetail = svcDetail(item);
     const hymn = hymns.length ? findHymnForItem(rawDetail, hymns) : null;
     const scripture = !hymn && scriptures.length ? findScriptureForItem(rawDetail, scriptures) : null;
@@ -643,9 +648,14 @@ function BulletinCards({
     const isOpen = expandable && expandedIdx === i;
     const Row = expandable ? Pressable : View;
     const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
-    const shownDetail = langEn
-      ? translateOrderDetail(item.name, rawDetail, hymn, scripture)
-      : stripEnglishDuplicates(rawDetail);
+    const shownDetail =
+      compact && item.name === '설교' && bulletin.sermon
+        ? [stripEnglishDuplicates(bulletin.sermon.title ?? ''), bulletin.sermon.preacher]
+            .filter(Boolean)
+            .join('\n')
+        : langEn
+          ? translateOrderDetail(item.name, rawDetail, hymn, scripture)
+          : stripEnglishDuplicates(rawDetail);
     // 세부 내용이 "*"(일어서 주시기 바랍니다 표시) 하나뿐이면 오른쪽 칸엔
     // 사실상 빈 것과 같으니, 그 별표는 이름 뒤에 붙이고 오른쪽은 진짜로 비운다.
     const asteriskOnly = shownDetail.trim() === '*';
@@ -695,7 +705,7 @@ function BulletinCards({
           {compact ? (
             <>
               <Text style={styles.orderStarMark}>{starred ? '✻' : ''}</Text>
-              <Text style={[styles.orderIconNameOrig, !detail && styles.orderIconNameFull]}>
+              <Text style={[styles.orderCompactName, !detail && styles.orderIconNameFull]}>
                 {displayName}
               </Text>
               {!!detail && (
@@ -899,6 +909,7 @@ function BulletinCards({
                   );
                 })}
           </View>
+          {hasSections && renderHeroCard('hero')}
           {orderGroups.map((g, gi) => {
             if (!g.header) {
               return (
@@ -1663,23 +1674,23 @@ const styles = StyleSheet.create({
   // 원본 주보처럼 굵은 제목 + 작은 부제로, 일반 항목 줄과 다르게 보여준다.
   // 종이 주보의 구간 칸: 왼쪽 세로 칸(orderRail)이 그 구간 항목 전체 높이에
   // 걸치고(flex row + 기본 stretch), 오른쪽(orderGroupBody)에 항목 줄들이 쌓인다.
-  orderGroup: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  orderGroup: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   orderGroupSpaced: { marginTop: 10 },
   orderGroupBody: { flex: 1, minWidth: 0 },
   orderRail: {
-    width: 92,
+    width: 78,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: 10,
     backgroundColor: colors.tagBlueBg,
   },
   orderRailTitle: {
     fontFamily: font.bold,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 22,
     color: colors.primary,
     textAlign: 'center',
   },
@@ -1692,6 +1703,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // 구간 칸 안 줄의 맨 앞 ✻(일어서기) 자리 — 없어도 자리는 차지해 이름이 줄 맞는다.
+  // 구간 칸 안 줄의 이름 — 내용 쪽에 폭을 최대한 주려고 글자 길이만큼만 차지한다.
+  orderCompactName: { flexShrink: 0, marginRight: 10, fontFamily: font.bold, fontSize: 13, color: colors.body },
   orderStarMark: { width: 14, fontFamily: font.bold, fontSize: 12, color: colors.body, textAlign: 'center' },
   orderTopRow: {
     flexDirection: 'row',
