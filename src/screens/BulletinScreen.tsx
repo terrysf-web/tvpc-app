@@ -293,6 +293,13 @@ function stripKoreanDuplicates(text: string): string {
     .trim();
 }
 
+/** "모임"·"말씀"·"성찬"·"파송" 같은 구간 제목·부제는 실제 주보에서 세로쓰기로
+ * 찍힌다 — RN엔 writing-mode가 없으니 글자마다 줄바꿈해 한 글자씩 세로로
+ * 쌓는다(공백은 세로쓰기에선 별 의미가 없어 뺀다). */
+function toVertical(s: string): string {
+  return s.replace(/\s+/g, '').split('').join('\n');
+}
+
 /** "경배와 기도"처럼 한 항목을 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)가
  * 나눠 맡을 때, 줄바꿈으로만 이어붙여 놓으면 한 문단처럼 보여 몇 파트인지
  * 구분이 안 된다. 각 줄을 한 파트로 보되, "[찬송 제목]"처럼 대괄호만 있는
@@ -725,8 +732,8 @@ function BulletinCards({
               );
             }
             // 2026-09-06부터 생긴 서식의 큰 흐름 구간 제목("모임"·"말씀"·
-            // "성찬"·"파송") — 일반 항목 줄처럼 왼쪽 칸엔 제목, 오른쪽 칸엔
-            // 그 흐름의 고정 부제(하나님 앞으로/듣고 응답함/…)를 나란히 둔다.
+            // "성찬"·"파송") — 실제 주보처럼 제목·부제 모두 세로쓰기(한 글자씩
+            // 줄바꿈)로 나란히 두 칸에 둔다.
             if (item.isHeader) {
               return (
                 <View
@@ -736,9 +743,9 @@ function BulletinCards({
                     i > 0 && styles.orderHeaderRowSpaced,
                   ]}
                 >
-                  <Text style={styles.orderHeaderTitle}>{item.name}</Text>
+                  <Text style={styles.orderHeaderTitle}>{toVertical(item.name)}</Text>
                   {!!item.subtitle && (
-                    <Text style={styles.orderHeaderSubtitle}>{item.subtitle}</Text>
+                    <Text style={styles.orderHeaderSubtitle}>{toVertical(item.subtitle)}</Text>
                   )}
                 </View>
               );
@@ -1586,14 +1593,26 @@ const styles = StyleSheet.create({
   // 원본 주보처럼 굵은 제목 + 작은 부제로, 일반 항목 줄과 다르게 보여준다.
   orderHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-    paddingTop: 8,
-    paddingBottom: 6,
+    alignItems: 'flex-start',
+    gap: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   orderHeaderRowSpaced: { marginTop: 6, borderTopWidth: 1, borderTopColor: colors.divider },
-  orderHeaderTitle: { flex: 0.8, fontFamily: font.bold, fontSize: 15, color: colors.primary },
-  orderHeaderSubtitle: { flex: 1, fontFamily: font.medium, fontSize: 12.5, color: colors.muted, textAlign: 'right' },
+  orderHeaderTitle: {
+    fontFamily: font.bold,
+    fontSize: 15,
+    lineHeight: 18,
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  orderHeaderSubtitle: {
+    fontFamily: font.medium,
+    fontSize: 11.5,
+    lineHeight: 14,
+    color: colors.muted,
+    textAlign: 'center',
+  },
   orderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
