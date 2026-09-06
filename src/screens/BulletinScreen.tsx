@@ -566,6 +566,233 @@ function BulletinCards({
   const curSvc = SERVICE_INFO.find((s) => s.tab === svcTab)!;
   const curAccent = SERVICE_ACCENT[svcTab];
 
+  // 예배 순서 한 줄(항목 하나)을 그린다 — 아래 orderGroups 렌더링에서 구간마다
+  // 불러 쓴다. i는 visibleOrder 안에서의 위치(펼침 상태·마지막 줄 판정용).
+  // compact: 구간 칸(모임/말씀/성찬/파송) 안의 줄 — 종이 주보처럼 아이콘 없이
+  // 왼쪽에 ✻(일어서기) 표시, 이름, 오른쪽에 내용만 둔다.
+  const renderOrderItem = (item: (typeof order)[number], i: number, compact = false) => {
+    // "설교" 차례에는 평범한 줄 대신, 원래 맨 위에 있던 히어로
+    // 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·본문·설교자·
+    // 메모 버튼)를 그 자리 그대로 옮겨 보여준다.
+    if (item.name === '설교' && bulletin.sermon) {
+      return (
+        <View
+          key={i}
+          style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
+          onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
+        >
+          <Image
+            source={{ uri: '/hero-sunday-bg-v3.jpg' }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          <View style={styles.heroBadge}>
+            <Text style={styles.heroBadgeText}>
+              {langEn ? "This Week's Message" : '이번주 말씀'}
+            </Text>
+          </View>
+          <View style={styles.heroMid}>
+            <Text style={styles.heroDate}>
+              {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
+              {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
+            </Text>
+            {bulletin.sermon.title ? (
+              <Text style={styles.heroTitle}>
+                {langEn
+                  ? stripKoreanDuplicates(bulletin.sermon.title)
+                  : stripEnglishDuplicates(bulletin.sermon.title)}
+              </Text>
+            ) : null}
+            <Text style={styles.heroMeta}>
+              {langEn ? translateNamesEn(bulletin.sermon.preacher) : bulletin.sermon.preacher}
+            </Text>
+          </View>
+          {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
+              여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
+              떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
+              본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
+              다르게 쓴다. */}
+          {!!bulletin.sermon.scripture && (
+            <Pressable
+              style={styles.heroBtn}
+              onPress={() =>
+                router.push(
+                  langEn ? `/verse/${bulletin.date}?lang=en` : `/verse/${bulletin.date}`,
+                )
+              }
+            >
+              <Text style={styles.heroBtnText}>
+                {isSingleService
+                  ? langEn
+                    ? 'Sermon Notes'
+                    : '설교 메모'
+                  : langEn
+                    ? 'View Scripture'
+                    : '성경말씀보기'}
+              </Text>
+              <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
+            </Pressable>
+          )}
+        </View>
+      );
+    }
+    const rawDetail = svcDetail(item);
+    const hymn = hymns.length ? findHymnForItem(rawDetail, hymns) : null;
+    const scripture = !hymn && scriptures.length ? findScriptureForItem(rawDetail, scriptures) : null;
+    const expandable = !!(hymn || scripture);
+    const isOpen = expandable && expandedIdx === i;
+    const Row = expandable ? Pressable : View;
+    const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
+    const shownDetail = langEn
+      ? translateOrderDetail(item.name, rawDetail, hymn, scripture)
+      : stripEnglishDuplicates(rawDetail);
+    // 세부 내용이 "*"(일어서 주시기 바랍니다 표시) 하나뿐이면 오른쪽 칸엔
+    // 사실상 빈 것과 같으니, 그 별표는 이름 뒤에 붙이고 오른쪽은 진짜로 비운다.
+    const asteriskOnly = shownDetail.trim() === '*';
+    // 구간 칸 안에서는 별표를 이름·내용 뒤에 붙이지 않고 종이 주보처럼 줄 맨
+    // 앞의 ✻ 표시로만 보여준다.
+    const starred = compact && shownDetail.includes('*');
+    const detail = asteriskOnly ? '' : compact ? shownDetail.replace(/\*/g, '').trim() : shownDetail;
+    const displayName = asteriskOnly && !compact ? `${name}*` : name;
+    const parts = detail ? splitDetailParts(detail) : [];
+    const detailBlock = parts.map((part, pi) => {
+      const segments = splitSongBadges(part);
+      return (
+        <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
+          {parts.length > 1 ? '· ' : ''}
+          {segments.map((seg, si) =>
+            seg.isSong ? (
+              <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
+            ) : (
+              seg.text
+            ),
+          )}
+        </Text>
+      );
+    });
+    const hint = expandable && (
+      <View style={styles.orderExpandHint}>
+        <Text style={styles.orderExpandHintText}>
+          {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
+        </Text>
+        {isOpen ? (
+          <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+        ) : (
+          <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
+        )}
+      </View>
+    );
+    return (
+      <View key={i}>
+        <Row
+          style={[
+            styles.orderIconRow,
+            !isSingleService && styles.orderTopRow,
+            i === visibleOrder.length - 1 && !isOpen && styles.rowLast,
+          ]}
+          onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
+        >
+          {compact ? (
+            <>
+              <Text style={styles.orderStarMark}>{starred ? '✻' : ''}</Text>
+              <Text style={[styles.orderIconNameOrig, !detail && styles.orderIconNameFull]}>
+                {displayName}
+              </Text>
+              {!!detail && (
+                <Text style={styles.orderIconDetailOrig}>
+                  {parts.map((part, pi) => {
+                    const segments = splitSongBadges(part);
+                    return (
+                      <Text key={pi}>
+                        {pi > 0 ? '\n' : ''}
+                        {segments.map((seg, si) =>
+                          seg.isSong ? (
+                            <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
+                          ) : (
+                            seg.text
+                          ),
+                        )}
+                      </Text>
+                    );
+                  })}
+                </Text>
+              )}
+              {hint}
+            </>
+          ) : isSingleService ? (
+            // 야외예배 등 단일 예배 주보 — 항목 이름 길이가 들쭉날쭉하고
+            // English 모드는 특히 길어서, 이름 줄 아래에 세부 내용이
+            // 폭 전체를 쓰는 별도 줄로 내려간다.
+            <>
+              <View style={styles.orderTopRow}>
+                <OrderIcon name={item.name} />
+                <Text style={styles.orderIconName}>{displayName}</Text>
+                {hint}
+              </View>
+              {parts.length > 0 && <View style={styles.orderDetailBelow}>{detailBlock}</View>}
+            </>
+          ) : (
+            // 일반 주일 — 원래 레이아웃 그대로(오른쪽 정렬 한 줄).
+            <>
+              <OrderIcon name={item.name} />
+              <Text style={[styles.orderIconNameOrig, !detail && styles.orderIconNameFull]}>
+                {displayName}
+              </Text>
+              {!!detail && (
+                <Text style={styles.orderIconDetailOrig}>
+                  {parts.map((part, pi) => {
+                    const segments = splitSongBadges(part);
+                    return (
+                      <Text key={pi}>
+                        {pi > 0 ? '\n' : ''}
+                        {segments.map((seg, si) =>
+                          seg.isSong ? (
+                            <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
+                          ) : (
+                            seg.text
+                          ),
+                        )}
+                      </Text>
+                    );
+                  })}
+                </Text>
+              )}
+              {hint}
+            </>
+          )}
+        </Row>
+        {isOpen && (
+          <OrderExpandPanel
+            key={isSingleService ? orderLang : 'ko'}
+            hymn={hymn}
+            scripture={scripture}
+            defaultLang={isSingleService ? orderLang : undefined}
+          />
+        )}
+      </View>
+    );
+  };
+
+  // 2026-09-06부터 생긴 서식은 예배를 "모임·말씀·성찬·파송" 네 구간으로 나누고,
+  // 종이 주보에서는 각 구간 제목을 왼쪽에 별도 세로 칸으로 두어 그 구간의
+  // 항목 여러 줄에 걸쳐 세로로 쓴다. 같은 모양으로 그리려고 항목들을 구간
+  // 제목(isHeader) 기준으로 묶는다 — 예전 서식(구간 제목 없음)은 그룹 하나에
+  // header 없이 다 들어가므로 예전 그대로 평평하게 그려진다.
+  type OrderGroup = {
+    header: (typeof order)[number] | null;
+    items: { item: (typeof order)[number]; idx: number }[];
+  };
+  const orderGroups: OrderGroup[] = [];
+  const hasSections = visibleOrder.some((o) => o.isHeader);
+  visibleOrder.forEach((item, idx) => {
+    if (item.isHeader) {
+      orderGroups.push({ header: item, items: [] });
+      return;
+    }
+    if (!orderGroups.length) orderGroups.push({ header: null, items: [] });
+    orderGroups[orderGroups.length - 1].items.push({ item, idx });
+  });
+
   return (
     <>
       {/* 1부/2부가 있는 주에만 의미가 있다 — 야외예배 등 단일 예배 주에는 고를
@@ -672,203 +899,36 @@ function BulletinCards({
                   );
                 })}
           </View>
-          {visibleOrder.map((item, i) => {
-            // "설교" 차례에는 평범한 줄 대신, 원래 맨 위에 있던 히어로
-            // 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·본문·설교자·
-            // 메모 버튼)를 그 자리 그대로 옮겨 보여준다.
-            if (item.name === '설교' && bulletin.sermon) {
+          {orderGroups.map((g, gi) => {
+            if (!g.header) {
               return (
-                <View
-                  key={i}
-                  style={[styles.heroCard, shadows.hero, heroHeight != null && { height: heroHeight }]}
-                  onLayout={(e) => setHeroWidth(e.nativeEvent.layout.width)}
-                >
-                  <Image
-                    source={{ uri: '/hero-sunday-bg-v3.jpg' }}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>
-                      {langEn ? "This Week's Message" : '이번주 말씀'}
-                    </Text>
-                  </View>
-                  <View style={styles.heroMid}>
-                    <Text style={styles.heroDate}>
-                      {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
-                      {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
-                    </Text>
-                    {bulletin.sermon.title ? (
-                      <Text style={styles.heroTitle}>
-                        {langEn
-                          ? stripKoreanDuplicates(bulletin.sermon.title)
-                          : stripEnglishDuplicates(bulletin.sermon.title)}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.heroMeta}>
-                      {langEn ? translateNamesEn(bulletin.sermon.preacher) : bulletin.sermon.preacher}
-                    </Text>
-                  </View>
-                  {/* verses/{날짜} 문서가 있을 때만 보인다(성경봉독을 못 읽은 주는
-                      여전히 숨김 — 눌러도 "말씀을 불러오지 못했습니다" 오류만
-                      떴었다). 야외예배 등 1부/2부 구분 없는 단일 예배 주는 성경
-                      본문을 보여줄 화면이라기보다 메모하러 가는 버튼이라 문구를
-                      다르게 쓴다. */}
-                  {!!bulletin.sermon.scripture && (
-                    <Pressable
-                      style={styles.heroBtn}
-                      onPress={() =>
-                        router.push(
-                          langEn ? `/verse/${bulletin.date}?lang=en` : `/verse/${bulletin.date}`,
-                        )
-                      }
-                    >
-                      <Text style={styles.heroBtnText}>
-                        {isSingleService
-                          ? langEn
-                            ? 'Sermon Notes'
-                            : '설교 메모'
-                          : langEn
-                            ? 'View Scripture'
-                            : '성경말씀보기'}
-                      </Text>
-                      <ChevronRight size={12} color="#FFF6ED" strokeWidth={2.6} />
-                    </Pressable>
-                  )}
-                </View>
+                <React.Fragment key={`g${gi}`}>
+                  {g.items.map(({ item, idx }) => renderOrderItem(item, idx))}
+                </React.Fragment>
               );
             }
-            // 2026-09-06부터 생긴 서식의 큰 흐름 구간 제목("모임"·"말씀"·
-            // "성찬"·"파송") — 실제 주보는 이 제목을 세로 칸(왼쪽에 별도
-            // 칸을 만들어 아래 항목 여러 줄에 걸쳐 세로로 쓴다)으로 보여주지만,
-            // 여기선 항목을 한 줄씩 그리는 목록 구조라 그 칸을 그대로 만들
-            // 수는 없다 — 한 줄짜리 구간 표시 줄에서는 제목·부제를 나란히
-            // 가로로 두는 쪽이 자연스럽다.
-            if (item.isHeader) {
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.orderHeaderRow,
-                    i > 0 && styles.orderHeaderRowSpaced,
-                  ]}
-                >
-                  <Text style={styles.orderHeaderTitle}>{item.name}</Text>
-                  {!!item.subtitle && (
-                    <Text style={styles.orderHeaderSubtitle}>{item.subtitle}</Text>
-                  )}
-                </View>
-              );
-            }
-            const rawDetail = svcDetail(item);
-            const hymn = hymns.length ? findHymnForItem(rawDetail, hymns) : null;
-            const scripture = !hymn && scriptures.length ? findScriptureForItem(rawDetail, scriptures) : null;
-            const expandable = !!(hymn || scripture);
-            const isOpen = expandable && expandedIdx === i;
-            const Row = expandable ? Pressable : View;
-            const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
-            const shownDetail = langEn
-              ? translateOrderDetail(item.name, rawDetail, hymn, scripture)
-              : stripEnglishDuplicates(rawDetail);
-            // 세부 내용이 "*"(일어서 주시기 바랍니다 표시) 하나뿐이면 오른쪽 칸엔
-            // 사실상 빈 것과 같으니, 그 별표는 이름 뒤에 붙이고 오른쪽은 진짜로 비운다.
-            const asteriskOnly = shownDetail.trim() === '*';
-            const detail = asteriskOnly ? '' : shownDetail;
-            const displayName = asteriskOnly ? `${name}*` : name;
-            const parts = detail ? splitDetailParts(detail) : [];
-            const detailBlock = parts.map((part, pi) => {
-              const segments = splitSongBadges(part);
-              return (
-                <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
-                  {parts.length > 1 ? '· ' : ''}
-                  {segments.map((seg, si) =>
-                    seg.isSong ? (
-                      <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
-                    ) : (
-                      seg.text
-                    ),
-                  )}
-                </Text>
-              );
-            });
-            const hint = expandable && (
-              <View style={styles.orderExpandHint}>
-                <Text style={styles.orderExpandHintText}>
-                  {langEn ? (hymn ? 'Lyrics' : 'Scripture') : hymn ? '가사' : '본문'}
-                </Text>
-                {isOpen ? (
-                  <ChevronUp size={12} color={colors.tagBlueText} strokeWidth={2.4} />
-                ) : (
-                  <ChevronDown size={12} color={colors.tagBlueText} strokeWidth={2.4} />
-                )}
-              </View>
-            );
+            // 구간 제목 칸 — 종이 주보처럼 왼쪽 칸이 그 구간 항목 전체 높이에
+            // 걸치고, 그 가운데에 제목("모임")과 작은 부제("하나님 앞으로")를 둔다.
+            const rows = g.items.map(({ item, idx }) => renderOrderItem(item, idx, true));
             return (
-              <View key={i}>
-                <Row
-                  style={[
-                    styles.orderIconRow,
-                    !isSingleService && styles.orderTopRow,
-                    i === visibleOrder.length - 1 && !isOpen && styles.rowLast,
-                  ]}
-                  onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
-                >
-                  {isSingleService ? (
-                    // 야외예배 등 단일 예배 주보 — 항목 이름 길이가 들쭉날쭉하고
-                    // English 모드는 특히 길어서, 이름 줄 아래에 세부 내용이
-                    // 폭 전체를 쓰는 별도 줄로 내려간다.
-                    <>
-                      <View style={styles.orderTopRow}>
-                        <OrderIcon name={item.name} />
-                        <Text style={styles.orderIconName}>{displayName}</Text>
-                        {hint}
-                      </View>
-                      {parts.length > 0 && <View style={styles.orderDetailBelow}>{detailBlock}</View>}
-                    </>
-                  ) : (
-                    // 일반 주일 — 원래 레이아웃 그대로(오른쪽 정렬 한 줄).
-                    <>
-                      <OrderIcon name={item.name} />
-                      <Text style={[styles.orderIconNameOrig, !detail && styles.orderIconNameFull]}>
-                        {displayName}
-                      </Text>
-                      {!!detail && (
-                        <Text style={styles.orderIconDetailOrig}>
-                          {parts.map((part, pi) => {
-                            const segments = splitSongBadges(part);
-                            return (
-                              <Text key={pi}>
-                                {pi > 0 ? '\n' : ''}
-                                {segments.map((seg, si) =>
-                                  seg.isSong ? (
-                                    <Text key={si} style={styles.orderSongBadge}>{`♪ ${seg.text}`}</Text>
-                                  ) : (
-                                    seg.text
-                                  ),
-                                )}
-                              </Text>
-                            );
-                          })}
-                        </Text>
-                      )}
-                      {hint}
-                    </>
+              <View key={`g${gi}`} style={[styles.orderGroup, gi > 0 && styles.orderGroupSpaced]}>
+                <View style={styles.orderRail}>
+                  <Text style={styles.orderRailTitle}>{g.header.name}</Text>
+                  {!!g.header.subtitle && (
+                    <Text style={styles.orderRailSubtitle}>{g.header.subtitle}</Text>
                   )}
-                </Row>
-                {isOpen && (
-                  <OrderExpandPanel
-                    key={isSingleService ? orderLang : 'ko'}
-                    hymn={hymn}
-                    scripture={scripture}
-                    defaultLang={isSingleService ? orderLang : undefined}
-                  />
-                )}
+                </View>
+                <View style={styles.orderGroupBody}>{rows}</View>
               </View>
             );
           })}
           {hasAsterisk && (
             <Text style={styles.orderFootnote}>
-              {isSingleService && orderLang === 'en' ? '* Please stand.' : '* 표는 일어서 주시기 바랍니다.'}
+              {isSingleService && orderLang === 'en'
+                ? '* Please stand.'
+                : hasSections
+                  ? '✻ 일어서실 수 있는 분은 일어서 주십시오.'
+                  : '* 표는 일어서 주시기 바랍니다.'}
             </Text>
           )}
         </View>
@@ -1601,16 +1661,38 @@ const styles = StyleSheet.create({
   },
   // 2026-09-06부터 생긴 서식의 큰 흐름 구간 제목("모임"·"말씀"·"성찬"·"파송") —
   // 원본 주보처럼 굵은 제목 + 작은 부제로, 일반 항목 줄과 다르게 보여준다.
-  orderHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-    paddingTop: 8,
-    paddingBottom: 6,
+  // 종이 주보의 구간 칸: 왼쪽 세로 칸(orderRail)이 그 구간 항목 전체 높이에
+  // 걸치고(flex row + 기본 stretch), 오른쪽(orderGroupBody)에 항목 줄들이 쌓인다.
+  orderGroup: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  orderGroupSpaced: { marginTop: 10 },
+  orderGroupBody: { flex: 1, minWidth: 0 },
+  orderRail: {
+    width: 92,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    backgroundColor: colors.tagBlueBg,
   },
-  orderHeaderRowSpaced: { marginTop: 6, borderTopWidth: 1, borderTopColor: colors.divider },
-  orderHeaderTitle: { flex: 0.8, fontFamily: font.bold, fontSize: 15, color: colors.primary },
-  orderHeaderSubtitle: { flex: 1, fontFamily: font.medium, fontSize: 12.5, color: colors.muted, textAlign: 'right' },
+  orderRailTitle: {
+    fontFamily: font.bold,
+    fontSize: 18,
+    lineHeight: 24,
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  orderRailSubtitle: {
+    marginTop: 2,
+    fontFamily: font.medium,
+    fontSize: 11.5,
+    lineHeight: 15,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  // 구간 칸 안 줄의 맨 앞 ✻(일어서기) 자리 — 없어도 자리는 차지해 이름이 줄 맞는다.
+  orderStarMark: { width: 14, fontFamily: font.bold, fontSize: 12, color: colors.body, textAlign: 'center' },
   orderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',

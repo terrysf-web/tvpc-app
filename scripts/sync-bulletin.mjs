@@ -946,7 +946,7 @@ const ORDER_LABELS = [
   // "1부 특송"/"2부 특송"도 자체 라벨로 잡아야 한다 — 바로 앞 줄이 "성찬"
   // 같은 구간 표시(HEADER_LABELS)면, 라벨 없는 줄로 오인될 경우 화면에서
   // 아예 안 쓰는 그 구간 표시의 상세줄에 묻혀 통째로 사라진다.
-  '1부 특송', '2부 특송',
+  '1부 특송', '2부 특송', '축복과 파송',
 ];
 const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
 // 2026-09-06 서식은 예배 전체를 "모임·말씀·성찬·파송" 네 흐름으로 크게
@@ -961,15 +961,15 @@ const HEADER_SUBTITLE = {
   파송: '세상으로',
 };
 const HEADER_LABELS = new Set(Object.keys(HEADER_SUBTITLE));
+// 구간 제목 줄보다 먼저 나오지만 서식상 그 구간에 속하는 항목(성찬 칸의 첫 줄 "봉헌")
+const HEADER_PULL_BEFORE = { 성찬: new Set(['봉헌']) };
 // 위 부제 글자들은 그 자체로는 독립된 예배 순서 항목이 아니라 제목에 딸린
 // 설명일 뿐이다 — 원문에서 만나면 이미 HEADER_SUBTITLE로 채워 뒀으니 그냥
 // 건너뛴다(달리 다루지 않으면 바로 앞/뒤 실제 항목에 잘못 이어붙는다).
-// ('세상으로'는 뺐다 — 실제 원문에서는 "세상으로 ¶ 축복과 파송"처럼 다음
-// 칸(축복과 파송)과 파이프(¶)로 묶여 나오는데, 여길 건너뛰면 그 실제 내용도
-// 같이 사라진다. 그냥 하나로 두면 "세상으로: 축복과 파송" 항목이 되어 헤더
-// 부제와 살짝 겹치지만 내용 유실보다 낫다. '믿음의재고백'(띄어쓰기 없음)은
-// 성찬 칸 부제가 다른 칸 목록 줄에 겹쳐 찍힌 잔여물이라 여기 그대로 둔다.)
-const DECORATIVE_SUBTITLES = new Set(['하나님앞으로', '듣고응답함', '믿음의재고백', '믿음의 재고백']);
+// ('세상으로'는 실제 원문에서 "세상으로 ¶ 축복과 파송"처럼 옆 항목과 ¶로
+// 한 줄에 붙어 나온다 — 아래 라벨 처리에서 ¶ 뒤 항목은 살리고 부제만 버린다.
+// '믿음의재고백'(띄어쓰기 없음)은 성찬 칸 부제가 목록 줄에 겹쳐 찍힌 잔여물.)
+const DECORATIVE_SUBTITLES = new Set(['하나님앞으로', '듣고응답함', '믿음의재고백', '믿음의 재고백', '세상으로']);
 const SCRIPTURE_LIKE = /\d{1,3}\s*[:：\-–~]\s*\d{1,3}|\d{1,3}\s*장/;
 const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권사)\s*$/;
 // '*'(또는 새 서식의 '✻')는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다.
@@ -1084,7 +1084,6 @@ function extractOrderAndSermon(lines) {
       // 큰 흐름 구간 제목(모임/말씀/성찬/파송) 밑에 붙는 작은 부제는 독립된
       // 항목이 아니라 그 제목에 고정으로 딸린 설명일 뿐이다(HEADER_SUBTITLE
       // 에서 이미 채움) — 원문에서 만나도 새 항목을 만들지 않고 건너뛴다.
-      if (DECORATIVE_SUBTITLES.has(label)) continue;
       // 2026-09-06부터 라벨과 내용 사이를 점선(".......")으로 잇는 항목이
       // 있다 — 내용에 점선이 그대로 남지 않게 앞쪽 공백·점을 걷어낸다.
       const rest = t.slice(label.length).replace(/^[\s.]+/, '');
@@ -1094,8 +1093,31 @@ function extractOrderAndSermon(lines) {
       // 각각 따로 만든다.
       const afterPillar = rest.replace(/^(?:¶\s*)+/, '');
       const subLabel = afterPillar !== rest ? matchOrderLabel(afterPillar) : null;
+      // 부제("세상으로" 등)가 옆 항목("축복과 파송")과 ¶로 한 줄에 붙어 나오면
+      // 부제만 버리고 그 항목은 살린다.
+      if (DECORATIVE_SUBTITLES.has(label)) {
+        if (subLabel) {
+          raw.push({
+            name: subLabel,
+            detailLines: [...(star ? ['*'] : []), afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')],
+          });
+        }
+        continue;
+      }
       const isHeader = HEADER_LABELS.has(label);
       const subtitle = isHeader ? HEADER_SUBTITLE[label] : undefined;
+      // 구간 제목은 그 구간 세로 칸의 가운데 높이에 찍혀서, 항목 줄 순서로는
+      // 구간의 첫 항목보다 뒤에 나오기도 한다("봉헌" 다음에 "성찬") — 서식상
+      // 그 구간에 속하는 앞 항목이 바로 앞에 있으면 제목을 그 앞으로 당긴다.
+      const pull = HEADER_PULL_BEFORE[label];
+      const lastRaw = raw[raw.length - 1];
+      if (isHeader && pull && lastRaw && !lastRaw.isHeader && pull.has(lastRaw.name)) {
+        raw.splice(raw.length - 1, 0, { name: label, isHeader, subtitle, detailLines: [] });
+        if (subLabel) {
+          raw.push({ name: subLabel, detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')] });
+        }
+        continue;
+      }
       if (subLabel) {
         raw.push({ name: label, isHeader, subtitle, detailLines: star ? ['*'] : [] });
         raw.push({ name: subLabel, detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')] });
