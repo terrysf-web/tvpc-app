@@ -572,6 +572,8 @@ function BulletinCards({
   // 예전 서식은 "설교" 줄 자리에 그대로 들어가고, 구간 칸이 있는 새 서식은
   // 칸 옆 좁은 폭에 넣으면 배지·날짜가 겹쳐 깨지므로 말씀 구간과 성찬 구간
   // 사이에 폭 전체로 한 번 두고 "설교" 줄은 종이 주보처럼 제목·설교자만 적는다.
+  // 새 서식(구간 제목 있음)인지 — 아래 히어로 카드·각주 문구가 이걸 따른다.
+  const hasSections = visibleOrder.some((o) => o.isHeader);
   const renderHeroCard = (key: React.Key) => {
     if (!bulletin.sermon) return null;
     return (
@@ -591,10 +593,14 @@ function BulletinCards({
               </Text>
             </View>
             <View style={styles.heroMid}>
-              <Text style={styles.heroDate}>
-                {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
-                {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
-              </Text>
+              {/* 구간 칸 사이에 끼운 카드(새 서식)에는 날짜·성찬식 줄을 안 쓴다 —
+                  화면 제목에 이미 날짜가 있고, 카드는 설교 제목·설교자만 보여주면 된다. */}
+              {!hasSections && (
+                <Text style={styles.heroDate}>
+                  {langEn ? fmtEn(bulletin.date) : fmtKo(bulletin.date)}
+                  {hasCommunion ? (langEn ? ' · Communion' : ' · 성찬식') : ''}
+                </Text>
+              )}
               {bulletin.sermon.title ? (
                 <Text style={styles.heroTitle}>
                   {langEn
@@ -791,7 +797,6 @@ function BulletinCards({
     items: { item: (typeof order)[number]; idx: number }[];
   };
   const orderGroups: OrderGroup[] = [];
-  const hasSections = visibleOrder.some((o) => o.isHeader);
   visibleOrder.forEach((item, idx) => {
     if (item.isHeader) {
       orderGroups.push({ header: item, items: [] });
