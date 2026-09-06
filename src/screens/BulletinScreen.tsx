@@ -175,6 +175,8 @@ const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: str
   기도: Hand,
   찬송: Music,
   // 2026-09-06부터 생긴 새 예배 순서 서식 — 항목 이름이 통째로 바뀌었다.
+  모임: Users,
+  '공동체 소식': Megaphone,
   '예배로의 부름': Mail,
   하나님앞으로: Users,
   '경배 찬양': Music,
@@ -195,6 +197,8 @@ const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: str
   '파송 찬양': Music,
   파송: Hand,
   세상으로: Users,
+  '1부 특송': Mic,
+  '2부 특송': Mic,
 };
 
 // 단일 예배(야외예배 등) 주보에서 한글/English 전환 시 쓰는 항목 이름 번역.
@@ -291,13 +295,6 @@ function stripKoreanDuplicates(text: string): string {
     .replace(/["“][^"”]*["”]\s*\(([^)]+)\)/g, '$1')
     .replace(/\s{2,}/g, ' ')
     .trim();
-}
-
-/** "모임"·"말씀"·"성찬"·"파송" 같은 구간 제목·부제는 실제 주보에서 세로쓰기로
- * 찍힌다 — RN엔 writing-mode가 없으니 글자마다 줄바꿈해 한 글자씩 세로로
- * 쌓는다(공백은 세로쓰기에선 별 의미가 없어 뺀다). */
-function toVertical(s: string): string {
-  return s.replace(/\s+/g, '').split('').join('\n');
 }
 
 /** "경배와 기도"처럼 한 항목을 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)가
@@ -540,6 +537,16 @@ function BulletinCards({
   // 단일 예배 주의 한글/English 탭 — 히어로 카드(설교 차례)도 이 탭을 따라
   // 제목을 바꿔 보여준다.
   const langEn = isSingleService && orderLang === 'en';
+  // "1부 특송"/"2부 특송"은 이름 자체가 그 부에서만 하는 순서라는 뜻이라,
+  // service1/service2처럼 부마다 다른 내용을 나눠 담는 게 아니라 아예 그
+  // 부를 볼 때만 목록에 나와야 한다(예전 서식엔 없던 항목이라 svcDetail의
+  // service1/service2 분기로는 못 거른다) — 지금 고른 부(svcTab)와 다른
+  // 쪽의 특송은 걸러낸다.
+  const SERVICE_ONLY_ITEM: Record<string, '1' | '2'> = { '1부 특송': '1', '2부 특송': '2' };
+  const visibleOrder = order.filter((item) => {
+    const onlyFor = SERVICE_ONLY_ITEM[item.name];
+    return !onlyFor || isSingleService || onlyFor === svcTab;
+  });
   const svcDetail = (item: (typeof order)[number]) => {
     if (item.name === '성도의 교제') return '교회 소식';
     if (item.service1 || item.service2) {
@@ -665,7 +672,7 @@ function BulletinCards({
                   );
                 })}
           </View>
-          {order.map((item, i) => {
+          {visibleOrder.map((item, i) => {
             // "설교" 차례에는 평범한 줄 대신, 원래 맨 위에 있던 히어로
             // 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·본문·설교자·
             // 메모 버튼)를 그 자리 그대로 옮겨 보여준다.
@@ -732,8 +739,11 @@ function BulletinCards({
               );
             }
             // 2026-09-06부터 생긴 서식의 큰 흐름 구간 제목("모임"·"말씀"·
-            // "성찬"·"파송") — 실제 주보처럼 제목·부제 모두 세로쓰기(한 글자씩
-            // 줄바꿈)로 나란히 두 칸에 둔다.
+            // "성찬"·"파송") — 실제 주보는 이 제목을 세로 칸(왼쪽에 별도
+            // 칸을 만들어 아래 항목 여러 줄에 걸쳐 세로로 쓴다)으로 보여주지만,
+            // 여기선 항목을 한 줄씩 그리는 목록 구조라 그 칸을 그대로 만들
+            // 수는 없다 — 한 줄짜리 구간 표시 줄에서는 제목·부제를 나란히
+            // 가로로 두는 쪽이 자연스럽다.
             if (item.isHeader) {
               return (
                 <View
@@ -743,9 +753,9 @@ function BulletinCards({
                     i > 0 && styles.orderHeaderRowSpaced,
                   ]}
                 >
-                  <Text style={styles.orderHeaderTitle}>{toVertical(item.name)}</Text>
+                  <Text style={styles.orderHeaderTitle}>{item.name}</Text>
                   {!!item.subtitle && (
-                    <Text style={styles.orderHeaderSubtitle}>{toVertical(item.subtitle)}</Text>
+                    <Text style={styles.orderHeaderSubtitle}>{item.subtitle}</Text>
                   )}
                 </View>
               );
@@ -799,7 +809,7 @@ function BulletinCards({
                   style={[
                     styles.orderIconRow,
                     !isSingleService && styles.orderTopRow,
-                    i === order.length - 1 && !isOpen && styles.rowLast,
+                    i === visibleOrder.length - 1 && !isOpen && styles.rowLast,
                   ]}
                   onPress={expandable ? () => setExpandedIdx(isOpen ? null : i) : undefined}
                 >
@@ -1593,26 +1603,14 @@ const styles = StyleSheet.create({
   // 원본 주보처럼 굵은 제목 + 작은 부제로, 일반 항목 줄과 다르게 보여준다.
   orderHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
+    alignItems: 'baseline',
+    gap: 10,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   orderHeaderRowSpaced: { marginTop: 6, borderTopWidth: 1, borderTopColor: colors.divider },
-  orderHeaderTitle: {
-    fontFamily: font.bold,
-    fontSize: 15,
-    lineHeight: 18,
-    color: colors.primary,
-    textAlign: 'center',
-  },
-  orderHeaderSubtitle: {
-    fontFamily: font.medium,
-    fontSize: 11.5,
-    lineHeight: 14,
-    color: colors.muted,
-    textAlign: 'center',
-  },
+  orderHeaderTitle: { flex: 0.8, fontFamily: font.bold, fontSize: 15, color: colors.primary },
+  orderHeaderSubtitle: { flex: 1, fontFamily: font.medium, fontSize: 12.5, color: colors.muted, textAlign: 'right' },
   orderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',

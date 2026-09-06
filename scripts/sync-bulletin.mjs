@@ -1531,9 +1531,19 @@ function extractOffering(lines) {
   return { columns, rows, total };
 }
 
-/** 예배위원 표 한 구간(주일/금요) 안에서, 담당별 값 줄을 모은다 — 라벨 줄이
- * 없는 값 줄(칸이 두 줄에 걸친 경우)은 직전까지 확정된 담당에 붙인다. */
-function collectDutyRows(lines, startIdx, endIdx, dutyOrder) {
+/** 예배위원 표 한 구간(주일/금요) 안에서, 담당별 칸 값을 채운다 — 라벨 줄이
+ * 없는 값 줄(칸이 두 줄에 걸친 경우)은 직전까지 확정된 담당에 붙인다.
+ *
+ * 값 줄이 실제 칸 수와 똑같이 나오면("헌금" 담당의 "안현숙[1부]"가 매주
+ * 반복돼 4칸 모두 채우는 경우처럼) 칸마다 하나씩 그대로 대응시켜 쌓는다.
+ * 반면 칸 수보다 적게 나오면(대개 이름 하나) 그 담당이 "아직 안 채운 칸"을
+ * 앞에서부터 순서대로 채우는 값으로 본다 — 이름이 길어 원래 칸(특히 맨
+ * 오른쪽 칸)에 안 들어가고 다음 줄로 밀려난 경우다. 예전엔 이런 짧은 값
+ * 줄을 무조건 0번 칸으로 착각해서, "금요기도" 표에서 맨 오른쪽 칸(10/2)
+ * 담당자 이름이 밀려 나오면 엉뚱하게 맨 왼쪽 칸(9/11) 이름과 줄바꿈으로
+ * 겹쳐 붙어버렸다(실제 사례로 확인) — 이제는 그 담당의 앞 칸들이 이미
+ * 몇 개나 채워졌는지 세어서, 그다음 빈 칸에 넣는다. */
+function collectDutyRows(lines, startIdx, endIdx, dutyOrder, columnCount) {
   const marks = [];
   for (let i = startIdx; i < endIdx; i++) {
     const cols = splitPillar(lines[i].trim());
@@ -1541,20 +1551,34 @@ function collectDutyRows(lines, startIdx, endIdx, dutyOrder) {
     const pos = dutyOrder.indexOf(name);
     if (pos === marks.length) marks.push({ idx: i, ownVals: cols.slice(1) });
   }
-  const chunks = dutyOrder.map(() => []);
-  if (!marks.length) return chunks;
+  const perDuty = dutyOrder.map(() => Array.from({ length: columnCount }, () => []));
+  if (!marks.length) return perDuty.map((cols) => cols.map(() => ''));
+  const nextSlot = dutyOrder.map(() => 0);
+  const fill = (d, vals) => {
+    if (vals.length === columnCount) {
+      vals.forEach((v, c) => {
+        if (v) perDuty[d][c].push(v);
+      });
+      return;
+    }
+    for (const v of vals) {
+      if (nextSlot[d] >= columnCount) break;
+      if (v) perDuty[d][nextSlot[d]].push(v);
+      nextSlot[d]++;
+    }
+  };
   for (let d = 0; d < marks.length; d++) {
-    if (marks[d].ownVals.some(Boolean)) chunks[d].push(marks[d].ownVals);
+    fill(d, marks[d].ownVals);
     const nextIdx = d + 1 < marks.length ? marks[d + 1].idx : endIdx;
     const nextOwnEmpty = d + 1 < marks.length ? !marks[d + 1].ownVals.some(Boolean) : false;
     for (let i = marks[d].idx + 1; i < nextIdx; i++) {
       const t = lines[i].trim();
       if (!t) continue;
       const owner = nextOwnEmpty ? d + 1 : d;
-      chunks[Math.min(owner, dutyOrder.length - 1)].push(splitPillar(t));
+      fill(Math.min(owner, dutyOrder.length - 1), splitPillar(t));
     }
   }
-  return chunks;
+  return perDuty.map((cols) => cols.map((vs) => vs.join('\n')));
 }
 
 /** 3면 아래 — 예배위원 안내(주일/금요기도 로테이션 표) */
@@ -1578,10 +1602,10 @@ function extractDuty(lines) {
   const buildTable = (hdrIdx, endIdx, title) => {
     if (hdrIdx < 0) return null;
     const columns = splitPillar(lines[hdrIdx].trim()).slice(1);
-    const chunks = collectDutyRows(lines, hdrIdx + 1, endIdx, DUTY_ORDER);
+    const values = collectDutyRows(lines, hdrIdx + 1, endIdx, DUTY_ORDER, columns.length);
     const rows = DUTY_ORDER.map((name, d) => ({
       label: name,
-      values: columns.map((_, c) => chunks[d].map((r) => r[c]).filter(Boolean).join('\n')),
+      values: values[d],
     })).filter((r) => r.values.some(Boolean));
     return rows.length ? { title, columns, rows } : null;
   };
@@ -1719,12 +1743,10 @@ try {
   }
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
-    console.log('[디버그] financeFace 원문:\n' + financeFace.map((l, i) => `${i}: ${JSON.stringify(l)}`).join('\n'));
     offering = extractOffering(financeFace);
     duty = extractDuty(financeFace);
     if (offering) console.log('[주보] 지난주일 헌금 표 추출');
     if (duty.length) console.log(`[주보] 예배위원 안내 ${duty.length}개 표 추출`);
-    console.log('[디버그] duty 결과:\n' + JSON.stringify(duty, null, 2));
   } catch (e) {
     console.log(`  ! 헌금/예배위원 추출 실패(무해): ${e.message}`);
   }
