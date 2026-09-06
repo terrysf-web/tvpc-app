@@ -570,8 +570,8 @@ function BulletinCards({
   // 불러 쓴다. i는 visibleOrder 안에서의 위치(펼침 상태·마지막 줄 판정용).
   // 설교 히어로 카드(사진 배경·"이번주 말씀" 배지·날짜·제목·설교자·본문 버튼).
   // 예전 서식은 "설교" 줄 자리에 그대로 들어가고, 구간 칸이 있는 새 서식은
-  // 칸 옆 좁은 폭에 넣으면 배지·날짜가 겹쳐 깨지므로 순서 목록 맨 위에 폭
-  // 전체로 한 번 두고 "설교" 줄은 종이 주보처럼 제목·설교자만 적는다.
+  // 칸 옆 좁은 폭에 넣으면 배지·날짜가 겹쳐 깨지므로 말씀 구간과 성찬 구간
+  // 사이에 폭 전체로 한 번 두고 "설교" 줄은 종이 주보처럼 제목·설교자만 적는다.
   const renderHeroCard = (key: React.Key) => {
     if (!bulletin.sermon) return null;
     return (
@@ -909,7 +909,6 @@ function BulletinCards({
                   );
                 })}
           </View>
-          {hasSections && renderHeroCard('hero')}
           {orderGroups.map((g, gi) => {
             if (!g.header) {
               return (
@@ -921,16 +920,22 @@ function BulletinCards({
             // 구간 제목 칸 — 종이 주보처럼 왼쪽 칸이 그 구간 항목 전체 높이에
             // 걸치고, 그 가운데에 제목("모임")과 작은 부제("하나님 앞으로")를 둔다.
             const rows = g.items.map(({ item, idx }) => renderOrderItem(item, idx, true));
+            // 설교 히어로 카드는 "설교"가 든 구간(말씀) 바로 아래, 다음 구간(성찬)
+            // 사이에 폭 전체로 끼워 넣는다.
+            const heroAfter = g.items.some(({ item }) => item.name === '설교');
             return (
-              <View key={`g${gi}`} style={[styles.orderGroup, gi > 0 && styles.orderGroupSpaced]}>
-                <View style={styles.orderRail}>
-                  <Text style={styles.orderRailTitle}>{g.header.name}</Text>
-                  {!!g.header.subtitle && (
-                    <Text style={styles.orderRailSubtitle}>{g.header.subtitle}</Text>
-                  )}
+              <React.Fragment key={`g${gi}`}>
+                <View style={[styles.orderGroup, gi > 0 && styles.orderGroupSpaced]}>
+                  <View style={styles.orderRail}>
+                    <Text style={styles.orderRailTitle}>{g.header.name}</Text>
+                    {!!g.header.subtitle && (
+                      <Text style={styles.orderRailSubtitle}>{g.header.subtitle}</Text>
+                    )}
+                  </View>
+                  <View style={styles.orderGroupBody}>{rows}</View>
                 </View>
-                <View style={styles.orderGroupBody}>{rows}</View>
-              </View>
+                {heroAfter && <View style={styles.orderHeroBetween}>{renderHeroCard('hero')}</View>}
+              </React.Fragment>
             );
           })}
           {hasAsterisk && (
@@ -1676,6 +1681,7 @@ const styles = StyleSheet.create({
   // 걸치고(flex row + 기본 stretch), 오른쪽(orderGroupBody)에 항목 줄들이 쌓인다.
   orderGroup: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   orderGroupSpaced: { marginTop: 10 },
+  orderHeroBetween: { marginTop: 10 },
   orderGroupBody: { flex: 1, minWidth: 0 },
   orderRail: {
     width: 78,
