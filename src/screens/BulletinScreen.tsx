@@ -174,6 +174,27 @@ const ORDER_ICONS: Record<string, React.ComponentType<{ size: number; color: str
   '교회소식 / 새가족환영': Megaphone,
   기도: Hand,
   찬송: Music,
+  // 2026-09-06부터 생긴 새 예배 순서 서식 — 항목 이름이 통째로 바뀌었다.
+  '예배로의 부름': Mail,
+  하나님앞으로: Users,
+  '경배 찬양': Music,
+  입례: Users,
+  '참회의 기도': Hand,
+  신앙고백: Hand,
+  '용서의 선언': Hand,
+  '평화의 나눔': HeartHandshake,
+  말씀: BookOpen,
+  '교회의 기도': Hand,
+  듣고응답함: BookOpen,
+  찬양: Music,
+  '성찬으로의 초대': Wine,
+  '분병과 분잔': Wine,
+  믿음의재고백: Hand,
+  '믿음의 재고백': Hand,
+  성찬: Wine,
+  '파송 찬양': Music,
+  파송: Hand,
+  세상으로: Users,
 };
 
 // 단일 예배(야외예배 등) 주보에서 한글/English 전환 시 쓰는 항목 이름 번역.
@@ -497,7 +518,8 @@ function BulletinCards({
     )
     .slice(0, 6);
 
-  const hasCommunion = order.some((o) => o.name === '성찬식');
+  // '성찬식'(예전 라벨)/'성찬'(2026-09-06부터 새 서식의 라벨) 둘 다 성찬 주일 표시.
+  const hasCommunion = order.some((o) => o.name === '성찬식' || o.name === '성찬');
   const hasAsterisk = order.some(
     (item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*'),
   );

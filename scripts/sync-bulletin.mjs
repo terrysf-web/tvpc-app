@@ -515,38 +515,50 @@ async function syncSundayReading() {
 async function syncDawnVerses() {
   const lines = pdfText().split('\n');
 
-  // 요일 토큰 줄 찾기 — "화(21일) 수(22일) …" (3개 이상)
+  // 요일 토큰 줄 찾기 — "화(21일) 수(22일) …"(3개 이상, 예전 서식 — 요일들이
+  // 한 줄에 가로로 나란함)와, "화(8일):이사야39장"처럼 요일마다 한 줄에
+  // 요일·본문이 같이 찍히는 2026-09-06부터의 서식을 모두 지원한다.
   let dayLine = -1;
   let days = [];
+  const passages = [];
   for (let i = 0; i < lines.length; i++) {
-    const found = [...lines[i].matchAll(/([월화수목금토일])\((\d{1,2})일\)/g)].map((m) => ({
-      dom: Number(m[2]),
-      col: m.index + m[0].length / 2,
-    }));
-    if (found.length >= 3) {
+    const matches = [...lines[i].matchAll(/([월화수목금토일])\((\d{1,2})일\)/g)];
+    if (matches.length >= 3) {
       dayLine = i;
-      days = found;
+      days = matches.map((m) => ({ dom: Number(m[2]), col: m.index + m[0].length / 2 }));
       break;
     }
+    if (matches.length === 1) {
+      // 줄마다 기준점을 크게 벌려 두어(i * 1000), 다른 줄의 요일·본문이
+      // 실수로 가까운 걸로 잡히지 않게 한다 — 아래 요일↔본문 짝짓기가 거리
+      // 기준(≤10)으로 동작하므로, 같은 줄 안(거리 0)에서만 짝지어진다.
+      const m = matches[0];
+      const col = i * 1000 + m.index + m[0].length / 2;
+      days.push({ dom: Number(m[2]), col });
+      const rest = lines[i].slice(m.index + m[0].length);
+      const bm = rest.match(/([가-힣]+)\s*(\d{1,3})\s*장/);
+      if (bm) passages.push({ book: bm[1], chapter: Number(bm[2]), col });
+    }
   }
-  if (dayLine < 0) {
+  if (dayLine < 0 && days.length < 3) {
     console.log('  → 새벽예배 요일표를 찾지 못해 매일 말씀 등록을 건너뜁니다.');
     return;
   }
 
-  // 요일 줄 아래에서 본문 토큰 수집 — "이사야 34장", "이사야 34:1-20" 두 표기 모두.
-  // 표 사이에 빈 줄이 들어가는 주보도 있어 여섯 줄까지 훑는다.
-  const passages = [];
-  for (let i = dayLine + 1; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
-    for (const m of lines[i].matchAll(/([가-힣]+(?:\d[가-힣]+)?)\s*(\d{1,3})\s*(?:장|:\s*\d)/g)) {
-      passages.push({ book: m[1], chapter: Number(m[2]), col: m.index + m[0].length / 2 });
+  if (dayLine >= 0) {
+    // 요일 줄 아래에서 본문 토큰 수집 — "이사야 34장", "이사야 34:1-20" 두 표기 모두.
+    // 표 사이에 빈 줄이 들어가는 주보도 있어 여섯 줄까지 훑는다.
+    for (let i = dayLine + 1; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
+      for (const m of lines[i].matchAll(/([가-힣]+(?:\d[가-힣]+)?)\s*(\d{1,3})\s*(?:장|:\s*\d)/g)) {
+        passages.push({ book: m[1], chapter: Number(m[2]), col: m.index + m[0].length / 2 });
+      }
+      if (passages.length) break;
     }
-    if (passages.length) break;
-  }
-  // 표 모양이 주보마다 조금씩 달라, 읽어들인 표를 항상 기록에 남긴다
-  for (let i = dayLine; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
-    const t = lines[i].replace(/\s+/g, ' ').trim();
-    if (t) console.log(`      | ${t.slice(0, 120)}`);
+    // 표 모양이 주보마다 조금씩 달라, 읽어들인 표를 항상 기록에 남긴다
+    for (let i = dayLine; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
+      const t = lines[i].replace(/\s+/g, ' ').trim();
+      if (t) console.log(`      | ${t.slice(0, 120)}`);
+    }
   }
   if (!passages.length) {
     console.log('  → 새벽예배 본문을 찾지 못해 매일 말씀 등록을 건너뜁니다.');
@@ -917,12 +929,23 @@ const ORDER_LABELS = [
   // 야외예배 등 1부/2부 구분 없는 단일 예배 주보 — 항목 이름 자체가 다르다.
   // ('찬송 / 헌금'을 짧은 '찬송'보다 먼저 둬야 그 줄이 '찬송'으로 잘못 잘리지 않는다)
   '참회의 기도/신앙고백', '찬송 / 헌금', '어린이 설교', '교회소식 / 새가족환영', '기도', '찬송',
+  // 2026-09-06(성찬주일)부터 예배 순서 서식이 통째로 바뀌었다 — 이름도
+  // 새로 생기고("예배로의 부름", "경배 찬양" 등), 큰 흐름 구간 표시("말씀",
+  // "듣고응답함", "성찬", "파송")까지 라벨처럼 한 줄만 따로 찍힌다. 이런
+  // 구간 표시도 그냥 라벨 하나로 잡아 둬야, 라벨 없는 다음 줄로 오인해
+  // 앞 항목 상세줄에 잘못 이어붙는 걸 막는다("파송 찬양"을 "파송"보다
+  // 먼저 둬야 "파송 찬양 [...]" 줄이 "파송"으로 짧게 잘리지 않는다).
+  '예배로의 부름', '하나님앞으로', '경배 찬양', '입례', '참회의 기도', '신앙고백',
+  '용서의 선언', '평화의 나눔', '말씀', '교회의 기도', '듣고응답함', '찬양',
+  '성찬으로의 초대', '분병과 분잔', '믿음의재고백', '믿음의 재고백', '성찬',
+  '파송 찬양', '파송', '세상으로',
 ];
 const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
 const SCRIPTURE_LIKE = /\d{1,3}\s*[:：\-–~]\s*\d{1,3}|\d{1,3}\s*장/;
 const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권사)\s*$/;
-// '*'는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다. '¶'는 원본 디자인의 장식
-// 따옴표(“ ”)가 폰트 인식 오류로 깨져 나온 것이라 항상 제거한다.
+// '*'(또는 새 서식의 '✻')는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다.
+// '¶'는 원본 디자인의 장식 따옴표(“ ”)가 폰트 인식 오류로 깨져 나온 것이라
+// 항상 제거한다.
 const cleanText = (s) => s.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** 1부/2부에서 서로 다른 항목의 두 칸(줄바꿈으로 이어붙임) — 마지막 두 ¶ 조각을 쓴다 */
@@ -954,13 +977,31 @@ function orderVaryCols(detailLines) {
   };
 }
 
-// 접두어만 보면 '찬송'이 '찬송가'까지 집어삼키므로, 라벨 바로 뒤가 공백·'*'·끝
-// 중 하나일 때만(=단어 경계) 라벨로 인정한다.
+// 접두어만 보면 '찬송'이 '찬송가'까지 집어삼키므로, 라벨 바로 뒤가
+// 공백·'*'·'.'(점선 구분선)·끝 중 하나일 때만(=단어 경계) 라벨로 인정한다.
+// '.'은 2026-09-06부터 "설교........하나님은..."처럼 라벨과 내용 사이 점선을
+// 공백 없이 바로 붙여 찍는 항목이 생겨서 추가했다.
 function matchOrderLabel(t) {
   return ORDER_LABELS.find(
-    (l) => t.startsWith(l) && (t.length === l.length || ' *'.includes(t[l.length])),
+    (l) => t.startsWith(l) && (t.length === l.length || ' *.'.includes(t[l.length])),
   );
 }
+
+// 몇몇 항목 라벨은 원본 PDF에서 한 글자씩 넓게 벌려 크게 강조한다
+// ("찬       양", "봉       헌") — 일반 공백 정리(연속 공백을 하나로)로는
+// 여전히 "찬 양"처럼 한 칸이 남아 라벨과 안 맞는다. 줄 맨 앞에서 "한 글자 +
+// 넓은 공백"이 반복되면 그 부분만 붙여 라벨로 인식되게 한다(뒤에 이어지는
+// 일반 문장·다른 줄에는 영향 없음 — 항상 줄 맨 앞에서만 본다).
+function collapseSpacedHeading(s) {
+  const m = s.match(/^((?:[가-힣]\s{2,}){1,4}[가-힣])(?=[\s.]|$)/);
+  return m ? m[1].replace(/\s+/g, '') + s.slice(m[1].length) : s;
+}
+
+// 2026-09-06부터 "일어서 주십시오" 표시가 라벨 뒤에 붙는 '*' 대신, 라벨
+// 앞에 붙는 '✻'(또는 '＊') 기호로 바뀌었다 — 라벨 매칭 전에 떼어내고,
+// 있었으면 표시해 둔다(찾은 라벨 뒤에 예전처럼 '*' 조각으로 되돌려 넣어
+// 기존 hasStar 처리가 그대로 동작하게 한다).
+const STAR_PREFIX = /^[✻＊]\s*/;
 
 // 예배 순서 항목 라벨이 시작되기 전, "주일 야외예배 (오전 10시)"처럼 그 주
 // 예배 자체를 소개하는 줄 — 있으면 홈 화면이 그 주만 다른 예배 시간·형태를
@@ -972,12 +1013,32 @@ function extractOrderAndSermon(lines) {
   const raw = [];
   let serviceHeading = null;
   // 야외예배 주보는 pdftohtml 스팬 사이 공백이 두 칸 이상으로 나오기도 해
-  // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음).
-  const cleaned = lines.map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음). 넓게
+  // 벌려 찍은 라벨("찬       양")은 그 정리로 없어지지 않는 공백 한 칸이
+  // 남으므로, 먼저 그 형태를 붙인 뒤에 정리한다.
+  // '✻'(일어서 표시)는 라벨 앞에 붙어 나오므로, 줄 안 넓게 벌린 라벨을
+  // 붙이는 collapseSpacedHeading보다 먼저 떼어내야 한다(안 그러면
+  // "✻  입       례"의 "입       례"가 맨 앞이 아니게 되어 못 붙는다).
+  // 뗀 표시는 stars[]에 같은 줄 번호로 따로 기억해 둔다.
+  const cleaned = [];
+  const stars = [];
+  for (const raw2 of lines) {
+    let l = raw2.trim();
+    const star = STAR_PREFIX.test(l);
+    if (star) l = l.replace(STAR_PREFIX, '');
+    l = collapseSpacedHeading(l).replace(/\s+/g, ' ');
+    if (!l) continue;
+    cleaned.push(l);
+    stars.push(star);
+  }
   for (let i = 0; i < cleaned.length; i++) {
     let t = cleaned[i];
-    if (raw.length && /^\*\s*표는/.test(t)) break;
+    // "표는 일어서 주시기 바랍니다"(예전) / "일어서실 수 있는 분은
+    // 일어서주십시오"(2026-09-06부터, 앞의 '✻'는 이미 뗀 뒤) — 둘 다 실제
+    // 순서 항목이 아니라 안내 문구라, 여기서 만나면 그 뒤는 더 안 본다.
+    if (raw.length && stars[i] && /^(표는|일어서)/.test(t)) break;
 
+    const star = stars[i];
     let label = matchOrderLabel(t);
     // "참회의 기도/신앙고백"·"교회소식 / 새가족환영"처럼 긴 라벨은 칸이 좁으면
     // 원본 PDF 자체에서 두 줄로 줄바꿈돼 나온다("참회의" / "기도/신앙고백*") —
@@ -990,9 +1051,23 @@ function extractOrderAndSermon(lines) {
       label = matchOrderLabel(t);
     }
     if (label) {
-      raw.push({ name: label, detailLines: [t.slice(label.length)] });
+      // 2026-09-06부터 라벨과 내용 사이를 점선(".......")으로 잇는 항목이
+      // 있다 — 내용에 점선이 그대로 남지 않게 앞쪽 공백·점을 걷어낸다.
+      const rest = t.slice(label.length).replace(/^[\s.]+/, '');
+      // 큰 흐름 구간 표시("말씀" 등)와 그 아래 첫 항목이 같은 줄에 ¶로
+      // 붙어 나오기도 한다("말씀 ¶ 교회의 기도 .......") — ¶ 뒤가 다른
+      // 라벨로 시작하면 구간 표시와 그 항목을 각각 따로 만든다.
+      const afterPillar = rest.startsWith('¶') ? rest.replace(/^¶\s*/, '') : null;
+      const subLabel = afterPillar ? matchOrderLabel(afterPillar) : null;
+      if (subLabel) {
+        raw.push({ name: label, detailLines: star ? ['*'] : [] });
+        raw.push({ name: subLabel, detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')] });
+      } else {
+        raw.push({ name: label, detailLines: star ? ['*', rest] : [rest] });
+      }
       i = j;
     } else if (raw.length) {
+      if (star) raw[raw.length - 1].detailLines.push('*');
       raw[raw.length - 1].detailLines.push(cleaned[i]);
     } else if (!serviceHeading && SERVICE_HEADING.test(cleaned[i])) {
       serviceHeading = cleanText(cleaned[i]);
@@ -1007,7 +1082,9 @@ function extractOrderAndSermon(lines) {
   const titleParts = [];
   if (scriptureItem) {
     for (const l of scriptureItem.detailLines) {
-      if (!l) continue;
+      // 라벨 앞에 붙어 있던 '✻'를 예전처럼 조각으로 되돌려 넣은 것 —
+      // 실제 본문·제목 내용이 아니므로 여기서는 건너뛴다.
+      if (!l || l === '*') continue;
       if (!scripture && SCRIPTURE_LIKE.test(l)) scripture = cleanText(l.replace(/\([^)]*\)/g, ''));
       else titleParts.push(l);
     }
@@ -1015,7 +1092,7 @@ function extractOrderAndSermon(lines) {
   if (sermonItem) {
     const rest = [];
     for (const l of sermonItem.detailLines) {
-      if (!l) continue;
+      if (!l || l === '*') continue;
       if (!preacher && PREACHER_SUFFIX.test(l)) preacher = cleanText(l);
       else rest.push(l);
     }
@@ -1061,33 +1138,75 @@ function extractOrderAndSermon(lines) {
 // (syncDawnVerses 쪽 주석 참고) — 칸 사이 공백이 몇 칸인지로 나누면 그 주 PDF의
 // 여백이 좁을 때(특히 '생명의 삶'이 연달아 나올 때) 옆 칸과 붙어버리므로,
 // 이 두 형태 자체를 패턴으로 찾아 나눈다.
-const DAWN_CELL = /\S+\s+\d+장|생명의\s*삶/g;
+// 책이름과 장 사이 공백은 있을 수도 없을 수도 있다("이사야 39장"/"이사야39장").
+const DAWN_CELL = /[가-힣A-Za-z]+\s*\d+장|생명의\s*삶/g;
+/** DAWN_CELL과 같은 판정을 공백을 아예 지운 문자열에 대해 쓸 때(줄 뒤섞임 대응용) */
+function looksLikeDawnPassage(p) {
+  const s = p.replace(/\s+/g, '');
+  return /[가-힣A-Za-z]+\d+장/.test(s) || /생명의삶/.test(s);
+}
 
 /**
- * 1면 — 예배 순서 아래 "새벽예배 / 금요성령집회" 본문표. 요일 칸(화(4일) 등) 5개는
- * 새벽예배, 마지막 한 칸은 금요성령집회 — 본문 줄은 새벽예배 쪽은 여러 칸
- * 띄어쓰기로, 금요성령집회 쪽만 ¶로 나뉘어 있다.
+ * 1면 — 예배 순서 아래 "새벽예배 / 금요성령집회" 본문표.
+ *
+ * 예전 서식 — "새벽예배" 줄 바로 아래 요일 칸 한 줄(화(4일) 등 5개), 그
+ * 다음 줄에 본문이 공백으로 나란히 있고 마지막 한 칸(¶ 구분)만 금요성령집회.
+ *
+ * 2026-09-06부터 생긴 서식 — 요일마다 "화(8일):이사야39장"처럼 한 줄에
+ * 요일·날짜·본문이 같이 찍힌다. 이 표가 "섬기는 사람들" 표와 같은 면에
+ * 나란히 배치돼(pdftohtml이 반쪽 페이지를 통째로 한 칸으로 보므로) 줄
+ * 순서만으로는 두 표 내용이 뒤섞여 나온다 — 그래서 줄 순서에 기대지 않고
+ * 이 패턴 자체를 면 전체에서 찾는다. 금요성령집회 칸도 같은 "금(N일):"
+ * 표기를 쓰지만 내용이 "책 N장"/"생명의 삶" 형태가 아니라("…강해") 그
+ * 형태로 새벽예배 쪽과 구분한다.
  */
 function extractDawnReadings(lines) {
   const hdrIdx = lines.findIndex((l) => /^새벽예배/.test(l.trim()));
-  if (hdrIdx < 0 || hdrIdx + 2 >= lines.length) return { dawn: [], friday: null };
-  const days = splitPillar(lines[hdrIdx + 1].trim()).filter(Boolean);
-  const passageLine = lines[hdrIdx + 2].trim();
-  const pillarParts = passageLine.split('¶').map((s) => s.trim());
-  const fridayPassage = pillarParts.length > 1 ? pillarParts.pop() : '';
-  const dawnText = pillarParts.join(' ');
-  const matched = [...dawnText.matchAll(DAWN_CELL)].map((m) => m[0].replace(/\s+/g, ' ').trim());
-  // 어느 칸도 "책 N장"/"생명의 삶" 형태가 아니면(예: 새 문구) 기존 방식으로 대체
-  const dawnPassages = matched.length
-    ? matched
-    : dawnText.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
-  const dawn = [];
-  const dawnCount = Math.max(0, days.length - 1);
-  for (let i = 0; i < Math.min(dawnCount, dawnPassages.length); i++) {
-    dawn.push({ day: days[i], passage: dawnPassages[i] });
+  if (hdrIdx >= 0 && hdrIdx + 2 < lines.length) {
+    const days = splitPillar(lines[hdrIdx + 1].trim()).filter(Boolean);
+    const pillarParts = lines[hdrIdx + 2].trim().split('¶').map((s) => s.trim());
+    const fridayPassage = pillarParts.length > 1 ? pillarParts.pop() : '';
+    const dawnText = pillarParts.join(' ');
+    DAWN_CELL.lastIndex = 0;
+    const matched = [...dawnText.matchAll(DAWN_CELL)].map((m) => m[0].replace(/\s+/g, ' ').trim());
+    // 어느 칸도 "책 N장"/"생명의 삶" 형태가 아니면(예: 서식이 아예 바뀜) 아래로 대체
+    const dawnPassages = matched.length
+      ? matched
+      : dawnText.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+    const dawn = [];
+    const dawnCount = Math.max(0, days.length - 1);
+    for (let i = 0; i < Math.min(dawnCount, dawnPassages.length); i++) {
+      dawn.push({ day: days[i], passage: dawnPassages[i] });
+    }
+    if (dawn.length) {
+      const friday =
+        fridayPassage && days.length ? { day: days[days.length - 1], passage: fridayPassage } : null;
+      return { dawn, friday };
+    }
   }
-  const friday =
-    fridayPassage && days.length ? { day: days[days.length - 1], passage: fridayPassage } : null;
+  // 예전 형태로 못 찾았으면(표 자체가 바뀌었거나 위 표가 다른 표와 뒤섞였으면)
+  // "요일(N일):본문" 패턴 자체를 면 전체에서 찾는다 — 줄 순서·인접 여부에
+  // 기대지 않으므로 다른 표와 섞여도 영향받지 않는다.
+  const DAY_CELL = /([월화수목금토일])\((\d{1,2})일\)\s*[:：]\s*([^\n¶]+)/g;
+  const found = [];
+  for (const l of lines) {
+    for (const m of l.matchAll(DAY_CELL)) {
+      found.push({ day: `${m[1]}(${m[2]}일)`, passage: cleanText(m[3]) });
+    }
+  }
+  if (!found.length) return { dawn: [], friday: null };
+  const dawn = [];
+  const rest = [];
+  const seen = new Set();
+  for (const f of found) {
+    if (looksLikeDawnPassage(f.passage) && !seen.has(f.day)) {
+      seen.add(f.day);
+      dawn.push(f);
+    } else {
+      rest.push(f);
+    }
+  }
+  const friday = rest.find((f) => f.day.startsWith('금')) ?? null;
   return { dawn, friday };
 }
 
@@ -1334,6 +1453,21 @@ function extractOffering(lines) {
       if (label === '구분') columns = cols.slice(1).map((c) => c.replace(/\s+/g, ''));
       continue;
     }
+    // 부서 칸이 늘어(4개 이상) 칸 이름이 "구분" 줄 하나에 다 못 들어가면
+    // 다음 줄로 이어져 나온다("유초등부 ¶ 한어부"처럼) — 아직 값 줄이
+    // 하나도 없고 이 줄 전체가 숫자·'–' 없이 이름뿐이면, 표 칸 이름이
+    // 이어지는 걸로 보고 합친다(안 그러면 이 줄이 값 줄로 오인돼 뒤 값
+    // 줄들의 칸 수가 실제보다 적게 잡혀 뒤쪽 값이 통째로 잘려나간다).
+    if (
+      !rows.length &&
+      cols.every((c) => {
+        const v = c.trim();
+        return v && !NUMERIC_ONLY.test(v.replace(/\s+/g, '')) && v !== '–';
+      })
+    ) {
+      columns.push(...cols.map((c) => c.replace(/\s+/g, '')));
+      continue;
+    }
     if (!label) {
       // 라벨과 값이 세로로 살짝 어긋나 두 줄로 쪼개진 경우(예: "선교 헌금" 다음
       // 줄에 "800.00"만 단독으로 찍힘) — 버리지 않고 바로 앞 항목에 이어붙인다.
@@ -1423,6 +1557,10 @@ function extractDuty(lines) {
 }
 
 /** 4면 — 섬기는 사람들 */
+// 새벽예배·금요성령집회 표와 같은 줄에 섞여 들어오는 잡음(아래 extractStaff
+// 주석 참고) — 담당 이름으로 이어붙이면 안 되는 줄들.
+const STAFF_NOISE = /^(새벽예배|금요성령집회)$/;
+
 function extractStaff(lines) {
   const start = lines.findIndex((l) => /섬기는\s*사람들/.test(l));
   if (start < 0) return [];
@@ -1434,14 +1572,28 @@ function extractStaff(lines) {
     if (!t) continue;
     if (/온라인\s*바로가기|📍/.test(t)) break;
     const cols = splitPillar(t);
-    if (!cols.length) continue;
-    const norm = cols[0].replace(/\s+/g, '');
-    const role = ROLES.find((r) => r === norm);
+    // 이 표가 "새벽예배" 표와 같은 면에 나란히 배치돼(pdftohtml이 반쪽
+    // 페이지를 통째로 한 칸으로 봄) 줄이 섞여 나올 수 있다 — 첫 칸만 이
+    // 표 내용으로 보고, ¶ 뒤에 붙은 나머지 칸은 다른 표 내용일 수 있어
+    // 무시한다.
+    const first = (cols[0] ?? '').trim();
+    if (!first) continue;
+    const stripped = first.replace(/\s+/g, '');
+    // 예전: "역할"과 "이름"이 서로 다른 칸(¶)에 떨어져 있었다.
+    // 2026-09-06부터: 한 칸에 "역할 :이름"으로 붙어 나온다.
+    let role = ROLES.find((r) => stripped === r);
+    let names;
     if (role) {
-      cur = { role, names: cols.slice(1).join(' ') };
+      names = cols.slice(1).join(' ');
+    } else {
+      role = ROLES.find((r) => stripped.startsWith(r) && stripped[r.length] === ':');
+      if (role) names = stripped.slice(role.length + 1);
+    }
+    if (role) {
+      cur = { role, names: names ?? '' };
       staff.push(cur);
-    } else if (cur) {
-      cur.names = `${cur.names} ${cols.join(' ')}`.trim();
+    } else if (cur && !STAFF_NOISE.test(first) && !/^[월화수목금토일]\(\d{1,2}일\)/.test(first)) {
+      cur.names = `${cur.names} ${first}`.trim();
     }
   }
   return staff.map((s) => ({ role: s.role, names: s.names.replace(/\s*,\s*/g, ', ').trim() }));
@@ -1480,14 +1632,6 @@ let hymns = [];
 let scriptures = [];
 try {
   const faces = buildFaces();
-  // 임시 진단 — 이번 주 주보에서 예배 순서·새벽예배·찬송/성경 칸이 전부 빈
-  // 값으로 나온 원인(포맷 변경 의심)을 보려고, 각 면의 원문 줄을 그대로 찍는다.
-  // 확인 끝나면 지운다.
-  console.log(`[진단] faces: ${faces.length}개`);
-  faces.forEach((f, i) => {
-    console.log(`--- face[${i}] (${f.length}줄) ---`);
-    f.forEach((l) => console.log(`    ${l}`));
-  });
   noteLines = extractNoteLines(faces);
   shareQuestions = extractShareQuestions(faces);
 
