@@ -1719,10 +1719,12 @@ try {
   }
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
+    console.log('[디버그] financeFace 원문:\n' + financeFace.map((l, i) => `${i}: ${JSON.stringify(l)}`).join('\n'));
     offering = extractOffering(financeFace);
     duty = extractDuty(financeFace);
     if (offering) console.log('[주보] 지난주일 헌금 표 추출');
     if (duty.length) console.log(`[주보] 예배위원 안내 ${duty.length}개 표 추출`);
+    console.log('[디버그] duty 결과:\n' + JSON.stringify(duty, null, 2));
   } catch (e) {
     console.log(`  ! 헌금/예배위원 추출 실패(무해): ${e.message}`);
   }
