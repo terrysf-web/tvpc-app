@@ -518,11 +518,15 @@ async function syncDawnVerses() {
   // 요일 토큰 줄 찾기 — "화(21일) 수(22일) …"(3개 이상, 예전 서식 — 요일들이
   // 한 줄에 가로로 나란함)와, "화(8일):이사야39장"처럼 요일마다 한 줄에
   // 요일·본문이 같이 찍히는 2026-09-06부터의 서식을 모두 지원한다.
+  // 앞에 한글이 더 붙어 있으면("다음주일(13일)"의 "주일") 요일 표기가
+  // 아니라 "지난주일"·"다음주일" 같은 다른 낱말의 끝 글자일 뿐이다 —
+  // 잘못 걸리지 않게 요일 글자 앞이 한글이 아닐 때만 인정한다.
+  const DAY_TOKEN = /(?<![가-힣])([월화수목금토일])\((\d{1,2})일\)/g;
   let dayLine = -1;
   let days = [];
   const passages = [];
   for (let i = 0; i < lines.length; i++) {
-    const matches = [...lines[i].matchAll(/([월화수목금토일])\((\d{1,2})일\)/g)];
+    const matches = [...lines[i].matchAll(DAY_TOKEN)];
     if (matches.length >= 3) {
       dayLine = i;
       days = matches.map((m) => ({ dom: Number(m[2]), col: m.index + m[0].length / 2 }));
@@ -1187,7 +1191,7 @@ function extractDawnReadings(lines) {
   // 예전 형태로 못 찾았으면(표 자체가 바뀌었거나 위 표가 다른 표와 뒤섞였으면)
   // "요일(N일):본문" 패턴 자체를 면 전체에서 찾는다 — 줄 순서·인접 여부에
   // 기대지 않으므로 다른 표와 섞여도 영향받지 않는다.
-  const DAY_CELL = /([월화수목금토일])\((\d{1,2})일\)\s*[:：]\s*([^\n¶]+)/g;
+  const DAY_CELL = /(?<![가-힣])([월화수목금토일])\((\d{1,2})일\)\s*[:：]\s*([^\n¶]+)/g;
   const found = [];
   for (const l of lines) {
     for (const m of l.matchAll(DAY_CELL)) {
@@ -1645,7 +1649,12 @@ try {
     serviceHeading = r.serviceHeading;
     if (orderOfWorship.length) console.log(`[주보] 예배 순서 ${orderOfWorship.length}개 항목 추출`);
     if (serviceHeading) console.log(`[주보] 예배 안내 줄 추출: ${serviceHeading}`);
-    const dr = extractDawnReadings(orderFace);
+    // "새벽예배" 표는 예전엔 예배 순서와 같은 면에 있었지만, 2026-09-06부터
+    // 생긴 서식은 이 표가 다른 면(사역캘린더·섬기는 사람들과 같은 면)으로
+    // 옮겨갔다 — orderFace 대신 "새벽예배" 글자가 실제로 있는 면을 찾는다
+    // (못 찾으면 orderFace로 대체해 예전 주보도 그대로 동작).
+    const dawnFace = findFaceByMarker(faces, /새벽예배/);
+    const dr = extractDawnReadings(dawnFace.length ? dawnFace : orderFace);
     dawnReadings = dr.dawn;
     fridayReading = dr.friday;
     if (dawnReadings.length) console.log(`[주보] 새벽예배 본문 ${dawnReadings.length}일 추출`);
