@@ -1596,8 +1596,15 @@ function collectDutyRows(lines, startIdx, endIdx, dutyOrder, columnCount) {
     for (let i = marks[d].idx + 1; i < nextIdx; i++) {
       const t = lines[i].trim();
       if (!t) continue;
-      const owner = nextOwnEmpty ? d + 1 : d;
-      fill(Math.min(owner, dutyOrder.length - 1), splitPillar(t));
+      const vals = splitPillar(t);
+      // 다음 담당 라벨 줄에 값이 없으면(라벨이 두 줄짜리 칸 가운데 찍혀 값 줄이
+      // 라벨 위아래로 갈린 경우) 그 사이 줄은 다음 담당 것 — 단, 칸 수보다
+      // 짧은 줄인데 지금 담당에 아직 빈 칸이 남아 있으면 지금 담당의 마지막
+      // 칸이 밀려 내려온 것이다(2026-09-06 주일 기도 "권국환"이 9/27 칸인데
+      // 헌금 담당으로 잘못 붙던 실제 사례).
+      const owner =
+        nextOwnEmpty && (vals.length === columnCount || nextSlot[d] >= columnCount) ? d + 1 : d;
+      fill(Math.min(owner, dutyOrder.length - 1), vals);
     }
   }
   return perDuty.map((cols) => cols.map((vs) => vs.join('\n')));
