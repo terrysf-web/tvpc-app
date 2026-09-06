@@ -32,12 +32,17 @@ export interface BulletinPage {
   h: number;
 }
 
-/** 예배 순서 한 줄 — 1부/2부가 다르면 service1/service2, 같으면 shared만 */
+/** 예배 순서 한 줄 — 1부/2부가 다르면 service1/service2, 같으면 shared만.
+ * 2026-09-06부터 생긴 서식은 예배를 "모임·말씀·성찬·파송" 네 흐름으로 크게
+ * 나누는데, isHeader가 있으면 그 흐름의 제목 줄(예: "모임")이고 subtitle이
+ * 바로 아래 붙는 작은 부제(예: "하나님 앞으로")다 — 이때는 shared를 안 쓴다. */
 export interface BulletinOrderItem {
   name: string;
   shared?: string;
   service1?: string;
   service2?: string;
+  isHeader?: boolean;
+  subtitle?: string;
 }
 
 export interface BulletinSermon {

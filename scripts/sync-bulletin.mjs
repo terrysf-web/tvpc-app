@@ -939,12 +939,37 @@ const ORDER_LABELS = [
   // 구간 표시도 그냥 라벨 하나로 잡아 둬야, 라벨 없는 다음 줄로 오인해
   // 앞 항목 상세줄에 잘못 이어붙는 걸 막는다("파송 찬양"을 "파송"보다
   // 먼저 둬야 "파송 찬양 [...]" 줄이 "파송"으로 짧게 잘리지 않는다).
-  '예배로의 부름', '하나님앞으로', '경배 찬양', '입례', '참회의 기도', '신앙고백',
-  '용서의 선언', '평화의 나눔', '말씀', '교회의 기도', '듣고응답함', '찬양',
-  '성찬으로의 초대', '분병과 분잔', '믿음의재고백', '믿음의 재고백', '성찬',
-  '파송 찬양', '파송', '세상으로',
+  '모임', '공동체 소식', '예배로의 부름', '하나님앞으로', '경배 찬양', '입례',
+  '참회의 기도', '신앙고백', '용서의 선언', '평화의 나눔', '말씀', '교회의 기도',
+  '듣고응답함', '찬양', '성찬으로의 초대', '분병과 분잔', '믿음의재고백',
+  '믿음의 재고백', '성찬', '파송 찬양', '파송', '세상으로',
+  // "1부 특송"/"2부 특송"도 자체 라벨로 잡아야 한다 — 바로 앞 줄이 "성찬"
+  // 같은 구간 표시(HEADER_LABELS)면, 라벨 없는 줄로 오인될 경우 화면에서
+  // 아예 안 쓰는 그 구간 표시의 상세줄에 묻혀 통째로 사라진다.
+  '1부 특송', '2부 특송',
 ];
 const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
+// 2026-09-06 서식은 예배 전체를 "모임·말씀·성찬·파송" 네 흐름으로 크게
+// 나누고, 그 제목 밑에 작은 부제를 하나씩 곁들인다(모임=하나님 앞으로,
+// 말씀=듣고 응답함, 성찬=믿음의 재고백, 파송=세상으로). 이 짝은 매주
+// 바뀌는 내용이 아니라 서식 자체에 고정된 것이라 표로 바로 둔다(부제 글자
+// 자체는 원문에 띄어쓰기 없이 찍혀 나오는데, 화면엔 띄어서 보여준다).
+const HEADER_SUBTITLE = {
+  모임: '하나님 앞으로',
+  말씀: '듣고 응답함',
+  성찬: '믿음의 재고백',
+  파송: '세상으로',
+};
+const HEADER_LABELS = new Set(Object.keys(HEADER_SUBTITLE));
+// 위 부제 글자들은 그 자체로는 독립된 예배 순서 항목이 아니라 제목에 딸린
+// 설명일 뿐이다 — 원문에서 만나면 이미 HEADER_SUBTITLE로 채워 뒀으니 그냥
+// 건너뛴다(달리 다루지 않으면 바로 앞/뒤 실제 항목에 잘못 이어붙는다).
+// ('세상으로'는 뺐다 — 실제 원문에서는 "세상으로 ¶ 축복과 파송"처럼 다음
+// 칸(축복과 파송)과 파이프(¶)로 묶여 나오는데, 여길 건너뛰면 그 실제 내용도
+// 같이 사라진다. 그냥 하나로 두면 "세상으로: 축복과 파송" 항목이 되어 헤더
+// 부제와 살짝 겹치지만 내용 유실보다 낫다. '믿음의재고백'(띄어쓰기 없음)은
+// 성찬 칸 부제가 다른 칸 목록 줄에 겹쳐 찍힌 잔여물이라 여기 그대로 둔다.)
+const DECORATIVE_SUBTITLES = new Set(['하나님앞으로', '듣고응답함', '믿음의재고백', '믿음의 재고백']);
 const SCRIPTURE_LIKE = /\d{1,3}\s*[:：\-–~]\s*\d{1,3}|\d{1,3}\s*장/;
 const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권사)\s*$/;
 // '*'(또는 새 서식의 '✻')는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다.
@@ -1055,21 +1080,28 @@ function extractOrderAndSermon(lines) {
       label = matchOrderLabel(t);
     }
     if (label) {
+      i = j;
+      // 큰 흐름 구간 제목(모임/말씀/성찬/파송) 밑에 붙는 작은 부제는 독립된
+      // 항목이 아니라 그 제목에 고정으로 딸린 설명일 뿐이다(HEADER_SUBTITLE
+      // 에서 이미 채움) — 원문에서 만나도 새 항목을 만들지 않고 건너뛴다.
+      if (DECORATIVE_SUBTITLES.has(label)) continue;
       // 2026-09-06부터 라벨과 내용 사이를 점선(".......")으로 잇는 항목이
       // 있다 — 내용에 점선이 그대로 남지 않게 앞쪽 공백·점을 걷어낸다.
       const rest = t.slice(label.length).replace(/^[\s.]+/, '');
-      // 큰 흐름 구간 표시("말씀" 등)와 그 아래 첫 항목이 같은 줄에 ¶로
-      // 붙어 나오기도 한다("말씀 ¶ 교회의 기도 .......") — ¶ 뒤가 다른
-      // 라벨로 시작하면 구간 표시와 그 항목을 각각 따로 만든다.
-      const afterPillar = rest.startsWith('¶') ? rest.replace(/^¶\s*/, '') : null;
-      const subLabel = afterPillar ? matchOrderLabel(afterPillar) : null;
+      // 큰 흐름 구간 제목("말씀" 등)과 그 아래 첫 항목이 같은 줄에 ¶로
+      // 붙어 나오기도 한다("말씀 ¶ 교회의 기도 ......."나 "모임 ¶  ¶
+      // 공동체 소식") — ¶ 뒤가 다른 라벨로 시작하면 구간 제목과 그 항목을
+      // 각각 따로 만든다.
+      const afterPillar = rest.replace(/^(?:¶\s*)+/, '');
+      const subLabel = afterPillar !== rest ? matchOrderLabel(afterPillar) : null;
+      const isHeader = HEADER_LABELS.has(label);
+      const subtitle = isHeader ? HEADER_SUBTITLE[label] : undefined;
       if (subLabel) {
-        raw.push({ name: label, detailLines: star ? ['*'] : [] });
+        raw.push({ name: label, isHeader, subtitle, detailLines: star ? ['*'] : [] });
         raw.push({ name: subLabel, detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')] });
       } else {
-        raw.push({ name: label, detailLines: star ? ['*', rest] : [rest] });
+        raw.push({ name: label, isHeader, subtitle, detailLines: star ? ['*', rest] : [rest] });
       }
-      i = j;
     } else if (raw.length) {
       if (star) raw[raw.length - 1].detailLines.push('*');
       raw[raw.length - 1].detailLines.push(cleaned[i]);
@@ -1117,6 +1149,9 @@ function extractOrderAndSermon(lines) {
   const title = cleanText(titleParts.join(' '));
 
   const order = raw.map((item) => {
+    // 큰 흐름 구간 제목(모임/말씀/성찬/파송) — 부제(subtitle)만 있고
+    // 화면에서 일반 항목과 다르게(굵은 제목처럼) 보여준다.
+    if (item.isHeader) return { name: item.name, isHeader: true, subtitle: item.subtitle ?? '' };
     if (item.name === '성경봉독') return { name: item.name, shared: scripture };
     if (item.name === '설교') return { name: item.name, shared: preacher };
     if (VARY_LABELS.has(item.name)) return { name: item.name, ...orderVaryCols(item.detailLines) };

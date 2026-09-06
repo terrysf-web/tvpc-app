@@ -174,10 +174,8 @@ export default function HomeScreen() {
   // 시간표(위 sundayTimes)가 아니라 이번 주 주보에서 뽑아낸 실제 예배
   // 안내("주일 야외예배 (오전 10시)")를 보여준다 — 시간도 다르고 본당이
   // 아니라 온라인 중계도 없다.
-  const { order: bulletinOrder, serviceHeading: latestServiceHeading } =
-    useLatestBulletinWeekInfo(isSunday);
-  const isSingleServiceWeek =
-    bulletinOrder.length > 0 && bulletinOrder.every((o) => !o.service1 && !o.service2);
+  const { serviceHeading: latestServiceHeading } = useLatestBulletinWeekInfo(isSunday);
+  const isSingleServiceWeek = !!latestServiceHeading;
   const weekServiceHeading = isSingleServiceWeek ? latestServiceHeading : null;
   // 야외예배 당일만 쓰는 배경 사진(작년 야외예배 사진) — 어두운 사진이라
   // 기존 sb.dark=true 톤(흰 글씨)을 그대로 쓰면 된다. 다른 주는 기존처럼

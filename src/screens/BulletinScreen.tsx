@@ -724,6 +724,25 @@ function BulletinCards({
                 </View>
               );
             }
+            // 2026-09-06부터 생긴 서식의 큰 흐름 구간 제목("모임"·"말씀"·
+            // "성찬"·"파송") — 일반 항목 줄처럼 왼쪽 칸엔 제목, 오른쪽 칸엔
+            // 그 흐름의 고정 부제(하나님 앞으로/듣고 응답함/…)를 나란히 둔다.
+            if (item.isHeader) {
+              return (
+                <View
+                  key={i}
+                  style={[
+                    styles.orderHeaderRow,
+                    i > 0 && styles.orderHeaderRowSpaced,
+                  ]}
+                >
+                  <Text style={styles.orderHeaderTitle}>{item.name}</Text>
+                  {!!item.subtitle && (
+                    <Text style={styles.orderHeaderSubtitle}>{item.subtitle}</Text>
+                  )}
+                </View>
+              );
+            }
             const rawDetail = svcDetail(item);
             const hymn = hymns.length ? findHymnForItem(rawDetail, hymns) : null;
             const scripture = !hymn && scriptures.length ? findScriptureForItem(rawDetail, scriptures) : null;
@@ -1563,6 +1582,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+  // 2026-09-06부터 생긴 서식의 큰 흐름 구간 제목("모임"·"말씀"·"성찬"·"파송") —
+  // 원본 주보처럼 굵은 제목 + 작은 부제로, 일반 항목 줄과 다르게 보여준다.
+  orderHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  orderHeaderRowSpaced: { marginTop: 6, borderTopWidth: 1, borderTopColor: colors.divider },
+  orderHeaderTitle: { flex: 0.8, fontFamily: font.bold, fontSize: 15, color: colors.primary },
+  orderHeaderSubtitle: { flex: 1, fontFamily: font.medium, fontSize: 12.5, color: colors.muted, textAlign: 'right' },
   orderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
