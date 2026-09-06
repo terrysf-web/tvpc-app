@@ -523,9 +523,13 @@ function BulletinCards({
   const hasAsterisk = order.some(
     (item) => `${item.service1 ?? ''}${item.service2 ?? ''}${item.shared ?? ''}`.includes('*'),
   );
-  // 모든 항목이 service1/service2 없이 shared만 쓰면 1부/2부 구분 없는 단일
-  // 예배 주보(야외예배 등)다.
-  const isSingleService = order.length > 0 && order.every((o) => !o.service1 && !o.service2);
+  // 1부/2부 구분 없는 단일 예배 주보(야외예배 등)인지 — serviceHeading이
+  // 있으면(예: "주일 야외예배 (오전 10시)") 그 주만 이렇게 특별히 안내된
+  // 것이므로 확실하다. 2026-09-06부터 생긴 새 예배 순서 서식은 1부/2부가
+  // 있는 평소 주에도 항목마다 다른 내용(service1/service2)을 안 쓰고 하나로
+  // 합쳐 쓰므로, "항목에 service1/service2가 있는지"만으로는 더 이상
+  // 평소 주·단일 예배 주를 구분할 수 없다 — serviceHeading 유무로만 본다.
+  const isSingleService = !!bulletin.serviceHeading;
   // 단일 예배 주의 한글/English 탭 — 히어로 카드(설교 차례)도 이 탭을 따라
   // 제목을 바꿔 보여준다.
   const langEn = isSingleService && orderLang === 'en';
