@@ -10,6 +10,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getStorage } from 'firebase-admin/storage';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -332,6 +333,62 @@ const SCHEDULED_PUSH_OPTS = {
   timeoutSeconds: 300,
   retry: false,
 };
+
+/**
+ * 설교 녹음 보관 정리 — 무료 용량 안에서만 쌓이도록 지킨다.
+ *
+ * 새벽설교 한 편이 14MB쯤이라 1년에 300MB 정도다. 무료 5GB면 십수 년치가
+ * 들어가므로 평소에는 아무것도 지우지 않는다. 다만 언젠가 한도에 닿으면
+ * 요금이 붙기 시작하므로, 그 전에 오래된 것부터 덜어낸다.
+ *
+ * 지울 때는 파일만 지우지 않고 그날 verses 문서의 설교 주소도 함께 비운다 —
+ * 안 그러면 "설교 듣기"가 깨진 링크로 남는다(주소가 비면 앱은 다시
+ * "준비 중"으로 안내한다).
+ */
+const SERMON_AUDIO_KEEP_BYTES = 4 * 1024 * 1024 * 1024; // 무료 5GB에 여유를 둔 4GB
+
+export const pruneSermonAudio = onSchedule(
+  { schedule: '0 4 * * 1', ...SCHEDULED_PUSH_OPTS },
+  async () => {
+    const bucket = getStorage().bucket();
+    const [files] = await bucket.getFiles({ prefix: 'sermonAudio/' });
+    const items = files
+      .map((f) => ({
+        file: f,
+        size: Number(f.metadata?.size ?? 0),
+        // 파일 이름이 "sermonAudio/2026-09-10-1757…webm"이라 앞부분이 그날 날짜다
+        date: (f.name.match(/sermonAudio\/(\d{4}-\d{2}-\d{2})/) ?? [])[1] ?? '',
+        created: f.metadata?.timeCreated ?? '',
+      }))
+      .sort((a, b) => (a.created < b.created ? -1 : 1)); // 오래된 것부터
+
+    let total = items.reduce((n, it) => n + it.size, 0);
+    const mb = (n) => Math.round(n / 1048576);
+    console.log(`설교 녹음 ${items.length}개, ${mb(total)}MB (한도 ${mb(SERMON_AUDIO_KEEP_BYTES)}MB)`);
+    if (total <= SERMON_AUDIO_KEEP_BYTES) return;
+
+    const db = getFirestore();
+    let removed = 0;
+    for (const it of items) {
+      if (total <= SERMON_AUDIO_KEEP_BYTES) break;
+      try {
+        await it.file.delete();
+        total -= it.size;
+        removed++;
+        if (it.date) {
+          await db
+            .doc(`verses/${it.date}`)
+            .set({ sermonAudioUrl: null }, { merge: true })
+            .catch(() => {});
+        }
+        console.log(`  - 지움: ${it.file.name} (${mb(it.size)}MB)`);
+      } catch (e) {
+        console.log(`  ! 못 지움: ${it.file.name} — ${e.message}`);
+      }
+    }
+    console.log(`정리 완료: ${removed}개 지움, 남은 용량 ${mb(total)}MB`);
+  },
+);
 
 export const pushScheduled0800 = onSchedule(
   { schedule: '0 8 * * *', ...SCHEDULED_PUSH_OPTS },
