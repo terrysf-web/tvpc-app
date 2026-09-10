@@ -14,7 +14,7 @@ import Sun from 'lucide-react-native/dist/esm/icons/sun.mjs';
 import Sunrise from 'lucide-react-native/dist/esm/icons/sunrise.mjs';
 import Sunset from 'lucide-react-native/dist/esm/icons/sunset.mjs';
 import React from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHasUnreadAlerts } from '../../src/alertsUnread';
 import { FadeInUp } from '../../src/components/FadeInUp';
@@ -24,7 +24,13 @@ import { useClockTick, useEvents, useSermons, useTodayVerse } from '../../src/da
 import { useServices } from '../../src/data/services';
 import { churchInfo } from '../../src/churchInfo';
 import { sundayPhase } from '../../src/churchTime';
-import { openLiveWorship, openWorshipReplay, playSermon, sermonThumb } from '../../src/links';
+import {
+  openLiveWorship,
+  openWorshipReplay,
+  playSermon,
+  playSermonAudio,
+  sermonThumb,
+} from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
 import { setAppReady } from '../../src/appBoot';
@@ -194,28 +200,6 @@ export default function HomeScreen() {
   const weekHeroVerse = isSingleServiceWeek
     ? `오늘 주일예배는\n${todayOutdoorEvent?.title ?? weekServiceName ?? '특별예배'}로 드립니다`
     : null;
-
-  // 새벽예배 설교 듣기 — 목사님이 사역자 페이지에서 주소를 넣기 전에는
-  // 준비 중 안내만 보여준다. 유튜브 주소면 앱 안 재생기로 열어 다 듣고
-  // 닫았을 때 앱으로 돌아온다(유튜브 앱으로 넘기면 거기 남는다).
-  const openSermonAudio = () => {
-    const url = verse.sermonAudioUrl?.trim();
-    if (!url) {
-      const msg = '설교 듣기는 준비 중입니다. 조금만 기다려 주세요.';
-      if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined') window.alert(msg);
-      } else {
-        Alert.alert('준비 중', msg);
-      }
-      return;
-    }
-    const yt = url.match(/(?:youtu\.be\/|[?&]v=|youtube\.com\/(?:embed|live)\/)([\w-]{11})/)?.[1];
-    if (yt) {
-      router.push({ pathname: '/watch', params: { v: yt, t: `${verse.reference} 설교` } });
-    } else {
-      Linking.openURL(url).catch(() => {});
-    }
-  };
 
   // 주일 메뉴 — 온라인예배는 위 카드에 있으므로 뺀다
   const quickMenu = isSunday
@@ -448,7 +432,7 @@ export default function HomeScreen() {
                   </Pressable>
                   <Pressable
                     style={[styles.heroBtn, !verse.imageUrl && !bg.dark && styles.heroBtnDark]}
-                    onPress={openSermonAudio}
+                    onPress={() => playSermonAudio(verse.sermonAudioUrl, `${verse.reference} 설교`)}
                   >
                     <Text
                       style={[

@@ -3,6 +3,7 @@ import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
 import Building2 from 'lucide-react-native/dist/esm/icons/building-2.mjs';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
+import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
 import Heart from 'lucide-react-native/dist/esm/icons/heart.mjs';
 import HeartHandshake from 'lucide-react-native/dist/esm/icons/heart-handshake.mjs';
 import HandHelping from 'lucide-react-native/dist/esm/icons/hand-helping.mjs';
@@ -36,6 +37,7 @@ import { colors, font, shadows } from '../../src/theme';
 const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
+  { key: 'pastVerses', label: '지난 말씀·설교', icon: BookOpen },
   { key: 'gratitude', label: '감사일기', icon: Heart },
   { key: 'serveGuide', label: '섬김이 안내', icon: HandHelping },
   { key: 'album', label: '교우 앨범', icon: Images },
@@ -91,6 +93,10 @@ export default function MoreScreen() {
     }
     if (key === 'album') {
       router.push('/album');
+      return;
+    }
+    if (key === 'pastVerses') {
+      router.push('/past-verses');
       return;
     }
     if (key === 'gratitude') {

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import type { SermonDoc } from './types';
 
 /**
@@ -66,6 +66,31 @@ export function playSermon(s: SermonDoc) {
     router.push({ pathname: '/browser', params: { url: s.sermonUrl, t: s.title } });
   } else {
     openExternal(YOUTUBE_CHANNEL_URL);
+  }
+}
+
+/**
+ * 그날 말씀에 걸린 "설교 듣기" — 사역자 페이지에서 녹음해 올렸거나 주소를
+ * 넣어 둔 것(verses/{날짜}.sermonAudioUrl). 아직 없으면 준비 중이라고 알린다.
+ * 유튜브 주소면 앱 안 재생기로 열어 다 듣고 닫았을 때 앱으로 돌아오게 하고,
+ * 녹음 파일 주소는 브라우저로 연다.
+ */
+export function playSermonAudio(url: string | null | undefined, title: string) {
+  const link = url?.trim();
+  if (!link) {
+    const msg = '설교 듣기는 준비 중입니다. 조금만 기다려 주세요.';
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') window.alert(msg);
+    } else {
+      Alert.alert('준비 중', msg);
+    }
+    return;
+  }
+  const yt = link.match(/(?:youtu\.be\/|[?&]v=|youtube\.com\/(?:embed|live)\/)([\w-]{11})/)?.[1];
+  if (yt) {
+    router.push({ pathname: '/watch', params: { v: yt, t: title } });
+  } else {
+    openExternal(link);
   }
 }
 

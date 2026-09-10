@@ -151,6 +151,17 @@ export function useTodayVerse(): { verse: VerseDoc; loading: boolean; ready: boo
   return { verse: data[0] ?? sampleVerse, loading, ready };
 }
 
+/**
+ * 지난 새벽말씀 — 오늘까지의 말씀을 최근 날짜 순으로. "지난 말씀·설교"
+ * 목록에서 쓴다(홈 카드는 오늘 것 하나만 보여주므로, 어제 설교를 들으려면
+ * 이 목록으로 들어가야 한다).
+ */
+export function useRecentVerses(max = 60): { verses: VerseDoc[]; ready: boolean } {
+  const today = new Date().toLocaleDateString('en-CA');
+  const { data, ready } = useCollection<VerseDoc>('verses', [], 'date', 'desc', max, today);
+  return { verses: data, ready };
+}
+
 export function useSermons(): { sermons: SermonDoc[]; loading: boolean } {
   // 팟캐스트 아카이브까지 표시할 수 있게 넉넉히 (설교+팟캐스트+찬양 통합 목록)
   const { data, loading } = useCollection<SermonDoc>('sermons', sampleSermons, 'date', 'desc', 200);
