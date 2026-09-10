@@ -162,6 +162,23 @@ async function findWeeklyPlaylists(handle) {
 }
 
 /**
+ * 이미 등록해 둔 재생목록 ID들. 채널 "재생목록" 탭 HTML에 그 주 재생목록이
+ * 늘 다 들어있지는 않다(실측: 같은 날 다시 돌릴 때마다 5개 → 2개로 오락가락,
+ * "[금요예배 새 찬양 미리 배우기]"가 아예 안 나온 적도 있다). 한 번 찾은
+ * 재생목록은 우리 DB에 남아 있으니, 채널 페이지에서 못 찾으면 그걸 그대로
+ * 다시 확인한다 — 매주 갱신이 채널 페이지 사정에 휘둘리지 않는다.
+ */
+async function knownPlaylistIds() {
+  try {
+    const snap = await db.collection('praiseVideos').get();
+    return snap.docs.map((d) => d.data()?.playlistId).filter(Boolean);
+  } catch (e) {
+    console.log(`  ! 기존 재생목록 확인 실패(건너뜀): ${e.message}`);
+    return [];
+  }
+}
+
+/**
  * 오늘(태평양 시간 기준) 이후 가장 가까운 금요일 날짜(YYYY-MM-DD) —
  * 이미 금요일이면 오늘. "금요찬양" 재생목록은 그 주 금요예배용이라,
  * 동기화를 확인한 날(보통 수요일 저녁)이 아니라 그 주 금요일 날짜를
@@ -447,10 +464,13 @@ async function main() {
   //    고정해두고 안의 영상만 매주 갈아끼우는 방식 둘 다 지원한다.
   let weeklyPlaylists = [];
   try {
-    const { weekly, named } = await findWeeklyPlaylists(CHANNEL_HANDLE);
+    const { weekly, ids } = await findWeeklyPlaylists(CHANNEL_HANDLE);
     weeklyPlaylists = weekly;
-    if (weeklyPlaylists.length === 0 && named.length > 0) {
-      const kw = await findKeywordPlaylist(named, '금요');
+    if (weeklyPlaylists.length === 0) {
+      // 채널 페이지에서 찾은 것 + 예전에 등록해 둔 것(중복 제거) 순으로 확인
+      const candidates = [...new Set([...ids, ...(await knownPlaylistIds())])];
+      console.log(`  · 고정 재생목록 후보 ${candidates.length}개 확인`);
+      const kw = await findKeywordPlaylist(candidates, '금요');
       if (kw) {
         console.log(`  ✓ 날짜 이름 패턴 대신 고정 재생목록으로 확인: "${kw.rawTitle}"`);
         weeklyPlaylists = [kw];
