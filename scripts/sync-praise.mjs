@@ -144,32 +144,6 @@ async function findWeeklyPlaylists(handle) {
     }
   }
 
-  // 이름에 날짜가 없는 고정 재생목록("[금요예배 새 찬양 미리 배우기]")을 찾으려면
-  // 재생목록마다 제목이 필요하다. 예전엔 재생목록 RSS의 <title>로 알아냈는데
-  // 그 주소가 죽어서(2026-09-10), 지금 받은 이 페이지 안에서 ID와 가장 가까운
-  // 제목을 짝지어 바로 알아낸다 — 재생목록마다 페이지를 또 받지 않아도 된다.
-  const titleRe2 = /"title":\{(?:"runs":\[\{"text":"((?:[^"\\]|\\.)*)"|"simpleText":"((?:[^"\\]|\\.)*)")/g;
-  const allTitles = [];
-  let t2;
-  while ((t2 = titleRe2.exec(html))) {
-    allTitles.push({ index: t2.index, text: unescapeJson(t2[1] ?? t2[2] ?? '') });
-  }
-  const named = ids.map(({ playlistId, index }) => {
-    let best = '';
-    let bestDist = Infinity;
-    for (const { index: ti, text } of allTitles) {
-      const dist = Math.abs(ti - index);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = text;
-      }
-    }
-    return { playlistId, title: best };
-  });
-  for (const n of named) {
-    console.log(`  (디버그) 재생목록 ${n.playlistId} — "${n.title}"`);
-  }
-
   if (weekly.length === 0) {
     console.log(
       `  (디버그) 재생목록 ID ${ids.length}개, "YYMMDD[태그]" 텍스트 ${titles.length}개 발견 — 매치 0개`,
@@ -184,7 +158,7 @@ async function findWeeklyPlaylists(handle) {
       console.log(`  (디버그) 재생목록 ID 위치들: ${ids.map((x) => x.index).join(', ')}`);
     }
   }
-  return { weekly, ids: ids.map((x) => x.playlistId), named };
+  return { weekly, ids: ids.map((x) => x.playlistId) };
 }
 
 /**
@@ -216,18 +190,15 @@ function upcomingFridayDate() {
  * feed의 <title>)을 확인해 "금요"가 들어간 것을 그 주 찬양 재생목록으로
  * 본다 — 이 채널은 그 재생목록 하나만 매주 갱신하는 용도로 쓴다.
  */
-async function findKeywordPlaylist(named, keyword) {
-  // 채널 재생목록 페이지에서 이미 알아낸 제목으로 먼저 후보를 좁힌다 —
-  // 제목만 보려고 재생목록을 하나씩 다 받아볼 필요가 없다.
-  const hit = named.find((n) => n.title.includes(keyword));
-  for (const playlistId of hit ? [hit.playlistId] : named.map((n) => n.playlistId)) {
+async function findKeywordPlaylist(playlistIds, keyword) {
+  for (const playlistId of playlistIds) {
     let info;
     try {
       info = await fetchPlaylistInfo(playlistId);
     } catch {
       continue;
     }
-    const title = info.title || hit?.title || '';
+    const title = info.title;
     console.log(`  (디버그) 재생목록 ${playlistId}: 제목 "${title}", 영상 ${info.entries.length}개`);
     if (title.includes(keyword)) {
       const entries = info.entries;
@@ -257,6 +228,39 @@ function unescapeJson(str) {
 }
 
 /**
+ * 재생목록 페이지 HTML에서 영상 ID·제목을 뽑는다. 유튜브가 2026-09에 재생목록
+ * 화면을 새 형식(lockupViewModel)으로 바꿔서, 예전 형식(playlistVideoRenderer)만
+ * 보면 영상이 0개로 나온다 — 실측 로그에서 playlistVideoRenderer=0,
+ * lockupViewModel=11이었다. 둘 다 본다(새 형식 먼저).
+ *
+ * contentId를 11자로 못박아 영상만 집는다 — 재생목록(PL…34자)·채널(UC…)은
+ * 길이가 달라 저절로 걸러진다.
+ */
+function parsePlaylistEntries(html) {
+  const seen = new Set();
+  const entries = [];
+  const push = (id, raw) => {
+    if (!id || !raw || seen.has(id)) return;
+    seen.add(id);
+    entries.push({ id, title: unescapeJson(raw) });
+  };
+  for (const chunk of html.split('"lockupViewModel"').slice(1)) {
+    push(
+      chunk.match(/"contentId":"([\w-]{11})"/)?.[1],
+      chunk.match(/"title":\{"content":"((?:[^"\\]|\\.)*)"/)?.[1],
+    );
+  }
+  if (entries.length) return entries;
+  for (const chunk of html.split('"playlistVideoRenderer"').slice(1)) {
+    push(
+      chunk.match(/"videoId":"([\w-]{11})"/)?.[1],
+      chunk.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/)?.[1],
+    );
+  }
+  return entries;
+}
+
+/**
  * 재생목록의 제목과 그 안의 영상 목록을 가져온다.
  *
  * 예전엔 RSS(feeds/videos.xml?playlist_id=)를 썼는데 2026-09-10부터 이 주소가
@@ -272,17 +276,7 @@ async function fetchPlaylistInfo(playlistId) {
     const title = decodeEntities(
       html.match(/<meta property="og:title" content="([^"]*)"/)?.[1] ?? '',
     );
-    const entries = [];
-    const seen = new Set();
-    // 영상 한 개는 "playlistVideoRenderer" 하나에 대응한다 — 그 조각 안에서
-    // 영상 ID와 제목을 하나씩 집는다(JSON 구조 전체에 기대지 않는다).
-    for (const chunk of html.split('"playlistVideoRenderer"').slice(1)) {
-      const id = chunk.match(/"videoId":"([\w-]{11})"/)?.[1];
-      const raw = chunk.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/)?.[1];
-      if (!id || !raw || seen.has(id)) continue;
-      seen.add(id);
-      entries.push({ id, title: unescapeJson(raw) });
-    }
+    const entries = parsePlaylistEntries(html);
     if (entries.length) return { title, entries };
     const counts = ['playlistVideoRenderer', 'lockupViewModel', 'richItemRenderer', '"videoId":"']
       .map((k) => `${k}=${html.split(k).length - 1}`)
