@@ -7,8 +7,13 @@
  * 들어가면 그대로 녹음할 수 있다(크롬·사파리 모두 마이크 녹음을 지원한다).
  *
  * 담는 형식은 브라우저가 할 수 있는 것 중에서 고른다. 크롬은 webm(opus),
- * 사파리는 mp4(aac)만 되므로 둘 다 시도한다. 말소리는 32kbps 한 줄(모노)이면
- * 충분해서 30분 설교가 대략 7MB다.
+ * 사파리는 mp4(aac)만 되므로 둘 다 시도한다.
+ *
+ * 말소리 한 줄(모노) 64kbps로 담는다 — 30분 설교가 대략 14MB다. 처음엔
+ * 통화 수준인 32kbps로 잡았는데, 무료 저장 용량이 5GB라 아낄 이유가 없고
+ * 사파리가 쓰는 aac는 낮은 값에서 목소리가 뭉개진다. 마이크는 목소리
+ * 크기가 들쭉날쭉해도 고르게 담기도록 자동 음량 조절을 켜 둔다(폰을
+ * 강대상에 놓고 움직이며 말씀하실 때를 생각한 설정).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -123,14 +128,21 @@ export function useSermonRecorder() {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        // 설교는 한 사람 목소리라 잡음·울림을 줄이면 훨씬 알아듣기 쉽다
-        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+        // 설교는 한 사람 목소리라 잡음·울림을 줄이면 훨씬 알아듣기 쉽다.
+        // 자동 음량 조절(autoGainControl)은 마이크와 입 사이 거리가 변해도
+        // 소리 크기를 고르게 맞춰 준다.
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
       });
       const fmt = pickFormat();
       if (!fmt) throw new Error('이 브라우저는 녹음을 지원하지 않습니다.');
       const rec = new MediaRecorder(
         stream,
-        fmt.mime ? { mimeType: fmt.mime, audioBitsPerSecond: 32000 } : undefined,
+        fmt.mime ? { mimeType: fmt.mime, audioBitsPerSecond: 64000 } : undefined,
       );
       chunksRef.current = [];
       rec.ondataavailable = (e) => {
