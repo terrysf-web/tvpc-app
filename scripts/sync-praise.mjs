@@ -245,6 +245,50 @@ function unescapeJson(str) {
 }
 
 /**
+ * "3주 전" 같은 상대 표기를 대략의 날짜(YYYY-MM-DD, 태평양 시간)로 바꾼다.
+ * 채널 "동영상" 탭에는 정확한 업로드 날짜가 없고 이 표기뿐이다.
+ */
+function agoToDate(n, unit) {
+  const perUnit = { 초: 0, 분: 0, 시간: 0, 일: 1, 주: 7, 개월: 30, 년: 365 };
+  const ms = Date.now() - n * (perUnit[unit] ?? 0) * 86400000;
+  return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+/**
+ * 채널이 직접 올린 영상 목록(찬양팀 실황).
+ *
+ * 예전엔 채널 RSS(feeds/videos.xml?channel_id=)를 썼는데 러너 IP에 따라
+ * 404가 나서 실행마다 됐다 안 됐다 했다 — 재생목록과 같은 이유로, 사람이
+ * 보는 "동영상" 탭 페이지를 읽는다. 대신 이 페이지에는 정확한 업로드
+ * 날짜가 없고 "3주 전" 같은 상대 표기뿐이라 날짜는 대략만 잡는다(이미
+ * 등록된 영상은 처음 저장한 날짜를 그대로 둔다 — saveVideo 주석 참고).
+ */
+async function fetchChannelVideos(handle) {
+  const html = await fetchText(`https://www.youtube.com/${handle}/videos`);
+  const seen = new Set();
+  const out = [];
+  const chunks = html.includes('"lockupViewModel"')
+    ? html.split('"lockupViewModel"').slice(1)
+    : html.split('"videoRenderer"').slice(1);
+  for (const chunk of chunks) {
+    const id =
+      chunk.match(/"contentId":"([\w-]{11})"/)?.[1] ?? chunk.match(/"videoId":"([\w-]{11})"/)?.[1];
+    const raw =
+      chunk.match(/"title":\{"content":"((?:[^"\\]|\\.)*)"/)?.[1] ??
+      chunk.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/)?.[1];
+    if (!id || !raw || seen.has(id)) continue;
+    const ago = chunk.match(/(\d+)\s*(초|분|시간|일|주|개월|년)\s*전/);
+    seen.add(id);
+    out.push({
+      id,
+      title: unescapeJson(raw),
+      date: ago ? agoToDate(Number(ago[1]), ago[2]) : agoToDate(0, '일'),
+    });
+  }
+  return out;
+}
+
+/**
  * 재생목록 페이지 HTML에서 영상 ID·제목을 뽑는다. 유튜브가 2026-09에 재생목록
  * 화면을 새 형식(lockupViewModel)으로 바꿔서, 예전 형식(playlistVideoRenderer)만
  * 보면 영상이 0개로 나온다 — 실측 로그에서 playlistVideoRenderer=0,
@@ -367,13 +411,16 @@ function parseVideo(rawTitle, fallbackDate) {
 async function saveVideo(id, title, date) {
   const ref = db.doc(`praiseVideos/${id}`);
   const existing = await ref.get();
-  const payload = { title, date, youtubeId: id, playlistId: null, updatedAt: Date.now() };
+  const payload = { title, youtubeId: id, playlistId: null, updatedAt: Date.now() };
   if (existing.exists) {
-    // 이미 있으면 제목·날짜만 갱신(수동으로 고친 값이 없으므로 그냥 덮어써도 안전)
+    // 날짜는 처음 등록할 때 값을 그대로 둔다 — 동영상 탭에서 읽는 날짜는
+    // "3주 전" 같은 상대 표기를 되돌린 값이라, 매주 다시 계산하면 같은
+    // 영상 날짜가 조금씩 뒤로 밀린다(3주 전 → 4주 전 → …).
+    if (!existing.data()?.date) payload.date = date;
     await ref.set(payload, { merge: true });
     return 'updated';
   }
-  await ref.set({ ...payload, createdAt: Date.now() });
+  await ref.set({ ...payload, date, createdAt: Date.now() });
   console.log(`  + ${date}  ${title}`);
   return 'added';
 }
@@ -444,15 +491,29 @@ async function main() {
   //    갱신되게 건너뛰고 계속 간다(실측: 세 번 돌려 두 번 404로 실패).
   let channelEntries = [];
   try {
-    if (!channelId) throw new Error('채널 ID를 몰라 건너뜀');
-    const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-    channelEntries = parseFeed(xml);
-    console.log(`  ✓ 채널 업로드 RSS ${channelEntries.length}건 확인`);
+    channelEntries = await fetchChannelVideos(CHANNEL_HANDLE);
+    console.log(`  ✓ 채널 동영상 탭 ${channelEntries.length}건 확인`);
   } catch (e) {
-    console.log(`  ! 채널 업로드 RSS 확인 실패(건너뜀): ${e.message}`);
+    console.log(`  ! 채널 동영상 탭 확인 실패(RSS로 재시도): ${e.message}`);
+  }
+  if (channelEntries.length === 0) {
+    try {
+      if (!channelId) throw new Error('채널 ID를 몰라 건너뜀');
+      const xml = await fetchText(
+        `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
+      );
+      channelEntries = parseFeed(xml).map((e) => ({
+        id: e.id,
+        title: e.title,
+        date: e.published.slice(0, 10),
+      }));
+      console.log(`  ✓ 채널 업로드 RSS ${channelEntries.length}건 확인`);
+    } catch (e) {
+      console.log(`  ! 채널 업로드 RSS도 실패(건너뜀): ${e.message}`);
+    }
   }
   for (const e of channelEntries) {
-    const { title, date } = parseVideo(e.title, e.published.slice(0, 10));
+    const { title, date } = parseVideo(e.title, e.date);
     const r = await saveVideo(e.id, title, date);
     if (r === 'added') added++;
     else updated++;
