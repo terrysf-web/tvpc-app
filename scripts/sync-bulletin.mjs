@@ -417,6 +417,21 @@ function findBookIn(bible, name) {
   return near.length === 1 ? near[0] : null;
 }
 
+/**
+ * 화면에 보여줄 본문 표기("예례미야1장")의 책 이름 오타를 바로잡는다.
+ * 등록용 이름 찾기(findBookIn)만 고쳐 두면 verses에는 제대로 들어가지만
+ * 주보 카드에는 주보 원문 그대로 "예례미야"가 남는다(2026-09-06 주보 실제
+ * 사례). 성경에 있는 이름은 그대로 두고, 한 글자 틀린 것만 고친다.
+ */
+function fixPassageBookName(passage, bible) {
+  if (!passage || !bible) return passage;
+  return passage.replace(/^([가-힣]+)(\s*\d+\s*장)$/, (whole, book, rest) => {
+    if (bible[book]) return whole;
+    const fixed = findBookIn(bible, book);
+    return fixed ? `${fixed}${rest}` : whole;
+  });
+}
+
 function pdfText() {
   if (pdfTextCache == null) {
     execFileSync('pdftotext', ['-layout', join(dir, 'in.pdf'), join(dir, 'out.txt')]);
@@ -1768,8 +1783,15 @@ try {
     // (못 찾으면 orderFace로 대체해 예전 주보도 그대로 동작).
     const dawnFace = findFaceByMarker(faces, /새벽예배/);
     const dr = extractDawnReadings(dawnFace.length ? dawnFace : orderFace);
-    dawnReadings = dr.dawn;
-    fridayReading = dr.friday;
+    // 주보에 책 이름이 한 글자 틀리게 찍히는 일이 있어(예례미야) 보여줄 때 바로잡는다
+    const bibleForNames = await loadBible().catch(() => null);
+    dawnReadings = dr.dawn.map((d) => ({
+      ...d,
+      passage: fixPassageBookName(d.passage, bibleForNames),
+    }));
+    fridayReading = dr.friday
+      ? { ...dr.friday, passage: fixPassageBookName(dr.friday.passage, bibleForNames) }
+      : null;
     if (dawnReadings.length) console.log(`[주보] 새벽예배 본문 ${dawnReadings.length}일 추출`);
   } catch (e) {
     console.log(`  ! 예배 순서 추출 실패(무해): ${e.message}`);
