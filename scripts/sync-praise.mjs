@@ -199,6 +199,7 @@ async function findKeywordPlaylist(playlistIds, keyword) {
       continue;
     }
     const title = info.title;
+    console.log(`  (디버그) 재생목록 ${playlistId}: 제목 "${title}", 영상 ${info.entries.length}개`);
     if (title.includes(keyword)) {
       const entries = info.entries;
       // 안의 영상은 다른 팀·가수의 원곡/커버라 업로드일이 몇 년 전일 수도
@@ -253,8 +254,10 @@ async function fetchPlaylistInfo(playlistId) {
       seen.add(id);
       entries.push({ id, title: unescapeJson(raw) });
     }
-    if (title || entries.length) return { title, entries };
-    console.log(`  ! 재생목록 페이지에서 아무 것도 못 뽑음(RSS로 재시도): ${playlistId}`);
+    if (entries.length) return { title, entries };
+    console.log(
+      `  ! 재생목록 페이지에서 영상을 못 뽑음(응답 ${html.length}자, 제목 "${title}") — RSS로 재시도: ${playlistId}`,
+    );
   } catch (e) {
     console.log(`  ! 재생목록 페이지 확인 실패(RSS로 재시도): ${e.message}`);
   }
