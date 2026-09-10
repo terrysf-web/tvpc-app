@@ -29,6 +29,7 @@ import {
   saveEvent,
   saveNews,
   saveVerse,
+  saveVerseSermonUrl,
   useAdminAuth,
   useApprovedMembers,
   usePendingMembers,
@@ -170,6 +171,9 @@ export default function AdminScreen() {
   const [vMeditation, setVMeditation] = useState('');
   const [vApplication, setVApplication] = useState('');
   const [vPrayer, setVPrayer] = useState('');
+  // 설교 듣기 주소 — 본문과 따로 등록한다(자동 등록된 말씀에도 주소만 덧붙일 수 있게)
+  const [vSermonDate, setVSermonDate] = useState('');
+  const [vSermonUrl, setVSermonUrl] = useState('');
 
   // 소식 폼
   const [nTitle, setNTitle] = useState('');
@@ -493,6 +497,17 @@ export default function AdminScreen() {
       });
     }, `${vDate} 말씀이 등록됐습니다. 앱에 바로 반영됩니다.`);
 
+  const saveSermonUrlForm = () =>
+    submit(
+      async () => {
+        if (!vSermonDate) throw new Error('날짜는 필수입니다.');
+        await saveVerseSermonUrl(vSermonDate.trim(), vSermonUrl.trim());
+      },
+      vSermonUrl.trim()
+        ? `${vSermonDate} 설교 듣기 주소가 등록됐습니다. 앱에 바로 반영됩니다.`
+        : `${vSermonDate} 설교 듣기 주소를 지웠습니다. 다시 "준비 중"으로 안내됩니다.`,
+    );
+
   const pickNewsBannerImage = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
       setMsg('배너 그림 업로드는 웹 브라우저에서 해주세요.');
@@ -746,6 +761,36 @@ export default function AdminScreen() {
               disabled={busy}
             >
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '말씀 등록'}</Text>
+            </Pressable>
+
+            {/* 설교 듣기 — 홈 말씀 카드의 "설교 듣기" 단추에 연결된다.
+                본문 등록과 따로 두어, 주보에서 자동 등록된 말씀에도
+                주소만 덧붙일 수 있게 한다. */}
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>설교 듣기 주소</Text>
+            <Text style={styles.bgHint}>
+              홈 화면 말씀 카드의 &quot;설교 듣기&quot; 단추에 연결됩니다. 유튜브 주소나 오디오 파일
+              주소를 넣어 주세요. 넣기 전에는 눌러도 &quot;준비 중&quot; 안내만 나옵니다. 비워 두고
+              저장하면 그 날짜는 다시 준비 중으로 돌아갑니다.
+            </Text>
+            <Field
+              label="날짜 (YYYY-MM-DD)"
+              value={vSermonDate}
+              onChange={setVSermonDate}
+              placeholder={today()}
+            />
+            <Field
+              label="설교 주소"
+              value={vSermonUrl}
+              onChange={setVSermonUrl}
+              placeholder="https://youtu.be/..."
+            />
+            <Pressable
+              style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+              onPress={saveSermonUrlForm}
+              disabled={busy}
+            >
+              <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '설교 듣기 등록'}</Text>
             </Pressable>
 
             {/* 말씀카드 배경 — 그림 한 장으로 시간대별 5종 자동 생성 */}

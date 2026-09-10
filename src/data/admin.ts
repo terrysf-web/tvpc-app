@@ -77,6 +77,19 @@ export async function saveVerse(v: Omit<VerseDoc, 'id'>): Promise<void> {
   await setDoc(doc(requireDb(), 'verses', v.date), v, { merge: true });
 }
 
+/**
+ * 그날 말씀의 "설교 듣기" 주소만 따로 저장한다 — 본문·묵상 같은 다른 항목은
+ * 건드리지 않으므로, 주보에서 자동 등록된 말씀에도 주소만 덧붙일 수 있다.
+ * 빈 값으로 저장하면 그 날짜는 다시 "준비 중" 안내로 돌아간다.
+ */
+export async function saveVerseSermonUrl(date: string, url: string): Promise<void> {
+  await setDoc(
+    doc(requireDb(), 'verses', date),
+    { date, sermonAudioUrl: url || null },
+    { merge: true },
+  );
+}
+
 /** 소식 저장 */
 export async function saveNews(n: Omit<NewsDoc, 'id'>): Promise<void> {
   const id = `n-${Date.now()}`;

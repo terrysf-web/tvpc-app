@@ -18,6 +18,9 @@ export interface VerseDoc {
   /** 자동 등록 본문의 번역본 — 'gae'=개역개정, 'krv'=개역한글(예전 자동 등록분).
    *  없으면(예전 문서) 개역한글로 간주한다. */
   translation?: 'gae' | 'krv';
+  /** 그날 설교 듣기 주소(유튜브 또는 오디오) — 사역자 페이지에서 넣는다.
+   *  없으면 홈 말씀 카드의 "설교 듣기"는 준비 중 안내만 보여준다. */
+  sermonAudioUrl?: string | null;
 }
 
 export type SermonCategory = 'sermon' | 'podcast' | 'praise' | 'etc';
