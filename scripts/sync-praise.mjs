@@ -192,16 +192,15 @@ function upcomingFridayDate() {
  */
 async function findKeywordPlaylist(playlistIds, keyword) {
   for (const playlistId of playlistIds) {
-    let xml;
+    let info;
     try {
-      xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`);
+      info = await fetchPlaylistInfo(playlistId);
     } catch {
       continue;
     }
-    const titleMatch = xml.match(/<title>([^<]*)<\/title>/);
-    const title = titleMatch ? decodeEntities(titleMatch[1].trim()) : '';
+    const title = info.title;
     if (title.includes(keyword)) {
-      const entries = parseFeed(xml);
+      const entries = info.entries;
       // 안의 영상은 다른 팀·가수의 원곡/커버라 업로드일이 몇 년 전일 수도
       // 있어(그 영상 자체가 오래전에 올라온 것) 날짜로 못 쓴다 — 이
       // 재생목록은 이름에 날짜가 없는 "고정" 방식이라, 그 주 금요예배
@@ -216,6 +215,54 @@ async function findKeywordPlaylist(playlistIds, keyword) {
     }
   }
   return null;
+}
+
+/** ytInitialData JSON 안 문자열의 이스케이프(\", \u003c 등)를 되돌린다 */
+function unescapeJson(str) {
+  try {
+    return JSON.parse(`"${str}"`);
+  } catch {
+    return str;
+  }
+}
+
+/**
+ * 재생목록의 제목과 그 안의 영상 목록을 가져온다.
+ *
+ * 예전엔 RSS(feeds/videos.xml?playlist_id=)를 썼는데 2026-09-10부터 이 주소가
+ * 재시도를 아무리 해도 404만 준다 — 같은 실행에서 채널 페이지·재생목록
+ * 페이지 HTML은 멀쩡히 받아왔으니 우리가 막힌 게 아니라 유튜브가 재생목록
+ * RSS를 접은 것이다. 그래서 사람이 보는 재생목록 페이지를 그대로 받아
+ * 그 안 ytInitialData에서 영상 ID·제목을 뽑는다(RSS는 되살아날 경우를 위해
+ * 보조로만 남겨둔다).
+ */
+async function fetchPlaylistInfo(playlistId) {
+  try {
+    const html = await fetchText(`https://www.youtube.com/playlist?list=${playlistId}`);
+    const title = decodeEntities(
+      html.match(/<meta property="og:title" content="([^"]*)"/)?.[1] ?? '',
+    );
+    const entries = [];
+    const seen = new Set();
+    // 영상 한 개는 "playlistVideoRenderer" 하나에 대응한다 — 그 조각 안에서
+    // 영상 ID와 제목을 하나씩 집는다(JSON 구조 전체에 기대지 않는다).
+    for (const chunk of html.split('"playlistVideoRenderer"').slice(1)) {
+      const id = chunk.match(/"videoId":"([\w-]{11})"/)?.[1];
+      const raw = chunk.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/)?.[1];
+      if (!id || !raw || seen.has(id)) continue;
+      seen.add(id);
+      entries.push({ id, title: unescapeJson(raw) });
+    }
+    if (title || entries.length) return { title, entries };
+    console.log(`  ! 재생목록 페이지에서 아무 것도 못 뽑음(RSS로 재시도): ${playlistId}`);
+  } catch (e) {
+    console.log(`  ! 재생목록 페이지 확인 실패(RSS로 재시도): ${e.message}`);
+  }
+  const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`);
+  return {
+    title: decodeEntities(xml.match(/<title>([^<]*)<\/title>/)?.[1]?.trim() ?? ''),
+    entries: parseFeed(xml),
+  };
 }
 
 /** HTML에서 흔히 나오는 이스케이프만 풀어준다(제목에 &, 따옴표 등 있을 때) */
@@ -388,11 +435,7 @@ async function main() {
   for (const pl of weeklyPlaylists) {
     try {
       // findKeywordPlaylist는 이미 영상 목록을 같이 가져왔으니 재요청하지 않는다
-      const plEntries =
-        pl.entries ??
-        parseFeed(
-          await fetchText(`https://www.youtube.com/feeds/videos.xml?playlist_id=${pl.playlistId}`),
-        );
+      const plEntries = pl.entries ?? (await fetchPlaylistInfo(pl.playlistId)).entries;
       console.log(`  · ${pl.date} [${pl.tag}] 재생목록 영상 ${plEntries.length}건`);
       const r = await saveWeeklyPlaylist(pl, plEntries);
       if (r === 'added') added++;
