@@ -43,8 +43,27 @@ export default function MediaScreen() {
   const { sermons, loading: videoLoading } = useSermons();
   const { videos: praiseVideos, loading: praiseLoading } = usePraiseVideos();
 
-  // 설교·팟캐스트를 뺀 나머지(찬양·기타) — 성가대 찬양, 워십팀, 연주, 행사 영상
-  const videos = sermons.filter((s) => s.category === 'praise' || s.category === 'etc');
+  // 설교·팟캐스트를 뺀 나머지(찬양·기타) — 성가대 찬양, 연주, 행사 영상.
+  // 단 "은혜안에 워십팀" 영상은 교회 채널에 올라온 것이라도 찬양 탭으로
+  // 보낸다(아래 praiseItems) — 보는 사람 입장에선 어느 채널에 올라왔는지가
+  // 아니라 같은 찬양팀 영상인지가 중요하다.
+  const isEunhyeane = (s: SermonDoc) => /은혜안에/.test(s.title) && !!s.youtubeId;
+  const videos = sermons.filter(
+    (s) => (s.category === 'praise' || s.category === 'etc') && !isEunhyeane(s),
+  );
+
+  // 찬양 탭 — 은혜안에 찬양팀 채널에서 가져온 것 + 교회 채널에 올라온
+  // 은혜안에 워십팀 영상을 날짜순으로 한데 모아 보여준다.
+  const praiseItems: PraiseVideoDoc[] = [
+    ...praiseVideos,
+    ...sermons.filter(isEunhyeane).map((s) => ({
+      id: s.id,
+      title: s.title,
+      date: s.date,
+      youtubeId: s.youtubeId as string,
+      playlistId: null,
+    })),
+  ].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   // 영상은 앱 안 재생기로 연다 — 유튜브 앱으로 넘기면 다 보고 닫았을 때
   // 유튜브에 남아 앱으로 돌아오지 못한다. (영상 주소가 없으면 예전대로)
@@ -159,16 +178,16 @@ export default function MediaScreen() {
           ))}
 
         {tab === 'praise' &&
-          (praiseLoading && praiseVideos.length === 0 ? (
+          (praiseLoading && praiseItems.length === 0 ? (
             <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
-          ) : praiseVideos.length === 0 ? (
+          ) : praiseItems.length === 0 ? (
             <View style={[styles.card, shadows.card, styles.emptyCard]}>
               <Video size={26} color={colors.faint2} strokeWidth={1.7} />
               <Text style={styles.emptyText}>아직 등록된 영상이 없습니다.</Text>
             </View>
           ) : (
             <>
-              {praiseVideos.map((v) => (
+              {praiseItems.map((v) => (
                 <Pressable
                   key={v.id}
                   style={[styles.card, shadows.imageCard]}
@@ -190,7 +209,7 @@ export default function MediaScreen() {
                   </View>
                 </Pressable>
               ))}
-              <Text style={styles.hint}>은혜안에 찬양팀 유튜브 채널에서 자동으로 가져옵니다.</Text>
+              <Text style={styles.hint}>은혜안에 워십팀 영상을 유튜브에서 자동으로 가져옵니다.</Text>
             </>
           ))}
       </ScrollView>
