@@ -793,6 +793,21 @@ export default function AdminScreen() {
           <Text style={[styles.msg, msg.startsWith('✓') ? styles.msgOk : styles.error]}>{msg}</Text>
         ) : null}
 
+        {/* 주보에 책 이름이 틀리게 찍히면 그날 말씀이 통째로 안 들어간다. 앱에는
+            어제 말씀이 그대로 남을 뿐 표시가 없어 모르고 지나가기 쉽다.
+            고치는 건 관리자 몫이라 목회자에게는 안 보이고, 어느 탭을 보고
+            있든 눈에 띄도록 탭 내용 위에 둔다(탭 목록에 '주보'가 없어서
+            그 안에 두면 아무도 못 본다). */}
+        {role !== 'pastor' && verseFails.length > 0 && (
+          <View style={styles.failBox}>
+            <Text style={styles.failTitle}>말씀이 등록되지 못한 날이 있습니다</Text>
+            <Text style={styles.failText}>{verseFails.join('\n')}</Text>
+            <Text style={styles.failText}>
+              주보의 성경 책 이름 표기가 성경과 다를 때 생깁니다. 확인해 주세요.
+            </Text>
+          </View>
+        )}
+
         {tab === 'verse' && (
           <View style={[styles.card, shadows.card]}>
             <Field label="날짜 (YYYY-MM-DD)" value={vDate} onChange={setVDate} placeholder={today()} />
@@ -956,19 +971,6 @@ export default function AdminScreen() {
                 <Text style={styles.syncBoxText}>{syncInfo}</Text>
               </View>
             ) : null}
-            {/* 주보에 책 이름이 틀리게 찍히면 그날 말씀이 통째로 안 들어간다.
-                앱에는 어제 말씀이 그대로 남을 뿐 표시가 없어 모르고 지나가기
-                쉽다. 고치는 건 관리자 몫이라 목회자 화면(말씀)이 아니라
-                여기, 자동 동기화 상태 옆에 둔다. */}
-            {verseFails.length > 0 && (
-              <View style={styles.failBox}>
-                <Text style={styles.failTitle}>말씀이 등록되지 못한 날이 있습니다</Text>
-                <Text style={styles.failText}>{verseFails.join('\n')}</Text>
-                <Text style={styles.failText}>
-                  주보의 성경 책 이름 표기가 성경과 다를 때 생깁니다. 확인해 주세요.
-                </Text>
-              </View>
-            )}
             <Text style={styles.blockTitle}>주보 PDF 업로드</Text>
             <Field
               label="주보 날짜 (YYYY-MM-DD)"
