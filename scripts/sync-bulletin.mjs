@@ -855,7 +855,11 @@ async function writeStatus(changed, note) {
  */
 const verseFailures = [];
 
-/** 등록 실패를 사역자 기기로 알린다(등록된 관리자 계정 전부) */
+/**
+ * 등록 실패를 관리자에게 알린다 — 목회자에게는 보내지 않는다.
+ * 주보 표기 오류는 파싱을 손봐야 풀리는 일이라 목사님이 하실 수 있는 게
+ * 없다. 고칠 수 있는 사람에게만 간다(admins 중 role이 pastor가 아닌 계정).
+ */
 async function notifyVerseFailures() {
   if (verseFailures.length === 0) {
     // 지난번 실패 기록이 남아 관리자 화면에 계속 경고가 뜨지 않도록 지운다
@@ -868,6 +872,7 @@ async function notifyVerseFailures() {
     const { getMessaging } = await import('firebase-admin/messaging');
     const adminsSnap = await db.collection('admins').get();
     const emails = adminsSnap.docs
+      .filter((d) => d.data().role !== 'pastor')
       .map((d) => String(d.data().email || d.id).toLowerCase())
       .slice(0, 30);
     if (emails.length === 0) {
