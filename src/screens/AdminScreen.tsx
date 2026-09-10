@@ -149,6 +149,10 @@ export default function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('verse');
   const visibleTabs = TABS.filter((t) => {
     if (t.key === 'errors') return email === OWNER_EMAIL;
+    // 점검 계정은 목회자 화면(말씀)까지 전부 볼 수 있어야 새 기능을 직접
+    // 시험해 볼 수 있다 — 역할이 admin이면 말씀 탭이 아예 안 보여서
+    // 설교 녹음 같은 걸 확인할 방법이 없었다.
+    if (email === OWNER_EMAIL) return true;
     return role === 'pastor' ? t.key === 'verse' : t.key !== 'verse';
   });
   // 역할이 정해지면 그 역할의 첫 탭으로 이동
