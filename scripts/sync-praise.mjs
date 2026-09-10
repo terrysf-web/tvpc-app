@@ -43,7 +43,13 @@ const db = getFirestore();
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
-async function fetchText(url, attempts = 3) {
+/**
+ * 유튜브는 깃허브 액션 러너 같은 데이터센터 IP에서 오는 요청을 자주 막는데,
+ * 429가 아니라 404·500으로 답해서 "없는 주소"와 구분이 안 된다(같은 주소를
+ * 연달아 불렀는데 500 → 404로 답이 달라지는 걸 실측). 그래서 몇 번 더,
+ * 그리고 점점 더 길게 쉬었다가 다시 시도한다 — 2·4·8·16초.
+ */
+async function fetchText(url, attempts = 5) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -54,7 +60,7 @@ async function fetchText(url, attempts = 3) {
       lastErr = e;
       if (i < attempts - 1) {
         console.log(`  ! 요청 실패, 재시도 ${i + 1}/${attempts - 1}: ${e.message}`);
-        await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+        await new Promise((r) => setTimeout(r, 2000 * 2 ** i));
       }
     }
   }
@@ -90,6 +96,10 @@ async function findWeeklyPlaylists(handle) {
   const ids = [];
   let m;
   while ((m = idRe.exec(html))) {
+    // 채널이 실제로 만든 재생목록 ID는 "PL"+32자(34자)다. 페이지 JSON에는
+    // 이보다 짧은 값도 섞여 나오는데(실측: PLERhBWv-oG6o 같은 13자), 이런
+    // 건 불러봤자 404·500이라 재생목록 찾기를 방해하기만 한다 — 걸러낸다.
+    if (m[1].length !== 34) continue;
     if (!seen.has(m[1])) {
       seen.add(m[1]);
       ids.push({ playlistId: m[1], index: m.index });
@@ -322,16 +332,32 @@ async function saveWeeklyPlaylist(pl, entries) {
 
 async function main() {
   console.log(`[찬양] 채널 ${CHANNEL_HANDLE} 확인 중...`);
-  const channelId = await resolveChannelId(CHANNEL_HANDLE);
-  console.log(`  ✓ 채널 ID: ${channelId}`);
+  // 채널 ID는 1)의 업로드 RSS에만 필요하다 — 2)의 재생목록은 핸들(@...)로
+  // 바로 찾으므로, 여기서 막히더라도 재생목록 갱신은 계속 시도한다.
+  let channelId = null;
+  try {
+    channelId = await resolveChannelId(CHANNEL_HANDLE);
+    console.log(`  ✓ 채널 ID: ${channelId}`);
+  } catch (e) {
+    console.log(`  ! 채널 ID 확인 실패(업로드 영상 건너뜀): ${e.message}`);
+  }
 
   let added = 0;
   let updated = 0;
 
-  // 1) 채널 전체 업로드 RSS — 직접 공개 업로드된 영상(찬양팀 실황)
-  const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-  const channelEntries = parseFeed(xml);
-  console.log(`  ✓ 채널 업로드 RSS ${channelEntries.length}건 확인`);
+  // 1) 채널 전체 업로드 RSS — 직접 공개 업로드된 영상(찬양팀 실황).
+  //    유튜브가 막아서 이걸 못 받아오더라도 여기서 죽으면 안 된다 — 정작
+  //    매주 바뀌는 건 아래 2)의 "미리 배우기" 재생목록이라, 그쪽이라도
+  //    갱신되게 건너뛰고 계속 간다(실측: 세 번 돌려 두 번 404로 실패).
+  let channelEntries = [];
+  try {
+    if (!channelId) throw new Error('채널 ID를 몰라 건너뜀');
+    const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+    channelEntries = parseFeed(xml);
+    console.log(`  ✓ 채널 업로드 RSS ${channelEntries.length}건 확인`);
+  } catch (e) {
+    console.log(`  ! 채널 업로드 RSS 확인 실패(건너뜀): ${e.message}`);
+  }
   for (const e of channelEntries) {
     const { title, date } = parseVideo(e.title, e.published.slice(0, 10));
     const r = await saveVideo(e.id, title, date);
@@ -377,6 +403,12 @@ async function main() {
   }
 
   console.log(`완료: 새로 등록 ${added}건, 기존 갱신 ${updated}건`);
+  // 채널 영상도, 주간 재생목록도 하나도 못 받아왔으면 유튜브가 통째로 막은
+  // 것이다 — 조용히 성공으로 끝내면 몇 주째 옛날 것만 떠 있어도 아무도
+  // 모르므로, 실패로 남겨 다음 실행/알림에서 눈에 띄게 한다.
+  if (channelEntries.length === 0 && weeklyPlaylists.length === 0) {
+    throw new Error('유튜브에서 아무 것도 받아오지 못했습니다(차단 의심) — 기존 데이터는 그대로 둡니다.');
+  }
 }
 
 main().catch((e) => {
