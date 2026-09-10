@@ -30,6 +30,7 @@ import {
   saveNews,
   saveVerse,
   saveVerseSermonUrl,
+  uploadSermonAudio,
   useAdminAuth,
   useApprovedMembers,
   usePendingMembers,
@@ -63,6 +64,7 @@ import {
   saveBgCreditOnly,
   saveSundayBg,
 } from '../verseBg';
+import { mmss, useSermonRecorder } from '../sermonRecorder';
 import { ServiceItem, saveServices, useServices } from '../data/services';
 import { SERVE_ROLES, type ServeGuideEntry, saveServeGuide, useServeGuides } from '../data/serveGuides';
 
@@ -174,6 +176,9 @@ export default function AdminScreen() {
   // 설교 듣기 주소 — 본문과 따로 등록한다(자동 등록된 말씀에도 주소만 덧붙일 수 있게)
   const [vSermonDate, setVSermonDate] = useState('');
   const [vSermonUrl, setVSermonUrl] = useState('');
+  // 앱에서 바로 녹음해 올리기(웹 전용) — 올리면 그날 말씀에 자동으로 연결된다
+  const rec = useSermonRecorder();
+  const [upPct, setUpPct] = useState(0);
 
   // 소식 폼
   const [nTitle, setNTitle] = useState('');
@@ -508,6 +513,20 @@ export default function AdminScreen() {
         : `${vSermonDate} 설교 듣기 주소를 지웠습니다. 다시 "준비 중"으로 안내됩니다.`,
     );
 
+  const uploadRecording = () =>
+    submit(async () => {
+      const date = (vSermonDate || today()).trim();
+      if (!rec.blob) throw new Error('먼저 녹음을 해주세요.');
+      setUpPct(0);
+      try {
+        await uploadSermonAudio(date, rec.blob, rec.ext, setUpPct);
+      } finally {
+        setUpPct(0);
+      }
+      rec.reset();
+      setVSermonDate(date);
+    }, `${(vSermonDate || today()).trim()} 설교 녹음이 올라갔습니다. 앱에 바로 반영됩니다.`);
+
   const pickNewsBannerImage = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
       setMsg('배너 그림 업로드는 웹 브라우저에서 해주세요.');
@@ -762,6 +781,68 @@ export default function AdminScreen() {
             >
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '말씀 등록'}</Text>
             </Pressable>
+
+            {/* 앱에서 바로 녹음 — 녹음을 마치고 올리면 그날 말씀에 자동으로
+                연결되므로 주소를 따로 넣을 필요가 없다(웹 브라우저 전용). */}
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>설교 녹음</Text>
+            {rec.supported ? (
+              <>
+                <Text style={styles.bgHint}>
+                  녹음을 마치고 올리면 아래 날짜의 말씀에 자동으로 연결됩니다. 날짜를 비워 두면
+                  오늘 날짜로 올라갑니다. 처음 누르면 브라우저가 마이크 사용을 물어봅니다.
+                </Text>
+                <Text style={styles.recTime}>{mmss(rec.seconds)}</Text>
+                {!!rec.error && <Text style={styles.recError}>{rec.error}</Text>}
+                <View style={styles.recRow}>
+                  {rec.recording ? (
+                    <Pressable style={[styles.primaryBtn, styles.recBtn]} onPress={rec.stop}>
+                      <Text style={styles.primaryBtnText}>■ 녹음 정지</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[styles.primaryBtn, styles.recBtn, busy && { opacity: 0.6 }]}
+                      onPress={rec.start}
+                      disabled={busy}
+                    >
+                      <Text style={styles.primaryBtnText}>● 녹음 시작</Text>
+                    </Pressable>
+                  )}
+                  {!!rec.blob && !rec.recording && (
+                    <>
+                      <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.togglePlay}>
+                        <Text style={styles.ghostBtnText}>
+                          {rec.playing ? '■ 멈춤' : '▶ 들어 보기'}
+                        </Text>
+                      </Pressable>
+                      <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.reset}>
+                        <Text style={styles.ghostBtnText}>다시 녹음</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+                {!!rec.blob && !rec.recording && (
+                  <Pressable
+                    style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+                    onPress={uploadRecording}
+                    disabled={busy}
+                  >
+                    <Text style={styles.primaryBtnText}>
+                      {busy
+                        ? upPct
+                          ? `올리는 중… ${upPct}%`
+                          : '올리는 중…'
+                        : `이 녹음 올리기 (${Math.round(rec.blob.size / 100000) / 10}MB)`}
+                    </Text>
+                  </Pressable>
+                )}
+              </>
+            ) : (
+              <Text style={styles.bgHint}>
+                녹음은 웹 브라우저에서만 됩니다. 폰이나 컴퓨터의 크롬·사파리로 사역자 페이지에
+                들어와 주세요. 그때까지는 아래에 유튜브 주소를 넣어 쓰실 수 있습니다.
+              </Text>
+            )}
 
             {/* 설교 듣기 — 홈 말씀 카드의 "설교 듣기" 단추에 연결된다.
                 본문 등록과 따로 두어, 주보에서 자동 등록된 말씀에도
@@ -1639,6 +1720,25 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { fontFamily: font.bold, fontSize: 15, color: '#FFFFFF' },
   bgDivider: { height: 1, backgroundColor: colors.divider2, marginVertical: 20 },
+  // 설교 녹음 — 흐른 시간은 크게, 단추는 한 줄에 나란히(좁으면 다음 줄로)
+  recTime: {
+    fontFamily: font.extraBold,
+    fontSize: 30,
+    color: colors.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  recError: { fontFamily: font.medium, fontSize: 12.5, color: colors.heartActive, marginBottom: 8 },
+  recRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  recBtn: {
+    flexGrow: 1,
+    flexBasis: 120,
+    alignSelf: 'auto',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 0,
+    paddingVertical: 12,
+  },
   bgHint: {
     fontFamily: font.regular,
     fontSize: 12.5,

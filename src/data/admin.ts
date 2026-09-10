@@ -12,7 +12,15 @@ import {
   where,
 } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import { adminSignIn, adminSignOut, getAuthOrNull, getDb, watchUser } from '../firebase';
+import { getDownloadURL, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
+import {
+  adminSignIn,
+  adminSignOut,
+  getAuthOrNull,
+  getDb,
+  getStorageOrNull,
+  watchUser,
+} from '../firebase';
 import type { MemberDoc } from './member';
 import type { EventDoc, NewsDoc, VerseDoc } from '../types';
 
@@ -88,6 +96,55 @@ export async function saveVerseSermonUrl(date: string, url: string): Promise<voi
     { date, sermonAudioUrl: url || null },
     { merge: true },
   );
+}
+
+/**
+ * 사역자 페이지에서 녹음한 설교를 올리고, 그날 말씀에 자동으로 연결한다.
+ * 올리기가 끝나면 verses/{날짜}.sermonAudioUrl이 채워져 홈 말씀 카드의
+ * "설교 듣기"가 바로 살아난다.
+ *
+ * Firebase 콘솔에서 Storage를 사용 설정하지 않았으면 여기서 실패한다 —
+ * 무슨 일인지 알 수 있게 우리 말로 바꿔 던진다.
+ */
+export async function uploadSermonAudio(
+  date: string,
+  blob: Blob,
+  ext: string,
+  onProgress?: (percent: number) => void,
+): Promise<string> {
+  const storage = getStorageOrNull();
+  if (!storage) throw new Error('저장소 연결이 없습니다.');
+  const path = `sermonAudio/${date}-${Date.now()}.${ext}`;
+  const task = uploadBytesResumable(storageRef(storage, path), blob, {
+    contentType: blob.type || 'audio/webm',
+  });
+  await new Promise<void>((resolve, reject) => {
+    task.on(
+      'state_changed',
+      (snap) =>
+        onProgress?.(
+          snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0,
+        ),
+      (err: { code?: string; message?: string }) => {
+        const code = err?.code ?? '';
+        if (code === 'storage/unauthorized') {
+          reject(new Error('올릴 권한이 없습니다. 사역자 계정으로 다시 로그인해 주세요.'));
+        } else if (code === 'storage/unknown' || code === 'storage/bucket-not-found') {
+          reject(
+            new Error(
+              'Firebase 콘솔에서 Storage(파일 저장소)를 아직 켜지 않았습니다. 켠 뒤 다시 시도해 주세요.',
+            ),
+          );
+        } else {
+          reject(new Error(err?.message ?? '올리기에 실패했습니다.'));
+        }
+      },
+      () => resolve(),
+    );
+  });
+  const url = await getDownloadURL(task.snapshot.ref);
+  await saveVerseSermonUrl(date, url);
+  return url;
 }
 
 /** 소식 저장 */

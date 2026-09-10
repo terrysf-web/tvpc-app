@@ -64,5 +64,8 @@
         ".git"
       ]
     }
-  ]
+  ],
+  "storage": {
+    "rules": "storage.rules"
+  }
 }

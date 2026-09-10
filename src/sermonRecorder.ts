@@ -1,0 +1,165 @@
+/**
+ * 사역자 페이지 설교 녹음 — 웹 브라우저의 MediaRecorder로 마이크 소리를 담는다.
+ *
+ * 웹 전용이다. 폰 앱(네이티브)에 녹음을 넣으려면 별도 녹음 모듈을 붙이고 앱을
+ * 다시 빌드해 스토어에 올려야 하는데, 사역자 페이지의 사진 올리기도 이미 웹
+ * 전용이라 같은 방식을 따랐다 — 목사님이 폰 브라우저로 사역자 페이지에
+ * 들어가면 그대로 녹음할 수 있다(크롬·사파리 모두 마이크 녹음을 지원한다).
+ *
+ * 담는 형식은 브라우저가 할 수 있는 것 중에서 고른다. 크롬은 webm(opus),
+ * 사파리는 mp4(aac)만 되므로 둘 다 시도한다. 말소리는 32kbps 한 줄(모노)이면
+ * 충분해서 30분 설교가 대략 7MB다.
+ */
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+const CANDIDATES = [
+  { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+  { mime: 'audio/webm', ext: 'webm' },
+  { mime: 'audio/mp4', ext: 'm4a' },
+  { mime: 'audio/mpeg', ext: 'mp3' },
+];
+
+function pickFormat(): { mime: string; ext: string } | null {
+  if (typeof MediaRecorder === 'undefined') return null;
+  for (const c of CANDIDATES) {
+    try {
+      if (MediaRecorder.isTypeSupported(c.mime)) return c;
+    } catch {
+      /* 이 브라우저는 확인 자체를 못 함 — 다음 후보로 */
+    }
+  }
+  // 형식을 못 고르면 브라우저 기본값에 맡긴다
+  return { mime: '', ext: 'webm' };
+}
+
+export type SermonRecorder = ReturnType<typeof useSermonRecorder>;
+
+export function useSermonRecorder() {
+  const [supported, setSupported] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [ext, setExt] = useState('webm');
+  const [error, setError] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const urlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setSupported(
+      typeof window !== 'undefined' &&
+        typeof MediaRecorder !== 'undefined' &&
+        !!navigator?.mediaDevices?.getUserMedia,
+    );
+  }, []);
+
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  };
+
+  // 화면을 떠날 때 마이크·재생·미리듣기 주소를 반드시 정리한다
+  useEffect(
+    () => () => {
+      stopTimer();
+      recRef.current?.stream?.getTracks().forEach((t) => t.stop());
+      audioRef.current?.pause();
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    },
+    [],
+  );
+
+  const start = useCallback(async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        // 설교는 한 사람 목소리라 잡음·울림을 줄이면 훨씬 알아듣기 쉽다
+        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+      });
+      const fmt = pickFormat();
+      if (!fmt) throw new Error('이 브라우저는 녹음을 지원하지 않습니다.');
+      const rec = new MediaRecorder(
+        stream,
+        fmt.mime ? { mimeType: fmt.mime, audioBitsPerSecond: 32000 } : undefined,
+      );
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const out = new Blob(chunksRef.current, { type: fmt.mime || 'audio/webm' });
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+        urlRef.current = URL.createObjectURL(out);
+        setBlob(out);
+        setRecording(false);
+        stopTimer();
+      };
+      setExt(fmt.ext);
+      setBlob(null);
+      setSeconds(0);
+      rec.start(1000);
+      recRef.current = rec;
+      setRecording(true);
+      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      setError(
+        /denied|NotAllowed/i.test(msg)
+          ? '마이크 사용이 거부됐습니다. 브라우저 주소창의 자물쇠에서 마이크를 허용해 주세요.'
+          : msg || '녹음을 시작하지 못했습니다.',
+      );
+      setRecording(false);
+      stopTimer();
+    }
+  }, []);
+
+  const stop = useCallback(() => {
+    try {
+      recRef.current?.stop();
+    } catch {
+      /* 이미 멈춘 경우 무시 */
+    }
+  }, []);
+
+  /** 올리기 전에 한 번 들어 보기 */
+  const togglePlay = useCallback(() => {
+    if (!urlRef.current) return;
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+      return;
+    }
+    const a = audioRef.current ?? new Audio();
+    audioRef.current = a;
+    a.src = urlRef.current;
+    a.onended = () => setPlaying(false);
+    a.play().then(
+      () => setPlaying(true),
+      () => setPlaying(false),
+    );
+  }, [playing]);
+
+  const reset = useCallback(() => {
+    audioRef.current?.pause();
+    setPlaying(false);
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = null;
+    setBlob(null);
+    setSeconds(0);
+    setError(null);
+  }, []);
+
+  return { supported, recording, seconds, blob, ext, error, playing, start, stop, togglePlay, reset };
+}
+
+/** 초 → "12:34" */
+export function mmss(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}

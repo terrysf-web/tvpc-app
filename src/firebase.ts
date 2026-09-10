@@ -24,6 +24,7 @@ import {
   Firestore,
   initializeFirestore,
 } from 'firebase/firestore';
+import { FirebaseStorage, getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 import { firebaseConfig } from './firebaseConfig';
 
@@ -33,6 +34,7 @@ export const firebaseEnabled = firebaseConfig != null;
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
+let storage: FirebaseStorage | null = null;
 let analyticsPromise: Promise<Analytics | null> | null = null;
 
 function ensureApp(): FirebaseApp | null {
@@ -121,6 +123,18 @@ export function getAuthOrNull(): Auth | null {
   if (!a) return null;
   if (!auth) auth = getAuth(a);
   return auth;
+}
+
+/**
+ * 설교 녹음 파일 보관용(Firebase Storage). 사역자 페이지에서 녹음한 파일을
+ * 올리는 데만 쓴다 — Firebase 콘솔에서 Storage를 사용 설정해야 동작한다
+ * (안 켜져 있으면 올릴 때 오류로 알려준다. src/data/admin.ts 참고).
+ */
+export function getStorageOrNull(): FirebaseStorage | null {
+  const a = ensureApp();
+  if (!a) return null;
+  if (!storage) storage = getStorage(a);
+  return storage;
 }
 
 export async function adminSignIn(email: string, password: string): Promise<void> {
