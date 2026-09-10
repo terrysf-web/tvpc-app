@@ -383,10 +383,38 @@ async function loadBible() {
 }
 
 /** 숫자·한글 표기 차이(요한1서↔요한일서 등)를 허용해 책 이름 찾기 */
+/** 숫자·한글 표기 차이(요한1서↔요한일서 등)를 없앤 이름 */
+function normBookName(s) {
+  return s.replace(/\s/g, '').replace(/1서/, '일서').replace(/2서/, '이서').replace(/3서/, '삼서');
+}
+
+/** 길이가 같은 두 이름에서 서로 다른 글자 수(다르면 Infinity) */
+function bookNameDiff(a, b) {
+  if (a.length !== b.length) return Infinity;
+  let n = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++;
+  return n;
+}
+
+/**
+ * 성경 책 이름 찾기 — 표기 차이와 한 글자 오타를 견딘다.
+ *
+ * 주보에 "예례미야"(레 → 례)처럼 한 글자가 틀리게 찍히는 일이 실제로 있다
+ * (2026-09-06 주보). 그 바람에 9/10~9/12 새벽예배 본문이 통째로 등록되지
+ * 않았고, 앱 홈에는 그 전날(9/9) 말씀이 계속 남아 있었다.
+ *
+ * 한 글자만 다른 후보가 "하나뿐일 때만" 그 책으로 본다 — 요한일서·요한이서·
+ * 요한삼서처럼 서로 한 글자 차이인 이름들이 있어서, 후보가 둘 이상이면
+ * 엉뚱한 책을 고를 수 있으니 차라리 포기한다.
+ */
 function findBookIn(bible, name) {
-  const norm = (s) =>
-    s.replace(/\s/g, '').replace(/1서/, '일서').replace(/2서/, '이서').replace(/3서/, '삼서');
-  return bible[name] ? name : (Object.keys(bible).find((k) => norm(k) === norm(name)) ?? null);
+  if (bible[name]) return name;
+  const keys = Object.keys(bible);
+  const target = normBookName(name);
+  const exact = keys.find((k) => normBookName(k) === target);
+  if (exact) return exact;
+  const near = keys.filter((k) => bookNameDiff(normBookName(k), target) === 1);
+  return near.length === 1 ? near[0] : null;
 }
 
 function pdfText() {
@@ -577,11 +605,8 @@ async function syncDawnVerses() {
   const { gunzipSync } = await import('node:zlib');
   const scriptDir = new URL('.', import.meta.url).pathname;
   const bible = JSON.parse(gunzipSync(readFileSync(join(scriptDir, 'data', 'gae.json.gz'))).toString());
-  // 숫자·한글 표기 차이(요한1서↔요한일서 등) 허용
-  const norm = (s) =>
-    s.replace(/\s/g, '').replace(/1서/, '일서').replace(/2서/, '이서').replace(/3서/, '삼서');
-  const findBook = (name) =>
-    bible[name] ? name : (Object.keys(bible).find((k) => norm(k) === norm(name)) ?? null);
+  // 표기 차이(요한1서↔요한일서)와 한 글자 오타(예례미야→예레미야) 모두 허용
+  const findBook = (name) => findBookIn(bible, name);
 
   // 주보 날짜(주일) 다음 1~7일 중 일(日)이 맞는 날짜로 환산
   const [by, bm, bd] = date.split('-').map(Number);
