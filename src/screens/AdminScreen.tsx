@@ -22,7 +22,9 @@ import { SegmentTabs } from '../components/SegmentTabs';
 import {
   addOfferingRecord,
   approveMember,
+  loadVerse,
   parsePassage,
+  passageToText,
   reapproveMember,
   rejectMember,
   revokeMember,
@@ -181,6 +183,10 @@ export default function AdminScreen() {
   const [vMeditation, setVMeditation] = useState('');
   const [vApplication, setVApplication] = useState('');
   const [vPrayer, setVPrayer] = useState('');
+  // 그 날짜에 이미 있는 말씀을 불러와 칸을 채운다 — 안 그러면 저장할 때
+  // 주보에서 자동 등록된 본문·묵상이 빈 값으로 덮어써진다.
+  const [vImageUrl, setVImageUrl] = useState<string | null>(null);
+  const [vLoaded, setVLoaded] = useState('');
   // 설교 듣기 주소 — 본문과 따로 등록한다(자동 등록된 말씀에도 주소만 덧붙일 수 있게)
   const [vSermonDate, setVSermonDate] = useState(today());
   const [vSermonUrl, setVSermonUrl] = useState('');
@@ -495,6 +501,36 @@ export default function AdminScreen() {
     }, '오류 기록을 모두 지웠습니다.');
   };
 
+  useEffect(() => {
+    const date = vDate.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    let stale = false;
+    loadVerse(date)
+      .then((v) => {
+        if (stale) return;
+        if (v) {
+          setVRef(v.reference ?? '');
+          setVHero(v.heroText ?? '');
+          setVPassageTitle(v.passageTitle ?? '');
+          setVPassage(passageToText(v.passage));
+          setVMeditation(v.meditation ?? '');
+          setVApplication((v.application ?? []).join('\n'));
+          setVPrayer(v.prayer ?? '');
+          setVImageUrl(v.imageUrl ?? null);
+          setVLoaded(`${date} 말씀을 불러왔습니다. 고칠 곳만 고치고 저장하세요.`);
+        } else {
+          setVImageUrl(null);
+          setVLoaded(`${date}에 등록된 말씀이 없습니다. 새로 등록합니다.`);
+        }
+      })
+      .catch(() => {
+        if (!stale) setVLoaded('');
+      });
+    return () => {
+      stale = true;
+    };
+  }, [vDate]);
+
   const saveVerseForm = () =>
     submit(async () => {
       if (!vDate || !vRef || !vHero) throw new Error('날짜·구절·홈 카드 문구는 필수입니다.');
@@ -507,7 +543,8 @@ export default function AdminScreen() {
         meditation: vMeditation.trim(),
         application: vApplication.split('\n').map((l) => l.trim()).filter(Boolean),
         prayer: vPrayer.trim(),
-        imageUrl: null,
+        // 불러온 값을 그대로 돌려준다 — null로 보내면 관리자가 넣어 둔 그림이 지워진다
+        imageUrl: vImageUrl,
       });
     }, `${vDate} 말씀이 등록됐습니다. 앱에 바로 반영됩니다.`);
 
@@ -756,6 +793,7 @@ export default function AdminScreen() {
         {tab === 'verse' && (
           <View style={[styles.card, shadows.card]}>
             <Field label="날짜 (YYYY-MM-DD)" value={vDate} onChange={setVDate} placeholder={today()} />
+            {!!vLoaded && <Text style={styles.bgHint}>{vLoaded}</Text>}
             <Field label="성경 구절" value={vRef} onChange={setVRef} placeholder="예: 시편 23:1" />
             <Field
               label="홈 카드 문구 (큰 글씨, 2–3줄)"

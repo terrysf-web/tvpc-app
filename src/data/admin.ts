@@ -290,6 +290,22 @@ export async function addOfferingRecord(input: {
 }
 
 /**
+ * 그날 등록된 말씀 한 건을 불러온다(사역자 페이지에서 고쳐 쓰기 위해).
+ * 없으면 null. 주보에서 자동 등록된 말씀도 그대로 읽힌다.
+ */
+export async function loadVerse(date: string): Promise<VerseDoc | null> {
+  const db = getDb();
+  if (!db) return null;
+  const snap = await getDoc(doc(db, 'verses', date));
+  return snap.exists() ? ({ id: snap.id, ...(snap.data() as Omit<VerseDoc, 'id'>) } as VerseDoc) : null;
+}
+
+/** 절 배열을 다시 입력 칸 형식("1 여호와는…")으로 되돌린다 */
+export function passageToText(passage: { verse: number; text: string }[] | undefined): string {
+  return (passage ?? []).map((v) => `${v.verse} ${v.text}`).join('\n');
+}
+
+/**
  * 본문 텍스트를 절 배열로 변환.
  * "1 여호와는 나의 목자시니..." 형식이면 절 번호를 읽고,
  * 번호가 없으면 줄 순서대로 번호를 붙인다.
