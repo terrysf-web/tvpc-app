@@ -70,6 +70,7 @@ import { SERVE_ROLES, type ServeGuideEntry, saveServeGuide, useServeGuides } fro
 
 type AdminTab =
   | 'verse'
+  | 'sermonRec'
   | 'bulletin'
   | 'news'
   | 'event'
@@ -88,6 +89,7 @@ type AdminTab =
 // 하나만 보이므로 이 순서와 무관).
 const TABS: { key: AdminTab; label: string }[] = [
   { key: 'verse', label: '말씀' },
+  { key: 'sermonRec', label: '설교 녹음' },
   { key: 'members', label: '가입 승인' },
   { key: 'news', label: '소식' },
   { key: 'event', label: '일정' },
@@ -153,7 +155,9 @@ export default function AdminScreen() {
     // 시험해 볼 수 있다 — 역할이 admin이면 말씀 탭이 아예 안 보여서
     // 설교 녹음 같은 걸 확인할 방법이 없었다.
     if (email === OWNER_EMAIL) return true;
-    return role === 'pastor' ? t.key === 'verse' : t.key !== 'verse';
+    // 말씀·설교 녹음은 목회자 몫, 나머지는 관리자 몫
+    const pastorOnly = t.key === 'verse' || t.key === 'sermonRec';
+    return role === 'pastor' ? pastorOnly : !pastorOnly;
   });
   // 역할이 정해지면 그 역할의 첫 탭으로 이동
   useEffect(() => {
@@ -786,98 +790,6 @@ export default function AdminScreen() {
               <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '말씀 등록'}</Text>
             </Pressable>
 
-            {/* 앱에서 바로 녹음 — 녹음을 마치고 올리면 그날 말씀에 자동으로
-                연결되므로 주소를 따로 넣을 필요가 없다(웹 브라우저 전용). */}
-            <View style={styles.bgDivider} />
-            <Text style={styles.blockTitle}>설교 녹음</Text>
-            {rec.supported ? (
-              <>
-                <Text style={styles.bgHint}>
-                  녹음을 마치고 올리면 아래 날짜의 말씀에 자동으로 연결됩니다. 날짜를 비워 두면
-                  오늘 날짜로 올라갑니다. 처음 누르면 브라우저가 마이크 사용을 물어봅니다.
-                </Text>
-                <Text style={styles.recTime}>{mmss(rec.seconds)}</Text>
-                {!!rec.error && <Text style={styles.recError}>{rec.error}</Text>}
-                <View style={styles.recRow}>
-                  {rec.recording ? (
-                    <Pressable style={[styles.primaryBtn, styles.recBtn]} onPress={rec.stop}>
-                      <Text style={styles.primaryBtnText}>■ 녹음 정지</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      style={[styles.primaryBtn, styles.recBtn, busy && { opacity: 0.6 }]}
-                      onPress={rec.start}
-                      disabled={busy}
-                    >
-                      <Text style={styles.primaryBtnText}>● 녹음 시작</Text>
-                    </Pressable>
-                  )}
-                  {!!rec.blob && !rec.recording && (
-                    <>
-                      <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.togglePlay}>
-                        <Text style={styles.ghostBtnText}>
-                          {rec.playing ? '■ 멈춤' : '▶ 들어 보기'}
-                        </Text>
-                      </Pressable>
-                      <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.reset}>
-                        <Text style={styles.ghostBtnText}>다시 녹음</Text>
-                      </Pressable>
-                    </>
-                  )}
-                </View>
-                {!!rec.blob && !rec.recording && (
-                  <Pressable
-                    style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
-                    onPress={uploadRecording}
-                    disabled={busy}
-                  >
-                    <Text style={styles.primaryBtnText}>
-                      {busy
-                        ? upPct
-                          ? `올리는 중… ${upPct}%`
-                          : '올리는 중…'
-                        : `이 녹음 올리기 (${Math.round(rec.blob.size / 100000) / 10}MB)`}
-                    </Text>
-                  </Pressable>
-                )}
-              </>
-            ) : (
-              <Text style={styles.bgHint}>
-                녹음은 웹 브라우저에서만 됩니다. 폰이나 컴퓨터의 크롬·사파리로 사역자 페이지에
-                들어와 주세요. 그때까지는 아래에 유튜브 주소를 넣어 쓰실 수 있습니다.
-              </Text>
-            )}
-
-            {/* 설교 듣기 — 홈 말씀 카드의 "설교 듣기" 단추에 연결된다.
-                본문 등록과 따로 두어, 주보에서 자동 등록된 말씀에도
-                주소만 덧붙일 수 있게 한다. */}
-            <View style={styles.bgDivider} />
-            <Text style={styles.blockTitle}>설교 듣기 주소</Text>
-            <Text style={styles.bgHint}>
-              홈 화면 말씀 카드의 &quot;설교 듣기&quot; 단추에 연결됩니다. 유튜브 주소나 오디오 파일
-              주소를 넣어 주세요. 넣기 전에는 눌러도 &quot;준비 중&quot; 안내만 나옵니다. 비워 두고
-              저장하면 그 날짜는 다시 준비 중으로 돌아갑니다.
-            </Text>
-            <Field
-              label="날짜 (YYYY-MM-DD)"
-              value={vSermonDate}
-              onChange={setVSermonDate}
-              placeholder={today()}
-            />
-            <Field
-              label="설교 주소"
-              value={vSermonUrl}
-              onChange={setVSermonUrl}
-              placeholder="https://youtu.be/..."
-            />
-            <Pressable
-              style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
-              onPress={saveSermonUrlForm}
-              disabled={busy}
-            >
-              <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '설교 듣기 등록'}</Text>
-            </Pressable>
-
             {/* 말씀카드 배경 — 그림 한 장으로 시간대별 5종 자동 생성 */}
             <View style={styles.bgDivider} />
             <Text style={styles.blockTitle}>말씀카드 배경 그림</Text>
@@ -1249,6 +1161,102 @@ export default function AdminScreen() {
               이미 사람이 읽을 수 있게 바뀌어 있으니, 여기 원문은 원인을 찾을
               때만 참고하시면 됩니다.
             </Text>
+          </View>
+        )}
+
+        {tab === 'sermonRec' && (
+          <View style={[styles.card, shadows.card]}>
+            {/* 앱에서 바로 녹음 — 녹음을 마치고 올리면 그날 말씀에 자동으로
+                연결되므로 주소를 따로 넣을 필요가 없다(웹 브라우저 전용). */}
+            <Text style={styles.blockTitle}>설교 녹음</Text>
+            {rec.supported ? (
+              <>
+                <Text style={styles.bgHint}>
+                  녹음을 마치고 올리면 아래 날짜의 말씀에 자동으로 연결됩니다. 날짜를 비워 두면
+                  오늘 날짜로 올라갑니다. 처음 누르면 브라우저가 마이크 사용을 물어봅니다.
+                </Text>
+                <Text style={styles.recTime}>{mmss(rec.seconds)}</Text>
+                {!!rec.error && <Text style={styles.recError}>{rec.error}</Text>}
+                <View style={styles.recRow}>
+                  {rec.recording ? (
+                    <Pressable style={[styles.primaryBtn, styles.recBtn]} onPress={rec.stop}>
+                      <Text style={styles.primaryBtnText}>■ 녹음 정지</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[styles.primaryBtn, styles.recBtn, busy && { opacity: 0.6 }]}
+                      onPress={rec.start}
+                      disabled={busy}
+                    >
+                      <Text style={styles.primaryBtnText}>● 녹음 시작</Text>
+                    </Pressable>
+                  )}
+                  {!!rec.blob && !rec.recording && (
+                    <>
+                      <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.togglePlay}>
+                        <Text style={styles.ghostBtnText}>
+                          {rec.playing ? '■ 멈춤' : '▶ 들어 보기'}
+                        </Text>
+                      </Pressable>
+                      <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.reset}>
+                        <Text style={styles.ghostBtnText}>다시 녹음</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+                {!!rec.blob && !rec.recording && (
+                  <Pressable
+                    style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+                    onPress={uploadRecording}
+                    disabled={busy}
+                  >
+                    <Text style={styles.primaryBtnText}>
+                      {busy
+                        ? upPct
+                          ? `올리는 중… ${upPct}%`
+                          : '올리는 중…'
+                        : `이 녹음 올리기 (${Math.round(rec.blob.size / 100000) / 10}MB)`}
+                    </Text>
+                  </Pressable>
+                )}
+              </>
+            ) : (
+              <Text style={styles.bgHint}>
+                이 기기에서는 녹음이 안 됩니다. 홈 화면에 설치한 교회 앱이나 브라우저(크롬·
+                사파리)로 사역자 페이지에 들어오면 녹음할 수 있습니다. 그때까지는 아래에
+                유튜브 주소를 넣어 쓰실 수 있습니다.
+              </Text>
+            )}
+
+            {/* 설교 듣기 — 홈 말씀 카드의 "설교 듣기" 단추에 연결된다.
+                본문 등록과 따로 두어, 주보에서 자동 등록된 말씀에도
+                주소만 덧붙일 수 있게 한다. */}
+            <View style={styles.bgDivider} />
+            <Text style={styles.blockTitle}>설교 듣기 주소</Text>
+            <Text style={styles.bgHint}>
+              홈 화면 말씀 카드의 &quot;설교 듣기&quot; 단추에 연결됩니다. 유튜브 주소나 오디오 파일
+              주소를 넣어 주세요. 넣기 전에는 눌러도 &quot;준비 중&quot; 안내만 나옵니다. 비워 두고
+              저장하면 그 날짜는 다시 준비 중으로 돌아갑니다.
+            </Text>
+            <Field
+              label="날짜 (YYYY-MM-DD)"
+              value={vSermonDate}
+              onChange={setVSermonDate}
+              placeholder={today()}
+            />
+            <Field
+              label="설교 주소"
+              value={vSermonUrl}
+              onChange={setVSermonUrl}
+              placeholder="https://youtu.be/..."
+            />
+            <Pressable
+              style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
+              onPress={saveSermonUrlForm}
+              disabled={busy}
+            >
+              <Text style={styles.primaryBtnText}>{busy ? '저장 중…' : '설교 듣기 등록'}</Text>
+            </Pressable>
           </View>
         )}
 
