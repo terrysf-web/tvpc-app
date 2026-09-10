@@ -96,10 +96,12 @@ async function findWeeklyPlaylists(handle) {
   const ids = [];
   let m;
   while ((m = idRe.exec(html))) {
-    // 채널이 실제로 만든 재생목록 ID는 "PL"+32자(34자)다. 페이지 JSON에는
-    // 이보다 짧은 값도 섞여 나오는데(실측: PLERhBWv-oG6o 같은 13자), 이런
-    // 건 불러봤자 404·500이라 재생목록 찾기를 방해하기만 한다 — 걸러낸다.
-    if (m[1].length !== 34) continue;
+    // 짧은 ID(PLPjZqO7t4Fvk 같은 13자)도 멀쩡한 재생목록이다 — 실제로
+    // "[금요예배 새 찬양 미리 배우기]"가 13자 ID였다. 예전엔 이런 ID가
+    // 죽은 RSS 주소에서 404가 나기에 길이로 걸러냈는데, 지금은 재생목록
+    // 페이지를 받아보므로 걸러낼 이유가 없다(잘못 걸러내면 정작 필요한
+    // 재생목록을 놓친다). 너무 짧은 값만 오탐으로 보고 버린다.
+    if (m[1].length < 13) continue;
     if (!seen.has(m[1])) {
       seen.add(m[1]);
       ids.push({ playlistId: m[1], index: m.index });
