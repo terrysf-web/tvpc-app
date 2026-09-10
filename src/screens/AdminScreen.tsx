@@ -262,6 +262,8 @@ export default function AdminScreen() {
 
   // 주보 자동 동기화 상태 — 토요일 저녁 자동 확인이 잘 돌았는지 표시
   const [syncInfo, setSyncInfo] = useState<string | null>(null);
+  // 주보 오타 등으로 그날 말씀이 등록되지 못한 경우 — 알림과 별개로 화면에도 남긴다
+  const [verseFails, setVerseFails] = useState<string[]>([]);
   useEffect(() => {
     const db = getDb();
     if (!db) return;
@@ -271,6 +273,7 @@ export default function AdminScreen() {
           setSyncInfo('아직 자동 확인 기록이 없습니다 (이번 토요일 오후 5:45 첫 실행)');
           return;
         }
+        setVerseFails((snap.get('verseFailures') as string[] | null) ?? []);
         const at = (snap.get('at') as Timestamp | null)?.toDate();
         const when = at
           ? at.toLocaleString('ko-KR', {
@@ -792,6 +795,18 @@ export default function AdminScreen() {
 
         {tab === 'verse' && (
           <View style={[styles.card, shadows.card]}>
+            {/* 주보에 책 이름이 틀리게 찍히면 그날 말씀이 통째로 안 들어간다.
+                앱에는 어제 말씀이 그대로 남을 뿐 표시가 없어 모르고 지나가기
+                쉬우므로, 여기에 남겨 두고 알림도 따로 보낸다. */}
+            {verseFails.length > 0 && (
+              <View style={styles.failBox}>
+                <Text style={styles.failTitle}>말씀이 등록되지 못한 날이 있습니다</Text>
+                <Text style={styles.failText}>{verseFails.join('\n')}</Text>
+                <Text style={styles.failText}>
+                  주보의 성경 책 이름 표기를 확인하시고, 급하면 아래에서 직접 등록해 주세요.
+                </Text>
+              </View>
+            )}
             <Field label="날짜 (YYYY-MM-DD)" value={vDate} onChange={setVDate} placeholder={today()} />
             {!!vLoaded && <Text style={styles.bgHint}>{vLoaded}</Text>}
             <Field label="성경 구절" value={vRef} onChange={setVRef} placeholder="예: 시편 23:1" />
@@ -1793,6 +1808,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   recError: { fontFamily: font.medium, fontSize: 12.5, color: colors.heartActive, marginBottom: 8 },
+  failBox: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    gap: 6,
+  },
+  failTitle: { fontFamily: font.bold, fontSize: 13.5, color: colors.heartActive },
+  failText: { fontFamily: font.regular, fontSize: 12.5, lineHeight: 19, color: colors.body },
   recWarn: {
     fontFamily: font.medium,
     fontSize: 12.5,

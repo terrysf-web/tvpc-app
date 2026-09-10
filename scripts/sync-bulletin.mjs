@@ -671,12 +671,15 @@ async function syncDawnVerses() {
     if (vDate) usedDates.add(vDate);
     const bookName = findBook(best.book);
     if (!vDate || !bookName) {
-      console.log(`  – ${day.dom}일 ${best.book} ${best.chapter}장: ${!vDate ? '날짜 계산 불가' : '책 이름 인식 불가'}`);
+      const why = !vDate ? '날짜 계산 불가' : '책 이름 인식 불가';
+      console.log(`  – ${day.dom}일 ${best.book} ${best.chapter}장: ${why}`);
+      verseFailures.push(`${day.dom}일 "${best.book} ${best.chapter}장"(${why})`);
       continue;
     }
     const chapters = bible[bookName];
     if (best.chapter < 1 || best.chapter > chapters.length) {
       console.log(`  – ${bookName} ${best.chapter}장: 장 범위 밖`);
+      verseFailures.push(`${day.dom}일 "${bookName} ${best.chapter}장"(장 범위 밖)`);
       continue;
     }
 
@@ -762,6 +765,7 @@ async function syncQtVerses(dates, bible, findBook) {
     const chapters = bookName ? bible[bookName] : null;
     if (!chapters) {
       console.log(`  – ${d}: 책 이름 인식 불가 (${p.book})`);
+      verseFailures.push(`${d} "${p.book}"(책 이름 인식 불가)`);
       continue;
     }
     const picked = [];
@@ -837,6 +841,66 @@ async function writeStatus(changed, note) {
       changed,
       note,
     });
+  } catch (e) {
+    console.log(`  ! 상태 기록 실패(무해): ${e.message}`);
+  }
+}
+
+/**
+ * 말씀 등록에 실패한 날들 — 주보에 책 이름이 틀리게 찍히거나(예례미야) 장
+ * 번호가 성경 범위를 벗어나면 그날 말씀이 통째로 안 들어간다. 그런데 홈
+ * 말씀 카드는 "오늘 이하 최신"을 보여주므로, 앱에서는 어제 말씀이 그대로
+ * 남아 있을 뿐 아무 표시가 없다 — 실제로 2026-09-10에 그렇게 하루가
+ * 조용히 빠졌다. 그래서 실패를 모아 두었다가 사역자에게 알린다.
+ */
+const verseFailures = [];
+
+/** 등록 실패를 사역자 기기로 알린다(등록된 관리자 계정 전부) */
+async function notifyVerseFailures() {
+  if (verseFailures.length === 0) {
+    // 지난번 실패 기록이 남아 관리자 화면에 계속 경고가 뜨지 않도록 지운다
+    await writeStatusField({ verseFailures: [], verseFailedAt: null });
+    return;
+  }
+  const lines = verseFailures.join(', ');
+  await writeStatusField({ verseFailures, verseFailedAt: FieldValue.serverTimestamp() });
+  try {
+    const { getMessaging } = await import('firebase-admin/messaging');
+    const adminsSnap = await db.collection('admins').get();
+    const emails = adminsSnap.docs
+      .map((d) => String(d.data().email || d.id).toLowerCase())
+      .slice(0, 30);
+    if (emails.length === 0) {
+      console.log('  ! 등록 실패 알림: 관리자 계정이 없어 건너뜁니다.');
+      return;
+    }
+    const tokensSnap = await db.collection('pushTokens').where('email', 'in', emails).get();
+    const tokens = tokensSnap.docs.map((d) => d.id);
+    if (tokens.length === 0) {
+      console.log('  ! 등록 실패 알림: 사역자 로그인 기기에 알림 등록이 없어 건너뜁니다.');
+      return;
+    }
+    const res = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: '⚠️ 말씀 등록 실패',
+        body: `${lines} — 주보 본문 표기를 확인해 주세요.`,
+      },
+      webpush: {
+        notification: { icon: '/icon-192.png', tag: 'verse-fail' },
+        fcmOptions: { link: 'https://app.tvpc.church/admin' },
+      },
+    });
+    console.log(`  → 등록 실패 알림: 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
+  } catch (e) {
+    console.log(`  ! 등록 실패 알림 보내기 실패(무해): ${e.message}`);
+  }
+}
+
+/** syncStatus/bulletin에 항목만 덧붙인다(다른 값은 건드리지 않는다) */
+async function writeStatusField(fields) {
+  try {
+    await db.doc('syncStatus/bulletin').set(fields, { merge: true });
   } catch (e) {
     console.log(`  ! 상태 기록 실패(무해): ${e.message}`);
   }
@@ -1900,6 +1964,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   }
   await syncNoticesToNews();
   await writeStatus(false, '이미 최신 (변경 없음)');
+  await notifyVerseFailures();
   process.exit(0);
 }
 
@@ -1971,4 +2036,5 @@ await db.doc(`bulletins/${date}`).set({
 });
 await syncNoticesToNews();
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
+await notifyVerseFailures();
 console.log(`완료: ${date} 주보 ${ordered.length}페이지 등록`);
