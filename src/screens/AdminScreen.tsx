@@ -1211,7 +1211,8 @@ export default function AdminScreen() {
             <Text style={styles.blockTitle}>설교 녹음</Text>
             <Text style={styles.bgHint}>
               녹음을 마치고 올리면 아래 날짜의 홈 말씀 카드 &quot;설교 듣기&quot;에 바로 걸립니다.
-              주소를 따로 넣으실 필요가 없습니다.
+              주소를 따로 넣으실 필요가 없습니다. 녹음하는 동안에는 화면이 꺼지지 않게 앱이
+              붙잡아 두므로, 화면 잠김으로 녹음이 끊기지 않습니다.
             </Text>
             <Field
               label="이 녹음을 넣을 날짜 (YYYY-MM-DD)"
@@ -1221,6 +1222,12 @@ export default function AdminScreen() {
             />
             {rec.supported ? (
               <>
+                {!rec.keepsAwake && (
+                  <Text style={styles.recWarn}>
+                    이 기기는 녹음 중 화면 꺼짐을 자동으로 막지 못합니다. 설정에서 자동 잠금을
+                    잠시 꺼 주세요(아이폰: 설정 → 디스플레이 및 밝기 → 자동 잠금 → 안 함).
+                  </Text>
+                )}
                 <Text style={styles.recTime}>{mmss(rec.seconds)}</Text>
                 {!!rec.error && <Text style={styles.recError}>{rec.error}</Text>}
                 <View style={styles.recRow}>
@@ -1786,6 +1793,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   recError: { fontFamily: font.medium, fontSize: 12.5, color: colors.heartActive, marginBottom: 8 },
+  recWarn: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    lineHeight: 19,
+    color: colors.heartActive,
+    marginBottom: 10,
+  },
   recRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   recBtn: {
     flexGrow: 1,

@@ -42,12 +42,18 @@ export function useSermonRecorder() {
   const [ext, setExt] = useState('webm');
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  // 화면 잠김 막기가 되는 기기인지 — 안 되면 "자동 잠금을 꺼 달라"고 알려야 한다
+  const [keepsAwake, setKeepsAwake] = useState(true);
 
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
+  // 녹음 중 화면이 꺼지지 않게 잡아 두는 잠금(Wake Lock)
+  const wakeRef = useRef<{ release?: () => Promise<void> } | null>(null);
+  // 사용자가 직접 멈춘 것인지 — 아니면 화면 잠김 등으로 중간에 끊긴 것이다
+  const manualStopRef = useRef(false);
 
   useEffect(() => {
     setSupported(
@@ -67,11 +73,51 @@ export function useSermonRecorder() {
     () => () => {
       stopTimer();
       recRef.current?.stream?.getTracks().forEach((t) => t.stop());
+      wakeRef.current?.release?.().catch(() => {});
       audioRef.current?.pause();
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     },
     [],
   );
+
+  /**
+   * 녹음하는 동안 화면이 꺼지지 않게 붙잡는다. 화면이 잠기면 브라우저가
+   * 마이크를 끊어 녹음이 중간에 멈춘다(실제로 겪었다). 크롬·안드로이드와
+   * 사파리 16.4 이상에서 동작하고, 안 되는 기기에서는 keepsAwake를 false로
+   * 두어 "자동 잠금을 꺼 주세요"라고 안내한다.
+   */
+  const acquireWakeLock = useCallback(async () => {
+    const nav = navigator as unknown as {
+      wakeLock?: { request: (t: 'screen') => Promise<{ release?: () => Promise<void> }> };
+    };
+    if (!nav.wakeLock) {
+      setKeepsAwake(false);
+      return;
+    }
+    try {
+      wakeRef.current = await nav.wakeLock.request('screen');
+      setKeepsAwake(true);
+    } catch {
+      setKeepsAwake(false);
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    wakeRef.current?.release?.().catch(() => {});
+    wakeRef.current = null;
+  }, []);
+
+  // 잠금은 다른 앱으로 갔다 오면 풀린다 — 아직 녹음 중이면 다시 잡는다
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && recording && !wakeRef.current) {
+        acquireWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [recording, acquireWakeLock]);
 
   const start = useCallback(async () => {
     setError(null);
@@ -90,18 +136,29 @@ export function useSermonRecorder() {
       rec.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
+      rec.onerror = () => {
+        setError('녹음이 중간에 끊겼습니다. 지금까지 녹음된 부분은 남아 있습니다.');
+      };
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        releaseWakeLock();
         const out = new Blob(chunksRef.current, { type: fmt.mime || 'audio/webm' });
         if (urlRef.current) URL.revokeObjectURL(urlRef.current);
         urlRef.current = URL.createObjectURL(out);
         setBlob(out);
         setRecording(false);
         stopTimer();
+        // 직접 멈춘 게 아니면 화면 잠김·전화 등으로 끊긴 것이다 —
+        // 지금까지 녹음된 부분은 그대로 남으니 확인하고 올릴 수 있게 알린다.
+        if (!manualStopRef.current) {
+          setError('녹음이 중간에 멈췄습니다. 지금까지 녹음된 부분을 들어 보고 올리시거나 다시 녹음해 주세요.');
+        }
       };
       setExt(fmt.ext);
       setBlob(null);
       setSeconds(0);
+      manualStopRef.current = false;
+      await acquireWakeLock();
       rec.start(1000);
       recRef.current = rec;
       setRecording(true);
@@ -115,10 +172,12 @@ export function useSermonRecorder() {
       );
       setRecording(false);
       stopTimer();
+      releaseWakeLock();
     }
-  }, []);
+  }, [acquireWakeLock, releaseWakeLock]);
 
   const stop = useCallback(() => {
+    manualStopRef.current = true;
     try {
       recRef.current?.stop();
     } catch {
@@ -154,7 +213,20 @@ export function useSermonRecorder() {
     setError(null);
   }, []);
 
-  return { supported, recording, seconds, blob, ext, error, playing, start, stop, togglePlay, reset };
+  return {
+    supported,
+    recording,
+    seconds,
+    blob,
+    ext,
+    error,
+    playing,
+    keepsAwake,
+    start,
+    stop,
+    togglePlay,
+    reset,
+  };
 }
 
 /** 초 → "12:34" */
