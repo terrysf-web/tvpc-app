@@ -144,6 +144,32 @@ async function findWeeklyPlaylists(handle) {
     }
   }
 
+  // 이름에 날짜가 없는 고정 재생목록("[금요예배 새 찬양 미리 배우기]")을 찾으려면
+  // 재생목록마다 제목이 필요하다. 예전엔 재생목록 RSS의 <title>로 알아냈는데
+  // 그 주소가 죽어서(2026-09-10), 지금 받은 이 페이지 안에서 ID와 가장 가까운
+  // 제목을 짝지어 바로 알아낸다 — 재생목록마다 페이지를 또 받지 않아도 된다.
+  const titleRe2 = /"title":\{(?:"runs":\[\{"text":"((?:[^"\\]|\\.)*)"|"simpleText":"((?:[^"\\]|\\.)*)")/g;
+  const allTitles = [];
+  let t2;
+  while ((t2 = titleRe2.exec(html))) {
+    allTitles.push({ index: t2.index, text: unescapeJson(t2[1] ?? t2[2] ?? '') });
+  }
+  const named = ids.map(({ playlistId, index }) => {
+    let best = '';
+    let bestDist = Infinity;
+    for (const { index: ti, text } of allTitles) {
+      const dist = Math.abs(ti - index);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = text;
+      }
+    }
+    return { playlistId, title: best };
+  });
+  for (const n of named) {
+    console.log(`  (디버그) 재생목록 ${n.playlistId} — "${n.title}"`);
+  }
+
   if (weekly.length === 0) {
     console.log(
       `  (디버그) 재생목록 ID ${ids.length}개, "YYMMDD[태그]" 텍스트 ${titles.length}개 발견 — 매치 0개`,
@@ -158,7 +184,7 @@ async function findWeeklyPlaylists(handle) {
       console.log(`  (디버그) 재생목록 ID 위치들: ${ids.map((x) => x.index).join(', ')}`);
     }
   }
-  return { weekly, ids: ids.map((x) => x.playlistId) };
+  return { weekly, ids: ids.map((x) => x.playlistId), named };
 }
 
 /**
@@ -190,15 +216,18 @@ function upcomingFridayDate() {
  * feed의 <title>)을 확인해 "금요"가 들어간 것을 그 주 찬양 재생목록으로
  * 본다 — 이 채널은 그 재생목록 하나만 매주 갱신하는 용도로 쓴다.
  */
-async function findKeywordPlaylist(playlistIds, keyword) {
-  for (const playlistId of playlistIds) {
+async function findKeywordPlaylist(named, keyword) {
+  // 채널 재생목록 페이지에서 이미 알아낸 제목으로 먼저 후보를 좁힌다 —
+  // 제목만 보려고 재생목록을 하나씩 다 받아볼 필요가 없다.
+  const hit = named.find((n) => n.title.includes(keyword));
+  for (const playlistId of hit ? [hit.playlistId] : named.map((n) => n.playlistId)) {
     let info;
     try {
       info = await fetchPlaylistInfo(playlistId);
     } catch {
       continue;
     }
-    const title = info.title;
+    const title = info.title || hit?.title || '';
     console.log(`  (디버그) 재생목록 ${playlistId}: 제목 "${title}", 영상 ${info.entries.length}개`);
     if (title.includes(keyword)) {
       const entries = info.entries;
@@ -255,8 +284,11 @@ async function fetchPlaylistInfo(playlistId) {
       entries.push({ id, title: unescapeJson(raw) });
     }
     if (entries.length) return { title, entries };
+    const counts = ['playlistVideoRenderer', 'lockupViewModel', 'richItemRenderer', '"videoId":"']
+      .map((k) => `${k}=${html.split(k).length - 1}`)
+      .join(' ');
     console.log(
-      `  ! 재생목록 페이지에서 영상을 못 뽑음(응답 ${html.length}자, 제목 "${title}") — RSS로 재시도: ${playlistId}`,
+      `  ! 재생목록 페이지에서 영상을 못 뽑음(응답 ${html.length}자, 제목 "${title}", ${counts}) — RSS로 재시도: ${playlistId}`,
     );
   } catch (e) {
     console.log(`  ! 재생목록 페이지 확인 실패(RSS로 재시도): ${e.message}`);
@@ -421,10 +453,10 @@ async function main() {
   //    고정해두고 안의 영상만 매주 갈아끼우는 방식 둘 다 지원한다.
   let weeklyPlaylists = [];
   try {
-    const { weekly, ids } = await findWeeklyPlaylists(CHANNEL_HANDLE);
+    const { weekly, named } = await findWeeklyPlaylists(CHANNEL_HANDLE);
     weeklyPlaylists = weekly;
-    if (weeklyPlaylists.length === 0 && ids.length > 0) {
-      const kw = await findKeywordPlaylist(ids, '금요');
+    if (weeklyPlaylists.length === 0 && named.length > 0) {
+      const kw = await findKeywordPlaylist(named, '금요');
       if (kw) {
         console.log(`  ✓ 날짜 이름 패턴 대신 고정 재생목록으로 확인: "${kw.rawTitle}"`);
         weeklyPlaylists = [kw];
