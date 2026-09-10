@@ -1,5 +1,6 @@
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down.mjs';
 import LogOut from 'lucide-react-native/dist/esm/icons/log-out.mjs';
+import { useLocalSearchParams } from 'expo-router';
 import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
@@ -150,7 +151,9 @@ function Field({
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { email, isAdmin, role, checking, signOut } = useAdminAuth();
-  const [tab, setTab] = useState<AdminTab>('verse');
+  // 더보기의 "가입 승인" 카드처럼 특정 탭을 지정해 들어오는 경우
+  const { tab: wantTab } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<AdminTab>((wantTab as AdminTab) ?? 'verse');
   const visibleTabs = TABS.filter((t) => {
     if (t.key === 'errors') return email === OWNER_EMAIL;
     // 점검 계정은 목회자 화면(말씀)까지 전부 볼 수 있어야 새 기능을 직접
@@ -161,13 +164,21 @@ export default function AdminScreen() {
     const pastorOnly = t.key === 'verse' || t.key === 'sermonRec';
     return role === 'pastor' ? pastorOnly : !pastorOnly;
   });
-  // 역할이 정해지면 그 역할의 첫 탭으로 이동
+  // 역할이 정해지면 그 역할에 맞는 첫 탭으로 이동.
+  // 점검 계정은 모든 탭이 보이는데, 그 탓에 예전과 달리 말씀 탭에 그대로
+  // 머물러 "가입 승인"으로 들어와도 말씀이 열렸다 — 주소로 탭을 지정해
+  // 들어온 게 아니면 목회자는 말씀, 그 외는 가입 승인으로 연다.
   useEffect(() => {
-    if (isAdmin && visibleTabs.length > 0 && !visibleTabs.some((t) => t.key === tab)) {
-      setTab(visibleTabs[0].key);
+    if (!isAdmin || visibleTabs.length === 0) return;
+    if (wantTab && visibleTabs.some((t) => t.key === wantTab)) {
+      setTab(wantTab as AdminTab);
+      return;
     }
+    const preferred: AdminTab = role === 'pastor' ? 'verse' : 'members';
+    const fallback = visibleTabs.some((t) => t.key === preferred) ? preferred : visibleTabs[0].key;
+    if (!visibleTabs.some((t) => t.key === tab) || tab === 'verse') setTab(fallback);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, role]);
+  }, [isAdmin, role, wantTab]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

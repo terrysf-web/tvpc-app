@@ -161,7 +161,9 @@ export default function MoreScreen() {
           </Pressable>
           <Pressable
             style={[styles.gridCard, shadows.card, { backgroundColor: '#F2FAF4' }]}
-            onPress={() => router.push('/admin')}
+            // 카드에 적힌 대로 가입 승인 탭이 바로 열리게 — 관리자 화면의
+            // 기본 탭이 무엇이든 이 카드는 늘 가입 승인으로 간다
+            onPress={() => router.push('/admin?tab=members')}
           >
             <Text style={styles.cardAdminTag}>관리자</Text>
             <View style={styles.gridHeadRow}>
