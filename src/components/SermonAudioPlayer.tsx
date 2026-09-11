@@ -29,7 +29,16 @@ function youtubeId(url: string): string | null {
  * 재생기로는 유튜브를 틀 수 없다). 폰 앱(네이티브)에서도 브라우저로 넘긴다 —
  * 이 재생기는 웹 오디오라 웹에서만 동작한다.
  */
-export function SermonAudioPlayer({ url, title }: { url: string; title: string }) {
+export function SermonAudioPlayer({
+  url,
+  title,
+  autoPlay = false,
+}: {
+  url: string;
+  title: string;
+  /** 홈 카드에서 "설교 듣기"로 들어온 경우 — 화면이 뜨자마자 재생한다 */
+  autoPlay?: boolean;
+}) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [at, setAt] = useState(0);
@@ -49,6 +58,14 @@ export function SermonAudioPlayer({ url, title }: { url: string; title: string }
     a.addEventListener('timeupdate', onTime);
     a.addEventListener('loadedmetadata', onMeta);
     a.addEventListener('ended', onEnd);
+    // 홈에서 "설교 듣기"를 누르고 들어온 경우. 브라우저가 자동 재생을 막으면
+    // (아이폰 사파리 등) 조용히 멈춰 있고, 아래 재생 단추를 누르면 된다.
+    if (autoPlay) {
+      a.play().then(
+        () => setPlaying(true),
+        () => setPlaying(false),
+      );
+    }
     return () => {
       a.pause();
       a.removeEventListener('timeupdate', onTime);
@@ -56,7 +73,7 @@ export function SermonAudioPlayer({ url, title }: { url: string; title: string }
       a.removeEventListener('ended', onEnd);
       audioRef.current = null;
     };
-  }, [url, inline]);
+  }, [url, inline, autoPlay]);
 
   // 유튜브·네이티브 — 예전처럼 눌러서 밖에서 연다
   if (!inline) {

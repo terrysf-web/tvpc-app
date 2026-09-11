@@ -28,6 +28,7 @@ import {
   openLiveWorship,
   openWorshipReplay,
   playSermon,
+  playSermonAudio,
   sermonThumb,
 } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
@@ -431,9 +432,14 @@ export default function HomeScreen() {
                   </Pressable>
                   <Pressable
                     style={[styles.heroBtn, !verse.imageUrl && !bg.dark && styles.heroBtnDark]}
-                    // 설교는 말씀 화면에서 튼다 — 본문·묵상을 읽으면서 들을 수
-                    // 있게(밖으로 나가면 그동안 말씀을 못 본다)
-                    onPress={() => router.push('/word')}
+                    // 설교는 말씀 화면으로 가서 바로 튼다 — 본문·묵상을 읽으면서
+                    // 들을 수 있게(밖으로 나가면 그동안 말씀을 못 본다).
+                    // 아직 안 올라온 날은 예전처럼 준비 중이라고 알린다.
+                    onPress={() =>
+                      verse.sermonAudioUrl
+                        ? router.push({ pathname: '/word', params: { play: '1' } })
+                        : playSermonAudio(null, `${verse.reference} 설교`)
+                    }
                   >
                     <Text
                       style={[

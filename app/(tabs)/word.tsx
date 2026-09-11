@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
 import List from 'lucide-react-native/dist/esm/icons/list.mjs';
 import React, { useEffect, useRef, useState } from 'react';
@@ -49,6 +49,8 @@ export default function WordScreen() {
   const { verse, ready } = useTodayVerse();
   const bg = useVerseBg();
   const router = useRouter();
+  // 홈 카드의 "설교 듣기"로 들어오면 바로 재생한다 — 그러려고 누른 것이다
+  const { play } = useLocalSearchParams<{ play?: string }>();
   const [tab, setTab] = useState<WordTab>('text');
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -230,6 +232,7 @@ export default function WordScreen() {
           <SermonAudioPlayer
             url={verse.sermonAudioUrl}
             title={`${verse.reference} 설교`}
+            autoPlay={play === '1'}
           />
         )}
         {tab === 'text' && (
