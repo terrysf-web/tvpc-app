@@ -94,6 +94,35 @@ export function playSermonAudio(url: string | null | undefined, title: string) {
   }
 }
 
+/**
+ * 올려 둔 설교 파일을 기기에 내려받는다(목회자·점검 계정용).
+ *
+ * 다른 도메인에 있는 파일은 <a download>가 무시돼 그냥 열리기만 하므로,
+ * 내용을 받아 와서 저장한다. 그것마저 막히면(CORS 등) 새 탭으로 열어
+ * 브라우저 기능으로 저장하시게 한다 — 아무 일도 안 일어나는 것보다 낫다.
+ */
+export async function saveUrlToDevice(url: string, filename: string) {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') {
+    openExternal(url);
+    return;
+  }
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+  } catch {
+    openExternal(url);
+  }
+}
+
 /** 교회 유튜브 채널 — 설교 영상에 youtubeId가 없으면 여기로 이동 */
 export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@tri-valley';
 

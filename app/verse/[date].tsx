@@ -24,7 +24,7 @@ import {
 import { isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
 import { getHighlights, toggleHighlight, type VerseHighlight } from '../../src/data/verseMarks';
 import { ensureAnonymousAuth, getDb } from '../../src/firebase';
-import { playSermonAudio } from '../../src/links';
+import { SermonAudioPlayer } from '../../src/components/SermonAudioPlayer';
 import { colors, font, radius, shadows } from '../../src/theme';
 import type { VerseDoc } from '../../src/types';
 
@@ -197,12 +197,10 @@ export default function VerseByDateScreen() {
               홈 카드는 오늘 것만 보여주므로, 지난 설교는 이 화면으로 듣는다.
               (English 모드는 주일 주보에서 오는 경우라 이 단추를 안 쓴다) */}
           {!isEn && !!verse.sermonAudioUrl && (
-            <Pressable
-              style={styles.sermonAudioBtn}
-              onPress={() => playSermonAudio(verse.sermonAudioUrl, `${verse.reference} 설교`)}
-            >
-              <Text style={styles.sermonAudioText}>▶ 이 날 설교 듣기</Text>
-            </Pressable>
+            <SermonAudioPlayer
+              url={verse.sermonAudioUrl}
+              title={`${verse.reference} 설교`}
+            />
           )}
 
           {/* 주일 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문도 함께 —

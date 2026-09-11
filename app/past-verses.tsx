@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
 import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
+import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
+import { useAdminAuth } from '../src/data/admin';
 import { useRecentVerses } from '../src/data/hooks';
-import { playSermonAudio } from '../src/links';
+import { playSermonAudio, saveUrlToDevice } from '../src/links';
+import { canManageSermonAudio } from '../src/roles';
 import { colors, font, radius, shadows } from '../src/theme';
 
 /** "2026-09-10" → "9월 10일 (목)" */
@@ -28,6 +31,9 @@ export default function PastVersesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { verses, ready } = useRecentVerses(60);
+  // 설교 파일 내려받기는 목회자와 점검 계정에만 보인다 — 교인에게는 듣기만
+  const { email, role } = useAdminAuth();
+  const canSave = canManageSermonAudio(email, role);
   const withAudio = verses.filter((v) => !!v.sermonAudioUrl).length;
 
   return (
@@ -62,6 +68,17 @@ export default function PastVersesScreen() {
                     {v.heroText}
                   </Text>
                 </Pressable>
+                {!!v.sermonAudioUrl && canSave && (
+                  <Pressable
+                    style={styles.saveBtn}
+                    hitSlop={8}
+                    onPress={() =>
+                      saveUrlToDevice(v.sermonAudioUrl as string, `설교 ${v.date}.webm`)
+                    }
+                  >
+                    <Download size={16} color={colors.primary} strokeWidth={2} />
+                  </Pressable>
+                )}
                 {!!v.sermonAudioUrl && (
                   <Pressable
                     style={styles.playBtn}
@@ -102,8 +119,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.muted,
   },
-  playBtn: {
+  saveBtn: {
     marginLeft: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  playBtn: {
+    marginLeft: 8,
     width: 38,
     height: 38,
     borderRadius: 19,
