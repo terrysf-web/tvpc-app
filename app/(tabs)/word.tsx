@@ -18,6 +18,7 @@ import {
   useBulletinNoteLines,
   useBulletinShareQuestions,
 } from '../../src/data/bulletin';
+import { SermonAudioPlayer } from '../../src/components/SermonAudioPlayer';
 import { useClockTick, useTodayVerse } from '../../src/data/hooks';
 import { firebaseEnabled } from '../../src/firebase';
 import { ensureSavedVerse, isVerseSaved, toggleSavedVerse } from '../../src/data/savedVerses';
@@ -223,6 +224,14 @@ export default function WordScreen() {
 
       {/* 본문 */}
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+        {/* 그날 설교 — 본문·묵상을 읽으면서 함께 들을 수 있게 본문 바로 위에
+            둔다(재생기는 화면을 벗어나지 않는다). 목사님이 올리신 날만 나온다. */}
+        {!!verse.sermonAudioUrl && (
+          <SermonAudioPlayer
+            url={verse.sermonAudioUrl}
+            title={`${verse.reference} 설교`}
+          />
+        )}
         {tab === 'text' && (
           <>
             <Text style={styles.hlHint}>

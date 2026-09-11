@@ -37,7 +37,7 @@ import { colors, font, shadows } from '../../src/theme';
 const MENU = [
   { key: 'about', label: '교회 소개', icon: Building2 },
   { key: 'newcomer', label: '새가족 안내', icon: UserRound },
-  { key: 'pastVerses', label: '지난 말씀·설교', icon: BookOpen },
+  { key: 'pastVerses', label: '지난 새벽설교', icon: BookOpen },
   { key: 'gratitude', label: '감사일기', icon: Heart },
   { key: 'serveGuide', label: '섬김이 안내', icon: HandHelping },
   { key: 'album', label: '교우 앨범', icon: Images },

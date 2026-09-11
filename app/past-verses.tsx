@@ -21,7 +21,7 @@ function dateLabel(date: string): string {
 }
 
 /**
- * 지난 말씀·설교 — 홈 말씀 카드는 오늘 것 하나만 보여주므로, 어제 이전의
+ * 지난 새벽설교 — 홈 말씀 카드는 오늘 것 하나만 보여주므로, 어제 이전의
  * 말씀과 그날 설교 녹음은 이 목록에서 찾아 듣는다.
  *
  * 줄을 누르면 그날 말씀 전체(본문·묵상·메모)로 들어가고, 오른쪽 재생
@@ -38,7 +38,7 @@ export default function PastVersesScreen() {
 
   return (
     <View style={styles.screen}>
-      <OverlayHeader title="지난 말씀·설교" />
+      <OverlayHeader title="지난 새벽설교" />
       <ScrollView
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
