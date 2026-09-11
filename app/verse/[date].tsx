@@ -203,6 +203,45 @@ export default function VerseByDateScreen() {
             />
           )}
 
+          {/* 목사님이 직접 등록하신 날(source='manual')의 묵상·적용·기도.
+              주보에서 자동 등록된 날은 이 칸이 기계가 만든 일반 안내 문구라
+              보여주지 않는다. (English 모드는 주일 주보에서 오므로 제외) */}
+          {!isEn && verse.source === 'manual' && (
+            <>
+              {!!verse.meditation?.trim() && (
+                <>
+                  <Text style={styles.sectionTitle}>묵상</Text>
+                  <View style={[styles.sectionCard, shadows.card]}>
+                    <Text style={styles.verseText}>{verse.meditation}</Text>
+                  </View>
+                </>
+              )}
+              {verse.application?.some((a) => a.trim()) && (
+                <>
+                  <Text style={styles.sectionTitle}>적용</Text>
+                  <View style={[styles.sectionCard, shadows.card]}>
+                    {verse.application
+                      .filter((a) => a.trim())
+                      .map((a, i) => (
+                        <View key={i} style={styles.verseRow}>
+                          <Text style={styles.verseNum}>·</Text>
+                          <Text style={styles.verseText}>{a}</Text>
+                        </View>
+                      ))}
+                  </View>
+                </>
+              )}
+              {!!verse.prayer?.trim() && (
+                <>
+                  <Text style={styles.sectionTitle}>기도</Text>
+                  <View style={[styles.sectionCard, shadows.card]}>
+                    <Text style={styles.verseText}>{verse.prayer}</Text>
+                  </View>
+                </>
+              )}
+            </>
+          )}
+
           {/* 주일 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문도 함께 —
               단, 이 내용 자체는 관리자가 한글로만 써 두므로 English 모드에서도
               한글 그대로 보여준다(제목만 영어로). */}
