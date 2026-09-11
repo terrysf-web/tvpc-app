@@ -59,3 +59,11 @@ jobs:
         run: |
           npm install --no-save google-auth-library
           node scripts/deploy-rules.mjs
+
+      # 설교 녹음 내려받기가 새 탭으로 열리지 않고 바로 저장되게 하는 버킷 설정.
+      # 저장소를 아직 안 켰거나 권한이 없으면 안내만 남기고 배포는 계속된다.
+      - name: Set Storage CORS
+        if: env.skip != 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/set-storage-cors.mjs
