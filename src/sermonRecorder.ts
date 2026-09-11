@@ -215,6 +215,24 @@ export function useSermonRecorder() {
     );
   }, [playing]);
 
+  /**
+   * 녹음한 파일을 기기에 저장한다 — 목사님이 따로 보관하거나 다른 곳에
+   * 보내실 때. 아이폰 사파리는 저장 대신 파일이 열릴 수 있는데, 그때는
+   * 공유 단추 → "파일에 저장"으로 넣으시면 된다.
+   */
+  const saveToDevice = useCallback(
+    (name: string) => {
+      if (!urlRef.current) return;
+      const a = document.createElement('a');
+      a.href = urlRef.current;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    },
+    [],
+  );
+
   const reset = useCallback(() => {
     audioRef.current?.pause();
     setPlaying(false);
@@ -237,6 +255,7 @@ export function useSermonRecorder() {
     start,
     stop,
     togglePlay,
+    saveToDevice,
     reset,
   };
 }

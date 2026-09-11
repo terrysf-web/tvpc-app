@@ -1280,6 +1280,14 @@ export default function AdminScreen() {
                           {rec.playing ? '■ 멈춤' : '▶ 들어 보기'}
                         </Text>
                       </Pressable>
+                      <Pressable
+                        style={[styles.ghostBtn, styles.recBtn]}
+                        onPress={() =>
+                          rec.saveToDevice(`설교 ${(vSermonDate || today()).trim()}.${rec.ext}`)
+                        }
+                      >
+                        <Text style={styles.ghostBtnText}>파일로 저장</Text>
+                      </Pressable>
                       <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.reset}>
                         <Text style={styles.ghostBtnText}>다시 녹음</Text>
                       </Pressable>
