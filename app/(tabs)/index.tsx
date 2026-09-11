@@ -14,7 +14,7 @@ import Sun from 'lucide-react-native/dist/esm/icons/sun.mjs';
 import Sunrise from 'lucide-react-native/dist/esm/icons/sunrise.mjs';
 import Sunset from 'lucide-react-native/dist/esm/icons/sunset.mjs';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHasUnreadAlerts } from '../../src/alertsUnread';
 import { FadeInUp } from '../../src/components/FadeInUp';
@@ -33,6 +33,7 @@ import {
 } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
+import { mmss, useInlineAudio } from '../../src/inlineAudio';
 import { setAppReady } from '../../src/appBoot';
 
 /**
@@ -147,6 +148,15 @@ export default function HomeScreen() {
 
   // 시간대별 기본 배경 (새벽·저녁·밤은 어두운 그림 → 흰 글씨)
   const bg = useVerseBg();
+
+  // 그날 설교 — 홈 카드에서 바로 듣는다. 유튜브 주소로 등록된 설교는 오디오
+  // 재생기로 틀 수 없고, 폰 앱(네이티브)에도 이 재생기가 없으므로 예전처럼
+  // 밖에서 연다.
+  const sermonUrl = verse.sermonAudioUrl ?? null;
+  const sermonTitle = `${verse.reference} 설교`;
+  const isYoutube = !!sermonUrl?.match(/youtu\.be\/|[?&]v=|youtube\.com\//);
+  const playInline = !!sermonUrl && !isYoutube && Platform.OS === 'web';
+  const sermon = useInlineAudio(playInline ? sermonUrl : null);
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
   const sunday = useSundayBg();
   // 주일·월요일에는 히어로가 오늘의 말씀 대신 주일예배 화면으로 바뀐다.
@@ -432,14 +442,11 @@ export default function HomeScreen() {
                   </Pressable>
                   <Pressable
                     style={[styles.heroBtn, !verse.imageUrl && !bg.dark && styles.heroBtnDark]}
-                    // 설교는 말씀 화면으로 가서 바로 튼다 — 본문·묵상을 읽으면서
-                    // 들을 수 있게(밖으로 나가면 그동안 말씀을 못 본다).
-                    // 아직 안 올라온 날은 예전처럼 준비 중이라고 알린다.
-                    onPress={() =>
-                      verse.sermonAudioUrl
-                        ? router.push({ pathname: '/word', params: { play: '1' } })
-                        : playSermonAudio(null, `${verse.reference} 설교`)
-                    }
+                    // 설교는 이 카드에서 바로 튼다 — 화면을 옮기면 "말씀 보기"와
+                    // 가는 곳이 같아져 두 단추가 같은 일처럼 보였다.
+                    // 유튜브 주소·폰 앱은 예전처럼 밖에서 열고, 아직 안 올라온
+                    // 날은 준비 중이라고 알린다.
+                    onPress={playInline ? sermon.toggle : () => playSermonAudio(sermonUrl, sermonTitle)}
                   >
                     <Text
                       style={[
@@ -447,10 +454,43 @@ export default function HomeScreen() {
                         !verse.imageUrl && !bg.dark && styles.heroBtnTextDark,
                       ]}
                     >
-                      설교 듣기
+                      {sermon.playing ? '⏸ 설교 멈춤' : '설교 듣기'}
                     </Text>
                   </Pressable>
                 </View>
+                {/* 듣는 동안 어디쯤인지 — 한 번이라도 튼 뒤에만 나온다 */}
+                {sermon.active && (
+                  <View style={styles.heroPlayRow}>
+                    <View
+                      style={[
+                        styles.heroPlayTrack,
+                        !verse.imageUrl && !bg.dark && styles.heroPlayTrackDark,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.heroPlayFill,
+                          !verse.imageUrl && !bg.dark && styles.heroPlayFillDark,
+                          {
+                            width: `${
+                              Number.isFinite(sermon.total) && sermon.total > 0
+                                ? Math.min(sermon.at / sermon.total, 1) * 100
+                                : 0
+                            }%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.heroPlayTime,
+                        !verse.imageUrl && !bg.dark && styles.heroPlayTimeDark,
+                      ]}
+                    >
+                      {mmss(sermon.at)} / {mmss(sermon.total)}
+                    </Text>
+                  </View>
+                )}
               </View>
             </PhotoSlot>
           )}
@@ -662,6 +702,21 @@ const styles = StyleSheet.create({
   },
   heroBtnText: { fontFamily: font.bold, fontSize: 13.5, color: colors.primary },
   heroBtnRow: { flexDirection: 'row', gap: 9 },
+  // 설교를 듣는 동안 나오는 진행 막대 (홈 카드 안)
+  heroPlayRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 9 },
+  heroPlayTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.38)',
+    overflow: 'hidden',
+  },
+  heroPlayFill: { height: 4, borderRadius: 2, backgroundColor: '#FFFFFF' },
+  // 밝은 기본 배경에서는 흰 막대가 안 보인다 — 진한 남색으로
+  heroPlayTrackDark: { backgroundColor: 'rgba(23,64,110,0.22)' },
+  heroPlayFillDark: { backgroundColor: '#17406E' },
+  heroPlayTime: { fontFamily: font.medium, fontSize: 11.5, color: '#FFFFFF' },
+  heroPlayTimeDark: { color: '#17406E' },
 
   // 밝은 기본 배경용 — 진한 남색 글씨 + 흰 광택(그림 위에서도 또렷하게)
   heroBadgeDark: { backgroundColor: 'rgba(18,50,91,0.75)' },

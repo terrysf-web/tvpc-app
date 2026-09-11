@@ -61,7 +61,7 @@ export default function WordScreen() {
   const { verse, ready } = useTodayVerse();
   const bg = useVerseBg();
   const router = useRouter();
-  // 홈 카드의 "설교 듣기"로 들어오면 바로 재생한다 — 그러려고 누른 것이다
+  // ?play=1로 들어오면(알림 등 바로 듣기 링크) 재생하며 연다
   const { play } = useLocalSearchParams<{ play?: string }>();
   const [tab, setTab] = useState<WordTab>('text');
   const tabs = useMemo(() => tabsFor(verse), [verse]);
