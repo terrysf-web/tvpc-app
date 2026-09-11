@@ -115,6 +115,12 @@ function upcomingSunday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** "2026-09-13"이 주일인지 — 주일 말씀은 주보 성경봉독이 자동으로 채운다 */
+function isSundayDate(date: string): boolean {
+  const d = new Date(`${date}T00:00:00`);
+  return !Number.isNaN(d.getTime()) && d.getDay() === 0;
+}
+
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -549,6 +555,14 @@ export default function AdminScreen() {
   const saveVerseForm = () =>
     submit(async () => {
       if (!vDate || !vRef || !vHero) throw new Error('날짜·구절·홈 카드 문구는 필수입니다.');
+      // 말씀 등록은 새벽예배용이다. 주일은 주보의 성경봉독이 자동으로
+      // 채우는 자리라, 여기서 저장하면 주보 내용을 덮어쓸 뿐 아니라
+      // 'manual' 표시 때문에 그 뒤로 주보가 그 날짜를 영영 못 채운다.
+      if (isSundayDate(vDate.trim())) {
+        throw new Error(
+          '주일 말씀은 주보 성경봉독에서 자동으로 등록됩니다. 새벽예배 날짜(월~토)로 넣어 주세요.',
+        );
+      }
       await saveVerse({
         date: vDate.trim(),
         reference: vRef.trim(),
@@ -823,6 +837,15 @@ export default function AdminScreen() {
         {tab === 'verse' && (
           <View style={[styles.card, shadows.card]}>
             <Field label="날짜 (YYYY-MM-DD)" value={vDate} onChange={setVDate} placeholder={today()} />
+            <Text style={styles.bgHint}>
+              새벽예배 말씀을 넣는 곳입니다(월~토). 주일 말씀은 주보 성경봉독에서 자동으로
+              등록되므로 여기서 넣지 않습니다.
+            </Text>
+            {isSundayDate(vDate.trim()) && (
+              <Text style={styles.recWarn}>
+                {vDate.trim()}은 주일입니다. 이 날짜로는 등록되지 않습니다.
+              </Text>
+            )}
             {!!vLoaded && <Text style={styles.bgHint}>{vLoaded}</Text>}
             <Field label="성경 구절" value={vRef} onChange={setVRef} placeholder="예: 시편 23:1" />
             <Field
