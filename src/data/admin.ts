@@ -82,7 +82,10 @@ function requireDb() {
 
 /** 오늘의 말씀 저장 — 문서 ID = 날짜(YYYY-MM-DD) */
 export async function saveVerse(v: Omit<VerseDoc, 'id'>): Promise<void> {
-  await setDoc(doc(requireDb(), 'verses', v.date), v, { merge: true });
+  // source를 'manual'로 남겨야 주보 자동 동기화가 이 날짜를 건드리지 않는다.
+  // 자동 등록된 날짜를 고쳐 저장하면 기존 source('auto')가 merge로 그대로
+  // 남아서, 다음 주보 동기화가 목사님이 쓰신 묵상·기도를 통째로 덮어썼다.
+  await setDoc(doc(requireDb(), 'verses', v.date), { ...v, source: 'manual' }, { merge: true });
 }
 
 /**
