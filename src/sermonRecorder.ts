@@ -16,6 +16,7 @@
  * 강대상에 놓고 움직이며 말씀하실 때를 생각한 설정).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { saveBlobToDevice } from './saveFile';
 
 const CANDIDATES = [
   { mime: 'audio/webm;codecs=opus', ext: 'webm' },
@@ -217,20 +218,15 @@ export function useSermonRecorder() {
 
   /**
    * 녹음한 파일을 기기에 저장한다 — 목사님이 따로 보관하거나 다른 곳에
-   * 보내실 때. 아이폰 사파리는 저장 대신 파일이 열릴 수 있는데, 그때는
-   * 공유 단추 → "파일에 저장"으로 넣으시면 된다.
+   * 보내실 때. 아이폰에서는 공유 시트가 떠서 "파일에 저장"을 고르면 된다
+   * (아이폰은 그 길밖에 없다 — saveFile.ts 참고).
    */
   const saveToDevice = useCallback(
     (name: string) => {
-      if (!urlRef.current) return;
-      const a = document.createElement('a');
-      a.href = urlRef.current;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const b = blob;
+      if (b) void saveBlobToDevice(b, name);
     },
-    [],
+    [blob],
   );
 
   const reset = useCallback(() => {

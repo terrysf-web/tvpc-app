@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Alert, Platform } from 'react-native';
+import { extForType, saveBlobToDevice } from './saveFile';
 import type { SermonDoc } from './types';
 
 /**
@@ -101,7 +102,7 @@ export function playSermonAudio(url: string | null | undefined, title: string) {
  * 내용을 받아 와서 저장한다. 그것마저 막히면(CORS 등) 새 탭으로 열어
  * 브라우저 기능으로 저장하시게 한다 — 아무 일도 안 일어나는 것보다 낫다.
  */
-export async function saveUrlToDevice(url: string, filename: string) {
+export async function saveUrlToDevice(url: string, baseName: string) {
   if (Platform.OS !== 'web' || typeof document === 'undefined') {
     openExternal(url);
     return;
@@ -110,14 +111,9 @@ export async function saveUrlToDevice(url: string, filename: string) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(String(res.status));
     const blob = await res.blob();
-    const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+    // 확장자는 받아 온 파일 형식에서 정한다 — 사파리 녹음은 m4a, 크롬은 webm이라
+    // 이름에 미리 박아 두면 엉뚱한 확장자가 붙는다.
+    await saveBlobToDevice(blob, `${baseName}.${extForType(blob.type)}`);
   } catch {
     openExternal(url);
   }

@@ -73,7 +73,7 @@ export default function PastVersesScreen() {
                     style={styles.saveBtn}
                     hitSlop={8}
                     onPress={() =>
-                      saveUrlToDevice(v.sermonAudioUrl as string, `설교 ${v.date}.webm`)
+                      saveUrlToDevice(v.sermonAudioUrl as string, `설교 ${v.date}`)
                     }
                   >
                     <Download size={16} color={colors.primary} strokeWidth={2} />
