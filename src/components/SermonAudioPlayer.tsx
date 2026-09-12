@@ -54,7 +54,12 @@ export function SermonAudioPlayer({
     audioRef.current = a;
     const onTime = () => setAt(a.currentTime);
     const onMeta = () => setTotal(a.duration);
-    const onEnd = () => setPlaying(false);
+    const onEnd = () => {
+      // 끝까지 들은 뒤 다시 누르면 처음부터 나오게 되감아 둔다
+      a.currentTime = 0;
+      setAt(0);
+      setPlaying(false);
+    };
     a.addEventListener('timeupdate', onTime);
     a.addEventListener('loadedmetadata', onMeta);
     a.addEventListener('ended', onEnd);
@@ -91,6 +96,8 @@ export function SermonAudioPlayer({
       a.pause();
       setPlaying(false);
     } else {
+      // 다 듣고 끝난 상태에서 눌렀으면 처음부터
+      if (a.ended) a.currentTime = 0;
       a.play().then(
         () => setPlaying(true),
         () => setPlaying(false),
@@ -98,7 +105,8 @@ export function SermonAudioPlayer({
     }
   };
 
-  // 막대를 누른 자리로 이동 — 긴 설교에서 듣던 데를 다시 찾기 쉽게
+  // 막대를 누르거나 끌어 옮긴 자리로 이동 — 긴 설교에서 듣던 데를 다시
+  // 찾기 쉽게(누르기와 끌기 모두 같은 셈을 쓴다)
   const seekTo = (x: number) => {
     const a = audioRef.current;
     if (!a || !trackW || !Number.isFinite(total)) return;
@@ -120,13 +128,20 @@ export function SermonAudioPlayer({
       </Pressable>
       <View style={styles.right}>
         <Text style={styles.label}>이 날 설교 듣기</Text>
-        <Pressable
-          style={styles.track}
+        {/* 얇은 막대는 손가락으로 잡기 어려워, 위아래로 여유를 둔 자리를
+            함께 만들고 그 자리를 끌면 움직이게 한다 */}
+        <View
+          style={styles.grab}
           onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
-          onPress={(e) => seekTo(e.nativeEvent.locationX)}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={(e) => seekTo(e.nativeEvent.locationX)}
+          onResponderMove={(e) => seekTo(e.nativeEvent.locationX)}
         >
-          <View style={[styles.fill, { width: `${pct}%` }]} />
-        </Pressable>
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${pct}%` }]} />
+          </View>
+        </View>
         <Text style={styles.time}>
           {mmss(at)} / {mmss(total)}
         </Text>
@@ -157,8 +172,8 @@ const styles = StyleSheet.create({
   },
   right: { flex: 1, minWidth: 0 },
   label: { fontFamily: font.bold, fontSize: 13, color: colors.primary },
+  grab: { marginTop: 3, paddingVertical: 8, justifyContent: 'center' },
   track: {
-    marginTop: 7,
     height: 6,
     borderRadius: 3,
     backgroundColor: 'rgba(30,90,168,0.18)',

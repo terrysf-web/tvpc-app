@@ -157,6 +157,8 @@ export default function HomeScreen() {
   const isYoutube = !!sermonUrl?.match(/youtu\.be\/|[?&]v=|youtube\.com\//);
   const playInline = !!sermonUrl && !isYoutube && Platform.OS === 'web';
   const sermon = useInlineAudio(playInline ? sermonUrl : null);
+  // 진행 막대의 너비 — 누른 자리가 몇 퍼센트 지점인지 셈할 때 쓴다
+  const [playW, setPlayW] = React.useState(0);
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
   const sunday = useSundayBg();
   // 주일·월요일에는 히어로가 오늘의 말씀 대신 주일예배 화면으로 바뀐다.
@@ -458,28 +460,43 @@ export default function HomeScreen() {
                     </Text>
                   </Pressable>
                 </View>
-                {/* 듣는 동안 어디쯤인지 — 한 번이라도 튼 뒤에만 나온다 */}
+                {/* 듣는 동안 어디쯤인지 — 한 번이라도 튼 뒤에만 나온다.
+                    막대를 손가락으로 끌어 듣던 자리를 옮길 수 있다(얇은 막대는
+                    잡기 어려워 위아래로 여유를 둔 자리를 함께 만든다). */}
                 {sermon.active && (
                   <View style={styles.heroPlayRow}>
                     <View
-                      style={[
-                        styles.heroPlayTrack,
-                        !verse.imageUrl && !bg.dark && styles.heroPlayTrackDark,
-                      ]}
+                      style={styles.heroPlayGrab}
+                      onLayout={(e) => setPlayW(e.nativeEvent.layout.width)}
+                      onStartShouldSetResponder={() => true}
+                      onMoveShouldSetResponder={() => true}
+                      onResponderGrant={(e) =>
+                        playW > 0 && sermon.seek(e.nativeEvent.locationX / playW)
+                      }
+                      onResponderMove={(e) =>
+                        playW > 0 && sermon.seek(e.nativeEvent.locationX / playW)
+                      }
                     >
                       <View
                         style={[
-                          styles.heroPlayFill,
-                          !verse.imageUrl && !bg.dark && styles.heroPlayFillDark,
-                          {
-                            width: `${
-                              Number.isFinite(sermon.total) && sermon.total > 0
-                                ? Math.min(sermon.at / sermon.total, 1) * 100
-                                : 0
-                            }%`,
-                          },
+                          styles.heroPlayTrack,
+                          !verse.imageUrl && !bg.dark && styles.heroPlayTrackDark,
                         ]}
-                      />
+                      >
+                        <View
+                          style={[
+                            styles.heroPlayFill,
+                            !verse.imageUrl && !bg.dark && styles.heroPlayFillDark,
+                            {
+                              width: `${
+                                Number.isFinite(sermon.total) && sermon.total > 0
+                                  ? Math.min(sermon.at / sermon.total, 1) * 100
+                                  : 0
+                              }%`,
+                            },
+                          ]}
+                        />
+                      </View>
                     </View>
                     <Text
                       style={[
@@ -704,8 +721,9 @@ const styles = StyleSheet.create({
   heroBtnRow: { flexDirection: 'row', gap: 9 },
   // 설교를 듣는 동안 나오는 진행 막대 (홈 카드 안)
   heroPlayRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 9 },
+  // 막대는 얇게 두되 손가락이 닿는 자리는 넉넉하게
+  heroPlayGrab: { flex: 1, paddingVertical: 9, justifyContent: 'center' },
   heroPlayTrack: {
-    flex: 1,
     height: 4,
     borderRadius: 2,
     backgroundColor: 'rgba(255,255,255,0.38)',
