@@ -364,9 +364,10 @@ writeFileSync(join(dir, 'in.pdf'), pdfBuf);
  * 건너뛰어서, 주보에 예레미야가 실린 날에 엉뚱한 본문(시편)이 그대로 남아
  * 있었다.
  *
- * 대신 목사님이 쓰신 묵상·적용·기도와 올리신 설교 녹음은 건드리지 않는다
- * (merge로 본문 관련 항목만 덮어쓴다). 본문이 이미 주보와 같으면 아무것도
- * 하지 않는다.
+ * 본문이 이미 주보와 같으면 아무것도 하지 않는다 — 목사님이 쓰신 묵상·적용·
+ * 기도가 그대로 남는다. 본문이 다를 때만 본문과 그에 딸린 안내 문구를 새로
+ * 맞추고, 그날 올리신 설교 녹음(sermonAudioUrl)은 어느 쪽이든 건드리지
+ * 않는다.
  */
 async function applyBulletinVerse(docRef, scripture, auto, label) {
   const cur = await docRef.get();
@@ -376,7 +377,10 @@ async function applyBulletinVerse(docRef, scripture, auto, label) {
       console.log(`${label}: 직접 등록된 말씀이 주보와 같은 본문입니다 — 그대로 둡니다`);
       return false;
     }
-    await docRef.set({ ...scripture, translation: 'gae' }, { merge: true });
+    // 본문이 바뀌면 그 본문을 두고 쓴 묵상·적용·기도도 더는 맞지 않는다
+    // (시편을 두고 쓴 묵상이 예레미야 본문 아래 남는다). 함께 새 본문에
+    // 맞춰 다시 쓰되, 그날 올리신 설교 녹음은 그대로 둔다.
+    await docRef.set({ ...scripture, ...auto, translation: 'gae' }, { merge: true });
     console.log(`${label}: 직접 등록된 말씀의 본문을 주보대로 맞췄습니다`);
     return true;
   }
