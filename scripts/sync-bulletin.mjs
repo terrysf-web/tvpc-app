@@ -612,9 +612,25 @@ async function syncDawnVerses() {
       const m = matches[0];
       const col = i * 1000 + m.index + m[0].length / 2;
       days.push({ dom: Number(m[2]), col });
-      const rest = lines[i].slice(m.index + m[0].length);
-      const bm = rest.match(/([가-힣]+)\s*(\d{1,3})\s*장/);
+      // 본문은 같은 줄 오른쪽에 있는 게 보통이지만, 칸이 좁은 주보에서는
+      // 다음 줄로 넘어가 찍힌다(2026-09-06 주보의 토요일이 그랬다 — 그날만
+      // 본문이 비어 '생명의 삶'으로 넘어갔다). 다음 줄에 다른 요일이
+      // 없을 때만 이어진 것으로 보고 함께 읽는다.
+      let rest = lines[i].slice(m.index + m[0].length);
+      let bm = rest.match(/([가-힣]+)\s*(\d{1,3})\s*장/);
+      for (let j = i + 1; !bm && j <= i + 2 && j < lines.length; j++) {
+        if (DAY_TOKEN.test(lines[j])) break;
+        DAY_TOKEN.lastIndex = 0;
+        rest = lines[j];
+        bm = rest.match(/([가-힣]+)\s*(\d{1,3})\s*장/);
+      }
+      DAY_TOKEN.lastIndex = 0;
       if (bm) passages.push({ book: bm[1], chapter: Number(bm[2]), col });
+      // 표 모양이 주보마다 달라, 읽어들인 줄을 늘 기록에 남긴다
+      console.log(
+        `      | ${lines[i].replace(/\s+/g, ' ').trim().slice(0, 100)}` +
+          (bm ? '' : '  ← 본문을 찾지 못함'),
+      );
     }
   }
   if (dayLine < 0 && days.length < 3) {
