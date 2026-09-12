@@ -203,42 +203,41 @@ export default function VerseByDateScreen() {
             />
           )}
 
-          {/* 목사님이 직접 등록하신 날(source='manual')의 묵상·적용·기도.
-              주보에서 자동 등록된 날은 이 칸이 기계가 만든 일반 안내 문구라
-              보여주지 않는다. (English 모드는 주일 주보에서 오므로 제외) */}
-          {!isEn && verse.source === 'manual' && (
+          {/* 묵상·적용·기도 — 말씀 화면(오늘)과 같은 차림으로, 지난 날짜도
+              본문·묵상·적용·기도·메모를 다 볼 수 있게. 목사님이 사역자
+              페이지에서 쓰신 글이 여기로 들어오고, 안 쓰신 날은 읽기를 돕는
+              기본 안내 문구가 대신 나온다.
+              (English 모드는 주일 주보에서 오는 병기 본문이라 제외) */}
+          {!isEn && (
             <>
-              {!!verse.meditation?.trim() && (
-                <>
-                  <Text style={styles.sectionTitle}>묵상</Text>
-                  <View style={[styles.sectionCard, shadows.card]}>
-                    <Text style={styles.verseText}>{verse.meditation}</Text>
+              <Text style={styles.sectionTitle}>묵상</Text>
+              <View style={[styles.sectionCard, shadows.card]}>
+                <Text style={styles.verseText}>
+                  {verse.meditation?.trim() ||
+                    '본문을 천천히 읽으며 마음에 머무는 구절을 찾아보세요. 그 구절 앞에 잠시 멈추어, 오늘 나에게 주시는 말씀으로 받아 묵상해 보세요.'}
+                </Text>
+              </View>
+
+              <Text style={styles.sectionTitle}>적용</Text>
+              <View style={[styles.sectionCard, shadows.card]}>
+                {(verse.application?.filter((a) => a.trim()).length
+                  ? verse.application.filter((a) => a.trim())
+                  : ['본문에서 받은 은혜를 오늘 삶에서 실천할 한 가지로 정해 보세요.']
+                ).map((a, i) => (
+                  <View key={i} style={styles.verseRow}>
+                    <Text style={styles.verseNum}>·</Text>
+                    <Text style={styles.verseText}>{a}</Text>
                   </View>
-                </>
-              )}
-              {verse.application?.some((a) => a.trim()) && (
-                <>
-                  <Text style={styles.sectionTitle}>적용</Text>
-                  <View style={[styles.sectionCard, shadows.card]}>
-                    {verse.application
-                      .filter((a) => a.trim())
-                      .map((a, i) => (
-                        <View key={i} style={styles.verseRow}>
-                          <Text style={styles.verseNum}>·</Text>
-                          <Text style={styles.verseText}>{a}</Text>
-                        </View>
-                      ))}
-                  </View>
-                </>
-              )}
-              {!!verse.prayer?.trim() && (
-                <>
-                  <Text style={styles.sectionTitle}>기도</Text>
-                  <View style={[styles.sectionCard, shadows.card]}>
-                    <Text style={styles.verseText}>{verse.prayer}</Text>
-                  </View>
-                </>
-              )}
+                ))}
+              </View>
+
+              <Text style={styles.sectionTitle}>기도</Text>
+              <View style={[styles.sectionCard, shadows.card]}>
+                <Text style={styles.verseText}>
+                  {verse.prayer?.trim() ||
+                    '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
+                </Text>
+              </View>
             </>
           )}
 
