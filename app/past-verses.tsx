@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { useAdminAuth } from '../src/data/admin';
 import { useRecentVerses } from '../src/data/hooks';
-import { playSermonAudio, saveUrlToDevice } from '../src/links';
+import { saveUrlToDevice } from '../src/links';
 import { canManageSermonAudio } from '../src/roles';
 import { colors, font, radius, shadows } from '../src/theme';
 
@@ -24,8 +24,10 @@ function dateLabel(date: string): string {
  * 지난 새벽설교 — 홈 말씀 카드는 오늘 것 하나만 보여주므로, 어제 이전의
  * 말씀과 그날 설교 녹음은 이 목록에서 찾아 듣는다.
  *
- * 줄을 누르면 그날 말씀 전체(본문·묵상·메모)로 들어가고, 오른쪽 재생
- * 단추는 그 자리에서 바로 설교를 튼다. 설교가 없는 날은 단추가 안 나온다.
+ * 줄을 누르면 그날 말씀 전체(본문·묵상·적용·기도·메모)로 들어간다. 오른쪽
+ * 재생 단추도 그 화면으로 들어가 거기 있는 재생기로 듣는다 — 목록에서 바로
+ * 틀면 설교를 들으면서 그날 본문을 볼 수가 없다. 설교가 없는 날은 단추가
+ * 안 나온다.
  */
 export default function PastVersesScreen() {
   // 어느 날짜를 저장하는 중인지 — MP3로 바꾸는 동안 그 단추만 돌아간다
@@ -56,7 +58,7 @@ export default function PastVersesScreen() {
           <>
             <Text style={styles.hint}>
               {withAudio > 0
-                ? `설교 녹음이 있는 날은 ▶ 단추를 누르면 바로 들을 수 있습니다.`
+                ? `설교 녹음이 있는 날은 ▶ 단추가 보입니다. 누르면 그날 말씀에서 들을 수 있습니다.`
                 : `날짜를 누르면 그날 말씀 전체를 볼 수 있습니다.`}
             </Text>
             {verses.map((v) => (
@@ -96,7 +98,9 @@ export default function PastVersesScreen() {
                   <Pressable
                     style={styles.playBtn}
                     hitSlop={8}
-                    onPress={() => playSermonAudio(v.sermonAudioUrl, `${v.reference} 설교`)}
+                    // 그날 말씀 화면으로 들어가 거기 재생기로 듣는다 —
+                    // 설교를 들으면서 본문·묵상을 함께 볼 수 있게
+                    onPress={() => router.push(`/verse/${v.date}`)}
                   >
                     <Play size={16} color="#FFFFFF" fill="#FFFFFF" strokeWidth={0} />
                   </Pressable>
