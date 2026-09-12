@@ -356,6 +356,34 @@ const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
 
+/**
+ * 주보에서 읽은 본문을 그날 말씀(verses/{날짜})에 적는다.
+ *
+ * 본문의 주인은 주보다. 목사님이 사역자 페이지에서 직접 등록하신 날이라도
+ * 본문·장절은 주보에 실린 대로 맞춘다 — 예전에는 직접 등록된 날을 통째로
+ * 건너뛰어서, 주보에 예레미야가 실린 날에 엉뚱한 본문(시편)이 그대로 남아
+ * 있었다.
+ *
+ * 대신 목사님이 쓰신 묵상·적용·기도와 올리신 설교 녹음은 건드리지 않는다
+ * (merge로 본문 관련 항목만 덮어쓴다). 본문이 이미 주보와 같으면 아무것도
+ * 하지 않는다.
+ */
+async function applyBulletinVerse(docRef, scripture, auto, label) {
+  const cur = await docRef.get();
+  const isManual = cur.exists && cur.get('source') !== 'auto';
+  if (isManual) {
+    if (String(cur.get('reference') ?? '') === scripture.reference) {
+      console.log(`${label}: 직접 등록된 말씀이 주보와 같은 본문입니다 — 그대로 둡니다`);
+      return false;
+    }
+    await docRef.set({ ...scripture, translation: 'gae' }, { merge: true });
+    console.log(`${label}: 직접 등록된 말씀의 본문을 주보대로 맞췄습니다`);
+    return true;
+  }
+  await docRef.set({ ...scripture, ...auto, imageUrl: null, source: 'auto', translation: 'gae' });
+  return true;
+}
+
 // ── 3.5 주보의 새벽예배 본문표 → 매일 말씀(verses/{날짜}) 자동 등록 ──
 // 주보에 "화(21일) 수(22일) …" / "이사야 34장 이사야 35장 …" 두 줄이 있어
 // 각 요일의 본문을 개역개정 본문과 함께 등록한다. 목사님이 직접 올린 날은 건너뜀.
@@ -520,19 +548,18 @@ async function syncSundayReading() {
   }
 
   const docRef = db.doc(`verses/${date}`);
-  const cur = await docRef.get();
-  if (cur.exists && cur.get('source') !== 'auto') {
-    console.log(`[말씀] ${date} ${ref}: 직접 등록된 말씀이 있어 유지`);
-    return;
-  }
   const first = picked[0].text.replace(/^\[\d+장\]\s*/, '');
   const hero = first.length > 90 ? `${first.slice(0, 90)}…` : first;
-  await docRef.set({
-    date,
-    reference: ref,
-    heroText: hero,
-    passageTitle: `${ref} (주일 성경봉독)`,
-    passage: picked,
+  await applyBulletinVerse(
+    docRef,
+    {
+      date,
+      reference: ref,
+      heroText: hero,
+      passageTitle: `${ref} (주일 성경봉독)`,
+      passage: picked,
+    },
+    {
     meditation:
       `오늘 주일예배 성경봉독은 ${ref}, 모두 ${picked.length}절입니다.` +
       (sermon ? `\n설교: ${sermon}` : '') +
@@ -548,10 +575,9 @@ async function syncSundayReading() {
       `오늘 주일예배로 나아가게 하시니 감사합니다. ${ref} 말씀을 통해 주시는 음성에 ` +
       `귀 기울이게 하시고, 들은 말씀이 한 주간 삶의 자리에서 열매 맺게 하옵소서. ` +
       `예수님의 이름으로 기도합니다. 아멘.`,
-    imageUrl: null,
-    source: 'auto',
-    translation: 'gae',
-  });
+    },
+    `[말씀] 주일 성경봉독 ${date} ${ref}`,
+  );
   console.log(`[말씀] 주일 성경봉독 등록: ${date}  ${ref} (${picked.length}절)`);
 }
 
@@ -683,14 +709,8 @@ async function syncDawnVerses() {
       continue;
     }
 
-    // 목사님이 직접 올린 말씀(source 없음)은 덮어쓰지 않는다
     const ref = `${bookName} ${best.chapter}장`;
     const docRef = db.doc(`verses/${vDate}`);
-    const cur = await docRef.get();
-    if (cur.exists && cur.get('source') !== 'auto') {
-      console.log(`  – ${vDate} ${ref}: 직접 등록된 말씀이 있어 유지`);
-      continue;
-    }
     const verses = chapters[best.chapter - 1];
     const hero = verses[0].length > 90 ? `${verses[0].slice(0, 90)}…` : verses[0];
     // 어떤 장르의 본문이 와도 자연스럽도록: 인용은 "이렇게 시작합니다" 소개로만,
@@ -698,12 +718,16 @@ async function syncDawnVerses() {
     const clip = (s, n = 60) =>
       s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s;
     const q1 = clip(verses[0]);
-    await docRef.set({
-      date: vDate,
-      reference: ref,
-      heroText: hero,
-      passageTitle: `${ref} (새벽예배 본문)`,
-      passage: verses.map((t, i) => ({ verse: i + 1, text: t })),
+    await applyBulletinVerse(
+      docRef,
+      {
+        date: vDate,
+        reference: ref,
+        heroText: hero,
+        passageTitle: `${ref} (새벽예배 본문)`,
+        passage: verses.map((t, i) => ({ verse: i + 1, text: t })),
+      },
+      {
       meditation:
         `오늘 새벽예배 본문은 ${ref}, 전체 ${verses.length}절입니다.\n\n` +
         `본문은 이렇게 시작합니다.\n"${q1}" (1절)\n\n` +
@@ -720,10 +744,9 @@ async function syncDawnVerses() {
         `새긴 구절을 하루 동안 기억하게 하시고, 그 말씀이 저의 생각과 걸음을 인도하게 ` +
         `하옵소서. 읽는 것에서 그치지 않고 삶의 자리에서 열매 맺게 하옵소서. ` +
         `예수님의 이름으로 기도합니다. 아멘.`,
-      imageUrl: null,
-      source: 'auto',
-      translation: 'gae',
-    });
+      },
+      `  – ${vDate} ${ref}`,
+    );
     console.log(`  ✓ ${vDate}  ${ref} (${verses.length}절)`);
     wrote++;
   }
@@ -789,18 +812,17 @@ async function syncQtVerses(dates, bible, findBook) {
           ? `${bookName} ${p.ch1}:${p.v1}-${p.v2}`
           : `${bookName} ${p.ch1}:${p.v1}`;
     const docRef = db.doc(`verses/${d}`);
-    const cur = await docRef.get();
-    if (cur.exists && cur.get('source') !== 'auto') {
-      console.log(`  – ${d} ${ref}: 직접 등록된 말씀이 있어 유지`);
-      continue;
-    }
     const first = picked[0].text.replace(/^\[\d+장\]\s*/, '');
-    await docRef.set({
-      date: d,
-      reference: ref,
-      heroText: first.length > 90 ? `${first.slice(0, 90)}…` : first,
-      passageTitle: `${ref} (생명의 삶 본문)`,
-      passage: picked,
+    await applyBulletinVerse(
+      docRef,
+      {
+        date: d,
+        reference: ref,
+        heroText: first.length > 90 ? `${first.slice(0, 90)}…` : first,
+        passageTitle: `${ref} (생명의 삶 본문)`,
+        passage: picked,
+      },
+      {
       meditation:
         `오늘 새벽예배는 생명의 삶 본문으로 드립니다. 오늘 본문은 ${ref}, 모두 ${picked.length}절입니다.\n\n` +
         `천천히 소리 내어 읽으며, 마음에 머무는 한 구절을 찾아보세요. ` +
@@ -814,10 +836,9 @@ async function syncQtVerses(dates, bible, findBook) {
         `말씀으로 하루를 열게 하시니 감사합니다. 오늘 ${ref} 말씀을 마음에 새기게 하시고, ` +
         `그 말씀이 하루의 생각과 걸음을 인도하게 하옵소서. ` +
         `예수님의 이름으로 기도합니다. 아멘.`,
-      imageUrl: null,
-      source: 'auto',
-      translation: 'gae',
-    });
+      },
+      `  – ${d} ${ref}`,
+    );
     console.log(`  ✓ ${d}  ${ref} (${picked.length}절)`);
   }
 }
