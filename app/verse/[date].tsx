@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { OverlayHeader } from '../../src/components/OverlayHeader';
+import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { FillInCard, ShareQuestionsCard } from '../../src/components/SermonNoteCards';
 import { hasVerseNote, VerseNoteCard } from '../../src/components/VerseNoteCard';
 import { scriptureRefEn } from '../../src/data/bibleEn';
@@ -42,6 +43,8 @@ function dateLabelEn(date: string): string {
  * "느헤미야  8:10-12" 같은 사소한 공백 차이는 같은 본문으로 본다). */
 const normRef = (s: string) => s.replace(/\s+/g, '');
 
+type VerseTab = 'text' | 'med' | 'app' | 'pray' | 'note';
+
 /** 저장한 말씀에서 열어 보는 지난 날짜의 말씀 전체 보기 */
 export default function VerseByDateScreen() {
   const { date, lang } = useLocalSearchParams<{ date: string; lang?: string }>();
@@ -49,13 +52,26 @@ export default function VerseByDateScreen() {
   const [verse, setVerse] = useState<VerseDoc | null>(null);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showFull, setShowFull] = useState(false);
+  const [tab, setTab] = useState<VerseTab>('text');
   // 야외예배 등 English 탭이 있는 주보의 "설교 메모" 버튼에서 넘어올 때만
   // ?lang=en으로 온다 — 그 주는 성경 본문 자체가 병기 인쇄돼 있어(주보
   // scriptures[].textEn) 진짜 영문 본문을 보여줄 수 있다. 그 외 보통
   // 주일(새벽예배 본문 등)은 개역 한글 성경만 있어 이 화면 자체가 영어
   // 모드로 오지 않는다.
   const isEn = lang === 'en';
+  // English 주보는 묵상·적용·기도를 한글로만 써 두므로 본문·메모만 쓴다
+  const tabs: { key: VerseTab; label: string }[] = isEn
+    ? [
+        { key: 'text', label: 'Passage' },
+        { key: 'note', label: 'Notes' },
+      ]
+    : [
+        { key: 'text', label: '본문' },
+        { key: 'med', label: '묵상' },
+        { key: 'app', label: '적용' },
+        { key: 'pray', label: '기도' },
+        { key: 'note', label: '메모' },
+      ];
   // 이 화면은 항상 "그 날짜 하나"만 다룬다 — 오늘이 며칠이든 상관없이, 주일
   // 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문을 그대로 함께 보여준다.
   // (요일별 새벽 본문에는 이 문서가 아예 없어 자연히 빈 배열로 안 나온다.)
@@ -203,99 +219,96 @@ export default function VerseByDateScreen() {
             />
           )}
 
-          {/* 묵상·적용·기도 — 말씀 화면(오늘)과 같은 차림으로, 지난 날짜도
-              본문·묵상·적용·기도·메모를 다 볼 수 있게. 목사님이 사역자
-              페이지에서 쓰신 글이 여기로 들어오고, 안 쓰신 날은 읽기를 돕는
-              기본 안내 문구가 대신 나온다.
-              (English 모드는 주일 주보에서 오는 병기 본문이라 제외) */}
-          {!isEn && (
-            <>
-              <Text style={styles.sectionTitle}>묵상</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                <Text style={styles.verseText}>
-                  {verse.meditation?.trim() ||
-                    '본문을 천천히 읽으며 마음에 머무는 구절을 찾아보세요. 그 구절 앞에 잠시 멈추어, 오늘 나에게 주시는 말씀으로 받아 묵상해 보세요.'}
-                </Text>
-              </View>
+          {/* 오늘 말씀 화면과 같은 탭 차림 — 지난 날짜도 본문·묵상·적용·
+              기도·메모를 같은 자리에서 찾을 수 있게. (English 모드는 주일
+              주보에서 오는 병기 본문이라 본문·메모 둘만 쓴다) */}
+          <View style={styles.tabsWrap}>
+            <SegmentTabs tabs={tabs} active={tab} onChange={setTab} />
+          </View>
 
-              <Text style={styles.sectionTitle}>적용</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                {(verse.application?.filter((a) => a.trim()).length
-                  ? verse.application.filter((a) => a.trim())
-                  : ['본문에서 받은 은혜를 오늘 삶에서 실천할 한 가지로 정해 보세요.']
-                ).map((a, i) => (
-                  <View key={i} style={styles.verseRow}>
-                    <Text style={styles.verseNum}>·</Text>
-                    <Text style={styles.verseText}>{a}</Text>
+          {tab === 'text' && (
+            <View style={[styles.sectionCard, shadows.card]}>
+              {isEn && enPassage ? (
+                <Text style={styles.verseText}>{enPassage}</Text>
+              ) : (
+                verse.passage.map((p) => (
+                  <View
+                    key={p.verse}
+                    style={[styles.verseRow, hlSet.has(p.verse) && styles.verseRowHl]}
+                  >
+                    <Text style={styles.verseNum}>{p.verse}</Text>
+                    <Text style={styles.verseText}>{p.text}</Text>
                   </View>
-                ))}
-              </View>
-
-              <Text style={styles.sectionTitle}>기도</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                <Text style={styles.verseText}>
-                  {verse.prayer?.trim() ||
-                    '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
-                </Text>
-              </View>
-            </>
+                ))
+              )}
+            </View>
           )}
 
-          {/* 주일 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문도 함께 —
-              단, 이 내용 자체는 관리자가 한글로만 써 두므로 English 모드에서도
-              한글 그대로 보여준다(제목만 영어로). */}
-          {noteLines.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>{isEn ? 'Fill in the Blank' : '괄호 채우기'}</Text>
-              <FillInCard date={verse.date} lines={noteLines} />
-            </>
-          )}
-
-          {/* 저장한 말씀에는 형광펜 구절 + 메모만 — 장 전체는 원할 때만 펼친다 */}
-          <Text style={styles.sectionTitle}>{isEn ? 'Notes' : '메모'}</Text>
-          <VerseNoteCard
-            key={verse.date}
-            date={verse.date}
-            reference={verse.reference}
-            heroText={verse.heroText}
-            onQuoteRemoved={onQuoteRemoved}
-            onAutoSaved={onNoteAutoSaved}
-          />
-
-          {shareQuestions.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>{isEn ? 'Discussion Questions' : '나눔 질문'}</Text>
-              <ShareQuestionsCard date={verse.date} questions={shareQuestions} />
-            </>
-          )}
-
-          {/* English 모드는 절 단위 형광펜이 없는 병기 본문 전체를 그대로
-              보여주므로, 펼치기/접기 토글 자체가 필요 없다. */}
-          {!isEn && hls.length > 0 && (
-            <Pressable style={styles.fullToggle} onPress={() => setShowFull((s) => !s)}>
-              <Text style={styles.fullToggleText}>
-                {showFull ? '전체 본문 접기 ▲' : '전체 본문 보기 ▼'}
+          {/* 묵상·적용·기도 — 목사님이 사역자 페이지에서 쓰신 글이 여기로
+              들어오고, 안 쓰신 날은 읽기를 돕는 기본 안내 문구가 나온다 */}
+          {tab === 'med' && (
+            <View style={[styles.sectionCard, shadows.card]}>
+              <Text style={styles.verseText}>
+                {verse.meditation?.trim() ||
+                  '본문을 천천히 읽으며 마음에 머무는 구절을 찾아보세요. 그 구절 앞에 잠시 멈추어, 오늘 나에게 주시는 말씀으로 받아 묵상해 보세요.'}
               </Text>
-            </Pressable>
+            </View>
           )}
-          {(isEn || showFull || hls.length === 0) && (
+
+          {tab === 'app' && (
+            <View style={[styles.sectionCard, shadows.card]}>
+              {(verse.application?.filter((a) => a.trim()).length
+                ? verse.application.filter((a) => a.trim())
+                : ['본문에서 받은 은혜를 오늘 삶에서 실천할 한 가지로 정해 보세요.']
+              ).map((a, i) => (
+                <View key={i} style={styles.verseRow}>
+                  <Text style={styles.verseNum}>·</Text>
+                  <Text style={styles.verseText}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {tab === 'pray' && (
+            <View style={[styles.sectionCard, shadows.card]}>
+              <Text style={styles.verseText}>
+                {verse.prayer?.trim() ||
+                  '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
+              </Text>
+            </View>
+          )}
+
+          {/* 메모 — 주일 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문도
+              함께. 이 내용은 관리자가 한글로만 써 두므로 English 모드에서도
+              한글 그대로 보여준다(제목만 영어로). */}
+          {tab === 'note' && (
             <>
-              <Text style={styles.sectionTitle}>{isEn ? 'Passage' : '본문'}</Text>
-              <View style={[styles.sectionCard, shadows.card]}>
-                {isEn && enPassage ? (
-                  <Text style={styles.verseText}>{enPassage}</Text>
-                ) : (
-                  verse.passage.map((p) => (
-                    <View
-                      key={p.verse}
-                      style={[styles.verseRow, hlSet.has(p.verse) && styles.verseRowHl]}
-                    >
-                      <Text style={styles.verseNum}>{p.verse}</Text>
-                      <Text style={styles.verseText}>{p.text}</Text>
-                    </View>
-                  ))
-                )}
-              </View>
+              {noteLines.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>
+                    {isEn ? 'Fill in the Blank' : '괄호 채우기'}
+                  </Text>
+                  <FillInCard date={verse.date} lines={noteLines} />
+                </>
+              )}
+
+              <VerseNoteCard
+                key={verse.date}
+                date={verse.date}
+                reference={verse.reference}
+                heroText={verse.heroText}
+                onQuoteRemoved={onQuoteRemoved}
+                onAutoSaved={onNoteAutoSaved}
+              />
+
+              {shareQuestions.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>
+                    {isEn ? 'Discussion Questions' : '나눔 질문'}
+                  </Text>
+                  <ShareQuestionsCard date={verse.date} questions={shareQuestions} />
+                </>
+              )}
             </>
           )}
         </ScrollView>
@@ -315,6 +328,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   content: { padding: 16, paddingBottom: 40 },
+  // 탭 줄은 카드 사이에서도 화면 좌우 끝까지 이어지게 (말씀 화면과 같은 모습)
+  tabsWrap: {
+    marginHorizontal: -16,
+    marginTop: 14,
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
   headCard: {
     backgroundColor: colors.card,
     borderRadius: radius.card,
@@ -355,8 +375,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -6,
   },
   verseRowHl: { backgroundColor: '#FFF3BF' },
-  fullToggle: { alignSelf: 'center', marginTop: 18, paddingVertical: 8, paddingHorizontal: 16 },
-  fullToggleText: { fontFamily: font.bold, fontSize: 13, color: colors.primary },
   verseNum: {
     fontFamily: font.bold,
     fontSize: 12,
