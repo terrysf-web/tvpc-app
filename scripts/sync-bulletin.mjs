@@ -467,9 +467,24 @@ function fixPassageBookName(passage, bible) {
 function pdfText() {
   if (pdfTextCache == null) {
     execFileSync('pdftotext', ['-layout', join(dir, 'in.pdf'), join(dir, 'out.txt')]);
-    pdfTextCache = readFileSync(join(dir, 'out.txt'), 'utf8');
+    pdfTextCache = cleanPdfText(readFileSync(join(dir, 'out.txt'), 'utf8'));
   }
   return pdfTextCache;
+}
+
+/**
+ * 주보 PDF에서 뽑은 글에는 눈에 안 보이는 글자가 섞여 나온다. 실제로
+ * 2026-09-06 주보의 "토(12일): 예례미야 3장"은 책 이름과 장 사이에 제어
+ * 문자가 끼어 있어("예례미야\u00013장") 본문으로 읽히지 않았고, 그날
+ * 새벽예배 말씀이 엉뚱한 본문으로 등록됐다.
+ *
+ * 제어 문자는 칸을 띄운 자리이므로 공백으로 바꾸고, 폭이 없는 글자
+ * (zero-width)는 아예 지운다 — 눈에 보이는 글은 그대로 남는다.
+ */
+function cleanPdfText(t) {
+  return t
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');
 }
 
 /**
