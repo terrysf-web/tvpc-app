@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Alert, Platform } from 'react-native';
-import { extForType, saveBlobToDevice } from './saveFile';
+import { saveAudioToDevice } from './saveFile';
 import type { SermonDoc } from './types';
 
 /**
@@ -111,9 +111,9 @@ export async function saveUrlToDevice(url: string, baseName: string) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(String(res.status));
     const blob = await res.blob();
-    // 확장자는 받아 온 파일 형식에서 정한다 — 사파리 녹음은 m4a, 크롬은 webm이라
-    // 이름에 미리 박아 두면 엉뚱한 확장자가 붙는다.
-    await saveBlobToDevice(blob, `${baseName}.${extForType(blob.type)}`);
+    // 확장자는 실제 저장되는 형식에서 정한다 — 사파리 녹음은 m4a로 그대로,
+    // 크롬 녹음(webm)은 열리는 기기가 적어 MP3로 바꿔서 저장한다.
+    await saveAudioToDevice(blob, baseName);
   } catch {
     openExternal(url);
   }

@@ -210,6 +210,8 @@ export default function AdminScreen() {
   const [vSermonUrl, setVSermonUrl] = useState('');
   // 앱에서 바로 녹음해 올리기(웹 전용) — 올리면 그날 말씀에 자동으로 연결된다
   const rec = useSermonRecorder();
+  // 녹음을 MP3로 바꿔 저장하는 동안(긴 설교는 몇십 초) 단추에 알린다
+  const [savingFile, setSavingFile] = useState(false);
   const [upPct, setUpPct] = useState(0);
   const [showUrlForm, setShowUrlForm] = useState(false);
 
@@ -1304,13 +1306,23 @@ export default function AdminScreen() {
                           {rec.playing ? '■ 멈춤' : '▶ 들어 보기'}
                         </Text>
                       </Pressable>
+                      {/* webm으로 녹음된 경우 MP3로 바꾸느라 조금 걸린다 —
+                          누른 뒤 아무 일도 없어 보이지 않게 알려 준다 */}
                       <Pressable
                         style={[styles.ghostBtn, styles.recBtn]}
-                        onPress={() =>
-                          rec.saveToDevice(`설교 ${(vSermonDate || today()).trim()}.${rec.ext}`)
-                        }
+                        disabled={savingFile}
+                        onPress={async () => {
+                          setSavingFile(true);
+                          try {
+                            await rec.saveToDevice(`설교 ${(vSermonDate || today()).trim()}`);
+                          } finally {
+                            setSavingFile(false);
+                          }
+                        }}
                       >
-                        <Text style={styles.ghostBtnText}>파일로 저장</Text>
+                        <Text style={styles.ghostBtnText}>
+                          {savingFile ? '저장 준비 중…' : '파일로 저장'}
+                        </Text>
                       </Pressable>
                       <Pressable style={[styles.ghostBtn, styles.recBtn]} onPress={rec.reset}>
                         <Text style={styles.ghostBtnText}>다시 녹음</Text>

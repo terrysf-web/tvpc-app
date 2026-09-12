@@ -7,7 +7,7 @@
  * 들어가면 그대로 녹음할 수 있다(크롬·사파리 모두 마이크 녹음을 지원한다).
  *
  * 담는 형식은 브라우저가 할 수 있는 것 중에서 고른다. 크롬은 webm(opus),
- * 사파리는 mp4(aac)만 되므로 둘 다 시도한다.
+ * 사파리는 mp4(aac)만 되고 크롬은 둘 다 되므로, 어디서나 열리는 mp4를 먼저 쓴다.
  *
  * 말소리 한 줄(모노) 64kbps로 담는다 — 30분 설교가 대략 14MB다. 처음엔
  * 통화 수준인 32kbps로 잡았는데, 무료 저장 용량이 5GB라 아낄 이유가 없고
@@ -16,13 +16,15 @@
  * 강대상에 놓고 움직이며 말씀하실 때를 생각한 설정).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { saveBlobToDevice } from './saveFile';
+import { saveAudioToDevice } from './saveFile';
 
+// 어디서나 열리는 형식을 먼저 고른다 — webm으로 담으면 받아 놓아도 윈도우
+// 미디어 플레이어·아이폰에서 열리지 않아, 저장할 때 MP3로 다시 바꿔야 한다.
 const CANDIDATES = [
-  { mime: 'audio/webm;codecs=opus', ext: 'webm' },
-  { mime: 'audio/webm', ext: 'webm' },
   { mime: 'audio/mp4', ext: 'm4a' },
   { mime: 'audio/mpeg', ext: 'mp3' },
+  { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+  { mime: 'audio/webm', ext: 'webm' },
 ];
 
 function pickFormat(): { mime: string; ext: string } | null {
@@ -221,10 +223,11 @@ export function useSermonRecorder() {
    * 보내실 때. 아이폰에서는 공유 시트가 떠서 "파일에 저장"을 고르면 된다
    * (아이폰은 그 길밖에 없다 — saveFile.ts 참고).
    */
+  // 확장자는 붙이지 않는다 — 저장 창구가 형식(mp3/m4a)을 정하고 맞춰 붙인다
   const saveToDevice = useCallback(
-    (name: string) => {
+    async (baseName: string) => {
       const b = blob;
-      if (b) void saveBlobToDevice(b, name);
+      if (b) await saveAudioToDevice(b, baseName);
     },
     [blob],
   );

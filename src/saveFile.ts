@@ -10,6 +10,8 @@
  * (공유 시트로 한 번, 그 뒤 내려받기로 또 한 번).
  */
 
+import { toMp3 } from './toMp3';
+
 /** 아이폰·아이패드 — 저장 수단이 공유 시트뿐이다 */
 function isApplePhone(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -63,4 +65,14 @@ export async function saveBlobToDevice(blob: Blob, filename: string): Promise<bo
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   return true;
+}
+
+/**
+ * 설교 녹음을 기기에 저장한다. 크롬·안드로이드 녹음(webm)은 받아 놓아도
+ * 열리지 않는 기기가 많아, 어디서나 재생되는 MP3로 바꿔서 준다.
+ * 확장자는 실제 저장되는 형식에 맞춰 붙인다.
+ */
+export async function saveAudioToDevice(blob: Blob, baseName: string): Promise<boolean> {
+  const out = await toMp3(blob);
+  return saveBlobToDevice(out, `${baseName}.${extForType(out.type)}`);
 }

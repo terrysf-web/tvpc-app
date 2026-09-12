@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OverlayHeader } from '../src/components/OverlayHeader';
@@ -28,6 +28,8 @@ function dateLabel(date: string): string {
  * 단추는 그 자리에서 바로 설교를 튼다. 설교가 없는 날은 단추가 안 나온다.
  */
 export default function PastVersesScreen() {
+  // 어느 날짜를 저장하는 중인지 — MP3로 바꾸는 동안 그 단추만 돌아간다
+  const [saving, setSaving] = useState<string | null>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { verses, ready } = useRecentVerses(60);
@@ -72,11 +74,22 @@ export default function PastVersesScreen() {
                   <Pressable
                     style={styles.saveBtn}
                     hitSlop={8}
-                    onPress={() =>
-                      saveUrlToDevice(v.sermonAudioUrl as string, `설교 ${v.date}`)
-                    }
+                    disabled={saving === v.date}
+                    // 크롬으로 녹음된 설교는 MP3로 바꿔서 저장하므로 조금 걸린다
+                    onPress={async () => {
+                      setSaving(v.date);
+                      try {
+                        await saveUrlToDevice(v.sermonAudioUrl as string, `설교 ${v.date}`);
+                      } finally {
+                        setSaving(null);
+                      }
+                    }}
                   >
-                    <Download size={16} color={colors.primary} strokeWidth={2} />
+                    {saving === v.date ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Download size={16} color={colors.primary} strokeWidth={2} />
+                    )}
                   </Pressable>
                 )}
                 {!!v.sermonAudioUrl && (
