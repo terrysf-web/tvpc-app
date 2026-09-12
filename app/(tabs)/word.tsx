@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
 import List from 'lucide-react-native/dist/esm/icons/list.mjs';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
@@ -29,27 +29,20 @@ import {
   type VerseHighlight,
 } from '../../src/data/verseMarks';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
-import type { VerseDoc } from '../../src/types';
 import { useVerseBg } from '../../src/verseBg';
 
 type WordTab = 'text' | 'note' | 'med' | 'app' | 'pray';
 
-/**
- * 탭은 그날 말씀에 든 내용에 맞춰 정한다.
- *
- * 묵상·적용·기도는 목사님이 사역자 페이지에서 직접 등록하신 날
- * (source='manual')에만 보여준다 — 주보에서 자동 등록된 날은 이 칸이
- * 기계가 만든 일반 안내 문구라, 탭을 열어 봐야 읽을 것이 없다.
- */
-function tabsFor(verse: VerseDoc): { key: WordTab; label: string }[] {
-  const byPastor = verse.source === 'manual';
-  const tabs: { key: WordTab; label: string }[] = [{ key: 'text', label: '본문' }];
-  if (byPastor && verse.meditation?.trim()) tabs.push({ key: 'med', label: '묵상' });
-  if (byPastor && verse.application?.some((a) => a.trim())) tabs.push({ key: 'app', label: '적용' });
-  if (byPastor && verse.prayer?.trim()) tabs.push({ key: 'pray', label: '기도' });
-  tabs.push({ key: 'note', label: '메모' });
-  return tabs;
-}
+// 말씀 화면 탭 — 처음 설계대로 본문·묵상·적용·기도·메모를 늘 보여준다.
+// 목사님이 사역자 페이지에서 등록하신 묵상·적용·기도가 여기로 들어온다
+// (안 쓰신 날은 읽기를 돕는 기본 안내 문구가 대신 나온다).
+const TABS: { key: WordTab; label: string }[] = [
+  { key: 'text', label: '본문' },
+  { key: 'med', label: '묵상' },
+  { key: 'app', label: '적용' },
+  { key: 'pray', label: '기도' },
+  { key: 'note', label: '메모' },
+];
 
 /** 글씨크기 3단계 */
 const FONT_SCALES = [1, 1.15, 1.3];
@@ -64,11 +57,6 @@ export default function WordScreen() {
   // ?play=1로 들어오면(알림 등 바로 듣기 링크) 재생하며 연다
   const { play } = useLocalSearchParams<{ play?: string }>();
   const [tab, setTab] = useState<WordTab>('text');
-  const tabs = useMemo(() => tabsFor(verse), [verse]);
-  // 날짜가 바뀌어 보던 탭이 없어지면 본문으로 돌아온다(빈 화면 방지)
-  useEffect(() => {
-    if (!tabs.some((t) => t.key === tab)) setTab('text');
-  }, [tabs, tab]);
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
   // 주일에는 예배에서 읽는 본문이므로 제목을 '주일 성경봉독'으로 보여준다
@@ -239,7 +227,7 @@ export default function WordScreen() {
       </PhotoSlot>
 
       {/* 세그먼트 탭 */}
-      <SegmentTabs tabs={tabs} active={tab} onChange={setTab} />
+      <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
 
       {/* 본문 */}
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
