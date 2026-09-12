@@ -35,7 +35,7 @@ export async function saveBlobToDevice(blob: Blob, filename: string): Promise<bo
   const file = new File([blob], filename, { type: blob.type || 'audio/mpeg' });
   const nav = navigator as Navigator & {
     canShare?: (d: { files?: File[] }) => boolean;
-    share?: (d: { files?: File[]; title?: string }) => Promise<void>;
+    share?: (d: { files?: File[] }) => Promise<void>;
   };
 
   // 아이폰·아이패드 — 공유 시트만 쓴다. 내려받기로 넘어가면 파일이 열리기만
@@ -45,7 +45,9 @@ export async function saveBlobToDevice(blob: Blob, filename: string): Promise<bo
       throw new Error('이 기기에서는 저장을 지원하지 않습니다. 사파리에서 열어 주세요.');
     }
     try {
-      await nav.share({ files: [file], title: filename });
+      // 파일만 넘긴다 — 제목까지 같이 넘기면 아이폰이 그 글을 별도 항목으로
+      // 보고 설교 파일 옆에 텍스트 파일을 하나 더 저장하는 일이 있다
+      await nav.share({ files: [file] });
       return true;
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return false;
