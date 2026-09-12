@@ -10,8 +10,6 @@
  * (공유 시트로 한 번, 그 뒤 내려받기로 또 한 번).
  */
 
-import { toMp3 } from './toMp3';
-
 /** 아이폰·아이패드 — 저장 수단이 공유 시트뿐이다 */
 function isApplePhone(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -68,11 +66,13 @@ export async function saveBlobToDevice(blob: Blob, filename: string): Promise<bo
 }
 
 /**
- * 설교 녹음을 기기에 저장한다. 크롬·안드로이드 녹음(webm)은 받아 놓아도
- * 열리지 않는 기기가 많아, 어디서나 재생되는 MP3로 바꿔서 준다.
- * 확장자는 실제 저장되는 형식에 맞춰 붙인다.
+ * 설교 녹음을 기기에 저장한다. 확장자는 파일 형식에서 정한다.
+ *
+ * 한때 여기서 webm 녹음을 MP3로 바꿔 저장했는데, 30분짜리 설교를 폰에서
+ * 바꾸다 보니 몇 분씩 멈춘 것처럼 보였다("뱅글 돌기만 해"). 형식을 바꾸는
+ * 일은 저장소에 올려 둔 파일을 한 번만 손보는 쪽이 맞다
+ * (scripts/convert-sermon-audio.mjs) — 여기서는 받은 그대로 저장한다.
  */
 export async function saveAudioToDevice(blob: Blob, baseName: string): Promise<boolean> {
-  const out = await toMp3(blob);
-  return saveBlobToDevice(out, `${baseName}.${extForType(out.type)}`);
+  return saveBlobToDevice(blob, `${baseName}.${extForType(blob.type)}`);
 }
