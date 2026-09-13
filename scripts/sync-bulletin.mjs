@@ -1870,6 +1870,16 @@ function extractDuty(lines) {
 // 주석 참고) — 담당 이름으로 이어붙이면 안 되는 줄들.
 const STAFF_NOISE = /^(새벽예배|금요성령집회)$/;
 
+/** 같은 면의 새벽예배 표에서 흘러들어온 줄인가 — 이름으로 이어붙이면 안 된다 */
+function looksLikeDawnTableCell(t) {
+  return (
+    STAFF_NOISE.test(t) ||
+    /^[월화수목금토일]\s*\(\s*\d{1,2}\s*일\s*\)/.test(t) ||
+    /^[가-힣]+\s*\d{1,3}\s*장/.test(t) ||
+    /생명의\s*삶|강해/.test(t)
+  );
+}
+
 function extractStaff(lines) {
   const start = lines.findIndex((l) => /섬기는\s*사람들/.test(l));
   if (start < 0) return [];
@@ -1885,7 +1895,10 @@ function extractStaff(lines) {
     // 페이지를 통째로 한 칸으로 봄) 줄이 섞여 나올 수 있다 — 첫 칸만 이
     // 표 내용으로 보고, ¶ 뒤에 붙은 나머지 칸은 다른 표 내용일 수 있어
     // 무시한다.
-    const first = (cols[0] ?? '').trim();
+    // 이어지는 이름 줄은 이름 칸에 맞춰 들여 찍혀서 첫 칸이 비어 나온다
+    // (시무안수집사의 영문 이름 "Mike Kim, Stephanie Lee, Toni Cheng"이 그래서
+    // 통째로 빠졌다). 첫 칸이 비었으면 그다음 칸을 본다.
+    const first = (cols[0] ?? '').trim() || (cols.find((c) => c.trim()) ?? '').trim();
     if (!first) continue;
     const stripped = first.replace(/\s+/g, '');
     // 예전: "역할"과 "이름"이 서로 다른 칸(¶)에 떨어져 있었다.
@@ -1901,11 +1914,13 @@ function extractStaff(lines) {
     if (role) {
       cur = { role, names: names ?? '' };
       staff.push(cur);
-    } else if (cur && !STAFF_NOISE.test(first) && !/^[월화수목금토일]\(\d{1,2}일\)/.test(first)) {
+    } else if (cur && !looksLikeDawnTableCell(first)) {
       cur.names = `${cur.names} ${first}`.trim();
     }
   }
-  return staff.map((s) => ({ role: s.role, names: s.names.replace(/\s*,\s*/g, ', ').trim() }));
+  const out = staff.map((s) => ({ role: s.role, names: s.names.replace(/\s*,\s*/g, ', ').trim() }));
+  for (const s of out) console.log(`   · ${s.role}: ${s.names}`);
+  return out;
 }
 
 /** 텍스트로 찾은 면들 중 특정 표식이 있는 면을 고른다 */
