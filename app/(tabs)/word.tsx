@@ -33,9 +33,9 @@ import { useVerseBg } from '../../src/verseBg';
 
 type WordTab = 'text' | 'note' | 'med' | 'app' | 'pray';
 
-// 말씀 화면 탭 — 처음 설계대로 본문·묵상·적용·기도·메모를 늘 보여준다.
-// 목사님이 사역자 페이지에서 등록하신 묵상·적용·기도가 여기로 들어온다
-// (안 쓰신 날은 읽기를 돕는 기본 안내 문구가 대신 나온다).
+// 평일(새벽예배) 말씀 — 본문·묵상·적용·기도·메모. 목사님이 사역자
+// 페이지에서 등록하신 묵상·적용·기도가 여기로 들어온다(안 쓰신 날은 읽기를
+// 돕는 기본 안내 문구가 대신 나온다).
 const TABS: { key: WordTab; label: string }[] = [
   { key: 'text', label: '본문' },
   { key: 'med', label: '묵상' },
@@ -43,6 +43,19 @@ const TABS: { key: WordTab; label: string }[] = [
   { key: 'pray', label: '기도' },
   { key: 'note', label: '메모' },
 ];
+
+// 주일은 본문·메모만. 주일 성경봉독은 예배에서 설교로 듣는 본문이라,
+// 앱이 만든 묵상·적용·기도를 따로 붙일 자리가 아니다.
+const SUNDAY_TABS: { key: WordTab; label: string }[] = [
+  { key: 'text', label: '본문' },
+  { key: 'note', label: '메모' },
+];
+
+/** 그날이 주일인가 — 주일이면 성경봉독(예배 본문)이다 */
+function isSundayVerse(date: string): boolean {
+  const d = new Date(`${date}T00:00:00`);
+  return !Number.isNaN(d.getTime()) && d.getDay() === 0;
+}
 
 /** 글씨크기 3단계 */
 const FONT_SCALES = [1, 1.15, 1.3];
@@ -57,6 +70,11 @@ export default function WordScreen() {
   // ?play=1로 들어오면(알림 등 바로 듣기 링크) 재생하며 연다
   const { play } = useLocalSearchParams<{ play?: string }>();
   const [tab, setTab] = useState<WordTab>('text');
+  const tabs = isSundayVerse(verse.date) ? SUNDAY_TABS : TABS;
+  // 날짜가 바뀌어 보던 탭이 없어지면 본문으로 돌아온다(빈 화면 방지)
+  useEffect(() => {
+    if (!tabs.some((t) => t.key === tab)) setTab('text');
+  }, [tabs, tab]);
   const [scaleStep, setScaleStep] = useState(0);
   const [saved, setSaved] = useState(false);
   // 주일에는 예배에서 읽는 본문이므로 제목을 '주일 성경봉독'으로 보여준다
@@ -227,7 +245,7 @@ export default function WordScreen() {
       </PhotoSlot>
 
       {/* 세그먼트 탭 */}
-      <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
+      <SegmentTabs tabs={tabs} active={tab} onChange={setTab} />
 
       {/* 본문 */}
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>

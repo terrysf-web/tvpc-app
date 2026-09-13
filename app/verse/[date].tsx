@@ -59,19 +59,30 @@ export default function VerseByDateScreen() {
   // 주일(새벽예배 본문 등)은 개역 한글 성경만 있어 이 화면 자체가 영어
   // 모드로 오지 않는다.
   const isEn = lang === 'en';
-  // English 주보는 묵상·적용·기도를 한글로만 써 두므로 본문·메모만 쓴다
+  // 주일은 본문·메모만 — 주일 성경봉독은 예배에서 설교로 듣는 본문이라,
+  // 앱이 만든 묵상·적용·기도를 따로 붙일 자리가 아니다.
+  // English 주보도 묵상·적용·기도를 한글로만 써 두므로 본문·메모만 쓴다.
+  const sundayVerse = (() => {
+    const d = new Date(`${date}T00:00:00`);
+    return !Number.isNaN(d.getTime()) && d.getDay() === 0;
+  })();
   const tabs: { key: VerseTab; label: string }[] = isEn
     ? [
         { key: 'text', label: 'Passage' },
         { key: 'note', label: 'Notes' },
       ]
-    : [
-        { key: 'text', label: '본문' },
-        { key: 'med', label: '묵상' },
-        { key: 'app', label: '적용' },
-        { key: 'pray', label: '기도' },
-        { key: 'note', label: '메모' },
-      ];
+    : sundayVerse
+      ? [
+          { key: 'text', label: '본문' },
+          { key: 'note', label: '메모' },
+        ]
+      : [
+          { key: 'text', label: '본문' },
+          { key: 'med', label: '묵상' },
+          { key: 'app', label: '적용' },
+          { key: 'pray', label: '기도' },
+          { key: 'note', label: '메모' },
+        ];
   // 이 화면은 항상 "그 날짜 하나"만 다룬다 — 오늘이 며칠이든 상관없이, 주일
   // 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문을 그대로 함께 보여준다.
   // (요일별 새벽 본문에는 이 문서가 아예 없어 자연히 빈 배열로 안 나온다.)
