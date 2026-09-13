@@ -1274,19 +1274,28 @@ function extractOrderAndSermon(lines) {
       // 공동체 소식") — ¶ 뒤가 다른 라벨로 시작하면 구간 제목과 그 항목을
       // 각각 따로 만든다.
       const afterPillar = rest.replace(/^(?:¶\s*)+/, '');
-      const subLabel = afterPillar !== rest ? matchOrderLabel(afterPillar) : null;
+      const pillarLabel = afterPillar !== rest ? matchOrderLabel(afterPillar) : null;
       // 부제("세상으로" 등)가 옆 항목("축복과 파송")과 ¶로 한 줄에 붙어 나오면
       // 부제만 버리고 그 항목은 살린다.
       if (DECORATIVE_SUBTITLES.has(label)) {
-        if (subLabel) {
+        if (pillarLabel) {
           raw.push({
-            name: subLabel,
-            detailLines: [...(star ? ['*'] : []), afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')],
+            name: pillarLabel,
+            detailLines: [
+              ...(star ? ['*'] : []),
+              afterPillar.slice(pillarLabel.length).replace(/^[\s.]+/, ''),
+            ],
           });
         }
         continue;
       }
       const isHeader = HEADER_LABELS.has(label);
+      // ¶ 뒤에 라벨처럼 보이는 글이 와도, 앞이 구간 제목(모임·말씀·성찬·파송)일
+      // 때만 새 항목으로 갈라낸다. 보통 항목에서는 ¶ 뒤가 1부·2부 칸 내용이다 —
+      // 2026-09-13 주보의 "경배와 기도 ¶ 참회의 기도 / 신앙고백* ¶ 찬양팀*"에서
+      // "참회의 기도"를 새 항목으로 갈라내는 바람에 경배와 기도 칸이 비고,
+      // 뒤따르는 찬송·기도·특송 줄이 전부 그 한 항목에 쏟아져 들어갔다.
+      const subLabel = isHeader ? pillarLabel : null;
       const subtitle = isHeader ? HEADER_SUBTITLE[label] : undefined;
       // 구간 제목은 그 구간 세로 칸의 가운데 높이에 찍혀서, 항목 줄 순서로는
       // 구간의 첫 항목보다 뒤에 나오기도 한다("봉헌" 다음에 "성찬") — 서식상
@@ -1379,7 +1388,7 @@ function extractOrderAndSermon(lines) {
       ? `(구간 제목) ${o.subtitle ?? ''}`
       : o.shared !== undefined
         ? o.shared
-        : `1부=${o.first ?? ''} | 2부=${o.second ?? ''}`;
+        : `1부=[${(o.service1 ?? '').replace(/\n/g, ' / ')}] 2부=[${(o.service2 ?? '').replace(/\n/g, ' / ')}]`;
     console.log(`   · ${o.name}: ${v}`);
   }
 
