@@ -253,6 +253,10 @@ function parseCalendarGrid(html) {
       const detail = desc
         ? unescape(desc[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
         : '';
+      // 서식을 살필 때 — 시간이 어떻게 찍혀 있는지 원본 그대로 남긴다
+      if (process.env.DEBUG_CALENDAR) {
+        console.log(`  [달력] ${d8} ${summary}\n      ${li.replace(/\s+/g, ' ').slice(0, 600)}`);
+      }
       const tm = li.match(/class="event-time[^"]*"[^>]*>([^<]+)</);
       if (tm) {
         const hm = tm[1].match(/(\d{1,2}):(\d{2})/);

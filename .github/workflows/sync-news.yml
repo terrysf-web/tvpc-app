@@ -9,6 +9,12 @@ on:
     # 주일 아침(태평양 시간 5:30–13:30 무렵)에는 매시간 — 주보가 올라오는 대로 반영
     - cron: '30 13-20 * * 0'
   workflow_dispatch:
+    inputs:
+      debug_calendar:
+        description: '달력에서 읽어들인 일정 원본을 기록에 남김(시간 표기를 살필 때).'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -39,4 +45,5 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
           TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+          DEBUG_CALENDAR: ${{ inputs.debug_calendar && '1' || '' }}
         run: node scripts/sync-news.mjs
