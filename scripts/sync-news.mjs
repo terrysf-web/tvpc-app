@@ -124,6 +124,17 @@ function icalDate(s) {
   const m = (s || '').match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/);
   if (!m) return null;
   const [, y, mo, da, hh, mi] = m;
+  // 끝에 Z가 붙은 값은 협정시(UTC)다 — 교회 현지 시각으로 옮겨야 "오후
+  // 1:15"가 "오후 8:15"로 나오지 않는다. TZID가 붙은 값은 이미 현지
+  // 시각이라 그대로 쓴다. (이 스크립트는 날짜·시간을 표시용으로만 쓰므로,
+  // 현지 시각을 그대로 담은 Date를 만든다.)
+  if (hh && /Z\s*$/.test(s)) {
+    const utc = Date.UTC(Number(y), Number(mo) - 1, Number(da), Number(hh), Number(mi));
+    const local = new Date(
+      new Date(utc).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }),
+    );
+    return { date: local, allDay: false };
+  }
   return {
     date: new Date(Number(y), Number(mo) - 1, Number(da), Number(hh ?? 12), Number(mi ?? 0)),
     allDay: !hh,
@@ -374,11 +385,25 @@ async function fetchOgImage(url) {
 console.log('[일정] 달력 페이지 수집:');
 const calEvents = [];
 // 같은 일정이 여러 소스에 있을 수 있어 날짜+제목으로 중복 제거
-const seenKeys = new Set();
+const seenKeys = new Map();
 const addEvent = (e) => {
   const key = `${ymd(e.start)}|${e.summary}`;
-  if (seenKeys.has(key)) return false;
-  seenKeys.add(key);
+  const prev = seenKeys.get(key);
+  if (prev) {
+    // 같은 일정이 달력 그리드와 구독 피드 양쪽에 있을 때가 많다. 그리드는
+    // 시간 없이 "하루 종일"로 나오는 일정이 있고, 피드에는 시작 시각이 들어
+    // 있다 — 시간이 있는 쪽으로 채워 준다(홈페이지 달력에 1:15 PM이라고
+    // 적혀 있는데 앱에는 시간이 안 나오던 이유).
+    if (prev.allDay && !e.allDay) {
+      prev.start = e.start;
+      prev.allDay = false;
+    }
+    if (!prev.location && e.location) prev.location = e.location;
+    if (!prev.url && e.url) prev.url = e.url;
+    if (!prev.detail && e.detail) prev.detail = e.detail;
+    return false;
+  }
+  seenKeys.set(key, e);
   calEvents.push(e);
   return true;
 };
@@ -476,7 +501,12 @@ const byDay = new Map();
 for (const e of upcoming) {
   const k = `${ymd(e.start)}|${dedupeKeyOf(e)}`;
   const cur = byDay.get(k);
-  if (!cur || e.summary.length > cur.summary.length) byDay.set(k, e);
+  // 시간이 적힌 쪽을 우선하고, 둘 다 같으면 제목이 자세한 쪽을 남긴다
+  const better =
+    !cur ||
+    (cur.allDay && !e.allDay) ||
+    (cur.allDay === e.allDay && e.summary.length > cur.summary.length);
+  if (better) byDay.set(k, e);
 }
 const deduped = [...byDay.values()].sort((a, b) => a.start - b.start);
 
