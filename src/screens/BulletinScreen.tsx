@@ -1571,6 +1571,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#3A2A1D',
     marginTop: 6,
+    // 설교 제목도 공백에서만 줄바꿈한다 — 그냥 두면 "계십니까?"가 중간에
+    // 잘려 "까?"만 다음 줄로 외로 떨어진다(웹 전용 속성).
+    // @ts-expect-error react-native-web 전용 속성
+    wordBreak: 'keep-all',
   },
   heroMeta: {
     fontFamily: font.medium,
@@ -1580,7 +1584,6 @@ const styles = StyleSheet.create({
     // 한글은 공백 없는 단어(예: "전도사")도 글자 단위로 줄바꿈될 수 있어
     // "최재하 전도" 다음 줄에 "사"만 외로 남는 경우가 있다 — 공백에서만
     // 줄바꿈되게 한다(웹 전용 CSS 속성, 네이티브엔 없어 타입에서 빠져 있음).
-    // @ts-expect-error react-native-web 전용 속성
     wordBreak: 'keep-all',
   },
   // 버튼은 아래쪽 선 밑 좁은 틈에 욱여넣는 대신, 선 위에 걸치듯 배치 —
