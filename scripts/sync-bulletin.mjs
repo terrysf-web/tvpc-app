@@ -384,7 +384,14 @@ async function applyBulletinVerse(docRef, scripture, auto, label) {
     console.log(`${label}: 직접 등록된 말씀의 본문을 주보대로 맞췄습니다`);
     return true;
   }
-  await docRef.set({ ...scripture, ...auto, imageUrl: null, source: 'auto', translation: 'gae' });
+  // merge로 쓴다 — 통째로 덮어쓰면 그날 올리신 설교 녹음 주소
+  // (sermonAudioUrl)까지 같이 지워진다. 실제로 9월 11일 새벽설교가 그렇게
+  // 사라졌다. 본문에 딸린 항목은 이 payload가 모두 새로 채우므로, merge로
+  // 써도 지난 본문 내용이 남지 않는다.
+  await docRef.set(
+    { ...scripture, ...auto, imageUrl: null, source: 'auto', translation: 'gae' },
+    { merge: true },
+  );
   return true;
 }
 

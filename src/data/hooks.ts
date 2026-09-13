@@ -155,11 +155,28 @@ export function useTodayVerse(): { verse: VerseDoc; loading: boolean; ready: boo
  * 지난 새벽말씀 — 오늘까지의 말씀을 최근 날짜 순으로. "지난 새벽설교"
  * 목록에서 쓴다(홈 카드는 오늘 것 하나만 보여주므로, 어제 설교를 들으려면
  * 이 목록으로 들어가야 한다).
+ *
+ * 주일(성경봉독)은 뺀다 — 이 목록은 새벽설교만 모아 보는 곳이고, 주일
+ * 설교는 예배 영상·주보에서 본다.
  */
 export function useRecentVerses(max = 60): { verses: VerseDoc[]; ready: boolean } {
   const today = new Date().toLocaleDateString('en-CA');
-  const { data, ready } = useCollection<VerseDoc>('verses', [], 'date', 'desc', max, today);
-  return { verses: data, ready };
+  // 주일을 걸러낸 뒤에도 max만큼 남도록 넉넉히 불러온다
+  const { data, ready } = useCollection<VerseDoc>(
+    'verses',
+    [],
+    'date',
+    'desc',
+    Math.ceil(max * 1.4),
+    today,
+  );
+  const verses = data
+    .filter((v) => {
+      const d = new Date(`${v.date}T00:00:00`);
+      return Number.isNaN(d.getTime()) || d.getDay() !== 0;
+    })
+    .slice(0, max);
+  return { verses, ready };
 }
 
 export function useSermons(): { sermons: SermonDoc[]; loading: boolean } {
