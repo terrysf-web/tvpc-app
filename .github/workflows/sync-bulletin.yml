@@ -32,6 +32,11 @@ on:
         description: '같은 날짜로 게시글이 두 개 이상 올라온 경우, 그중 정확히 이 게시글에서 PDF를 가져옴(전체 URL). target_date와 같이 쓰는 걸 권장.'
         required: false
         type: string
+      debug_order:
+        description: '예배 순서를 읽어들인 줄을 그대로 기록에 남김(서식이 바뀐 주보를 살필 때).'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -74,4 +79,5 @@ jobs:
           TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
           TARGET_BULLETIN_DATE: ${{ inputs.target_date }}
           TARGET_BULLETIN_URL: ${{ inputs.target_url }}
+          DEBUG_ORDER: ${{ inputs.debug_order && '1' || '' }}
         run: node scripts/sync-bulletin.mjs

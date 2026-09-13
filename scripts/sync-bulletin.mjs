@@ -1230,6 +1230,13 @@ function extractOrderAndSermon(lines) {
     cleaned.push(l);
     stars.push(star);
   }
+  // 서식이 바뀐 주보를 살필 때 — 읽어들인 줄을 그대로 남긴다
+  // (워크플로 입력 debug_order로 켠다)
+  if (process.env.DEBUG_ORDER) {
+    console.log('[예배순서] 읽어들인 줄:');
+    cleaned.forEach((l, n) => console.log(`   ${String(n).padStart(3)}${stars[n] ? '*' : ' '} ${l}`));
+  }
+
   for (let i = 0; i < cleaned.length; i++) {
     let t = cleaned[i];
     // 예배 순서는 축도에서 끝난다. 그 아래 칸에는 "표는 일어서 주시기
@@ -1362,6 +1369,19 @@ function extractOrderAndSermon(lines) {
     const shared = cleanText(pieces.filter((p) => p !== '*').join(' · ')) + (hasStar ? '*' : '');
     return { name: item.name, shared };
   });
+
+  // 어떤 항목이 어떤 내용으로 들어갔는지 늘 기록에 남긴다 — 칸이 밀리거나
+  // 항목이 통째로 사라지는 일이 있어(2026-09-13 축도·경배와 기도) 로그만
+  // 봐도 바로 알아볼 수 있게 한다.
+  console.log('[예배순서] 만들어진 항목:');
+  for (const o of order) {
+    const v = o.isHeader
+      ? `(구간 제목) ${o.subtitle ?? ''}`
+      : o.shared !== undefined
+        ? o.shared
+        : `1부=${o.first ?? ''} | 2부=${o.second ?? ''}`;
+    console.log(`   · ${o.name}: ${v}`);
+  }
 
   return {
     order,
