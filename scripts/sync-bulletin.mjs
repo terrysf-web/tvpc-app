@@ -1947,12 +1947,25 @@ try {
     serviceHeading = r.serviceHeading;
     if (orderOfWorship.length) console.log(`[주보] 예배 순서 ${orderOfWorship.length}개 항목 추출`);
     if (serviceHeading) console.log(`[주보] 예배 안내 줄 추출: ${serviceHeading}`);
-    // "새벽예배" 표는 예전엔 예배 순서와 같은 면에 있었지만, 2026-09-06부터
-    // 생긴 서식은 이 표가 다른 면(사역캘린더·섬기는 사람들과 같은 면)으로
-    // 옮겨갔다 — orderFace 대신 "새벽예배" 글자가 실제로 있는 면을 찾는다
-    // (못 찾으면 orderFace로 대체해 예전 주보도 그대로 동작).
-    const dawnFace = findFaceByMarker(faces, /새벽예배/);
-    const dr = extractDawnReadings(dawnFace.length ? dawnFace : orderFace);
+    // "새벽예배" 표는 주보마다 실리는 면이 다르다 — 예배 순서와 같은 면일
+    // 때도 있고(2026-09-13), 사역캘린더·섬기는 사람들과 같은 면일 때도
+    // 있다(2026-09-06). "새벽예배" 글자가 있는 면을 먼저 보되, 그 면에서
+    // 표를 못 읽으면 다른 면도 차례로 본다 — 어느 면인지 맞히려 들지 않고
+    // 실제로 표가 읽히는 면을 쓴다(면을 잘못 골라 표가 통째로 빠지는 일이
+    // 있었다).
+    const dawnCandidates = [
+      findFaceByMarker(faces, /새벽예배/),
+      orderFace,
+      ...faces,
+    ].filter((f) => f.length);
+    let dr = { dawn: [], friday: null };
+    for (const face of dawnCandidates) {
+      const got = extractDawnReadings(face);
+      if (got.dawn.length) {
+        dr = got;
+        break;
+      }
+    }
     // 주보에 책 이름이 한 글자 틀리게 찍히는 일이 있어(예례미야) 보여줄 때 바로잡는다
     const bibleForNames = await loadBible().catch(() => null);
     dawnReadings = dr.dawn.map((d) => ({
@@ -1962,7 +1975,13 @@ try {
     fridayReading = dr.friday
       ? { ...dr.friday, passage: fixPassageBookName(dr.friday.passage, bibleForNames) }
       : null;
-    if (dawnReadings.length) console.log(`[주보] 새벽예배 본문 ${dawnReadings.length}일 추출`);
+    if (dawnReadings.length) {
+      console.log(`[주보] 새벽예배 본문 ${dawnReadings.length}일 추출`);
+      for (const d of dawnReadings) console.log(`   · ${d.day}: ${d.passage}`);
+      if (fridayReading) console.log(`   · 금요집회 ${fridayReading.day}: ${fridayReading.passage}`);
+    } else {
+      console.log('[주보] 새벽예배 표를 읽지 못했습니다 — 어느 면에서도 못 찾음');
+    }
   } catch (e) {
     console.log(`  ! 예배 순서 추출 실패(무해): ${e.message}`);
   }
