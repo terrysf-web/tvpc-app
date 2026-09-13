@@ -1,15 +1,27 @@
 # 교회 홈페이지에 로그인해 최신 주보 PDF를 받아 앱용 페이지 이미지로 등록.
 # TVPC_WEB_USER / TVPC_WEB_PASS / FIREBASE_SERVICE_ACCOUNT 시크릿 필요.
 #
-# 예약 실행은 여기(깃허브 자체 cron) 대신 Cloud Scheduler가 맡는다 —
-# functions/index.js의 triggerBulletinSyncSat/Sun이 정확한 시각(토요일
-# 오후 5시~밤 11시, 일요일 밤 12시~오후 2시, 태평양 시간)에 이
-# workflow_dispatch를 대신 호출한다. 깃허브 자체 예약 실행(cron)은
-# 공용 대기열이라 통째로 씹히는 날이 있었다(2026-08-30 실측 — 새벽부터
-# 한 번도 안 돎) — Cloud Scheduler는 구글이 직접 관리해 훨씬 안정적.
+# 예약 실행은 두 갈래로 건다.
+#
+# 1) Cloud Scheduler (평소 담당) — functions/index.js의
+#    triggerBulletinSyncSat/Sun이 정확한 시각(토요일 오후 5시~밤 11시,
+#    일요일 밤 12시~오후 2시, 태평양 시간)에 workflow_dispatch를 대신
+#    호출한다. 구글이 직접 관리해 시각이 정확하다.
+# 2) 깃허브 자체 cron (예비) — 아래 schedule. 공용 대기열이라 몇십 분씩
+#    밀리거나 통째로 씹히는 날이 있어(2026-08-30 실측) 평소 담당으로는
+#    못 쓰지만, 한쪽이 멈췄을 때 주보가 아예 안 올라오는 것보다 낫다.
+#    실제로 2026-09-12 토요일에 Cloud Scheduler가 한 번도 호출하지 않아
+#    주일 주보가 만들어지지 않았다(함수가 쓰는 깃허브 토큰 문제로 보인다).
+#
+# 주보 동기화는 여러 번 돌아도 "이미 최신입니다"로 끝나므로 겹쳐도 해가
+# 없다. cron은 UTC 기준이라 태평양 시간 창을 서머타임(UTC-7)·표준시
+# (UTC-8) 양쪽 모두 덮도록 일요일 UTC 0~22시로 잡았다.
 name: Sync bulletin PDF from church website
 
 on:
+  schedule:
+    # 일요일 UTC 0~22시 정각 = 토요일 오후 4~5시부터 일요일 오후 2~3시까지(태평양)
+    - cron: '0 0-22 * * 0'
   workflow_dispatch:
     inputs:
       target_date:
