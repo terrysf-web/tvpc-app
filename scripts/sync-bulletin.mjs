@@ -1268,13 +1268,19 @@ function extractOrderAndSermon(lines) {
       // 에서 이미 채움) — 원문에서 만나도 새 항목을 만들지 않고 건너뛴다.
       // 2026-09-06부터 라벨과 내용 사이를 점선(".......")으로 잇는 항목이
       // 있다 — 내용에 점선이 그대로 남지 않게 앞쪽 공백·점을 걷어낸다.
-      const rest = t.slice(label.length).replace(/^[\s.]+/, '');
+      const restRaw = t.slice(label.length).replace(/^[\s.]+/, '');
+      // 라벨 바로 뒤의 ¶ 하나는 "라벨 칸과 내용 칸의 경계"지, 1부 칸이
+      // 비었다는 뜻이 아니다. 떼지 않으면 한 칸짜리 내용이 늘 2부로 밀린다
+      // (2026-09-13 주보의 "성도의 교제 ¶ 교회 소식"이 2부 칸에 들어갔다).
+      const rest = restRaw.replace(/^¶\s*/, '');
       // 큰 흐름 구간 제목("말씀" 등)과 그 아래 첫 항목이 같은 줄에 ¶로
       // 붙어 나오기도 한다("말씀 ¶ 교회의 기도 ......."나 "모임 ¶  ¶
       // 공동체 소식") — ¶ 뒤가 다른 라벨로 시작하면 구간 제목과 그 항목을
       // 각각 따로 만든다.
-      const afterPillar = rest.replace(/^(?:¶\s*)+/, '');
-      const pillarLabel = afterPillar !== rest ? matchOrderLabel(afterPillar) : null;
+      // 구간 제목과 그 아래 첫 항목이 한 줄에 붙어 나오는지 볼 때는 떼기 전
+      // 상태(restRaw)로 판단한다 — 위에서 뗀 ¶이 바로 그 경계이기 때문이다.
+      const afterPillar = restRaw.replace(/^(?:¶\s*)+/, '');
+      const pillarLabel = afterPillar !== restRaw ? matchOrderLabel(afterPillar) : null;
       // 부제("세상으로" 등)가 옆 항목("축복과 파송")과 ¶로 한 줄에 붙어 나오면
       // 부제만 버리고 그 항목은 살린다.
       if (DECORATIVE_SUBTITLES.has(label)) {
