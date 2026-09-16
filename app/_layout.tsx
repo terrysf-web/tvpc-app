@@ -6,6 +6,7 @@ import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BrandSplash } from '../src/components/BrandSplash';
 import { HelpReturnBar } from '../src/components/HelpReturnBar';
+import { MoveNotice } from '../src/components/MoveNotice';
 import { WelcomeScreen } from '../src/components/WelcomeScreen';
 import { InstallGuide } from '../src/components/InstallGuide';
 import { useMemoSync } from '../src/data/memoSync';
@@ -80,6 +81,8 @@ export default function RootLayout() {
           <HelpReturnBar />
           {/* 처음 실행·새 표어 때 한 번 — 교회 표어 웰컴 */}
           <WelcomeScreen />
+          {/* 바뀐 곳 안내 — "다시 안 보기"를 누르면 그 기기에서는 안 뜬다 */}
+          <MoveNotice />
           {/* 앱이 첫 그림을 준비하는 동안 로고·슬로건 (인위적 지연 없음) */}
           <BrandSplash />
         </View>

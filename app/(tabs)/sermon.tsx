@@ -5,16 +5,20 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoSlot } from '../../src/components/PhotoSlot';
+import { DawnSermonList } from '../../src/components/DawnSermonList';
 import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { useSermons } from '../../src/data/hooks';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import type { SermonDoc } from '../../src/types';
 
-type SermonTab = 'recent' | 'topic' | 'podcast';
+type SermonTab = 'recent' | 'topic' | 'dawn' | 'podcast';
 
 const TABS: { key: SermonTab; label: string }[] = [
-  { key: 'recent', label: '최근 설교' },
+  { key: 'recent', label: '주일설교' },
+  // 새벽설교는 "더보기 → 지난 새벽설교"에 있었는데, 설교를 한곳에서 찾도록
+  // 이리로 옮겼다(주일설교 · 새벽설교 · 팟캐스트).
+  { key: 'dawn', label: '새벽설교' },
   // 말씀별 탭은 당분간 숨김 — 코드는 유지 (TABS에 다시 넣으면 복원)
   { key: 'podcast', label: '팟캐스트' },
 ];
@@ -165,6 +169,7 @@ export default function SermonScreen() {
           </View>
         ))}
 
+        {tab === 'dawn' && <DawnSermonList />}
         {tab === 'podcast' && podcasts.map(listItem)}
         {tab === 'podcast' && podcasts.length === 0 && (
           <Text style={styles.empty}>등록된 말씀 팟캐스트가 아직 없습니다.</Text>
