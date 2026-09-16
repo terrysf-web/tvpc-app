@@ -1,4 +1,4 @@
-# 은혜안에 찬양팀 유튜브 채널(@EUNHYEANEWORSHIP)의 새 영상을 매주 Firestore에
+# 은혜안에 찬양팀 유튜브 채널(@EUNHYEANEWORSHIP)의 새 영상을 Firestore에
 # 자동 등록. 교회 미디어 > "찬양" 탭에 표시된다.
 #
 # 시크릿은 sync-sermons.yml과 동일한 FIREBASE_SERVICE_ACCOUNT를 그대로 쓴다
@@ -7,10 +7,11 @@ name: Sync praise videos from YouTube
 
 on:
   schedule:
-    # 매주 수요일 저녁 7시(태평양 시간, PDT UTC-7 기준 → 목요일 오전 2시 UTC).
-    # 깃허브 Actions cron은 UTC 고정이라 서머타임이 끝나면(11월) 실제
-    # 태평양 시간 기준 1시간씩 밀린다 — 필요하면 그때 다시 조정.
-    - cron: '0 2 * * 4'
+    # 2시간마다 — 설교 동기화와 같은 간격. 예전에는 수요일 저녁 한 번만
+    # 돌아서, 찬양팀이 다른 요일에 올리면 최대 일주일 뒤에야 앱에 보였다.
+    # 채널 페이지를 한 번 읽는 가벼운 일이고 새 영상만 더하므로 자주 돌아도
+    # 중복이 생기지 않는다.
+    - cron: '0 */2 * * *'
   workflow_dispatch:
 
 jobs:
