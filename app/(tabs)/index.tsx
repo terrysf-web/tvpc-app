@@ -34,6 +34,8 @@ import {
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useSundayBg, useVerseBg } from '../../src/verseBg';
 import { mmss, useInlineAudio } from '../../src/inlineAudio';
+import { NewDot } from '../../src/components/NewDot';
+import { useUnread } from '../../src/unread';
 import { setAppReady } from '../../src/appBoot';
 
 /**
@@ -148,6 +150,8 @@ export default function HomeScreen() {
 
   // 시간대별 기본 배경 (새벽·저녁·밤은 어두운 그림 → 흰 글씨)
   const bg = useVerseBg();
+  // "한눈에 보기" 카드에 새 소식·새 미디어 표시
+  const { groupIsNew } = useUnread();
 
   // 그날 설교 — 홈 카드에서 바로 듣는다. 유튜브 주소로 등록된 설교는 오디오
   // 재생기로 틀 수 없고, 폰 앱(네이티브)에도 이 재생기가 없으므로 예전처럼
@@ -524,6 +528,9 @@ export default function HomeScreen() {
             <Pressable key={m.key} style={[styles.quickCard, shadows.card]} onPress={m.onPress}>
               <View style={[styles.quickChip, { backgroundColor: m.chipBg }]}>{m.icon}</View>
               <Text style={styles.quickLabel}>{m.label}</Text>
+              {/* 지난번 본 뒤로 새로 올라온 것이 있으면 빨간 점 —
+                  그 안에서 새 탭을 열어 보면 사라진다 */}
+              {groupIsNew(m.key) && <NewDot style={styles.quickDot} />}
             </Pressable>
           ))}
         </View>
@@ -806,6 +813,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  // 새로 올라온 것이 있다는 점 — 카드 오른쪽 위
+  quickDot: { position: 'absolute', top: 8, right: 8 },
   quickChip: {
     width: 38,
     height: 38,

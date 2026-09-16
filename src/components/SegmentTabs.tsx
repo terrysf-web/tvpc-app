@@ -1,9 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { NewDot } from './NewDot';
 import { colors, font } from '../theme';
 
 interface Props<K extends string> {
-  tabs: { key: K; label: string }[];
+  /** dot: 그 탭에 새로 올라온 것이 있으면 이름 옆에 빨간 점 */
+  tabs: { key: K; label: string; dot?: boolean }[];
   active: K;
   onChange: (key: K) => void;
 }
@@ -16,7 +18,10 @@ export function SegmentTabs<K extends string>({ tabs, active, onChange }: Props<
         const on = t.key === active;
         return (
           <Pressable key={t.key} style={styles.tab} onPress={() => onChange(t.key)}>
-            <Text style={[styles.label, on && styles.labelActive]}>{t.label}</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, on && styles.labelActive]}>{t.label}</Text>
+              {t.dot && <NewDot style={styles.tabDot} />}
+            </View>
             <View style={[styles.underline, on && styles.underlineActive]} />
           </Pressable>
         );
@@ -36,6 +41,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  labelRow: { flexDirection: 'row', alignItems: 'center' },
+  // 점이 붙어도 이름이 가운데에서 밀리지 않게, 자리를 차지하지 않고 띄운다
+  tabDot: { position: 'absolute', right: -11, top: -1 },
   label: {
     fontFamily: font.medium,
     fontSize: 14,

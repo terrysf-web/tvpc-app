@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import Images from 'lucide-react-native/dist/esm/icons/images.mjs';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
 import Video from 'lucide-react-native/dist/esm/icons/video.mjs';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
 import { PhotoSlot } from '../src/components/PhotoSlot';
@@ -10,6 +10,7 @@ import { SegmentTabs } from '../src/components/SegmentTabs';
 import { usePhotos, usePraiseVideos, useSermons } from '../src/data/hooks';
 import { playSermon, sermonThumb } from '../src/links';
 import { colors, font, shadows } from '../src/theme';
+import { useUnread, type UnreadKey } from '../src/unread';
 import type { PraiseVideoDoc, SermonDoc } from '../src/types';
 
 type MediaTab = 'photo' | 'video' | 'praise';
@@ -39,6 +40,13 @@ function fmtDate(d: string): string {
 export default function MediaScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<MediaTab>('photo');
+  // 새로 올라온 탭에 빨간 점 — 그 탭을 열면 사라진다
+  const { isNew, markSeen } = useUnread();
+  useEffect(() => {
+    markSeen(`media.${tab}` as UnreadKey);
+  }, [tab, markSeen]);
+  const tabs = TABS.map((t) => ({ ...t, dot: isNew(`media.${t.key}` as UnreadKey) }));
+
   const { photos, ready } = usePhotos();
   const { sermons, loading: videoLoading } = useSermons();
   const { videos: praiseVideos, loading: praiseLoading } = usePraiseVideos();
@@ -98,7 +106,7 @@ export default function MediaScreen() {
   return (
     <View style={styles.screen}>
       <OverlayHeader title="교회 미디어" />
-      <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
+      <SegmentTabs tabs={tabs} active={tab} onChange={setTab} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {tab === 'photo' &&

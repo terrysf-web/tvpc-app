@@ -12,6 +12,7 @@ import { useNewsBanner } from '../../src/newsBanner';
 import { useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
+import { useUnread, type UnreadKey } from '../../src/unread';
 
 type NewsTab = 'notice' | 'event' | 'schedule';
 
@@ -58,6 +59,13 @@ export default function NewsScreen() {
   // 정사각형으로 잘라내지 않고 올린 사진의 넓이 그대로 보여준다
   const bannerRatio = useAspectRatio(banner);
   const [tab, setTab] = useState<NewsTab>('notice');
+  // 새로 올라온 탭에 빨간 점 — 그 탭을 열면 사라진다
+  const { isNew, markSeen } = useUnread();
+  useEffect(() => {
+    markSeen(`news.${tab}` as UnreadKey);
+  }, [tab, markSeen]);
+  const tabs = TABS.map((t) => ({ ...t, dot: isNew(`news.${t.key}` as UnreadKey) }));
+
 
   // 공지는 최근 게시순(이미 news 쿼리가 desc) 그대로, 행사는 각 행사 날짜(date)가
   // 게시일이 아니라 행사 자체 일자라 가까운 행사가 위로 오게 따로 오름차순 정렬한다.
@@ -82,7 +90,7 @@ export default function NewsScreen() {
           <CalendarDays size={21} color={colors.title} strokeWidth={1.8} />
         </Pressable>
       </View>
-      <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
+      <SegmentTabs tabs={tabs} active={tab} onChange={setTab} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {tab === 'schedule' ? (
