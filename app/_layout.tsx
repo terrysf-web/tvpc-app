@@ -6,6 +6,7 @@ import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BrandSplash } from '../src/components/BrandSplash';
 import { HelpReturnBar } from '../src/components/HelpReturnBar';
+import { useAutoRefreshOnNewBuild } from '../src/appVersion';
 import { useHomeOnLongResume } from '../src/homeOnResume';
 import { MoveNotice } from '../src/components/MoveNotice';
 import { WelcomeScreen } from '../src/components/WelcomeScreen';
@@ -33,6 +34,8 @@ export default function RootLayout() {
   useServiceWorkerUpdate();
   // 한참 만에 돌아오면 홈으로 — 어제 보던 깊숙한 화면에 그대로 있지 않게
   useHomeOnLongResume();
+  // 새 판이 올라오면 스스로 최신으로 — 설치한 앱이 옛 판에 머물지 않게
+  useAutoRefreshOnNewBuild();
 
   useEffect(() => {
     // 글꼴을 기다리지 않고 바로 화면을 보여준다 — 느린 통신에서 몇 초씩

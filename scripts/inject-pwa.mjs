@@ -7,6 +7,19 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const FILE = 'dist/index.html';
 
+/**
+ * 배포 표시 — 앱이 이 파일을 가끔 확인해서 새 배포가 있으면 스스로
+ * 새로고침한다(src/appVersion.ts). 배포할 때마다 값이 달라지도록
+ * 깃 커밋(있으면)과 만든 시각을 적는다.
+ */
+writeFileSync(
+  'dist/version.json',
+  JSON.stringify({
+    build: `${process.env.GITHUB_SHA?.slice(0, 7) ?? 'local'}-${Date.now()}`,
+  }),
+);
+console.log('배포 표시(version.json) 생성');
+
 const TAGS = `
     <meta name="description" content="매일 말씀, 설교, 교회 소식, 기도요청 — 트라이밸리 장로교회 (Tri-Valley Presbyterian Church)" />
     <meta name="theme-color" content="#1E5AA8" />
