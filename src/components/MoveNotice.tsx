@@ -4,15 +4,17 @@
  * 앱을 켜면 한 번 떠서 "지난 새벽설교가 설교 탭으로 옮겨졌다"는 것을
  * 알려 준다. 늘 쓰던 자리에서 사라지면 없어진 줄 아시기 때문이다.
  *
- * "다시 안 보기"를 누르면 그 기기에서는 다시 뜨지 않는다. 그냥 닫으면
- * 다음에 앱을 켤 때 한 번 더 뜬다 — 못 보고 닫은 분을 위해서다.
+ * "다시 안 보기"를 누르기 전까지는 앱을 켤 때마다 한 번씩 뜬다 — 못 보고
+ * 닫은 분을 위해서다. 홈 화면에 설치한 앱은 껐다 켜도 화면이 그대로
+ * 살아 있어(다시 그려지지 않아) 안내가 안 뜨는 일이 있었다. 그래서 앱으로
+ * 돌아왔을 때도 한 번 더 살핀다(너무 자주 뜨지 않게 30분 간격을 둔다).
  *
  * 다음에 또 알릴 일이 생기면 NOTICE_KEY의 끝 번호만 올리면 된다(예전에
  * "다시 안 보기"를 누른 분에게도 새 안내는 한 번 뜬다).
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, font, radius, shadows } from '../theme';
 
@@ -23,17 +25,40 @@ const BODY =
   '"더보기 → 지난 새벽설교"에 있던 목록을 설교 탭으로 옮겼습니다.\n' +
   '이제 설교 탭에서 주일설교 · 새벽설교 · 팟캐스트를 한곳에서 보실 수 있습니다.';
 
+/** 앱으로 돌아왔을 때 다시 띄우기까지 두는 간격 */
+const REOPEN_AFTER_MS = 30 * 60 * 1000;
+
 export function MoveNotice() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const shownAt = useRef(0);
 
   useEffect(() => {
     let on = true;
-    AsyncStorage.getItem(NOTICE_KEY)
-      .then((seen) => {
-        if (on && !seen) setOpen(true);
-      })
-      .catch(() => {});
+    const show = () => {
+      if (!on) return;
+      if (Date.now() - shownAt.current < REOPEN_AFTER_MS) return;
+      AsyncStorage.getItem(NOTICE_KEY)
+        .then((seen) => {
+          if (!on || seen) return;
+          shownAt.current = Date.now();
+          setOpen(true);
+        })
+        .catch(() => {});
+    };
+    show();
+
+    // 설치한 앱은 껐다 켜도 화면이 다시 그려지지 않는다 — 돌아왔을 때도 살핀다
+    if (typeof document !== 'undefined') {
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') show();
+      };
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+        on = false;
+        document.removeEventListener('visibilitychange', onVisible);
+      };
+    }
     return () => {
       on = false;
     };
@@ -46,8 +71,10 @@ export function MoveNotice() {
     AsyncStorage.setItem(NOTICE_KEY, '1').catch(() => {});
   };
 
+  // 보여 드리기만 하고 안내는 남겨 둔다 — "다시 안 보기"를 누르기 전에는
+  // 다음에 앱을 켤 때 한 번 더 뜬다
   const goSee = () => {
-    never();
+    setOpen(false);
     router.push('/sermon');
   };
 
