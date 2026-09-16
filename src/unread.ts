@@ -16,11 +16,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLatestBulletinWeekInfo } from './data/bulletin';
-import { useEvents, useNews, usePhotos, usePraiseVideos, useSermons } from './data/hooks';
+import {
+  useEvents,
+  useNews,
+  usePhotos,
+  usePraiseVideos,
+  useRecentVerses,
+  useSermons,
+  useTodayVerse,
+} from './data/hooks';
 
 /** 점을 붙일 자리 — 카드 안의 탭 하나하나 */
 export type UnreadKey =
+  | 'word'
   | 'bulletin'
+  | 'sermon.recent'
+  | 'sermon.dawn'
+  | 'sermon.podcast'
   | 'news.notice'
   | 'news.event'
   | 'news.schedule'
@@ -30,7 +42,9 @@ export type UnreadKey =
 
 /** 카드 하나에 딸린 자리들 — 하나라도 새 것이면 카드에 점이 붙는다 */
 export const UNREAD_GROUPS: Record<string, UnreadKey[]> = {
+  word: ['word'],
   bulletin: ['bulletin'],
+  sermon: ['sermon.recent', 'sermon.dawn', 'sermon.podcast'],
   news: ['news.notice', 'news.event', 'news.schedule'],
   media: ['media.photo', 'media.video', 'media.praise'],
 };
@@ -56,6 +70,10 @@ function useCurrentSignatures(): Record<UnreadKey, string> {
   const { videos: praiseVideos } = usePraiseVideos();
   // 주보는 그 주 것 한 부뿐이라, 가장 최근 주보 날짜가 곧 "새 주보"다
   const { date: bulletinDate } = useLatestBulletinWeekInfo(true);
+  // 오늘의 말씀 — 날짜가 바뀌면 새 말씀
+  const { verse } = useTodayVerse();
+  // 새벽설교 목록
+  const { verses: dawnVerses } = useRecentVerses(60);
 
   return useMemo(() => {
     // 미디어 화면과 같은 기준으로 나눈다(은혜안에 워십팀 영상은 찬양 쪽)
@@ -67,7 +85,13 @@ function useCurrentSignatures(): Record<UnreadKey, string> {
     const praise = [...praiseVideos.map((v) => v.id), ...sermons.filter(isEunhyeane).map((s) => s.id)];
 
     return {
+      word: verse.date ?? '',
       bulletin: bulletinDate ?? '',
+      'sermon.recent': signature(
+        sermons.filter((s) => (s.category ?? 'sermon') === 'sermon').map((s) => s.id),
+      ),
+      'sermon.dawn': signature(dawnVerses.map((v) => v.date)),
+      'sermon.podcast': signature(sermons.filter((s) => s.category === 'podcast').map((s) => s.id)),
       'news.notice': signature(news.filter((n) => n.category === 'notice').map((n) => n.id)),
       'news.event': signature(news.filter((n) => n.category === 'event').map((n) => n.id)),
       'news.schedule': signature(events.map((e) => e.id)),
@@ -75,7 +99,7 @@ function useCurrentSignatures(): Record<UnreadKey, string> {
       'media.video': signature(videos.map((v) => v.id)),
       'media.praise': signature(praise),
     };
-  }, [news, events, photos, sermons, praiseVideos, bulletinDate]);
+  }, [news, events, photos, sermons, praiseVideos, bulletinDate, verse.date, dawnVerses]);
 }
 
 export interface Unread {

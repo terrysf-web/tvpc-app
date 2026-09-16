@@ -11,6 +11,7 @@ import { useSermons } from '../../src/data/hooks';
 import { playSermon, sermonThumb } from '../../src/links';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import type { SermonDoc } from '../../src/types';
+import { useUnread, type UnreadKey } from '../../src/unread';
 
 type SermonTab = 'recent' | 'topic' | 'dawn' | 'podcast';
 
@@ -46,6 +47,13 @@ export default function SermonScreen() {
   const router = useRouter();
   const { sermons: all } = useSermons();
   const [tab, setTab] = useState<SermonTab>('recent');
+  // 새로 올라온 탭에 빨간 점 — 그 탭을 열면 사라진다
+  const { isNew, markSeen } = useUnread();
+  useEffect(() => {
+    markSeen(`sermon.${tab}` as UnreadKey);
+  }, [tab, markSeen]);
+  const tabs = TABS.map((t) => ({ ...t, dot: isNew(`sermon.${t.key}` as UnreadKey) }));
+
 
   // 팟캐스트는 유튜브로 바로 나가면 광고가 뜬다는 지적 — 앱 안 재생기(/watch)로
   // 연다. 일반 설교는 실황이라 앱 안 재생이 막힌 영상이 있어 그대로 유튜브로.
@@ -113,7 +121,7 @@ export default function SermonScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 8 }]}>
         <Text style={styles.headerTitle}>설교</Text>
       </View>
-      <SegmentTabs tabs={TABS} active={tab} onChange={setTab} />
+      <SegmentTabs tabs={tabs} active={tab} onChange={setTab} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {tab === 'recent' && featured && (

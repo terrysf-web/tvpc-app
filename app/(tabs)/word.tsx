@@ -30,6 +30,7 @@ import {
 } from '../../src/data/verseMarks';
 import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
+import { useUnread } from '../../src/unread';
 
 type WordTab = 'text' | 'note' | 'med' | 'app' | 'pray';
 
@@ -70,6 +71,12 @@ export default function WordScreen() {
   // ?play=1로 들어오면(알림 등 바로 듣기 링크) 재생하며 연다
   const { play } = useLocalSearchParams<{ play?: string }>();
   const [tab, setTab] = useState<WordTab>('text');
+  // 오늘 말씀을 봤으면 아래 탭 막대의 빨간 점을 지운다
+  const { markSeen } = useUnread();
+  useEffect(() => {
+    markSeen('word');
+  }, [markSeen, verse.date]);
+
   const tabs = isSundayVerse(verse.date) ? SUNDAY_TABS : TABS;
   // 날짜가 바뀌어 보던 탭이 없어지면 본문으로 돌아온다(빈 화면 방지)
   useEffect(() => {

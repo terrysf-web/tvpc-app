@@ -5,8 +5,11 @@ import Home from 'lucide-react-native/dist/esm/icons/house.mjs';
 import MoreHorizontal from 'lucide-react-native/dist/esm/icons/ellipsis.mjs';
 import PlayCircle from 'lucide-react-native/dist/esm/icons/circle-play.mjs';
 import React from 'react';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NewDot } from '../../src/components/NewDot';
 import { colors, font } from '../../src/theme';
+import { useUnread } from '../../src/unread';
 
 /**
  * 아이콘과 글자가 들어가는 높이 — 화면 아래 안전영역은 여기에 더한다.
@@ -26,6 +29,15 @@ export default function TabsLayout() {
   // 있는 기기에서 그 공간이 탭 높이를 잡아먹어 글자가 잘려 안 보인다.
   // 컴퓨터에서는 안전영역이 0이라 멀쩡해 보여 놓치기 쉽다.
   const insets = useSafeAreaInsets();
+  // 새로 올라온 것이 있는 탭에 빨간 점 — 그 탭을 열면 사라진다
+  const { groupIsNew } = useUnread();
+  /** 아이콘 오른쪽 위에 점을 얹는다(자리를 차지하지 않게 띄운다) */
+  const withDot = (icon: React.ReactNode, group: string) => (
+    <View>
+      {icon}
+      {groupIsNew(group) && <NewDot style={{ position: 'absolute', top: -2, right: -3 }} />}
+    </View>
+  );
   return (
     <Tabs
       screenOptions={{
@@ -63,21 +75,24 @@ export default function TabsLayout() {
         name="word"
         options={{
           title: '말씀',
-          tabBarIcon: ({ color }) => <BookOpen size={21} color={color} strokeWidth={1.9} />,
+          tabBarIcon: ({ color }) =>
+            withDot(<BookOpen size={21} color={color} strokeWidth={1.9} />, 'word'),
         }}
       />
       <Tabs.Screen
         name="sermon"
         options={{
           title: '설교',
-          tabBarIcon: ({ color }) => <PlayCircle size={21} color={color} strokeWidth={1.9} />,
+          tabBarIcon: ({ color }) =>
+            withDot(<PlayCircle size={21} color={color} strokeWidth={1.9} />, 'sermon'),
         }}
       />
       <Tabs.Screen
         name="news"
         options={{
           title: '소식',
-          tabBarIcon: ({ color }) => <Bell size={21} color={color} strokeWidth={1.9} />,
+          tabBarIcon: ({ color }) =>
+            withDot(<Bell size={21} color={color} strokeWidth={1.9} />, 'news'),
         }}
       />
       <Tabs.Screen
