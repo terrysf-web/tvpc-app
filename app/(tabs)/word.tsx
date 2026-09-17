@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
 import List from 'lucide-react-native/dist/esm/icons/list.mjs';
 import React, { useEffect, useRef, useState } from 'react';
@@ -73,9 +73,14 @@ export default function WordScreen() {
   const [tab, setTab] = useState<WordTab>('text');
   // 오늘 말씀을 봤으면 아래 탭 막대의 빨간 점을 지운다
   const { markSeen } = useUnread();
-  useEffect(() => {
-    markSeen('word');
-  }, [markSeen, verse.date]);
+  // 이 화면을 실제로 보고 있을 때만 "봤다"고 적는다 — 탭 화면은 한 번
+  // 들르면 그대로 남아 있어서, 그냥 두면 보지도 않은 새 말씀까지 읽은
+  // 것으로 지워진다.
+  useFocusEffect(
+    React.useCallback(() => {
+      markSeen('word');
+    }, [markSeen]),
+  );
 
   const tabs = isSundayVerse(verse.date) ? SUNDAY_TABS : TABS;
   // 날짜가 바뀌어 보던 탭이 없어지면 본문으로 돌아온다(빈 화면 방지)

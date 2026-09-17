@@ -102,6 +102,48 @@ function useCurrentSignatures(): Record<UnreadKey, string> {
   }, [news, events, photos, sermons, praiseVideos, bulletinDate, verse.date, dawnVerses]);
 }
 
+/**
+ * "본 것" 목록은 화면마다 따로 두면 안 된다 — 아래 탭 막대, 말씀 화면,
+ * 설교 화면이 저마다 자기 것만 들고 있어서, 말씀을 열어도 탭 막대의 점이
+ * 그대로 남아 있었다. 한곳에 두고 바뀔 때마다 모두에게 알린다.
+ */
+let seenStore: Record<string, string> | null = null;
+let loading: Promise<void> | null = null;
+const listeners = new Set<(v: Record<string, string>) => void>();
+
+function publish() {
+  for (const fn of listeners) fn(seenStore ?? {});
+}
+
+function loadSeen(keys: string[]): Promise<void> {
+  if (seenStore) return Promise.resolve();
+  if (!loading) {
+    loading = Promise.all(keys.map((k) => AsyncStorage.getItem(PREFIX + k)))
+      .then((vals) => {
+        const map: Record<string, string> = {};
+        keys.forEach((k, i) => {
+          if (vals[i] != null) map[k] = vals[i] as string;
+        });
+        seenStore = map;
+        publish();
+      })
+      .catch(() => {
+        seenStore = {};
+        publish();
+      });
+  }
+  return loading;
+}
+
+function rememberSeen(key: string, sig: string) {
+  if (!sig) return; // 아직 안 불러온 자리를 빈 값으로 덮으면 나중에 점이 되살아난다
+  if (!seenStore) seenStore = {};
+  if (seenStore[key] === sig) return;
+  seenStore[key] = sig;
+  AsyncStorage.setItem(PREFIX + key, sig).catch(() => {});
+  publish();
+}
+
 export interface Unread {
   /** 이 자리에 새 것이 있나 */
   isNew: (key: UnreadKey) => boolean;
@@ -113,42 +155,34 @@ export interface Unread {
 
 export function useUnread(): Unread {
   const current = useCurrentSignatures();
-  const [seen, setSeen] = useState<Record<string, string> | null>(null);
+  const [seen, setSeen] = useState<Record<string, string> | null>(seenStore);
 
-  // 기기에 적어 둔 "지난번 본 값" 읽기
+  // 한곳에 모아 둔 "본 것" 목록을 함께 본다
   useEffect(() => {
-    let on = true;
-    const keys = Object.keys(current) as UnreadKey[];
-    Promise.all(keys.map((k) => AsyncStorage.getItem(PREFIX + k)))
-      .then((vals) => {
-        if (!on) return;
-        const map: Record<string, string> = {};
-        keys.forEach((k, i) => {
-          if (vals[i] != null) map[k] = vals[i] as string;
-        });
-        setSeen(map);
-      })
-      .catch(() => on && setSeen({}));
+    const onChange = (v: Record<string, string>) => setSeen({ ...v });
+    listeners.add(onChange);
+    void loadSeen(Object.keys(current));
+    if (seenStore) setSeen({ ...seenStore });
     return () => {
-      on = false;
+      listeners.delete(onChange);
     };
-    // 처음 한 번만 읽는다 — 그 뒤로는 markSeen이 갱신한다
+    // 자리 목록은 고정이므로 한 번만 건다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const markSeen = useCallback((key: UnreadKey) => {
-    const now = (current as Record<string, string>)[key] ?? '';
-    setSeen((prev) => ({ ...(prev ?? {}), [key]: now }));
-    AsyncStorage.setItem(PREFIX + key, now).catch(() => {});
-  }, [current]);
+  const markSeen = useCallback(
+    (key: UnreadKey) => {
+      rememberSeen(key, (current as Record<string, string>)[key] ?? '');
+    },
+    [current],
+  );
 
   // 처음 켠 기기 — 지금 있는 것을 조용히 "본 것"으로 적어 둔다
   useEffect(() => {
-    if (!seen) return;
+    if (!seenStore) return;
     for (const [key, sig] of Object.entries(current)) {
-      if (!sig || seen[key] != null) continue;
-      AsyncStorage.setItem(PREFIX + key, sig).catch(() => {});
-      setSeen((prev) => ({ ...(prev ?? {}), [key]: sig }));
+      if (!sig || seenStore[key] != null) continue;
+      rememberSeen(key, sig);
     }
   }, [seen, current]);
 

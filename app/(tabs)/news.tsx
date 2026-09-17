@@ -9,7 +9,7 @@ import { SegmentTabs } from '../../src/components/SegmentTabs';
 import { Tag } from '../../src/components/Tag';
 import { useEvents, useNews } from '../../src/data/hooks';
 import { useNewsBanner } from '../../src/newsBanner';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { openExternal } from '../../src/links';
 import { colors, font, shadows } from '../../src/theme';
 import { useUnread, type UnreadKey } from '../../src/unread';
@@ -61,9 +61,12 @@ export default function NewsScreen() {
   const [tab, setTab] = useState<NewsTab>('notice');
   // 새로 올라온 탭에 빨간 점 — 그 탭을 열면 사라진다
   const { isNew, markSeen } = useUnread();
-  useEffect(() => {
-    markSeen(`news.${tab}` as UnreadKey);
-  }, [tab, markSeen]);
+  // 이 화면을 보고 있을 때만 "봤다"고 적는다
+  useFocusEffect(
+    React.useCallback(() => {
+      markSeen(`news.${tab}` as UnreadKey);
+    }, [tab, markSeen]),
+  );
   const tabs = TABS.map((t) => ({ ...t, dot: isNew(`news.${t.key}` as UnreadKey) }));
 
 

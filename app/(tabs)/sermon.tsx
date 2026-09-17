@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -49,9 +49,12 @@ export default function SermonScreen() {
   const [tab, setTab] = useState<SermonTab>('recent');
   // 새로 올라온 탭에 빨간 점 — 그 탭을 열면 사라진다
   const { isNew, markSeen } = useUnread();
-  useEffect(() => {
-    markSeen(`sermon.${tab}` as UnreadKey);
-  }, [tab, markSeen]);
+  // 이 화면을 보고 있을 때만 "봤다"고 적는다(아래 말씀 화면 주석 참고)
+  useFocusEffect(
+    React.useCallback(() => {
+      markSeen(`sermon.${tab}` as UnreadKey);
+    }, [tab, markSeen]),
+  );
   const tabs = TABS.map((t) => ({ ...t, dot: isNew(`sermon.${t.key}` as UnreadKey) }));
 
 
