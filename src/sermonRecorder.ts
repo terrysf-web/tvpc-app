@@ -9,11 +9,17 @@
  * 담는 형식은 브라우저가 할 수 있는 것 중에서 고른다. 크롬은 webm(opus),
  * 사파리는 mp4(aac)만 되고 크롬은 둘 다 되므로, 어디서나 열리는 mp4를 먼저 쓴다.
  *
- * 말소리 한 줄(모노) 64kbps로 담는다 — 30분 설교가 대략 14MB다. 처음엔
- * 통화 수준인 32kbps로 잡았는데, 무료 저장 용량이 5GB라 아낄 이유가 없고
- * 사파리가 쓰는 aac는 낮은 값에서 목소리가 뭉개진다. 마이크는 목소리
- * 크기가 들쭉날쭉해도 고르게 담기도록 자동 음량 조절을 켜 둔다(폰을
- * 강대상에 놓고 움직이며 말씀하실 때를 생각한 설정).
+ * 소리가 또렷하게 담기도록 두 가지를 맞춰 두었다.
+ *
+ * 하나, 브라우저의 통화용 소리 다듬기(반향 제거·잡음 제거)를 끈다. 이것을
+ * 켜 두면 폰이 마이크를 "전화 통화" 모드로 잡아서, 설교가 전화 목소리처럼
+ * 먹먹하고 말끝이 잘려 들린다. 끄면 폰이 녹음(미디어) 모드로 잡아 훨씬
+ * 또렷하다. 다만 목소리 크기를 고르게 맞춰 주는 자동 음량 조절은 켜 둔다 —
+ * 폰을 강대상에 놓고 움직이며 말씀하실 때를 생각한 설정이다.
+ *
+ * 둘, 말소리 한 줄(모노) 128kbps로 담는다 — 30분 설교가 대략 28MB다.
+ * 예전 64kbps는 사파리가 쓰는 aac에서 목소리가 뭉개졌다. 무료 저장 용량이
+ * 5GB라 이 정도는 넉넉하고, 오래된 녹음은 자동으로 정리된다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveAudioToDevice } from './saveFile';
@@ -131,21 +137,21 @@ export function useSermonRecorder() {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        // 설교는 한 사람 목소리라 잡음·울림을 줄이면 훨씬 알아듣기 쉽다.
-        // 자동 음량 조절(autoGainControl)은 마이크와 입 사이 거리가 변해도
-        // 소리 크기를 고르게 맞춰 준다.
+        // 통화용 소리 다듬기는 끈다(위 설명 참고) — 켜 두면 폰이 마이크를
+        // 전화 통화 모드로 잡아 설교가 먹먹하게 담긴다. 음량만 고르게 맞춘다.
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
+          echoCancellation: false,
+          noiseSuppression: false,
           autoGainControl: true,
           channelCount: 1,
+          sampleRate: 48000,
         },
       });
       const fmt = pickFormat();
       if (!fmt) throw new Error('이 브라우저는 녹음을 지원하지 않습니다.');
       const rec = new MediaRecorder(
         stream,
-        fmt.mime ? { mimeType: fmt.mime, audioBitsPerSecond: 64000 } : undefined,
+        fmt.mime ? { mimeType: fmt.mime, audioBitsPerSecond: 128000 } : undefined,
       );
       chunksRef.current = [];
       rec.ondataavailable = (e) => {

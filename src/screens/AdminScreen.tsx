@@ -1269,6 +1269,11 @@ export default function AdminScreen() {
               주소를 따로 넣으실 필요가 없습니다. 녹음하는 동안에는 화면이 꺼지지 않게 앱이
               붙잡아 두므로, 화면 잠김으로 녹음이 끊기지 않습니다.
             </Text>
+            <Text style={styles.bgHint}>
+              또렷하게 담으시려면 — 폰을 강대상 위, 입에서 30cm 안쪽에 마이크 쪽(폰 아래끝)이
+              얼굴을 향하게 놓아 주세요. 폰을 가방·옷에 넣거나 손으로 마이크를 가리면 먹먹해집니다.
+              녹음을 마치면 &quot;들어 보기&quot;로 한 번 확인하신 뒤 올리시면 좋습니다.
+            </Text>
             <Field
               label="이 녹음을 넣을 날짜 (YYYY-MM-DD)"
               value={vSermonDate}

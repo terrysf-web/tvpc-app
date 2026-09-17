@@ -60,10 +60,11 @@ for (const file of targets) {
   try {
     await file.download({ destination: src });
 
-    // 말소리용 — 32kHz 한 줄(모노) 64kbps면 30분 설교가 대략 14MB다
+    // 말소리용 — 44.1kHz 한 줄(모노) 96kbps. 녹음 자체를 128kbps로 담으므로
+    // 바꾸는 과정에서 크게 깎이지 않게 예전(32kHz·64k)보다 올려 잡았다.
     execFileSync(
       'ffmpeg',
-      ['-y', '-i', src, '-vn', '-ac', '1', '-ar', '32000', '-b:a', '64k', out],
+      ['-y', '-i', src, '-vn', '-ac', '1', '-ar', '44100', '-b:a', '96k', out],
       { stdio: ['ignore', 'ignore', 'pipe'] },
     );
 
