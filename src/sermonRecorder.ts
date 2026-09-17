@@ -20,6 +20,11 @@
  * 둘, 말소리 한 줄(모노) 128kbps로 담는다 — 30분 설교가 대략 28MB다.
  * 예전 64kbps는 사파리가 쓰는 aac에서 목소리가 뭉개졌다. 무료 저장 용량이
  * 5GB라 이 정도는 넉넉하고, 오래된 녹음은 자동으로 정리된다.
+ *
+ * 셋, 마이크 소리를 담기 전에 소리를 키운다. 통화용 다듬기를 끄면 폰이
+ * 마이크를 녹음 모드로 잡아 또렷해지는 대신 소리가 작아진다("소리는 좋은데
+ * 볼륨이 작다"). 큰 소리만 살짝 눌러 주고(컴프레서) 전체를 키워서(게인),
+ * 조용한 대목은 잘 들리고 큰 대목은 깨지지 않게 한다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveAudioToDevice } from './saveFile';
@@ -46,6 +51,53 @@ function pickFormat(): { mime: string; ext: string } | null {
   return { mime: '', ext: 'webm' };
 }
 
+/** 담기 전에 소리를 키우는 처리 — 정지할 때 닫아야 해서 따로 들고 있는다 */
+let boostCtx: AudioContext | null = null;
+
+function closeBoost() {
+  boostCtx?.close().catch(() => {});
+  boostCtx = null;
+}
+
+/**
+ * 마이크 소리를 키워서 새 스트림으로 내보낸다.
+ *
+ * 큰 소리만 부드럽게 눌러 두고(컴프레서) 전체를 올린다(게인) — 조용히
+ * 말씀하시는 대목도 잘 들리고, 목소리가 커지는 대목도 깨지지 않는다.
+ * 브라우저가 이 처리를 못 하면 마이크 소리를 그대로 돌려준다.
+ */
+function boostStream(stream: MediaStream): MediaStream {
+  try {
+    const Ctx =
+      (globalThis as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
+      (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return stream;
+    closeBoost();
+    const ctx = new Ctx();
+    boostCtx = ctx;
+    const source = ctx.createMediaStreamSource(stream);
+
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -26; // 이보다 커지면 누르기 시작
+    comp.knee.value = 24; // 부드럽게 넘어가도록
+    comp.ratio.value = 3;
+    comp.attack.value = 0.005;
+    comp.release.value = 0.25;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 3; // 약 +9.5dB
+
+    const dest = ctx.createMediaStreamDestination();
+    source.connect(comp);
+    comp.connect(gain);
+    gain.connect(dest);
+    return dest.stream;
+  } catch {
+    closeBoost();
+    return stream;
+  }
+}
+
 export type SermonRecorder = ReturnType<typeof useSermonRecorder>;
 
 export function useSermonRecorder() {
@@ -60,6 +112,8 @@ export function useSermonRecorder() {
   const [keepsAwake, setKeepsAwake] = useState(true);
 
   const recRef = useRef<MediaRecorder | null>(null);
+  /** 마이크 스트림 — 녹음용 스트림과 따로 멈춰야 한다 */
+  const micRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -87,6 +141,8 @@ export function useSermonRecorder() {
     () => () => {
       stopTimer();
       recRef.current?.stream?.getTracks().forEach((t) => t.stop());
+      micRef.current?.getTracks().forEach((t) => t.stop());
+      closeBoost();
       wakeRef.current?.release?.().catch(() => {});
       audioRef.current?.pause();
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -147,10 +203,14 @@ export function useSermonRecorder() {
           sampleRate: 48000,
         },
       });
+      micRef.current = stream;
+      // 담기 전에 소리를 키운다 — 큰 소리는 살짝 눌러 두고(컴프레서) 전체를
+      // 올린다(게인). 안 되는 브라우저에서는 마이크 소리를 그대로 담는다.
+      const recStream = boostStream(stream);
       const fmt = pickFormat();
       if (!fmt) throw new Error('이 브라우저는 녹음을 지원하지 않습니다.');
       const rec = new MediaRecorder(
-        stream,
+        recStream,
         fmt.mime ? { mimeType: fmt.mime, audioBitsPerSecond: 128000 } : undefined,
       );
       chunksRef.current = [];
@@ -161,7 +221,11 @@ export function useSermonRecorder() {
         setError('녹음이 중간에 끊겼습니다. 지금까지 녹음된 부분은 남아 있습니다.');
       };
       rec.onstop = () => {
+        // 마이크와 소리 키우기를 모두 정리한다 — 녹음용 스트림만 멈추면
+        // 마이크가 켜진 채로 남아 폰 위쪽에 녹음 표시가 계속 뜬다.
         stream.getTracks().forEach((t) => t.stop());
+        recStream.getTracks().forEach((t) => t.stop());
+        closeBoost();
         releaseWakeLock();
         const out = new Blob(chunksRef.current, { type: fmt.mime || 'audio/webm' });
         if (urlRef.current) URL.revokeObjectURL(urlRef.current);
