@@ -572,17 +572,41 @@ async function uploadWithToken(bucket, localPath, destination, contentType) {
   );
 }
 
+/** 파일 이름에서 날짜·기본 이름 꺼내기 */
+function sermonBase(name) {
+  const file = name.replace(/^sermon(Audio|Cover)\//, '');
+  const base = file.replace(/\.\w+$/, '').replace(/(-lvl|-mono|-fix)+$/, '');
+  const date = (base.match(/^(\d{4}-\d{2}-\d{2})/) ?? [])[1] ?? '';
+  return { base, date };
+}
+
 export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event) => {
-  const name = event.data.name ?? '';
-  // 설교 녹음만 — 우리가 만든 영상(sermonVideo/)에는 반응하지 않는다
-  if (!name.startsWith('sermonAudio/') || !/\.(m4a|mp3|webm|ogg)$/i.test(name)) return;
+  let name = event.data.name ?? '';
+  const bucket = getStorage().bucket(event.data.bucket);
+
+  // 표지만 새로 올라온 경우 — 지난 설교에 글씨를 넣어 영상을 다시 만들 때다.
+  // 그 날짜의 녹음을 찾아 그 파일로 영상을 다시 만든다(소리는 손대지 않는다).
+  if (name.startsWith('sermonCover/')) {
+    const { base } = sermonBase(name);
+    const [found] = await bucket.getFiles({ prefix: `sermonAudio/${base}` });
+    const audio = found.find((f) => /\.(m4a|mp3)$/i.test(f.name));
+    if (!audio) {
+      console.log(`표지만 올라왔는데 그 날짜 녹음이 없습니다: ${name}`);
+      return;
+    }
+    name = audio.name;
+    console.log(`표지가 바뀌어 영상을 다시 만듭니다: ${name}`);
+  } else if (!name.startsWith('sermonAudio/') || !/\.(m4a|mp3|webm|ogg)$/i.test(name)) {
+    // 그 밖의 파일(우리가 만든 영상 등)에는 반응하지 않는다
+    return;
+  }
 
   const date = (name.match(/sermonAudio\/(\d{4}-\d{2}-\d{2})/) ?? [])[1];
   if (!date) return;
 
-  const bucket = getStorage().bucket(event.data.bucket);
   const db = getFirestore();
-  const already = /-fix\.\w+$/.test(name);
+  // 표지 때문에 다시 만드는 경우와 이미 손본 파일은 소리를 건드리지 않는다
+  const already = /-fix\.\w+$/.test(name) || (event.data.name ?? '').startsWith('sermonCover/');
   const stamp = Date.now();
   const tmpIn = join(tmpdir(), `in-${stamp}${name.match(/\.\w+$/)?.[0] ?? '.m4a'}`);
   const tmpFixed = join(tmpdir(), `fix-${stamp}.m4a`);
@@ -616,10 +640,7 @@ export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event
     // 앱이 함께 올려 둔 표지가 있으면 그걸 쓴다 — 본문·날짜·교회 로고가
     // 들어간 그림이다(한글 글씨는 앱에서 그려야 글꼴이 제대로 나온다).
     // 없으면 함께 넣어 둔 기본 그림으로 만든다.
-    const base = name
-      .replace(/^sermonAudio\//, '')
-      .replace(/\.\w+$/, '')
-      .replace(/(-lvl|-mono|-fix)+$/, '');
+    const { base } = sermonBase(name);
     const coverFile = bucket.file(`sermonCover/${base}.jpg`);
     if ((await coverFile.exists())[0]) {
       const tmpCover = join(tmpdir(), `cover-${stamp}.jpg`);

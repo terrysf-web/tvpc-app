@@ -39,6 +39,7 @@ import {
   useAdminAuth,
   useApprovedMembers,
   usePendingMembers,
+  refreshSermonCover,
   useRevokedMembers,
   useSermonVideoUrl,
 } from '../data/admin';
@@ -221,6 +222,9 @@ export default function AdminScreen() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const coverBlobRef = React.useRef<Blob | null>(null);
   const sermonVideoUrl = useSermonVideoUrl(vSermonDate);
+  // 그 날짜에 이미 올려 둔 녹음이 있는지 — 있으면 첫 화면만 바꿔 영상을
+  // 다시 만들 수 있다(표지 기능이 생기기 전에 올린 설교용)
+  const [sermonAudioUrlForDate, setSermonAudioUrlForDate] = useState<string | null>(null);
 
   // 날짜를 고르면 그날 본문을 표지 제목으로 채워 둔다(고치실 수 있다)
   useEffect(() => {
@@ -229,7 +233,9 @@ export default function AdminScreen() {
     let on = true;
     loadVerse(d)
       .then((v) => {
-        if (!on || !v) return;
+        if (!on) return;
+        setSermonAudioUrlForDate(v?.sermonAudioUrl ?? null);
+        if (!v) return;
         setCoverTitle((cur) => cur || v.reference || '');
         setCoverSub(/주일/.test(v.passageTitle ?? '') ? '주일예배' : '새벽예배');
       })
@@ -1353,6 +1359,22 @@ export default function AdminScreen() {
                 resizeMode="contain"
                 accessibilityLabel="유튜브 영상 첫 화면 미리보기"
               />
+            )}
+            {/* 이미 올려 둔 설교에 이 첫 화면을 입혀 영상을 다시 만든다 —
+                표지 기능이 생기기 전에 올린 설교는 글씨가 없기 때문이다 */}
+            {!!sermonAudioUrlForDate && (
+              <Pressable
+                style={[styles.ghostBtn, busy && { opacity: 0.6 }]}
+                disabled={busy}
+                onPress={() =>
+                  submit(async () => {
+                    if (!coverBlobRef.current) throw new Error('첫 화면을 아직 만들지 못했습니다.');
+                    await refreshSermonCover((vSermonDate || today()).trim(), coverBlobRef.current);
+                  }, '첫 화면을 올렸습니다. 1~2분 뒤 새 영상이 준비됩니다.')
+                }
+              >
+                <Text style={styles.ghostBtnText}>이 날짜 영상 다시 만들기</Text>
+              </Pressable>
             )}
             {rec.supported ? (
               <>

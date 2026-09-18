@@ -331,6 +331,31 @@ export async function loadVerse(date: string): Promise<VerseDoc | null> {
 }
 
 /**
+ * 지난 설교의 유튜브용 영상을 표지(글씨 든 그림)와 함께 다시 만들기.
+ *
+ * 표지는 원래 녹음을 올릴 때 함께 올라가는데, 그 기능이 생기기 전에 올린
+ * 설교에는 표지가 없어 배경만 있는 영상이 만들어졌다. 표지만 새로 올리면
+ * 서버가 그 날짜 녹음을 찾아 영상을 다시 만든다(소리는 건드리지 않는다).
+ */
+export async function refreshSermonCover(date: string, cover: Blob): Promise<void> {
+  const storage = getStorageOrNull();
+  if (!storage) throw new Error('저장소 연결이 없습니다.');
+  const v = await loadVerse(date);
+  const url = v?.sermonAudioUrl ?? '';
+  // 주소 안의 파일 경로에서 기본 이름을 꺼낸다
+  //   …/o/sermonAudio%2F2026-09-18-1789738488184-lvl-fix.m4a?alt=… → 2026-09-18-1789738488184
+  const path = decodeURIComponent(url.match(/\/o\/([^?]+)/)?.[1] ?? '');
+  const base = path
+    .replace(/^sermonAudio\//, '')
+    .replace(/\.\w+$/, '')
+    .replace(/(-lvl|-mono|-fix)+$/, '');
+  if (!base) throw new Error('이 날짜에는 올려 둔 설교 녹음이 없습니다.');
+  await uploadBytesResumable(storageRef(storage, `sermonCover/${base}.jpg`), cover, {
+    contentType: 'image/jpeg',
+  });
+}
+
+/**
  * 그날 설교를 유튜브에 올릴 수 있게 만들어 둔 영상 주소.
  *
  * 녹음을 올리면 서버가 배경 그림을 입혀 영상(mp4)을 만들어 두는데, 그게
