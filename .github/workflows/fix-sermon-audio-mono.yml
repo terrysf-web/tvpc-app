@@ -1,0 +1,28 @@
+name: Fix sermon audio (mono)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '살펴보기만 하고 고치지 않음'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Fix
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+        run: node scripts/fix-sermon-audio-mono.mjs

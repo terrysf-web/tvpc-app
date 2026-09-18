@@ -21,7 +21,9 @@
  * 예전 64kbps는 사파리가 쓰는 aac에서 목소리가 뭉개졌다. 무료 저장 용량이
  * 5GB라 이 정도는 넉넉하고, 오래된 녹음은 자동으로 정리된다.
  *
- * 셋, 마이크 소리를 담기 전에 소리를 키운다. 통화용 다듬기를 끄면 폰이
+ * 셋, 마이크 소리를 담기 전에 소리를 키운다. 이때 같은 소리를 양쪽(왼쪽·
+ * 오른쪽)에 똑같이 넣는다 — 한 줄짜리 마이크 소리를 두 줄 자리에 그냥
+ * 이으면 왼쪽에서만 들리는 브라우저가 있다. 통화용 다듬기를 끄면 폰이
  * 마이크를 녹음 모드로 잡아 또렷해지는 대신 소리가 작아진다("소리는 좋은데
  * 볼륨이 작다"). 큰 소리만 살짝 눌러 주고(컴프레서) 전체를 키워서(게인),
  * 조용한 대목은 잘 들리고 큰 대목은 깨지지 않게 한다.
@@ -87,10 +89,16 @@ function boostStream(stream: MediaStream): MediaStream {
     const gain = ctx.createGain();
     gain.gain.value = 3; // 약 +9.5dB
 
+    // 마이크는 한 줄(모노)인데 내보내는 자리는 두 줄(스테레오)이라, 그냥
+    // 이으면 왼쪽에만 담기는 브라우저가 있다(실제로 한쪽에서만 들렸다).
+    // 같은 소리를 양쪽에 똑같이 넣어 어느 기기에서 들어도 가운데에서 들리게 한다.
+    const merger = ctx.createChannelMerger(2);
     const dest = ctx.createMediaStreamDestination();
     source.connect(comp);
     comp.connect(gain);
-    gain.connect(dest);
+    gain.connect(merger, 0, 0);
+    gain.connect(merger, 0, 1);
+    merger.connect(dest);
     return dest.stream;
   } catch {
     closeBoost();
