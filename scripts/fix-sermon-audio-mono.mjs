@@ -1,13 +1,18 @@
 /**
- * 한쪽에서만 들리는 설교 녹음 고치기.
+ * 이미 올라간 설교 녹음의 소리를 고르게 맞추기.
  *
- * 마이크는 한 줄(모노)인데 녹음으로 내보내는 자리는 두 줄(스테레오)이라,
- * 브라우저에 따라 왼쪽 칸에만 소리가 담겼다. 헤드폰으로 들으면 한쪽에서만
- * 들린다. 녹음하는 쪽은 고쳤지만, 이미 올라간 파일은 여기서 손본다.
+ * 두 가지를 손본다.
  *
- * 각 파일의 칸 수와 칸별 소리 크기를 먼저 살펴보고, 한쪽이 비어 있거나
- * 두 줄로 담긴 파일만 한 줄(모노)로 다시 담는다 — 한 줄짜리는 어느 기기든
- * 양쪽 귀로 들린다. 소리 크기는 건드리지 않는다.
+ * 하나, 한 줄(모노)로 다시 담는다. 마이크는 한 줄인데 녹음으로 내보내는
+ * 자리가 두 줄(스테레오)이라, 브라우저에 따라 왼쪽 칸에만 소리가 담겼다.
+ * 한 줄짜리는 어느 기기든 양쪽 귀로 들린다.
+ *
+ * 둘, 소리 크기를 방송에서 쓰는 기준(-16 LUFS)에 맞춘다. 녹음이 작게
+ * 담긴 파일은 올리고, 큰 파일은 낮춰 어느 설교를 들어도 크기가 비슷하다.
+ * 단순히 볼륨만 올리는 게 아니라 전체를 재어 본 뒤 맞추므로 찌그러지지
+ * 않는다.
+ *
+ * 손본 파일은 이름 끝에 "-lvl"을 붙여 두고 다음에 돌릴 때 건너뛴다.
  *
  * 실행: GitHub Actions → "Fix sermon audio (mono)"
  */
@@ -61,30 +66,39 @@ const [files] = await bucket.getFiles({ prefix: 'sermonAudio/' });
 console.log(`설교 녹음 ${files.length}개 살펴보기${DRY ? ' (고치지 않음)' : ''}`);
 
 for (const file of files) {
+  if (/-lvl\.\w+$/.test(file.name)) {
+    console.log(`\n  · ${file.name}\n      이미 손본 파일입니다 — 건너뜁니다`);
+    continue;
+  }
   const ext = file.name.match(/\.\w+$/)?.[0] ?? '.m4a';
   const src = join(tmp, `in${ext}`);
   try {
     await file.download({ destination: src });
     const { codec, channels } = channelsOf(src);
     console.log(`\n  · ${file.name}\n      형식=${codec} 칸=${channels} 크기(왼/오른)=${levels(src)}`);
-    if (channels < 2) {
-      console.log('      한 줄이라 그대로 둡니다');
-      continue;
-    }
     if (DRY) {
-      console.log('      두 줄 — 고칠 대상(지금은 살펴보기만)');
+      console.log('      고칠 대상(지금은 살펴보기만)');
       continue;
     }
 
-    // 두 칸을 합쳐 한 줄로 — 한쪽이 비어 있어도 나머지 소리가 그대로 살아난다
+    // 한 줄로 합치고(한쪽이 비어 있어도 소리가 살아난다), 소리 크기를
+    // 방송 기준에 맞춘다(작게 담긴 녹음은 올라가고 찌그러지지 않는다)
     const out = join(tmp, `out${ext}`);
     execFileSync(
       'ffmpeg',
-      ['-y', '-i', src, '-vn', '-ac', '1', '-c:a', 'aac', '-b:a', '128k', out],
+      [
+        '-y', '-i', src,
+        '-vn',
+        '-ac', '1',
+        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+        '-ar', '48000',
+        '-c:a', 'aac', '-b:a', '128k',
+        out,
+      ],
       { stdio: ['ignore', 'ignore', 'pipe'] },
     );
 
-    const newName = file.name.replace(/\.\w+$/, '') + '-mono.m4a';
+    const newName = file.name.replace(/-mono$|$/, '').replace(/\.\w+$/, '') + '-lvl.m4a';
     const token = randomUUID();
     await bucket.upload(out, {
       destination: newName,

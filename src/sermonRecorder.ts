@@ -21,9 +21,11 @@
  * 예전 64kbps는 사파리가 쓰는 aac에서 목소리가 뭉개졌다. 무료 저장 용량이
  * 5GB라 이 정도는 넉넉하고, 오래된 녹음은 자동으로 정리된다.
  *
- * 셋, 마이크 소리를 담기 전에 소리를 키운다. 이때 같은 소리를 양쪽(왼쪽·
- * 오른쪽)에 똑같이 넣는다 — 한 줄짜리 마이크 소리를 두 줄 자리에 그냥
- * 이으면 왼쪽에서만 들리는 브라우저가 있다. 통화용 다듬기를 끄면 폰이
+ * 셋, 마이크 소리를 담기 전에 세 단계로 키운다 — 소리 크기를 고르게 하고
+ * (컴프레서), 크게 올리고(×6 ≈ +15.5dB), 넘치는 소리는 끝에서 막는다
+ * (리미터). 통화용 다듬기를 끈 대신 여기서 크기를 되찾는 셈이다.
+ * 이때 같은 소리를 양쪽(왼쪽·오른쪽)에 똑같이 넣는다 — 한 줄짜리 마이크
+ * 소리를 두 줄 자리에 그냥 이으면 왼쪽에서만 들리는 브라우저가 있다. 통화용 다듬기를 끄면 폰이
  * 마이크를 녹음 모드로 잡아 또렷해지는 대신 소리가 작아진다("소리는 좋은데
  * 볼륨이 작다"). 큰 소리만 살짝 눌러 주고(컴프레서) 전체를 키워서(게인),
  * 조용한 대목은 잘 들리고 큰 대목은 깨지지 않게 한다.
@@ -79,15 +81,26 @@ function boostStream(stream: MediaStream): MediaStream {
     boostCtx = ctx;
     const source = ctx.createMediaStreamSource(stream);
 
+    // 1단계 — 소리 크기를 고르게. 기준선을 낮게 잡아 평소 말소리도 걸리게 한다
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -26; // 이보다 커지면 누르기 시작
-    comp.knee.value = 24; // 부드럽게 넘어가도록
-    comp.ratio.value = 3;
+    comp.threshold.value = -32;
+    comp.knee.value = 20; // 부드럽게 넘어가도록
+    comp.ratio.value = 4;
     comp.attack.value = 0.005;
-    comp.release.value = 0.25;
+    comp.release.value = 0.3;
 
+    // 2단계 — 전체를 크게 (×6 ≈ +15.5dB)
     const gain = ctx.createGain();
-    gain.gain.value = 3; // 약 +9.5dB
+    gain.gain.value = 6;
+
+    // 3단계 — 끝에서 한 번 더 잡아 준다. 크게 올린 뒤라 순간적으로 넘치는
+    // 소리가 생길 수 있는데, 여기서 막아 찌그러지지 않게 한다.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.1;
 
     // 마이크는 한 줄(모노)인데 내보내는 자리는 두 줄(스테레오)이라, 그냥
     // 이으면 왼쪽에만 담기는 브라우저가 있다(실제로 한쪽에서만 들렸다).
@@ -96,8 +109,9 @@ function boostStream(stream: MediaStream): MediaStream {
     const dest = ctx.createMediaStreamDestination();
     source.connect(comp);
     comp.connect(gain);
-    gain.connect(merger, 0, 0);
-    gain.connect(merger, 0, 1);
+    gain.connect(limiter);
+    limiter.connect(merger, 0, 0);
+    limiter.connect(merger, 0, 1);
     merger.connect(dest);
     return dest.stream;
   } catch {
