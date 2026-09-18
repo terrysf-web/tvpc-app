@@ -45,19 +45,30 @@ function channelsOf(file) {
   return { codec: out[0] ?? '', channels: Number(out[1] ?? 0) };
 }
 
-/** 왼쪽·오른쪽 각각 얼마나 큰지(dB) — 한쪽이 비었는지 보려고 */
-function levels(file) {
+/**
+ * 실제로 얼마나 큰 소리인지 재기.
+ *
+ * 사람이 느끼는 크기는 방송 기준(LUFS)으로 잰다 — 숫자가 0에 가까울수록
+ * 크다. -16이 팟캐스트·유튜브에서 쓰는 기준이고, -30쯤이면 많이 작다.
+ * 가장 큰 순간(peak)도 함께 본다.
+ */
+function loudness(file) {
   try {
-    const err = execFileSync(
+    execFileSync(
       'ffmpeg',
-      ['-hide_banner', '-i', file, '-af', 'channelsplit=channel_layout=stereo,astats=metadata=1', '-f', 'null', '-'],
+      ['-hide_banner', '-i', file, '-af', 'loudnorm=I=-16:TP=-1.5:print_format=json', '-f', 'null', '-'],
       { stdio: ['ignore', 'ignore', 'pipe'] },
     );
-    return err.toString();
+    return '(못 읽음)';
   } catch (e) {
     const s = e?.stderr?.toString() ?? '';
-    const peaks = [...s.matchAll(/Peak level dB:\s*(-?[\d.]+|-inf)/g)].map((m) => m[1]);
-    return peaks.length ? peaks.join(' / ') : '(못 읽음)';
+    const j = s.slice(s.lastIndexOf('{'));
+    try {
+      const m = JSON.parse(j);
+      return `크기 ${m.input_i} LUFS, 가장 큰 순간 ${m.input_tp} dB`;
+    } catch {
+      return '(못 읽음)';
+    }
   }
 }
 
@@ -75,7 +86,7 @@ for (const file of files) {
   try {
     await file.download({ destination: src });
     const { codec, channels } = channelsOf(src);
-    console.log(`\n  · ${file.name}\n      형식=${codec} 칸=${channels} 크기(왼/오른)=${levels(src)}`);
+    console.log(`\n  · ${file.name}\n      형식=${codec} 칸=${channels} ${loudness(src)}`);
     if (DRY) {
       console.log('      고칠 대상(지금은 살펴보기만)');
       continue;
