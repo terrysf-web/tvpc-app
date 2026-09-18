@@ -221,7 +221,16 @@ export default function AdminScreen() {
   const [coverSub, setCoverSub] = useState('새벽예배');
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const coverBlobRef = React.useRef<Blob | null>(null);
+  // 영상을 만드는 동안 알려 주기 — 누를 때의 주소를 적어 두고, 주소가
+  // 바뀌면 새 영상이 준비된 것이다(1~2분 걸린다)
+  const [videoBefore, setVideoBefore] = useState<string | null>(null);
   const sermonVideoUrl = useSermonVideoUrl(vSermonDate);
+  const makingVideo = videoBefore !== null && (sermonVideoUrl ?? '') === videoBefore;
+  useEffect(() => {
+    if (videoBefore === null || (sermonVideoUrl ?? '') === videoBefore) return;
+    setVideoBefore(null);
+    setMsg('✓ 새 영상이 준비됐습니다. 아래 단추로 받으세요.');
+  }, [sermonVideoUrl, videoBefore]);
   // 그 날짜에 이미 올려 둔 녹음이 있는지 — 있으면 첫 화면만 바꿔 영상을
   // 다시 만들 수 있다(표지 기능이 생기기 전에 올린 설교용)
   const [sermonAudioUrlForDate, setSermonAudioUrlForDate] = useState<string | null>(null);
@@ -664,6 +673,7 @@ export default function AdminScreen() {
       }
       rec.reset();
       setVSermonDate(date);
+      setVideoBefore(sermonVideoUrl ?? '');
     }, `${(vSermonDate || today()).trim()} 설교 녹음이 올라갔습니다. 앱에 바로 반영됩니다.`);
 
   const pickNewsBannerImage = () => {
@@ -1369,8 +1379,9 @@ export default function AdminScreen() {
                 onPress={() =>
                   submit(async () => {
                     if (!coverBlobRef.current) throw new Error('첫 화면을 아직 만들지 못했습니다.');
+                    setVideoBefore(sermonVideoUrl ?? '');
                     await refreshSermonCover((vSermonDate || today()).trim(), coverBlobRef.current);
-                  }, '첫 화면을 올렸습니다. 1~2분 뒤 새 영상이 준비됩니다.')
+                  }, '첫 화면을 올렸습니다. 영상을 만드는 중입니다.')
                 }
               >
                 <Text style={styles.ghostBtnText}>이 날짜 영상 다시 만들기</Text>
@@ -1451,7 +1462,13 @@ export default function AdminScreen() {
 
                 {/* 유튜브에 직접 올리실 수 있게, 올린 녹음으로 영상을 만들어 둔다 —
                     유튜브는 소리만 있는 파일을 받지 않는다. 만드는 데 1~2분 걸린다. */}
-                {!!sermonVideoUrl && (
+                {makingVideo && (
+                  <Text style={styles.bgHint}>
+                    유튜브에 올리실 영상을 만드는 중입니다… 1~2분 걸립니다. 다 되면 여기에
+                    알려 드립니다 — 그때 받으셔야 첫 화면 글씨가 들어간 새 영상입니다.
+                  </Text>
+                )}
+                {!!sermonVideoUrl && !makingVideo && (
                   <>
                     <Text style={styles.bgHint}>
                       유튜브에 올리실 영상이 준비됐습니다. 받아서 유튜브에 그대로 올리시면
