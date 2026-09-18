@@ -18,6 +18,24 @@ service firebase.storage {
         && request.resource.contentType.matches('audio/.*|video/mp4');
       allow delete: if request.auth != null && request.auth.token.email != null;
     }
+    // 유튜브에 올릴 영상의 첫 화면(표지) — 녹음을 올릴 때 앱이 함께 만들어
+    // 올리고, 서버가 그 그림에 소리를 입혀 영상으로 만든다.
+    match /sermonCover/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.email != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.token.email != null;
+    }
+
+    // 서버가 만들어 두는 유튜브용 영상 — 목회자가 받아서 유튜브에 올린다.
+    // 만드는 것은 서버(관리자 권한)라 여기서는 읽기만 열어 둔다.
+    match /sermonVideo/{file} {
+      allow read: if true;
+      allow write, delete: if false;
+    }
+
     // 그 밖의 경로는 모두 막는다.
     match /{allPaths=**} {
       allow read, write: if false;

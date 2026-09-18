@@ -587,7 +587,7 @@ export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event
   const tmpIn = join(tmpdir(), `in-${stamp}${name.match(/\.\w+$/)?.[0] ?? '.m4a'}`);
   const tmpFixed = join(tmpdir(), `fix-${stamp}.m4a`);
   const tmpOut = join(tmpdir(), `out-${stamp}.mp4`);
-  const bg = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'sermon-bg.jpg');
+  let bg = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'sermon-bg.jpg');
   let audioForVideo = tmpIn;
 
   try {
@@ -613,7 +613,22 @@ export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event
       console.log(`설교 녹음 손봄: ${fixedName}`);
     }
 
-    // 2) 유튜브에 올리실 영상 만들기 — 멈춘 그림 한 장 + 손본 소리
+    // 앱이 함께 올려 둔 표지가 있으면 그걸 쓴다 — 본문·날짜·교회 로고가
+    // 들어간 그림이다(한글 글씨는 앱에서 그려야 글꼴이 제대로 나온다).
+    // 없으면 함께 넣어 둔 기본 그림으로 만든다.
+    const base = name
+      .replace(/^sermonAudio\//, '')
+      .replace(/\.\w+$/, '')
+      .replace(/(-lvl|-mono|-fix)+$/, '');
+    const coverFile = bucket.file(`sermonCover/${base}.jpg`);
+    if ((await coverFile.exists())[0]) {
+      const tmpCover = join(tmpdir(), `cover-${stamp}.jpg`);
+      await coverFile.download({ destination: tmpCover });
+      bg = tmpCover;
+      console.log(`표지 사용: sermonCover/${base}.jpg`);
+    }
+
+    // 2) 유튜브에 올리실 영상 만들기 — 표지 그림 + 손본 소리
     await runFfmpeg([
       '-y',
       '-loop', '1',
@@ -638,7 +653,7 @@ export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event
   } catch (e) {
     console.error(`설교 녹음 손보기 실패(${name}): ${e?.message ?? e}`);
   } finally {
-    for (const f of [tmpIn, tmpFixed, tmpOut]) {
+    for (const f of [tmpIn, tmpFixed, tmpOut, join(tmpdir(), `cover-${stamp}.jpg`)]) {
       try {
         unlinkSync(f);
       } catch {

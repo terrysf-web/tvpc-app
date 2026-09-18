@@ -21,6 +21,7 @@ import {
   getStorageOrNull,
   watchUser,
 } from '../firebase';
+import { makeSermonCover } from '../sermonCover';
 import type { MemberDoc } from './member';
 import type { EventDoc, NewsDoc, VerseDoc } from '../types';
 
@@ -117,7 +118,29 @@ export async function uploadSermonAudio(
 ): Promise<string> {
   const storage = getStorageOrNull();
   if (!storage) throw new Error('저장소 연결이 없습니다.');
-  const path = `sermonAudio/${date}-${Date.now()}.${ext}`;
+  const stamp = Date.now();
+  const path = `sermonAudio/${date}-${stamp}.${ext}`;
+
+  // 유튜브에 올릴 영상의 첫 화면(본문·날짜·로고가 든 그림)을 여기서 만들어
+  // 함께 올린다 — 서버는 이 그림에 소리를 입혀 영상으로 만든다. 못 만들면
+  // 서버가 준비된 기본 그림을 쓴다(그래도 영상은 나온다).
+  try {
+    const v = await loadVerse(date);
+    const cover = await makeSermonCover({
+      date,
+      reference: v?.reference || '오늘의 말씀',
+      service: /주일/.test(v?.passageTitle ?? '') ? '주일예배' : '새벽예배',
+      churchName: '트라이밸리 장로교회',
+    });
+    if (cover) {
+      await uploadBytesResumable(storageRef(storage, `sermonCover/${date}-${stamp}.jpg`), cover, {
+        contentType: 'image/jpeg',
+      });
+    }
+  } catch {
+    /* 표지를 못 만들어도 녹음 올리기는 그대로 진행한다 */
+  }
+
   const task = uploadBytesResumable(storageRef(storage, path), blob, {
     contentType: blob.type || 'audio/webm',
   });
