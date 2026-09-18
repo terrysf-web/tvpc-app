@@ -16,7 +16,7 @@
  *
  * 실행: GitHub Actions → "Fix sermon audio (mono)"
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -53,22 +53,19 @@ function channelsOf(file) {
  * 가장 큰 순간(peak)도 함께 본다.
  */
 function loudness(file) {
+  // ffmpeg는 잰 값을 stderr로 내보낸다 — 성공해도 거기 있으므로 spawnSync로 받는다
+  const r = spawnSync(
+    'ffmpeg',
+    ['-hide_banner', '-i', file, '-af', 'loudnorm=I=-16:TP=-1.5:print_format=json', '-f', 'null', '-'],
+    { encoding: 'utf8' },
+  );
+  const err = r.stderr ?? '';
+  const j = err.slice(err.lastIndexOf('{'));
   try {
-    execFileSync(
-      'ffmpeg',
-      ['-hide_banner', '-i', file, '-af', 'loudnorm=I=-16:TP=-1.5:print_format=json', '-f', 'null', '-'],
-      { stdio: ['ignore', 'ignore', 'pipe'] },
-    );
+    const m = JSON.parse(j);
+    return `크기 ${m.input_i} LUFS (기준 -16), 가장 큰 순간 ${m.input_tp} dB`;
+  } catch {
     return '(못 읽음)';
-  } catch (e) {
-    const s = e?.stderr?.toString() ?? '';
-    const j = s.slice(s.lastIndexOf('{'));
-    try {
-      const m = JSON.parse(j);
-      return `크기 ${m.input_i} LUFS, 가장 큰 순간 ${m.input_tp} dB`;
-    } catch {
-      return '(못 읽음)';
-    }
   }
 }
 
@@ -77,7 +74,7 @@ const [files] = await bucket.getFiles({ prefix: 'sermonAudio/' });
 console.log(`설교 녹음 ${files.length}개 살펴보기${DRY ? ' (고치지 않음)' : ''}`);
 
 for (const file of files) {
-  if (/-lvl\.\w+$/.test(file.name)) {
+  if (/-lvl\.\w+$/.test(file.name) && !DRY) {
     console.log(`\n  · ${file.name}\n      이미 손본 파일입니다 — 건너뜁니다`);
     continue;
   }
