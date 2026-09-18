@@ -524,90 +524,121 @@ export const triggerBulletinSyncSun = onSchedule(
   triggerBulletinSync,
 );
 
-// ── 설교 녹음 → 유튜브에 올릴 영상 만들기 ─────────────────────────────
+// ── 설교 녹음 손보기 + 유튜브에 올릴 영상 만들기 ──────────────────────
 /**
- * 목사님이 녹음을 올리면, 그 소리에 배경 그림을 입혀 영상(mp4)으로 만들어
- * 둔다. 목사님이 그 영상을 받아 유튜브에 직접 올리신다.
+ * 녹음이 올라오면 서버가 바로 두 가지를 한다.
  *
- * 왜 필요한가 — 유튜브는 소리만 있는 파일을 받지 않는다. 앱에서 녹음한
- * 파일(m4a)을 그대로는 못 올리시므로, 사진 한 장을 깔아 영상으로 만들어
- * 드린다. 목사님은 제목·설명을 직접 쓰시며 올리길 원하셔서, 올리는 일까지
- * 대신하지 않고 파일만 만들어 둔다.
+ * 하나, 소리를 바로잡는다 — 한 줄(모노)로 맞추고, 크기를 방송 기준
+ * (-16 LUFS)에 맞춘다. 브라우저마다 녹음이 제각각이라(한쪽 귀에서만
+ * 들리거나, 작게 담기거나) 올라온 뒤에 한 번 손봐야 확실하다. 실제로
+ * 왼쪽에서만 들리는 일이 두 번 있었다 — 녹음하는 쪽만 고쳐서는 그 기기에
+ * 새 판이 내려가기 전까지 또 같은 일이 생긴다.
  *
- * 그림은 함께 넣어 둔 한 장(assets/sermon-bg.jpg)을 쓴다. 소리는 다시
- * 압축하지 않고 그대로 옮겨 담아(-c:a copy) 음질이 깎이지 않는다. 화면은
- * 멈춘 그림이라 용량이 거의 늘지 않는다.
+ * 둘, 그 소리에 배경 그림을 입혀 영상(mp4)으로 만들어 둔다. 유튜브는 소리만
+ * 있는 파일을 받지 않아서, 목사님이 직접 올리실 수 있게 준비해 두는 것이다.
+ *
+ * 손본 파일은 이름 끝에 "-fix"가 붙는다. 그 파일이 다시 올라오면 소리는
+ * 건드리지 않고 영상만 만든다(끝없이 되풀이되지 않게).
  */
-const SERMON_VIDEO_OPTS = {
+const SERMON_AUDIO_OPTS = {
   memory: '1GiB',
   timeoutSeconds: 540,
   retry: false,
 };
 
-export const makeSermonVideo = onObjectFinalized(SERMON_VIDEO_OPTS, async (event) => {
+/** ffmpeg 한 번 돌리기 */
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    p.stderr.on('data', (d) => {
+      err = (err + d.toString()).slice(-800);
+    });
+    p.on('error', reject);
+    p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err || `ffmpeg ${code}`))));
+  });
+}
+
+/** 앱이 쓰는 내려받기 주소(토큰 포함)로 올린다 */
+async function uploadWithToken(bucket, localPath, destination, contentType) {
+  const token = randomUUID();
+  await bucket.upload(localPath, {
+    destination,
+    metadata: { contentType, metadata: { firebaseStorageDownloadTokens: token } },
+  });
+  return (
+    `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
+    `${encodeURIComponent(destination)}?alt=media&token=${token}`
+  );
+}
+
+export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event) => {
   const name = event.data.name ?? '';
-  // 설교 녹음만, 그리고 우리가 만든 영상에 다시 반응하지 않도록 소리 파일만
+  // 설교 녹음만 — 우리가 만든 영상(sermonVideo/)에는 반응하지 않는다
   if (!name.startsWith('sermonAudio/') || !/\.(m4a|mp3|webm|ogg)$/i.test(name)) return;
 
   const date = (name.match(/sermonAudio\/(\d{4}-\d{2}-\d{2})/) ?? [])[1];
   if (!date) return;
 
   const bucket = getStorage().bucket(event.data.bucket);
-  const outName = name.replace(/^sermonAudio\//, 'sermonVideo/').replace(/\.\w+$/, '.mp4');
-  const tmpIn = join(tmpdir(), `in-${Date.now()}${name.match(/\.\w+$/)?.[0] ?? '.m4a'}`);
-  const tmpOut = join(tmpdir(), `out-${Date.now()}.mp4`);
+  const db = getFirestore();
+  const already = /-fix\.\w+$/.test(name);
+  const stamp = Date.now();
+  const tmpIn = join(tmpdir(), `in-${stamp}${name.match(/\.\w+$/)?.[0] ?? '.m4a'}`);
+  const tmpFixed = join(tmpdir(), `fix-${stamp}.m4a`);
+  const tmpOut = join(tmpdir(), `out-${stamp}.mp4`);
   const bg = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'sermon-bg.jpg');
+  let audioForVideo = tmpIn;
 
   try {
     await bucket.file(name).download({ destination: tmpIn });
 
-    // 멈춘 그림 한 장 + 소리 → mp4. 그림은 유튜브가 좋아하는 1280x720에
-    // 맞춰 넣고(비율이 달라도 잘리지 않게 여백을 채운다), 소리는 그대로 옮긴다.
-    // webm(opus)은 mp4에 그대로 담을 수 없어 그때만 다시 압축한다.
-    const copyable = /\.(m4a|mp3)$/i.test(name);
-    await new Promise((resolve, reject) => {
-      const args = [
-        '-y',
-        '-loop', '1',
-        '-i', bg,
-        '-i', tmpIn,
-        '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p',
-        '-r', '2', // 멈춘 그림이라 1초에 2장이면 충분하다(용량이 거의 안 는다)
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-tune', 'stillimage',
-        '-shortest',
-        ...(copyable ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '128k']),
-        '-movflags', '+faststart',
-        tmpOut,
-      ];
-      const p = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-      let err = '';
-      p.stderr.on('data', (d) => {
-        err = (err + d.toString()).slice(-800);
-      });
-      p.on('error', reject);
-      p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err || `ffmpeg ${code}`))));
-    });
+    // 1) 소리 바로잡기 — 한 줄로, 크기는 방송 기준으로
+    if (!already) {
+      await runFfmpeg([
+        '-y', '-i', tmpIn,
+        '-vn',
+        '-ac', '1',
+        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+        '-ar', '48000',
+        '-c:a', 'aac', '-b:a', '128k',
+        tmpFixed,
+      ]);
+      const fixedName = name.replace(/\.\w+$/, '') + '-fix.m4a';
+      const url = await uploadWithToken(bucket, tmpFixed, fixedName, 'audio/mp4');
+      await db.doc(`verses/${date}`).set({ sermonAudioUrl: url }, { merge: true });
+      // 손본 파일로 옮겨 붙인 뒤에 원본을 지운다 — 중간에 멈춰도 듣던 주소가 산다
+      await bucket.file(name).delete().catch(() => {});
+      audioForVideo = tmpFixed;
+      console.log(`설교 녹음 손봄: ${fixedName}`);
+    }
 
-    const token = randomUUID();
-    await bucket.upload(tmpOut, {
-      destination: outName,
-      metadata: {
-        contentType: 'video/mp4',
-        metadata: { firebaseStorageDownloadTokens: token },
-      },
-    });
-    const url =
-      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
-      `${encodeURIComponent(outName)}?alt=media&token=${token}`;
-
-    await getFirestore().doc(`verses/${date}`).set({ sermonVideoUrl: url }, { merge: true });
+    // 2) 유튜브에 올리실 영상 만들기 — 멈춘 그림 한 장 + 손본 소리
+    await runFfmpeg([
+      '-y',
+      '-loop', '1',
+      '-i', bg,
+      '-i', audioForVideo,
+      '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p',
+      '-r', '2', // 멈춘 그림이라 1초에 2장이면 충분하다(용량이 거의 안 는다)
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-tune', 'stillimage',
+      '-shortest',
+      '-c:a', 'copy',
+      '-movflags', '+faststart',
+      tmpOut,
+    ]);
+    const outName = name
+      .replace(/^sermonAudio\//, 'sermonVideo/')
+      .replace(/(-fix)?\.\w+$/, '.mp4');
+    const videoUrl = await uploadWithToken(bucket, tmpOut, outName, 'video/mp4');
+    await db.doc(`verses/${date}`).set({ sermonVideoUrl: videoUrl }, { merge: true });
     console.log(`설교 영상 준비 완료: ${outName}`);
   } catch (e) {
-    console.error(`설교 영상 만들기 실패(${name}): ${e?.message ?? e}`);
+    console.error(`설교 녹음 손보기 실패(${name}): ${e?.message ?? e}`);
   } finally {
-    for (const f of [tmpIn, tmpOut]) {
+    for (const f of [tmpIn, tmpFixed, tmpOut]) {
       try {
         unlinkSync(f);
       } catch {
