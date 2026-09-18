@@ -115,6 +115,8 @@ export async function uploadSermonAudio(
   blob: Blob,
   ext: string,
   onProgress?: (percent: number) => void,
+  /** 사역자 화면에서 미리 보며 고친 표지 — 없으면 여기서 기본값으로 만든다 */
+  cover?: Blob | null,
 ): Promise<string> {
   const storage = getStorageOrNull();
   if (!storage) throw new Error('저장소 연결이 없습니다.');
@@ -125,15 +127,17 @@ export async function uploadSermonAudio(
   // 함께 올린다 — 서버는 이 그림에 소리를 입혀 영상으로 만든다. 못 만들면
   // 서버가 준비된 기본 그림을 쓴다(그래도 영상은 나온다).
   try {
-    const v = await loadVerse(date);
-    const cover = await makeSermonCover({
-      date,
-      reference: v?.reference || '오늘의 말씀',
-      service: /주일/.test(v?.passageTitle ?? '') ? '주일예배' : '새벽예배',
-      churchName: '트라이밸리 장로교회',
-    });
-    if (cover) {
-      await uploadBytesResumable(storageRef(storage, `sermonCover/${date}-${stamp}.jpg`), cover, {
+    const v = cover ? null : await loadVerse(date);
+    const made =
+      cover ??
+      (await makeSermonCover({
+        date,
+        title: v?.reference || '오늘의 말씀',
+        subtitle: /주일/.test(v?.passageTitle ?? '') ? '주일예배' : '새벽예배',
+        churchName: '트라이밸리 장로교회',
+      }));
+    if (made) {
+      await uploadBytesResumable(storageRef(storage, `sermonCover/${date}-${stamp}.jpg`), made, {
         contentType: 'image/jpeg',
       });
     }

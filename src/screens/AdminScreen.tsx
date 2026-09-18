@@ -43,6 +43,8 @@ import {
   useSermonVideoUrl,
 } from '../data/admin';
 import { saveUrlToDevice } from '../links';
+import { churchInfo } from '../churchInfo';
+import { makeSermonCover } from '../sermonCover';
 import {
   type AlertDoc,
   createAlert,
@@ -58,7 +60,7 @@ import {
   saveBulletin,
 } from '../data/bulletin';
 import { deleteAllErrorLogs, type ErrorLogDoc, getRecentErrorLogs } from '../data/errorLog';
-import { colors, font, shadows } from '../theme';
+import { colors, font, radius, shadows } from '../theme';
 import { adminGoogleSignIn, getDb } from '../firebase';
 import { clearNewsBanner, saveNewsBanner } from '../newsBanner';
 import {
@@ -213,7 +215,56 @@ export default function AdminScreen() {
   // 앱에서 바로 녹음해 올리기(웹 전용) — 올리면 그날 말씀에 자동으로 연결된다
   const rec = useSermonRecorder();
   // 올린 녹음으로 만들어 둔 유튜브용 영상 — 다 되면 받기 단추가 나타난다
+  // 유튜브 영상 첫 화면(표지) — 목사님이 글씨를 고치고 미리 볼 수 있다
+  const [coverTitle, setCoverTitle] = useState('');
+  const [coverSub, setCoverSub] = useState('새벽예배');
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const coverBlobRef = React.useRef<Blob | null>(null);
   const sermonVideoUrl = useSermonVideoUrl(vSermonDate);
+
+  // 날짜를 고르면 그날 본문을 표지 제목으로 채워 둔다(고치실 수 있다)
+  useEffect(() => {
+    const d = (vSermonDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    let on = true;
+    loadVerse(d)
+      .then((v) => {
+        if (!on || !v) return;
+        setCoverTitle((cur) => cur || v.reference || '');
+        setCoverSub(/주일/.test(v.passageTitle ?? '') ? '주일예배' : '새벽예배');
+      })
+      .catch(() => {});
+    return () => {
+      on = false;
+    };
+  }, [vSermonDate]);
+
+  // 글씨가 바뀌면 표지를 다시 그려 보여 준다 — 올릴 때 이 그림이 쓰인다
+  useEffect(() => {
+    const d = (vSermonDate || today()).trim();
+    let on = true;
+    const t = setTimeout(() => {
+      makeSermonCover({
+        date: d,
+        title: coverTitle || '오늘의 말씀',
+        subtitle: coverSub,
+        churchName: churchInfo.nameKo,
+      })
+        .then((b) => {
+          if (!on) return;
+          coverBlobRef.current = b;
+          setCoverUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return b ? URL.createObjectURL(b) : null;
+          });
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      on = false;
+      clearTimeout(t);
+    };
+  }, [vSermonDate, coverTitle, coverSub]);
   const [savingVideo, setSavingVideo] = useState(false);
   // 녹음을 MP3로 바꿔 저장하는 동안(긴 설교는 몇십 초) 단추에 알린다
   const [savingFile, setSavingFile] = useState(false);
@@ -601,7 +652,7 @@ export default function AdminScreen() {
       if (!rec.blob) throw new Error('먼저 녹음을 해주세요.');
       setUpPct(0);
       try {
-        await uploadSermonAudio(date, rec.blob, rec.ext, setUpPct);
+        await uploadSermonAudio(date, rec.blob, rec.ext, setUpPct, coverBlobRef.current);
       } finally {
         setUpPct(0);
       }
@@ -1285,6 +1336,24 @@ export default function AdminScreen() {
               onChange={setVSermonDate}
               placeholder={today()}
             />
+
+            {/* 유튜브에 올릴 영상의 첫 화면 — 아래 글씨를 고치면 바로 보인다.
+                올리실 때 이 그림이 그대로 영상 화면이 된다. */}
+            <Text style={styles.blockTitle}>유튜브 영상 첫 화면</Text>
+            <Text style={styles.bgHint}>
+              아래 글씨를 고치시면 바로 아래 그림에 반영됩니다. 녹음을 올리시면 이 그림에 설교
+              소리를 입혀 영상으로 만들어 드립니다. 날짜와 교회 로고는 자동으로 들어갑니다.
+            </Text>
+            <Field label="큰 글씨 (보통 본문)" value={coverTitle} onChange={setCoverTitle} placeholder="예레미야 6장" />
+            <Field label="작은 글씨 (예배 이름)" value={coverSub} onChange={setCoverSub} placeholder="새벽예배" />
+            {!!coverUrl && (
+              <Image
+                source={{ uri: coverUrl }}
+                style={styles.coverPreview}
+                resizeMode="contain"
+                accessibilityLabel="유튜브 영상 첫 화면 미리보기"
+              />
+            )}
             {rec.supported ? (
               <>
                 {!rec.keepsAwake && (
@@ -1991,6 +2060,14 @@ const styles = StyleSheet.create({
   },
   errorClearBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.heartActive },
   emptyText: { fontFamily: font.regular, fontSize: 13, color: colors.faint, marginBottom: 8 },
+  // 유튜브 영상 첫 화면 미리보기 — 16:9
+  coverPreview: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: radius.card,
+    marginTop: 10,
+    backgroundColor: '#0C1A2C',
+  },
   hintText: { marginTop: 12, fontFamily: font.regular, fontSize: 11.5, lineHeight: 17, color: colors.faint },
   syncBox: {
     backgroundColor: colors.tagGreenBg,
