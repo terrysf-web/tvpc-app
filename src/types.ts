@@ -21,6 +21,9 @@ export interface VerseDoc {
   /** 그날 설교 듣기 주소(유튜브 또는 오디오) — 사역자 페이지에서 넣는다.
    *  없으면 홈 말씀 카드의 "설교 듣기"는 준비 중 안내만 보여준다. */
   sermonAudioUrl?: string | null;
+  /** 그날 설교를 유튜브에 올리실 수 있게 만들어 둔 영상(mp4) 주소.
+   *  녹음을 올리면 서버가 배경 그림을 입혀 자동으로 만든다(목회자만 보인다). */
+  sermonVideoUrl?: string | null;
 }
 
 export type SermonCategory = 'sermon' | 'podcast' | 'praise' | 'etc';

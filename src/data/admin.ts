@@ -303,6 +303,29 @@ export async function loadVerse(date: string): Promise<VerseDoc | null> {
   return snap.exists() ? ({ id: snap.id, ...(snap.data() as Omit<VerseDoc, 'id'>) } as VerseDoc) : null;
 }
 
+/**
+ * 그날 설교를 유튜브에 올릴 수 있게 만들어 둔 영상 주소.
+ *
+ * 녹음을 올리면 서버가 배경 그림을 입혀 영상(mp4)을 만들어 두는데, 그게
+ * 끝나는 데 잠깐 걸린다 — 다 되면 바로 단추가 나타나도록 지켜본다.
+ */
+export function useSermonVideoUrl(date: string): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const db = getDb();
+    const d = date.trim();
+    setUrl(null);
+    if (!db || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    const stop = onSnapshot(
+      doc(db, 'verses', d),
+      (snap) => setUrl((snap.data()?.sermonVideoUrl as string | undefined) ?? null),
+      () => setUrl(null),
+    );
+    return stop;
+  }, [date]);
+  return url;
+}
+
 /** 절 배열을 다시 입력 칸 형식("1 여호와는…")으로 되돌린다 */
 export function passageToText(passage: { verse: number; text: string }[] | undefined): string {
   return (passage ?? []).map((v) => `${v.verse} ${v.text}`).join('\n');

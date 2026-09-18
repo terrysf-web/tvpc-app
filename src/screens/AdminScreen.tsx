@@ -40,7 +40,9 @@ import {
   useApprovedMembers,
   usePendingMembers,
   useRevokedMembers,
+  useSermonVideoUrl,
 } from '../data/admin';
+import { saveUrlToDevice } from '../links';
 import {
   type AlertDoc,
   createAlert,
@@ -210,6 +212,9 @@ export default function AdminScreen() {
   const [vSermonUrl, setVSermonUrl] = useState('');
   // 앱에서 바로 녹음해 올리기(웹 전용) — 올리면 그날 말씀에 자동으로 연결된다
   const rec = useSermonRecorder();
+  // 올린 녹음으로 만들어 둔 유튜브용 영상 — 다 되면 받기 단추가 나타난다
+  const sermonVideoUrl = useSermonVideoUrl(vSermonDate);
+  const [savingVideo, setSavingVideo] = useState(false);
   // 녹음을 MP3로 바꿔 저장하는 동안(긴 설교는 몇십 초) 단추에 알린다
   const [savingFile, setSavingFile] = useState(false);
   const [upPct, setUpPct] = useState(0);
@@ -1351,6 +1356,36 @@ export default function AdminScreen() {
                           }MB)`}
                     </Text>
                   </Pressable>
+                )}
+
+                {/* 유튜브에 직접 올리실 수 있게, 올린 녹음으로 영상을 만들어 둔다 —
+                    유튜브는 소리만 있는 파일을 받지 않는다. 만드는 데 1~2분 걸린다. */}
+                {!!sermonVideoUrl && (
+                  <>
+                    <Text style={styles.bgHint}>
+                      유튜브에 올리실 영상이 준비됐습니다. 받아서 유튜브에 그대로 올리시면
+                      됩니다(제목·설명은 유튜브에서 쓰시면 됩니다).
+                    </Text>
+                    <Pressable
+                      style={[styles.ghostBtn, savingVideo && { opacity: 0.6 }]}
+                      disabled={savingVideo}
+                      onPress={async () => {
+                        setSavingVideo(true);
+                        try {
+                          await saveUrlToDevice(
+                            sermonVideoUrl,
+                            `설교영상 ${(vSermonDate || today()).trim()}`,
+                          );
+                        } finally {
+                          setSavingVideo(false);
+                        }
+                      }}
+                    >
+                      <Text style={styles.ghostBtnText}>
+                        {savingVideo ? '받는 중…' : '유튜브에 올릴 영상 받기 (mp4)'}
+                      </Text>
+                    </Pressable>
+                  </>
                 )}
               </>
             ) : (

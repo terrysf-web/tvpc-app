@@ -15,6 +15,14 @@ import { setGlobalOptions } from 'firebase-functions/v2';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
+import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import ffmpegPath from 'ffmpeg-static';
 
 initializeApp();
 setGlobalOptions({ maxInstances: 2 });
@@ -515,3 +523,96 @@ export const triggerBulletinSyncSun = onSchedule(
   { schedule: '0 0-14 * * 0', ...BULLETIN_TRIGGER_OPTS },
   triggerBulletinSync,
 );
+
+// ── 설교 녹음 → 유튜브에 올릴 영상 만들기 ─────────────────────────────
+/**
+ * 목사님이 녹음을 올리면, 그 소리에 배경 그림을 입혀 영상(mp4)으로 만들어
+ * 둔다. 목사님이 그 영상을 받아 유튜브에 직접 올리신다.
+ *
+ * 왜 필요한가 — 유튜브는 소리만 있는 파일을 받지 않는다. 앱에서 녹음한
+ * 파일(m4a)을 그대로는 못 올리시므로, 사진 한 장을 깔아 영상으로 만들어
+ * 드린다. 목사님은 제목·설명을 직접 쓰시며 올리길 원하셔서, 올리는 일까지
+ * 대신하지 않고 파일만 만들어 둔다.
+ *
+ * 그림은 함께 넣어 둔 한 장(assets/sermon-bg.jpg)을 쓴다. 소리는 다시
+ * 압축하지 않고 그대로 옮겨 담아(-c:a copy) 음질이 깎이지 않는다. 화면은
+ * 멈춘 그림이라 용량이 거의 늘지 않는다.
+ */
+const SERMON_VIDEO_OPTS = {
+  memory: '1GiB',
+  timeoutSeconds: 540,
+  retry: false,
+};
+
+export const makeSermonVideo = onObjectFinalized(SERMON_VIDEO_OPTS, async (event) => {
+  const name = event.data.name ?? '';
+  // 설교 녹음만, 그리고 우리가 만든 영상에 다시 반응하지 않도록 소리 파일만
+  if (!name.startsWith('sermonAudio/') || !/\.(m4a|mp3|webm|ogg)$/i.test(name)) return;
+
+  const date = (name.match(/sermonAudio\/(\d{4}-\d{2}-\d{2})/) ?? [])[1];
+  if (!date) return;
+
+  const bucket = getStorage().bucket(event.data.bucket);
+  const outName = name.replace(/^sermonAudio\//, 'sermonVideo/').replace(/\.\w+$/, '.mp4');
+  const tmpIn = join(tmpdir(), `in-${Date.now()}${name.match(/\.\w+$/)?.[0] ?? '.m4a'}`);
+  const tmpOut = join(tmpdir(), `out-${Date.now()}.mp4`);
+  const bg = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'sermon-bg.jpg');
+
+  try {
+    await bucket.file(name).download({ destination: tmpIn });
+
+    // 멈춘 그림 한 장 + 소리 → mp4. 그림은 유튜브가 좋아하는 1280x720에
+    // 맞춰 넣고(비율이 달라도 잘리지 않게 여백을 채운다), 소리는 그대로 옮긴다.
+    // webm(opus)은 mp4에 그대로 담을 수 없어 그때만 다시 압축한다.
+    const copyable = /\.(m4a|mp3)$/i.test(name);
+    await new Promise((resolve, reject) => {
+      const args = [
+        '-y',
+        '-loop', '1',
+        '-i', bg,
+        '-i', tmpIn,
+        '-vf', 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p',
+        '-r', '2', // 멈춘 그림이라 1초에 2장이면 충분하다(용량이 거의 안 는다)
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-tune', 'stillimage',
+        '-shortest',
+        ...(copyable ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '128k']),
+        '-movflags', '+faststart',
+        tmpOut,
+      ];
+      const p = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+      let err = '';
+      p.stderr.on('data', (d) => {
+        err = (err + d.toString()).slice(-800);
+      });
+      p.on('error', reject);
+      p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err || `ffmpeg ${code}`))));
+    });
+
+    const token = randomUUID();
+    await bucket.upload(tmpOut, {
+      destination: outName,
+      metadata: {
+        contentType: 'video/mp4',
+        metadata: { firebaseStorageDownloadTokens: token },
+      },
+    });
+    const url =
+      `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
+      `${encodeURIComponent(outName)}?alt=media&token=${token}`;
+
+    await getFirestore().doc(`verses/${date}`).set({ sermonVideoUrl: url }, { merge: true });
+    console.log(`설교 영상 준비 완료: ${outName}`);
+  } catch (e) {
+    console.error(`설교 영상 만들기 실패(${name}): ${e?.message ?? e}`);
+  } finally {
+    for (const f of [tmpIn, tmpOut]) {
+      try {
+        unlinkSync(f);
+      } catch {
+        /* 없으면 그만 */
+      }
+    }
+  }
+});
