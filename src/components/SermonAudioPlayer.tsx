@@ -1,17 +1,10 @@
 import Pause from 'lucide-react-native/dist/esm/icons/pause.mjs';
 import Play from 'lucide-react-native/dist/esm/icons/play.mjs';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { mmss, useInlineAudio } from '../inlineAudio';
 import { playSermonAudio } from '../links';
 import { colors, font, radius } from '../theme';
-
-/** 초 → "12:34" (길이를 아직 모르면 --:--) */
-function mmss(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return '--:--';
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 /** 유튜브 주소면 영상 ID, 아니면 null */
 function youtubeId(url: string): string | null {
@@ -39,46 +32,19 @@ export function SermonAudioPlayer({
   /** 홈 카드에서 "설교 듣기"로 들어온 경우 — 화면이 뜨자마자 재생한다 */
   autoPlay?: boolean;
 }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [at, setAt] = useState(0);
-  const [total, setTotal] = useState(NaN);
   const [trackW, setTrackW] = useState(0);
 
   const yt = youtubeId(url);
   const inline = !yt && Platform.OS === 'web';
 
-  useEffect(() => {
-    if (!inline) return;
-    const a = new Audio(url);
-    audioRef.current = a;
-    const onTime = () => setAt(a.currentTime);
-    const onMeta = () => setTotal(a.duration);
-    const onEnd = () => {
-      // 끝까지 들은 뒤 다시 누르면 처음부터 나오게 되감아 둔다
-      a.currentTime = 0;
-      setAt(0);
-      setPlaying(false);
-    };
-    a.addEventListener('timeupdate', onTime);
-    a.addEventListener('loadedmetadata', onMeta);
-    a.addEventListener('ended', onEnd);
-    // 홈에서 "설교 듣기"를 누르고 들어온 경우. 브라우저가 자동 재생을 막으면
-    // (아이폰 사파리 등) 조용히 멈춰 있고, 아래 재생 단추를 누르면 된다.
-    if (autoPlay) {
-      a.play().then(
-        () => setPlaying(true),
-        () => setPlaying(false),
-      );
-    }
-    return () => {
-      a.pause();
-      a.removeEventListener('timeupdate', onTime);
-      a.removeEventListener('loadedmetadata', onMeta);
-      a.removeEventListener('ended', onEnd);
-      audioRef.current = null;
-    };
-  }, [url, inline, autoPlay]);
+  // 재생기는 홈 카드와 같은 것을 쓴다 — 미리 받아 두어 한 번에 켜지고,
+  // 화면을 꺼도 잠금 화면에서 계속 들린다.
+  const audio = useInlineAudio(inline ? url : null, {
+    title,
+    artist: '트라이밸리장로교회',
+    autoPlay,
+  });
+  const { playing, at, total } = audio;
 
   // 유튜브·네이티브 — 예전처럼 눌러서 밖에서 연다
   if (!inline) {
@@ -89,37 +55,18 @@ export function SermonAudioPlayer({
     );
   }
 
-  const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playing) {
-      a.pause();
-      setPlaying(false);
-    } else {
-      // 다 듣고 끝난 상태에서 눌렀으면 처음부터
-      if (a.ended) a.currentTime = 0;
-      a.play().then(
-        () => setPlaying(true),
-        () => setPlaying(false),
-      );
-    }
-  };
-
   // 막대를 누르거나 끌어 옮긴 자리로 이동 — 긴 설교에서 듣던 데를 다시
   // 찾기 쉽게(누르기와 끌기 모두 같은 셈을 쓴다)
   const seekTo = (x: number) => {
-    const a = audioRef.current;
-    if (!a || !trackW || !Number.isFinite(total)) return;
-    const ratio = Math.min(Math.max(x / trackW, 0), 1);
-    a.currentTime = ratio * total;
-    setAt(a.currentTime);
+    if (!trackW) return;
+    audio.seek(x / trackW);
   };
 
   const pct = Number.isFinite(total) && total > 0 ? Math.min(at / total, 1) * 100 : 0;
 
   return (
     <View style={styles.box}>
-      <Pressable style={styles.playBtn} onPress={toggle} hitSlop={6}>
+      <Pressable style={styles.playBtn} onPress={audio.toggle} hitSlop={6}>
         {playing ? (
           <Pause size={18} color="#FFFFFF" fill="#FFFFFF" strokeWidth={0} />
         ) : (
@@ -127,7 +74,7 @@ export function SermonAudioPlayer({
         )}
       </Pressable>
       <View style={styles.right}>
-        <Text style={styles.label}>이 날 설교 듣기</Text>
+        <Text style={styles.label}>{audio.loading ? '설교 켜는 중…' : '이 날 설교 듣기'}</Text>
         {/* 얇은 막대는 손가락으로 잡기 어려워, 위아래로 여유를 둔 자리를
             함께 만들고 그 자리를 끌면 움직이게 한다 */}
         <View

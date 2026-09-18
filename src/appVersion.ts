@@ -16,10 +16,12 @@
  *  · 앱을 계속 보고 계실 때: 읽던 화면이 갑자기 사라지면 안 되므로,
  *    다음에 잠깐 자리를 비웠다 돌아올 때 맞춘다.
  *
- * 글을 쓰던 중이면 새로고침하지 않는다 — 쓰던 글이 날아가면 안 된다.
+ * 글을 쓰던 중이거나 설교를 듣고 있으면 새로고침하지 않는다 — 쓰던 글이
+ * 날아가거나 듣던 설교가 끊기면 안 된다.
  */
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { isAudioPlaying } from './inlineAudio';
 
 const VERSION_URL = '/version.json';
 /** 확인 간격 — 앱을 켜 두고 있어도 이만큼마다 한 번씩 본다 */
@@ -62,7 +64,8 @@ export function useAutoRefreshOnNewBuild() {
         first.current = build;
         return;
       }
-      if (build !== first.current && canReload && !isTyping()) window.location.reload();
+      if (build !== first.current && canReload && !isTyping() && !isAudioPlaying())
+        window.location.reload();
     };
 
     void check(false);

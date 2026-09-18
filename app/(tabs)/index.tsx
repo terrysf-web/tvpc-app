@@ -160,7 +160,11 @@ export default function HomeScreen() {
   const sermonTitle = `${verse.reference} 설교`;
   const isYoutube = !!sermonUrl?.match(/youtu\.be\/|[?&]v=|youtube\.com\//);
   const playInline = !!sermonUrl && !isYoutube && Platform.OS === 'web';
-  const sermon = useInlineAudio(playInline ? sermonUrl : null);
+  const sermon = useInlineAudio(playInline ? sermonUrl : null, {
+    // 화면을 꺼도 잠금 화면에 제목과 재생 단추가 남아 계속 들린다
+    title: sermonTitle,
+    artist: '트라이밸리장로교회',
+  });
   // 진행 막대의 너비 — 누른 자리가 몇 퍼센트 지점인지 셈할 때 쓴다
   const [playW, setPlayW] = React.useState(0);
   // 주일 전용 배경(관리자 등록 시) — 없으면 시간대 배경
@@ -460,7 +464,11 @@ export default function HomeScreen() {
                         !verse.imageUrl && !bg.dark && styles.heroBtnTextDark,
                       ]}
                     >
-                      {sermon.playing ? '⏸ 설교 멈춤' : '설교 듣기'}
+                      {sermon.playing
+                        ? '⏸ 설교 멈춤'
+                        : sermon.loading
+                          ? '설교 켜는 중…'
+                          : '설교 듣기'}
                     </Text>
                   </Pressable>
                 </View>

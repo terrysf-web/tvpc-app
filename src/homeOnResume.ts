@@ -9,10 +9,12 @@
  * 짧게 다녀오면(전화 확인, 주소 복사 등) 보던 자리를 그대로 지킨다.
  *
  * 건드리면 안 되는 화면은 그대로 둔다 — 사역자 화면(설교 녹음이 돌고 있을
- * 수 있다)과 영상 보는 화면, 그리고 이미 홈인 경우.
+ * 수 있다)과 영상 보는 화면, 그리고 이미 홈인 경우. 설교를 듣고 있는
+ * 중에도 그대로 둔다 — 화면을 옮기면 소리가 끊긴다.
  */
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
+import { isAudioPlaying } from './inlineAudio';
 
 /** 이만큼 넘게 자리를 비웠다 돌아오면 홈으로 */
 const AWAY_MS = 30 * 60 * 1000;
@@ -44,7 +46,8 @@ export function useHomeOnLongResume() {
       }
       const away = hiddenAt.current ? Date.now() - hiddenAt.current : 0;
       hiddenAt.current = 0;
-      if (away > AWAY_MS && !keepsPlace(pathRef.current)) router.replace('/');
+      if (away > AWAY_MS && !keepsPlace(pathRef.current) && !isAudioPlaying())
+        router.replace('/');
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
