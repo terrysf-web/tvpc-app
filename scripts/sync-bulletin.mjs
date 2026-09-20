@@ -1012,20 +1012,34 @@ function buildFaces() {
         if (!byLine.has(k)) byLine.set(k, []);
         byLine.get(k).push(t);
       }
+      // ¶는 "칸 경계"가 아니라 "한 줄 안에서 글자가 멀리 떨어진 자리"일
+      // 뿐이다 — 그 줄에 한 칸만 글이 있으면 ¶가 아예 안 붙어서, 그 글이
+      // 1부 칸인지 2부 칸인지 알 길이 없어진다(2026-09-20 주보에서 2부
+      // 성가대 곡목 "[하나님 없이는]"이 1부 칸으로 넘어갔다). 그래서 각
+      // 조각이 가로로 어디에서 시작하는지를 함께 적어 둔다.
+      const lineCols = [];
       const lines = [...byLine.entries()]
         .sort((a, b) => a[0] - b[0])
         .map(([, sp]) => {
           sp.sort((a, b) => a.left - b.left);
           let s = '';
           let prev = null;
+          const cols = [];
           for (const t of sp) {
-            if (prev != null && t.left - prev > 14) s += ' ¶ ';
-            else if (s) s += ' ';
+            if (prev == null) cols.push(t.left);
+            else if (t.left - prev > 14) {
+              s += ' ¶ ';
+              cols.push(t.left);
+            } else s += ' ';
             s += t.s;
             prev = t.left + t.w;
           }
+          lineCols.push(cols);
           return s;
         });
+      // 줄 배열에 얹어 둔다 — 쓰는 곳(예배 순서)만 꺼내 보고, 나머지는
+      // 예전처럼 글자만 다룬다.
+      lines.cols = lineCols;
       faces.push(lines);
     }
   }
@@ -1149,14 +1163,46 @@ const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권
 // 항상 제거한다.
 const cleanText = (s) => s.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim();
 
-/** 1부/2부에서 서로 다른 항목의 두 칸(줄바꿈으로 이어붙임) — 마지막 두 ¶ 조각을 쓴다 */
-function orderVaryCols(detailLines) {
+/**
+ * 1부/2부에서 서로 다른 항목의 두 칸(줄바꿈으로 이어붙임).
+ *
+ * 두 칸이 다 찬 줄은 마지막 두 ¶ 조각이 곧 1부·2부다. 문제는 한 칸만 찬
+ * 줄이다 — 특송 곡목처럼 한쪽 부에만 있는 줄에는 ¶가 안 붙어서 예전에는
+ * 무조건 1부로 넣었고, 그래서 2026-09-20 주보의 2부 성가대 곡목
+ * "[하나님 없이는]"이 1부 칸에 가 붙고 성가대는 곡목 없이 남았다.
+ *
+ * 이제는 그 줄이 가로로 어디에서 시작하는지를 본다. 두 칸이 다 찬 줄에서
+ * 1부·2부 칸의 가로 자리를 먼저 배우고, 한 칸짜리 줄은 그중 가까운 쪽에
+ * 넣는다 — 주보에 찍힌 그대로.
+ */
+function orderVaryCols(detailLines, detailCols = []) {
+  const rows = detailLines.map((raw, i) => ({
+    pillars: raw.split('¶').map((s) => s.trim()),
+    cols: detailCols[i] ?? [],
+  }));
+
+  // 두 칸이 다 찬 줄에서 1부·2부 칸의 가로 자리를 배운다(가운데 맞춤으로
+  // 찍힌 칸도 있어 여러 줄의 평균을 쓴다)
+  const x1 = [];
+  const x2 = [];
+  for (const r of rows) {
+    if (r.pillars.length >= 2 && r.cols.length >= 2) {
+      x1.push(r.cols[r.cols.length - 2]);
+      x2.push(r.cols[r.cols.length - 1]);
+    }
+  }
+  const avg = (a) => (a.length ? a.reduce((m, n) => m + n, 0) / a.length : null);
+  const mid = x1.length && x2.length ? (avg(x1) + avg(x2)) / 2 : null;
+
   const c1 = [];
   const c2 = [];
-  for (const raw of detailLines) {
-    const pillars = raw.split('¶').map((s) => s.trim());
+  for (const { pillars, cols } of rows) {
     if (pillars.length === 1) {
-      if (pillars[0]) c1.push(pillars[0]);
+      if (!pillars[0]) continue;
+      // 배운 자리가 없으면 예전처럼 1부로 — 한 부만 드리는 주보도 있다
+      const left = cols[0];
+      if (mid != null && left != null && left >= mid) c2.push(pillars[0]);
+      else c1.push(pillars[0]);
       continue;
     }
     const a = pillars[pillars.length - 2];
@@ -1228,20 +1274,29 @@ function extractOrderAndSermon(lines) {
   // 뗀 표시는 stars[]에 같은 줄 번호로 따로 기억해 둔다.
   const cleaned = [];
   const stars = [];
-  for (const raw2 of lines) {
+  // 각 줄의 ¶ 조각이 가로로 어디에서 시작하는지(buildFaces에서 적어 둔 것) —
+  // 한 칸만 찬 줄이 1부인지 2부인지 가릴 때 쓴다
+  const lineCols = lines.cols ?? [];
+  const colsArr = [];
+  lines.forEach((raw2, idx) => {
     let l = raw2.trim();
     const star = STAR_PREFIX.test(l);
     if (star) l = l.replace(STAR_PREFIX, '');
     l = collapseSpacedHeading(l).replace(/\s+/g, ' ');
-    if (!l) continue;
+    if (!l) return;
     cleaned.push(l);
     stars.push(star);
-  }
+    colsArr.push(lineCols[idx] ?? []);
+  });
   // 서식이 바뀐 주보를 살필 때 — 읽어들인 줄을 그대로 남긴다
   // (워크플로 입력 debug_order로 켠다)
   if (process.env.DEBUG_ORDER) {
     console.log('[예배순서] 읽어들인 줄:');
-    cleaned.forEach((l, n) => console.log(`   ${String(n).padStart(3)}${stars[n] ? '*' : ' '} ${l}`));
+    cleaned.forEach((l, n) =>
+      console.log(
+        `   ${String(n).padStart(3)}${stars[n] ? '*' : ' '} ${l}   [칸@${(colsArr[n] ?? []).join(',')}]`,
+      ),
+    );
   }
 
   for (let i = 0; i < cleaned.length; i++) {
@@ -1257,6 +1312,8 @@ function extractOrderAndSermon(lines) {
     if (raw.length && ORDER_END.test(t)) break;
 
     const star = stars[i];
+    // 이 줄 ¶ 조각들의 가로 자리 — 아래에서 라벨 조각을 떼며 함께 따라간다
+    let tCols = colsArr[i] ?? [];
     let label = matchOrderLabel(t);
     // "참회의 기도/신앙고백"·"교회소식 / 새가족환영"처럼 긴 라벨은 칸이 좁으면
     // 원본 PDF 자체에서 두 줄로 줄바꿈돼 나온다("참회의" / "기도/신앙고백*") —
@@ -1266,6 +1323,7 @@ function extractOrderAndSermon(lines) {
     while (!label && ORDER_LABELS.some((l) => l !== t && l.startsWith(t)) && j + 1 < cleaned.length) {
       j++;
       t = `${t} ${cleaned[j]}`;
+      tCols = [...tCols, ...(colsArr[j] ?? [])];
       label = matchOrderLabel(t);
     }
     if (label) {
@@ -1280,6 +1338,8 @@ function extractOrderAndSermon(lines) {
       // 비었다는 뜻이 아니다. 떼지 않으면 한 칸짜리 내용이 늘 2부로 밀린다
       // (2026-09-13 주보의 "성도의 교제 ¶ 교회 소식"이 2부 칸에 들어갔다).
       const rest = restRaw.replace(/^¶\s*/, '');
+      // 라벨 조각을 뗀 만큼 가로 자리도 앞에서 덜어낸다
+      const restCols = rest === restRaw ? tCols : tCols.slice(1);
       // 큰 흐름 구간 제목("말씀" 등)과 그 아래 첫 항목이 같은 줄에 ¶로
       // 붙어 나오기도 한다("말씀 ¶ 교회의 기도 ......."나 "모임 ¶  ¶
       // 공동체 소식") — ¶ 뒤가 다른 라벨로 시작하면 구간 제목과 그 항목을
@@ -1287,6 +1347,7 @@ function extractOrderAndSermon(lines) {
       // 구간 제목과 그 아래 첫 항목이 한 줄에 붙어 나오는지 볼 때는 떼기 전
       // 상태(restRaw)로 판단한다 — 위에서 뗀 ¶이 바로 그 경계이기 때문이다.
       const afterPillar = restRaw.replace(/^(?:¶\s*)+/, '');
+      const afterCols = tCols.slice((restRaw.match(/^(?:¶\s*)+/)?.[0].match(/¶/g) ?? []).length);
       const pillarLabel = afterPillar !== restRaw ? matchOrderLabel(afterPillar) : null;
       // 부제("세상으로" 등)가 옆 항목("축복과 파송")과 ¶로 한 줄에 붙어 나오면
       // 부제만 버리고 그 항목은 살린다.
@@ -1298,6 +1359,7 @@ function extractOrderAndSermon(lines) {
               ...(star ? ['*'] : []),
               afterPillar.slice(pillarLabel.length).replace(/^[\s.]+/, ''),
             ],
+            detailCols: [...(star ? [[]] : []), afterCols],
           });
         }
         continue;
@@ -1316,21 +1378,45 @@ function extractOrderAndSermon(lines) {
       const pull = HEADER_PULL_BEFORE[label];
       const lastRaw = raw[raw.length - 1];
       if (isHeader && pull && lastRaw && !lastRaw.isHeader && pull.has(lastRaw.name)) {
-        raw.splice(raw.length - 1, 0, { name: label, isHeader, subtitle, detailLines: [] });
+        raw.splice(raw.length - 1, 0, { name: label, isHeader, subtitle, detailLines: [], detailCols: [] });
         if (subLabel) {
-          raw.push({ name: subLabel, detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')] });
+          raw.push({
+            name: subLabel,
+            detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')],
+            detailCols: [afterCols],
+          });
         }
         continue;
       }
       if (subLabel) {
-        raw.push({ name: label, isHeader, subtitle, detailLines: star ? ['*'] : [] });
-        raw.push({ name: subLabel, detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')] });
+        raw.push({
+          name: label,
+          isHeader,
+          subtitle,
+          detailLines: star ? ['*'] : [],
+          detailCols: star ? [[]] : [],
+        });
+        raw.push({
+          name: subLabel,
+          detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')],
+          detailCols: [afterCols],
+        });
       } else {
-        raw.push({ name: label, isHeader, subtitle, detailLines: star ? ['*', rest] : [rest] });
+        raw.push({
+          name: label,
+          isHeader,
+          subtitle,
+          detailLines: star ? ['*', rest] : [rest],
+          detailCols: star ? [[], restCols] : [restCols],
+        });
       }
     } else if (raw.length) {
-      if (star) raw[raw.length - 1].detailLines.push('*');
+      if (star) {
+        raw[raw.length - 1].detailLines.push('*');
+        raw[raw.length - 1].detailCols.push([]);
+      }
       raw[raw.length - 1].detailLines.push(cleaned[i]);
+      raw[raw.length - 1].detailCols.push(colsArr[i] ?? []);
     } else if (!serviceHeading && SERVICE_HEADING.test(cleaned[i])) {
       serviceHeading = cleanText(cleaned[i]);
     }
@@ -1380,7 +1466,8 @@ function extractOrderAndSermon(lines) {
     if (item.isHeader) return { name: item.name, isHeader: true, subtitle: item.subtitle ?? '' };
     if (item.name === '성경봉독') return { name: item.name, shared: scripture };
     if (item.name === '설교') return { name: item.name, shared: preacher };
-    if (VARY_LABELS.has(item.name)) return { name: item.name, ...orderVaryCols(item.detailLines) };
+    if (VARY_LABELS.has(item.name))
+      return { name: item.name, ...orderVaryCols(item.detailLines, item.detailCols) };
     // 라벨 바로 뒤에 붙어 있던 '*'가 조각으로 혼자 떨어져 나오면(예: "* · 인도자")
     // 맨 앞이 아니라 맨 뒤에 붙여 "인도자*"처럼 자연스럽게 보이게 한다.
     const pieces = item.detailLines
