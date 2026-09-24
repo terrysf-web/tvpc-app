@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
+import AudioLines from 'lucide-react-native/dist/esm/icons/audio-lines.mjs';
 import Bell from 'lucide-react-native/dist/esm/icons/bell.mjs';
 import BellRing from 'lucide-react-native/dist/esm/icons/bell-ring.mjs';
 import BookOpen from 'lucide-react-native/dist/esm/icons/book-open.mjs';
 import Bookmark from 'lucide-react-native/dist/esm/icons/bookmark.mjs';
 import CalendarDays from 'lucide-react-native/dist/esm/icons/calendar-days.mjs';
+import CircleDot from 'lucide-react-native/dist/esm/icons/circle-dot.mjs';
 import Download from 'lucide-react-native/dist/esm/icons/download.mjs';
 import FileText from 'lucide-react-native/dist/esm/icons/file-text.mjs';
 import HandCoins from 'lucide-react-native/dist/esm/icons/hand-coins.mjs';
@@ -130,6 +132,67 @@ function FigTabs() {
   );
 }
 
+/** 화면 위쪽 칸(말씀·설교) — 눌러서 오가는 곳. 새 글이 있는 칸에는 빨간 점 */
+function FigSegTabs({
+  labels,
+  active,
+  dotAt,
+}: {
+  labels: string[];
+  active: number;
+  dotAt?: number;
+}) {
+  return (
+    <View style={styles.tabRow}>
+      {labels.map((l, i) => (
+        <View key={l} style={styles.tabCell}>
+          <View style={styles.segLabelRow}>
+            <Text style={i === active ? styles.tabOn : styles.tabOff}>{l}</Text>
+            {dotAt === i ? <View style={styles.segDot} /> : null}
+          </View>
+          <View style={i === active ? styles.tabLineOn : styles.tabLineOff} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** 맨 아래 탭 막대 — 「설교」에 새로 올라온 것이 있다는 빨간 점 */
+function FigBottomBar() {
+  const cells = ['홈', '말씀', '설교', '소식', '더보기'];
+  return (
+    <View style={styles.barRow}>
+      {cells.map((c, i) => (
+        <View key={c} style={styles.barCell}>
+          <View style={styles.barIconWrap}>
+            <View style={[styles.barIcon, i === 0 && styles.barIconOn]} />
+            {c === '설교' ? <View style={styles.barDot} /> : null}
+          </View>
+          <Text style={[styles.barLabel, i === 0 && styles.barLabelOn]}>{c}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** 홈 카드의 「설교 듣기」와 듣던 자리를 옮기는 막대 */
+function FigPlayBar() {
+  return (
+    <View>
+      <View style={styles.playBtn}>
+        <Text style={styles.playBtnText}>설교 듣기</Text>
+      </View>
+      <View style={styles.playTrack}>
+        <View style={styles.playFill} />
+      </View>
+      <View style={styles.playUnder}>
+        <Text style={styles.playTime}>3:12 / 22:25</Text>
+        <Here label="끌어서 옮기기" />
+      </View>
+    </View>
+  );
+}
+
 /** 더보기 — 알림 종류 하나를 켜고, 받고 싶은 시각을 고르는 모습 */
 function FigTopicTime() {
   const times = ['오전 8시', '오후 12:30', '오후 7시'];
@@ -169,6 +232,8 @@ interface Topic {
   lines: string[];
   figure?: React.ReactNode;
   figureNote?: string;
+  /** 한 꼭지에 그림이 둘 필요할 때(예: 말씀 — 위쪽 칸과 형광펜) */
+  figures?: { node: React.ReactNode; note: string }[];
   go?: { label: string; to: string };
 }
 
@@ -216,17 +281,41 @@ export default function HelpScreen() {
       go: { label: '홈으로 가보기', to: '/' },
     },
     {
+      key: 'newdot',
+      icon: <CircleDot size={20} color="#E5484D" strokeWidth={1.9} />,
+      chipBg: colors.tagOrangeBg,
+      title: '빨간 점 — 새로 올라온 것을 알려드려요',
+      lines: [
+        '새 글이 올라오면 그 자리에 작은 빨간 점이 붙습니다. 무엇이 새로 올라왔는지 하나하나 들어가 보지 않으셔도 됩니다.',
+        '맨 아래 「말씀·설교·소식」과 홈의 「한눈에 보기」 카드에 붙고, 그 안에 칸이 여러 개면 새 글이 있는 칸에도 붙습니다.',
+        '한 번 열어 보시면 그 자리의 점은 사라집니다.',
+        '새 주보가 올라온 날에도 「주보 보기」에 점이 붙습니다.',
+      ],
+      figure: <FigBottomBar />,
+      figureNote: '「설교」에 새로 올라온 것이 있다는 표시',
+      figures: [
+        {
+          node: <FigSegTabs labels={['주일설교', '새벽설교', '팟캐스트']} active={0} dotAt={1} />,
+          note: '들어가 보면, 새 글이 있는 칸에도 점이 붙어 있습니다',
+        },
+      ],
+    },
+    {
       key: 'word',
       icon: <BookOpen size={20} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
       title: '말씀 — 읽고, 표시하고, 적어두기',
       lines: [
-        '구절을 한 번 누르면 형광펜이 켜지고, 그 구절이 아래 메모장으로 옮겨집니다.',
-        '한 번 더 누르면 형광펜과 메모장 속 구절이 함께 지워집니다.',
+        '위쪽에 「본문·묵상·적용·기도·메모」 다섯 칸이 있습니다. 눌러서 오가시면 됩니다.',
+        '「본문」에서 구절을 한 번 누르면 형광펜이 켜지고, 그 구절이 「메모」 칸으로 옮겨집니다.',
+        '한 번 더 누르면 형광펜과 메모 속 구절이 함께 지워집니다.',
         '위쪽 책갈피 표시를 누르면 그 말씀이 저장됩니다. 적어둔 메모와 형광펜도 같이 보관돼요.',
+        '주일에는 예배에서 설교로 듣는 본문이라 「본문」과 「메모」만 나옵니다.',
+        '지난 새벽설교를 여실 때도 같은 다섯 칸으로 보실 수 있습니다.',
       ],
-      figure: <FigVerse />,
-      figureNote: '구절을 누르면 이렇게 표시됩니다',
+      figure: <FigSegTabs labels={['본문', '묵상', '적용', '기도', '메모']} active={0} />,
+      figureNote: '말씀 화면 위쪽 다섯 칸',
+      figures: [{ node: <FigVerse />, note: '구절을 누르면 이렇게 표시됩니다' }],
       go: { label: '말씀 보러 가기', to: '/word' },
     },
     {
@@ -244,13 +333,30 @@ export default function HelpScreen() {
       key: 'sermon',
       icon: <PlayCircle size={20} color={colors.primary} strokeWidth={1.9} />,
       chipBg: colors.tagBlueBg,
-      title: '설교 — 지난 설교 다시 보기',
+      title: '설교 — 주일설교·새벽설교·팟캐스트',
       lines: [
-        '맨 위가 가장 최근 설교이고, 아래로 지난 설교가 이어집니다.',
-        '누르면 유튜브에서 재생됩니다. 다 보신 뒤에는 화면 왼쪽 위 「◀ TVPC」를 눌러 앱으로 돌아오세요.',
-        '위쪽 「팟캐스트」를 누르시면 말씀 묵상 음성이 모여 있습니다.',
+        '위쪽에 「주일설교·새벽설교·팟캐스트」 세 칸이 있습니다.',
+        '「주일설교」는 맨 위가 가장 최근 설교이고, 아래로 지난 설교가 이어집니다. 누르면 유튜브에서 재생되고, 다 보신 뒤에는 화면 왼쪽 위 「◀ TVPC」를 눌러 앱으로 돌아오세요.',
+        '「새벽설교」는 지난 새벽예배 말씀입니다. 예전에 더보기 메뉴에 있던 「지난 새벽설교」가 이 자리로 옮겨 왔습니다.',
+        '「팟캐스트」에는 말씀 묵상 음성이 모여 있습니다.',
       ],
+      figure: <FigSegTabs labels={['주일설교', '새벽설교', '팟캐스트']} active={1} />,
+      figureNote: '설교 화면 위쪽 세 칸',
       go: { label: '설교 보러 가기', to: '/sermon' },
+    },
+    {
+      key: 'listen',
+      icon: <AudioLines size={20} color={colors.primary} strokeWidth={1.9} />,
+      chipBg: colors.tagBlueBg,
+      title: '홈에서 설교 바로 듣기',
+      lines: [
+        '그날 새벽설교 녹음이 올라온 날에는 홈 맨 위 카드에 「설교 듣기」가 나옵니다. 누르면 화면을 옮기지 않고 그 자리에서 바로 들립니다.',
+        '아래 막대를 손가락으로 끌면 듣던 자리를 옮기실 수 있습니다. 끝까지 들으신 뒤 다시 누르면 처음부터 들려드립니다.',
+        '전화기 화면이 꺼져도 설교는 계속 들립니다. 잠금 화면에서 멈추고 다시 트실 수 있어요.',
+      ],
+      figure: <FigPlayBar />,
+      figureNote: '「설교 듣기」와 듣던 자리를 옮기는 막대',
+      go: { label: '홈으로 가보기', to: '/' },
     },
     {
       key: 'bulletin',
@@ -259,9 +365,11 @@ export default function HelpScreen() {
       title: '주보 — 괄호 채우기와 설교 메모',
       lines: [
         '홈의 「주보 보기」로 들어갑니다. 위쪽 날짜를 누르면 그 주일 주보가 열려요.',
-        '설교 노트의 괄호를 누르고 답을 적으면, 괄호가 글자에 맞춰 저절로 넓어집니다.',
+        '설교 순서의 「성경말씀보기」를 누르면 그 주일 본문이 열리고, 「메모」 칸에 괄호 채우기·설교 메모·나눔 질문이 함께 있습니다.',
+        '괄호를 누르고 답을 적으면, 괄호가 글자에 맞춰 저절로 넓어집니다.',
+        '주일에는 맨 아래 「말씀」 › 「메모」에서도 같은 자리로 바로 가실 수 있습니다.',
         '적으신 내용은 이 전화기에만 저장되고 다른 분께 보이지 않습니다.',
-        '더 지난 주보는 「지난 주보」에서 달별로 찾을 수 있습니다.',
+        '더 지난 주보는 「지난 주보」에서 달별로 찾을 수 있습니다. 메모를 적어둔 날에는 날짜 옆에 ● 표시가 붙습니다.',
       ],
       figure: <FigBlank />,
       figureNote: '괄호 안에 글자를 넣으면 자동으로 넓이가 조절됩니다',
@@ -361,8 +469,9 @@ export default function HelpScreen() {
       chipBg: colors.tagGrayBg,
       title: '화면이 이상하거나 예전 그대로일 때',
       lines: [
-        '더보기 메뉴 › 「앱 새로고침」을 한 번 눌러 주세요. 최신 내용을 다시 불러옵니다.',
-        '홈 화면에 추가한 앱은 예전 화면을 담아두고 쓰기 때문에, 바뀐 것이 안 보이면 이걸 눌러 주시면 됩니다.',
+        '이제는 새 판이 올라오면 앱이 스스로 최신으로 맞춥니다. 다른 앱을 쓰다 돌아오실 때 조용히 새로 불러옵니다(설교를 듣고 계실 때나 글을 쓰고 계실 때는 끊기지 않게 기다립니다).',
+        '그래도 바뀐 것이 안 보이면 더보기 메뉴 › 「앱 새로고침」을 한 번 눌러 주세요.',
+        '한참 만에 앱을 다시 여시면 어제 보던 깊숙한 화면이 아니라 홈으로 열립니다. 잠깐 다녀오신 경우에는 보던 자리를 그대로 지켜드려요.',
       ],
     },
     {
@@ -436,6 +545,11 @@ export default function HelpScreen() {
             ))}
 
             {t.figure ? <Figure note={t.figureNote ?? ''}>{t.figure}</Figure> : null}
+            {(t.figures ?? []).map((f, i) => (
+              <Figure key={i} note={f.note}>
+                {f.node}
+              </Figure>
+            ))}
 
             {t.go ? (
               <Pressable style={styles.goBtn} onPress={() => go(t.key, t.go!.to)} hitSlop={6}>
@@ -591,6 +705,60 @@ const styles = StyleSheet.create({
   tabOn: { fontFamily: font.bold, fontSize: 13, color: colors.primary, marginBottom: 7 },
   tabLineOff: { height: 2.5, width: '100%', backgroundColor: 'transparent' },
   tabLineOn: { height: 2.5, width: '100%', backgroundColor: colors.primary },
+
+  // 칸 이름 옆의 빨간 점(새로 올라온 것 표시)
+  segLabelRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3 },
+  segDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#E5484D', marginTop: 1 },
+
+  // 맨 아래 탭 막대 그림
+  barRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    paddingVertical: 9,
+  },
+  barCell: { flex: 1, alignItems: 'center', gap: 5 },
+  barIconWrap: { width: 22, height: 18, alignItems: 'center', justifyContent: 'center' },
+  barIcon: { width: 17, height: 15, borderRadius: 4, backgroundColor: colors.tagGrayBg },
+  barIconOn: { backgroundColor: colors.tagBlueBg },
+  barDot: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#E5484D',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  barLabel: { fontFamily: font.medium, fontSize: 10.5, color: colors.faint },
+  barLabelOn: { fontFamily: font.bold, color: colors.primary },
+
+  // 홈 카드의 「설교 듣기」와 진행 막대 그림
+  playBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  playBtnText: { fontFamily: font.bold, fontSize: 13, color: '#FFFFFF' },
+  playTrack: {
+    marginTop: 12,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(30,90,168,0.18)',
+    overflow: 'hidden',
+  },
+  playFill: { width: '32%', height: 6, borderRadius: 3, backgroundColor: colors.primary },
+  playUnder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  playTime: { fontFamily: font.medium, fontSize: 11.5, color: colors.muted },
 
   switchRow: {
     flexDirection: 'row',
