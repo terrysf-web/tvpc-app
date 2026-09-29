@@ -402,6 +402,49 @@ async function applyBulletinVerse(docRef, scripture, auto, label) {
 let pdfTextCache = null;
 
 /**
+ * 주보에 적힌 요일·날짜를 그 주 실제 달력 날짜로 옮긴다.
+ *
+ * 주보 날짜(그 주일) 다음 이레 안에서 찾는다. 요일 글자를 먼저 믿고,
+ * 요일을 못 읽었을 때만 괄호 안 날짜로 찾는다 — 2026-09-27 주보에는
+ * 9월에 있지도 않은 "목(31일)"이 찍혀 있었고 "금(1일)"·"토(2일)"도 실제보다
+ * 하루씩 앞섰다(10월 1일이 목요일, 2일이 금요일). 새벽예배는 화~토로
+ * 정해져 있어 요일 글자가 늘 맞다.
+ */
+function bulletinWeekDate(dow, dom) {
+  const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  const [by, bm, bd] = date.split('-').map(Number);
+  const sunday = new Date(Date.UTC(by, bm - 1, bd));
+  const pick = (test) => {
+    for (let add = 1; add <= 7; add++) {
+      const d = new Date(sunday);
+      d.setUTCDate(d.getUTCDate() + add);
+      if (test(d)) return d;
+    }
+    return null;
+  };
+  const byDow = dow ? pick((d) => DOW[d.getUTCDay()] === dow) : null;
+  const byDom = dom ? pick((d) => d.getUTCDate() === dom) : null;
+  return byDow ?? byDom;
+}
+
+/**
+ * 주보의 요일 칸 이름을 달력대로 고쳐 준다("목(31일)" → "목(1일)").
+ *
+ * 주보에 잘못 찍힌 날짜를 앱이 그대로 보여주면, 9월 31일처럼 있지도 않은
+ * 날짜가 교인들께 그대로 나간다. 요일은 그대로 두고 날짜만 달력에 맞춘다.
+ */
+function fixDayLabel(label) {
+  const m = String(label ?? '').match(/([월화수목금토일])\s*\(\s*(\d{1,2})\s*일\s*\)/);
+  if (!m) return label;
+  const real = bulletinWeekDate(m[1], Number(m[2]));
+  if (!real) return label;
+  const dom = real.getUTCDate();
+  if (dom === Number(m[2])) return label;
+  console.log(`      · 주보 표기 바로잡음: ${m[1]}(${m[2]}일) → ${m[1]}(${dom}일)`);
+  return `${m[1]}(${dom}일)`;
+}
+
+/**
  * 등록하지 못한 날을 모아 둔다(사역자 알림용 — 아래 notifyVerseFailures 참고).
  *
  * 예전에는 이 선언이 파일 한참 아래, 쓰는 곳보다 뒤에 있었다. 자바스크립트는
@@ -738,20 +781,10 @@ async function syncDawnVerses() {
   //
   // 새벽예배는 화~토로 정해져 있고 요일 글자는 늘 맞게 찍히므로 요일을
   // 먼저 믿는다. 괄호 안 날짜는 요일 글자를 못 읽었을 때만 쓴다.
-  const DOW = ['일', '월', '화', '수', '목', '금', '토'];
-  const [by, bm, bd] = date.split('-').map(Number);
-  const sunday = new Date(Date.UTC(by, bm - 1, bd));
-  const nextWeek = (test) => {
-    for (let add = 1; add <= 7; add++) {
-      const d = new Date(sunday);
-      d.setUTCDate(d.getUTCDate() + add);
-      if (test(d)) return d.toISOString().slice(0, 10);
-    }
-    return null;
-  };
+  const iso = (d) => (d ? d.toISOString().slice(0, 10) : null);
   const dayToDate = (day) => {
-    const byDow = day.dow ? nextWeek((d) => DOW[d.getUTCDay()] === day.dow) : null;
-    const byDom = nextWeek((d) => d.getUTCDate() === day.dom);
+    const byDow = iso(bulletinWeekDate(day.dow, null));
+    const byDom = iso(bulletinWeekDate(null, day.dom));
     // 주보의 요일과 날짜가 서로 안 맞으면 기록에 남긴다 — 주보 표기가
     // 틀린 것이라 사람이 알아볼 수 있어야 한다
     if (byDow && byDom && byDow !== byDom) {
@@ -2139,12 +2172,19 @@ try {
     }
     // 주보에 책 이름이 한 글자 틀리게 찍히는 일이 있어(예례미야) 보여줄 때 바로잡는다
     const bibleForNames = await loadBible().catch(() => null);
+    // 요일 이름은 달력대로 바로잡아 내보낸다 — 주보에 잘못 찍힌 날짜(9월 31일
+    // 같은 없는 날)를 앱이 그대로 보여주면 교인들이 불안해하신다.
     dawnReadings = dr.dawn.map((d) => ({
       ...d,
+      day: fixDayLabel(d.day),
       passage: fixPassageBookName(d.passage, bibleForNames),
     }));
     fridayReading = dr.friday
-      ? { ...dr.friday, passage: fixPassageBookName(dr.friday.passage, bibleForNames) }
+      ? {
+          ...dr.friday,
+          day: fixDayLabel(dr.friday.day),
+          passage: fixPassageBookName(dr.friday.passage, bibleForNames),
+        }
       : null;
     if (dawnReadings.length) {
       console.log(`[주보] 새벽예배 본문 ${dawnReadings.length}일 추출`);
