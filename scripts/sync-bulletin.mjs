@@ -661,14 +661,35 @@ async function syncDawnVerses() {
   }
 
   if (dayLine >= 0) {
-    // 요일 줄 아래에서 본문 토큰 수집 — "이사야 34장", "이사야 34:1-20" 두 표기 모두.
+    // 요일 줄 아래에서 본문 칸 수집 — "이사야 34장", "이사야 34:1-20" 두 표기와
+    // '생명의 삶'(성경 장이 아닌 QT 날)까지 왼쪽에서 오른쪽 순서 그대로 모은다.
     // 표 사이에 빈 줄이 들어가는 주보도 있어 여섯 줄까지 훑는다.
+    //
+    // '생명의 삶'도 빠짐없이 모아야 한다 — 그 칸을 건너뛰면 그 뒤 본문들이
+    // 한 칸씩 앞으로 당겨져 요일과 어긋난다.
+    const CELL = /([가-힣]+(?:\d[가-힣]+)?)\s*(\d{1,3})\s*(?:장|:\s*\d)|생명의\s*삶/g;
     for (let i = dayLine + 1; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
-      for (const m of lines[i].matchAll(/([가-힣]+(?:\d[가-힣]+)?)\s*(\d{1,3})\s*(?:장|:\s*\d)/g)) {
-        passages.push({ book: m[1], chapter: Number(m[2]), col: m.index + m[0].length / 2 });
+      for (const m of lines[i].matchAll(CELL)) {
+        passages.push(m[1] ? { book: m[1], chapter: Number(m[2]) } : { qt: true });
       }
       if (passages.length) break;
     }
+    // 요일과 본문을 "왼쪽에서 몇 번째 칸인가"로 짝지어 준다.
+    //
+    // 예전에는 글자가 줄에서 몇 번째 글자에 찍혔는지(열 위치)로 짝지었다.
+    // 그런데 주보는 여러 단으로 짜여 있어서, 요일 줄 왼쪽에는 "온라인 예배
+    // 새가족 등록 봉사 부서 지원 교회 앱"이, 본문 줄 왼쪽에는 주소 기호
+    // 하나가 있는 식으로 왼쪽 글자 수가 서로 다르다. 그만큼 두 줄의 글자
+    // 번호가 어긋나서, 2026-09-20 주보에서 "화(22일) 예레미야 8장"이
+    // 9월 23일로 등록되는 등 한 주 내내 하루씩(=한 장씩) 밀렸다.
+    // 주보 화면에 쓰는 표 읽기는 처음부터 순서로 짝지어 맞게 나왔으므로,
+    // 등록도 같은 방식으로 맞춘다.
+    days.forEach((d, i) => {
+      d.col = i;
+    });
+    passages.forEach((p, i) => {
+      p.col = i;
+    });
     // 표 모양이 주보마다 조금씩 달라, 읽어들인 표를 항상 기록에 남긴다
     for (let i = dayLine; i <= Math.min(dayLine + 6, lines.length - 1); i++) {
       const t = lines[i].replace(/\s+/g, ' ').trim();
@@ -681,7 +702,9 @@ async function syncDawnVerses() {
   }
   console.log(
     `      · 요일 ${days.map((d) => `${d.dom}일@${Math.round(d.col)}`).join(' ')} / ` +
-      `본문 ${passages.map((p) => `${p.book}${p.chapter}@${Math.round(p.col)}`).join(' ')}`,
+      `본문 ${passages
+        .map((p) => `${p.qt ? '생명의삶' : `${p.book}${p.chapter}`}@${Math.round(p.col)}`)
+        .join(' ')}`,
   );
 
   // 개역개정 본문 로드 (책이름 → 장별 절 배열)
@@ -729,7 +752,8 @@ async function syncDawnVerses() {
   const emptyDates = [];
   for (const day of days) {
     const best = matched.get(day);
-    if (!best) {
+    // 짝이 없거나 '생명의 삶' 칸인 날은 성경 장이 아니라 QT 교재를 보는 날이다
+    if (!best || best.qt) {
       const d = domToDate(day.dom);
       if (d) emptyDates.push(d);
       continue;
