@@ -401,6 +401,16 @@ async function applyBulletinVerse(docRef, scripture, auto, label) {
 /** pdftotext 결과 (한 번만 변환) — 아래 함수들이 공유한다 */
 let pdfTextCache = null;
 
+/**
+ * 등록하지 못한 날을 모아 둔다(사역자 알림용 — 아래 notifyVerseFailures 참고).
+ *
+ * 예전에는 이 선언이 파일 한참 아래, 쓰는 곳보다 뒤에 있었다. 자바스크립트는
+ * 그런 값을 선언 전에 건드리면 그 자리에서 멈춘다 — 2026-09-27 주보에서
+ * "목(31일)"을 못 셈하고 여기에 적으려다 동기화가 통째로 멈췄고, 그 뒤
+ * 금·토 본문과 '생명의 삶' 등록이 조용히 빠졌다. 쓰기 전에 선언해 둔다.
+ */
+const verseFailures = [];
+
 try {
   await syncDawnVerses();
 } catch (e) {
@@ -624,7 +634,11 @@ async function syncDawnVerses() {
     const matches = [...lines[i].matchAll(DAY_TOKEN)];
     if (matches.length >= 3) {
       dayLine = i;
-      days = matches.map((m) => ({ dom: Number(m[2]), col: m.index + m[0].length / 2 }));
+      days = matches.map((m) => ({
+        dow: m[1],
+        dom: Number(m[2]),
+        col: m.index + m[0].length / 2,
+      }));
       break;
     }
     if (matches.length === 1) {
@@ -633,7 +647,7 @@ async function syncDawnVerses() {
       // 기준(≤10)으로 동작하므로, 같은 줄 안(거리 0)에서만 짝지어진다.
       const m = matches[0];
       const col = i * 1000 + m.index + m[0].length / 2;
-      days.push({ dom: Number(m[2]), col });
+      days.push({ dow: m[1], dom: Number(m[2]), col });
       // 본문은 같은 줄 오른쪽에 있는 게 보통이지만, 칸이 좁은 주보에서는
       // 다음 줄로 넘어가 찍힌다(2026-09-06 주보의 토요일이 그랬다 — 그날만
       // 본문이 비어 '생명의 삶'으로 넘어갔다). 다음 줄에 다른 요일이
@@ -714,16 +728,42 @@ async function syncDawnVerses() {
   // 표기 차이(요한1서↔요한일서)와 한 글자 오타(예례미야→예레미야) 모두 허용
   const findBook = (name) => findBookIn(bible, name);
 
-  // 주보 날짜(주일) 다음 1~7일 중 일(日)이 맞는 날짜로 환산
+  // 주보 날짜(주일) 다음 1~7일 중 요일이 맞는 날짜로 환산.
+  //
+  // 예전에는 괄호 안 날짜(일)만 보고 셈했다. 그런데 2026-09-27 주보에는
+  // 9월에 있지도 않은 "목(31일)"이 찍혀 있었고, 이어지는 "금(1일)"·
+  // "토(2일)"도 실제보다 하루씩 앞선 날짜였다(10월 1일은 목요일, 2일이
+  // 금요일이다). 날짜 숫자만 믿으면 목요일 본문은 통째로 빠지고 금·토
+  // 본문은 하루씩 당겨져 들어간다.
+  //
+  // 새벽예배는 화~토로 정해져 있고 요일 글자는 늘 맞게 찍히므로 요일을
+  // 먼저 믿는다. 괄호 안 날짜는 요일 글자를 못 읽었을 때만 쓴다.
+  const DOW = ['일', '월', '화', '수', '목', '금', '토'];
   const [by, bm, bd] = date.split('-').map(Number);
   const sunday = new Date(Date.UTC(by, bm - 1, bd));
-  const domToDate = (dom) => {
+  const nextWeek = (test) => {
     for (let add = 1; add <= 7; add++) {
       const d = new Date(sunday);
       d.setUTCDate(d.getUTCDate() + add);
-      if (d.getUTCDate() === dom) return d.toISOString().slice(0, 10);
+      if (test(d)) return d.toISOString().slice(0, 10);
     }
     return null;
+  };
+  const dayToDate = (day) => {
+    const byDow = day.dow ? nextWeek((d) => DOW[d.getUTCDay()] === day.dow) : null;
+    const byDom = nextWeek((d) => d.getUTCDate() === day.dom);
+    // 주보의 요일과 날짜가 서로 안 맞으면 기록에 남긴다 — 주보 표기가
+    // 틀린 것이라 사람이 알아볼 수 있어야 한다
+    if (byDow && byDom && byDow !== byDom) {
+      console.log(
+        `      · 주보 표기 확인: ${day.dow}(${day.dom}일)은 실제로 ${byDow}입니다 — 요일을 따릅니다`,
+      );
+    } else if (byDow && !byDom) {
+      console.log(
+        `      · 주보 표기 확인: ${day.dow}(${day.dom}일)은 없는 날짜입니다 — 요일을 따라 ${byDow}로 넣습니다`,
+      );
+    }
+    return byDow ?? byDom;
   };
 
   // 요일↔본문 짝짓기 — 표의 열 위치가 가장 가까운 짝부터 확정한다.
@@ -754,11 +794,11 @@ async function syncDawnVerses() {
     const best = matched.get(day);
     // 짝이 없거나 '생명의 삶' 칸인 날은 성경 장이 아니라 QT 교재를 보는 날이다
     if (!best || best.qt) {
-      const d = domToDate(day.dom);
+      const d = dayToDate(day);
       if (d) emptyDates.push(d);
       continue;
     }
-    const vDate = domToDate(day.dom);
+    const vDate = dayToDate(day);
     if (vDate && usedDates.has(vDate)) continue;
     if (vDate) usedDates.add(vDate);
     const bookName = findBook(best.book);
@@ -940,8 +980,6 @@ async function writeStatus(changed, note) {
  * 남아 있을 뿐 아무 표시가 없다 — 실제로 2026-09-10에 그렇게 하루가
  * 조용히 빠졌다. 그래서 실패를 모아 두었다가 사역자에게 알린다.
  */
-const verseFailures = [];
-
 /**
  * 등록 실패를 관리자에게 알린다 — 목회자에게는 보내지 않는다.
  * 주보 표기 오류는 파싱을 손봐야 풀리는 일이라 목사님이 하실 수 있는 게
