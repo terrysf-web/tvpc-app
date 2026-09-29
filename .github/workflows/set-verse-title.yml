@@ -1,0 +1,30 @@
+# 말씀 한 건의 제목만 고치기 — 말씀 등록에서 제목을 잘못 치신 날을 바로잡을 때.
+# 본문·설교 녹음·묵상 등 나머지는 건드리지 않는다.
+name: Set verse title (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '날짜 (YYYY-MM-DD)'
+        required: true
+      title:
+        description: '새 제목'
+        required: true
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Set title
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          DATE: ${{ inputs.date }}
+          TITLE: ${{ inputs.title }}
+        run: node scripts/set-verse-title.mjs
