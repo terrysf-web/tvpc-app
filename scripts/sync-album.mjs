@@ -206,6 +206,13 @@ for (let i = 0; i < files.length; i++) {
   const pageImg = sharp(readFileSync(pageFile));
   const { width: imgW, height: imgH } = await pageImg.metadata();
 
+  // [점검] PDF 안에 진짜 글자층이 있는지 — 있으면 OCR 없이 정확한 이름을
+  // 그대로 가져올 수 있다(OCR은 "문 장석"을 통째로 놓치는 등 깨진다)
+  if (px && i + 1 >= 10 && i + 1 <= 12) {
+    const t = textsOf(px.body).filter((w) => w.s);
+    console.log(`  [점검] p${i + 1} 글자층 ${t.length}개: ${t.slice(0, 24).map((w) => w.s).join(' | ')}`);
+  }
+
   // 명부 페이지 판별 — OCR로 표 머리글(Photo/Name/Cell) 확인
   // 작은 장식 이미지(구분선·로고)는 사진으로 치지 않는다
   const rawImages = px ? imagesOf(px.body) : [];
