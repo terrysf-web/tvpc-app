@@ -255,6 +255,42 @@ function allCells(raw) {
   return out;
 }
 
+/**
+ * 읽어낸 낱말들을 사람이 읽는 차례대로 잇는다(위 줄부터, 줄 안에서는 왼쪽부터).
+ *
+ * 그냥 위(top) 순서로만 세우면 같은 줄에 있는 글자도 몇 픽셀 차이로 앞뒤가
+ * 뒤바뀐다 — "문 지현"이 "지현 문"으로 읽혔다. 높이가 비슷하면 같은 줄로
+ * 묶은 뒤 그 안에서 왼쪽부터 잇는다.
+ */
+function readInOrder(ws) {
+  const lines = [];
+  for (const w of [...ws].sort((a, b) => a.top - b.top)) {
+    const line = lines.find((L) => Math.abs(L.top - w.top) <= Math.max(6, (w.h || 10) * 0.6));
+    if (line) line.words.push(w);
+    else lines.push({ top: w.top, words: [w] });
+  }
+  return lines
+    .map((L) =>
+      L.words
+        .sort((a, b) => a.left - b.left)
+        .map((w) => w.text)
+        .join(' '),
+    )
+    .join(' ')
+    .trim();
+}
+
+/**
+ * 셀 이름 붙이기 — "Cell-02"가 "Cell / - / 02"처럼 쪼개져 읽히는 걸 되붙인다.
+ * (구글 Vision은 붙임표에서 낱말을 나눈다. 그래서 셀이 통째로 '기타'가 됐다.)
+ */
+function joinCellText(t) {
+  return String(t)
+    .replace(/([Cc][Ee][Ll][Ll])\s*[-–—]?\s*0*(\d{1,2})/g, (_, c, d) => `Cell-${d.padStart(2, '0')}`)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const MAX_BYTES = 675_000; // base64 후 Firestore 1MB 한도 아래
 async function encode(img) {
   for (const q of [78, 65, 52, 40]) {
@@ -391,24 +427,22 @@ for (let i = 0; i < files.length; i++) {
     const startPx = starts[r];
     const endPx = ends[r];
     const inRow = (w) => w.top >= startPx && w.top < endPx && !/^(Photo|Name|Cell)$/.test(w.text);
-    // 셀 열의 OCR 단어들 → 셀 이름 (쉼표 앞 첫 항목)
-    const cellText = words
-      .filter((w) => inRow(w) && w.conf >= 30 && w.left >= cellX - 20)
-      .sort((a, b) => a.top - b.top || a.left - b.left)
-      .map((w) => w.text)
-      .join(' ')
-      .trim();
+    // 셀 칸은 "Cell"이라는 글자 자체가 값의 일부라 빼면 안 된다(머리글은 이미
+    // 줄 밖이라 섞이지 않는다). 줄 차례대로 읽은 뒤 쪼개진 "Cell-02"를 되붙인다.
+    const inRowAll = (w) => w.top >= startPx && w.top < endPx;
+    const cellText = joinCellText(
+      readInOrder(words.filter((w) => inRowAll(w) && w.conf >= 30 && w.left >= cellX - 20)),
+    );
     let cellList = allCells(cellText);
     let cell = cellList[0] ?? normCell(cellText);
     // 이름 열 — 300dpi OCR(한글 정확도)로 검색용 이름 추출
-    const namesPage = words300
-      // 이름은 검색 색인용 — 신뢰도 문턱을 낮춰(12) 흐리게 읽힌 이름도
-      // 검색에 걸리게 한다 (잡음이 섞여도 포함 검색이라 해가 없다)
-      .filter((w) => inRow(w) && w.conf >= 12 && w.left >= nameX - 20 && w.left < cellX - 20)
-      .sort((a, b) => a.top - b.top || a.left - b.left)
-      .map((w) => w.text)
-      .join(' ')
-      .trim();
+    const namesPage = readInOrder(
+      words300.filter(
+        // 이름은 검색 색인용 — 신뢰도 문턱을 낮춰(12) 흐리게 읽힌 이름도
+        // 검색에 걸리게 한다 (잡음이 섞여도 포함 검색이라 해가 없다)
+        (w) => inRow(w) && w.conf >= 12 && w.left >= nameX - 20 && w.left < cellX - 20,
+      ),
+    );
     // 같은 자리를 "이름 칸만 잘라내어" 한 번 더 읽는다.
     //
     // 페이지를 통째로 읽으면 옆 칸 사진과 표선이 함께 들어가 글자가 깨진다
@@ -453,7 +487,7 @@ for (let i = 0; i < files.length; i++) {
     }
     // 두 결과를 합치되 같은 낱말은 한 번만
     const names = [
-      ...new Set([...namesCrop.split(/\s+/), ...namesPage.split(/\s+/)].filter(Boolean)),
+      ...new Set([...namesPage.split(/\s+/), ...namesCrop.split(/\s+/)].filter(Boolean)),
     ].join(' ');
     // 글자가 전혀 없는 줄(장식 이미지로 생긴 가짜 줄)은 버린다
     // 이름을 한 글자도 못 읽은 줄 — 예전에는 그냥 버렸는데, 그러면 사진은
@@ -510,7 +544,7 @@ for (let i = 0; i < files.length; i++) {
     const buf = await encode(slice.resize({ width: 1000, withoutEnlargement: true }));
     total += buf.length;
     if (nameSamples.length < 12) nameSamples.push(`p${i + 1}-${r + 1} [${cell}] ${names}`);
-    rows.push({ cell, extra, names, buf, w: imgW, h: cropH });
+    rows.push({ cell, cellRaw: cell, extra, names, buf, w: imgW, h: cropH });
   }
   console.log(
     `  p${i + 1}: 명부 ${photos.length}줄 (사진 후보 ${rawImages.length}개, OCR 단어 ${words.length}개)`,
@@ -612,6 +646,10 @@ console.log(
     ? `[점검] 글자 읽기: 구글 Vision으로 ${visionPages}장`
     : `[점검] 글자 읽기: 예전 방식(tesseract) — Vision을 못 썼습니다${visionOff ? ` (${visionOff})` : ''}`,
 );
+{
+  const unknown = rows.filter((r) => !/^(Cell-\d{2}|CYA|EM|Pastor|늘푸른)$/.test(r.cellRaw ?? r.cell));
+  console.log(`[점검] 셀을 못 읽은 줄 ${unknown.length}개(앞 줄 셀을 이어받습니다)`);
+}
 console.log(`[점검] 읽어낸 이름 맛보기 ${nameSamples.length}줄:`);
 for (const n of nameSamples) console.log(`   · ${n}`);
 console.log(`[점검] 명부가 아니라고 본 페이지 ${skippedPages.length}장: ${skippedPages.join(' ') || '없음'}`);
