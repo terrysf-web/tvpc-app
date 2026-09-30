@@ -194,6 +194,7 @@ let total = 0;
 const rows = []; // {cell, names, buf, w, h}
 // 빠진 사람을 찾기 위한 기록 — 어느 쪽에서 몇 줄이 버려졌는지 남긴다
 const dropped = [];
+const kept = [];
 const skippedPages = [];
 // 머리글 OCR이 빠진 명부 페이지를 위해 직전 페이지의 열 위치를 기억
 let lastNameX = null;
@@ -306,9 +307,35 @@ for (let i = 0; i < files.length; i++) {
       .join(' ')
       .trim();
     // 글자가 전혀 없는 줄(장식 이미지로 생긴 가짜 줄)은 버린다
+    // 이름을 한 글자도 못 읽은 줄 — 예전에는 그냥 버렸는데, 그러면 사진은
+    // 멀쩡히 있는데 그 가족이 앨범에서 통째로 사라진다(실제로 네 가족이
+    // 그렇게 빠져 있었다). 사진에 내용이 있으면 이름 없이라도 남긴다.
+    // 사진 칸이 비어 있는 자리(명부 끝의 빈 칸)만 버린다.
     if (!/[가-힣A-Za-z]/.test(`${names} ${cellText}`)) {
-      dropped.push(`p${i + 1} ${r + 1}번째 줄: 글자를 하나도 못 읽음`);
-      continue;
+      const ph = photos[r];
+      const scaleX = imgW / px.w;
+      let ink = 0;
+      try {
+        const st = await sharp(
+          await pageImg
+            .clone()
+            .extract({
+              left: Math.max(0, Math.round(ph.left * scaleX)),
+              top: Math.max(0, Math.round(ph.top * scaleY)),
+              width: Math.max(1, Math.min(imgW, Math.round(ph.w * scaleX))),
+              height: Math.max(1, Math.min(imgH, Math.round(ph.h * scaleY))),
+            })
+            .toBuffer(),
+        ).stats();
+        ink = Math.max(...st.channels.map((c) => c.stdev));
+      } catch {
+        ink = 99; // 재어 보지 못하면 남기는 쪽으로 (빠뜨리는 것보다 낫다)
+      }
+      if (ink < 6) {
+        dropped.push(`p${i + 1} ${r + 1}번째 줄: 사진 칸이 비어 있음(얼룩 ${ink.toFixed(1)})`);
+        continue;
+      }
+      kept.push(`p${i + 1} ${r + 1}번째 줄: 이름을 못 읽었지만 사진이 있어 남김(얼룩 ${ink.toFixed(1)})`);
     }
     // 셀을 못 찾았으면 두 해상도 OCR 단어 전체에서 셀 패턴을 직접 찾는다
     if (cell === '기타') {
@@ -431,6 +458,10 @@ console.log(
 // 명부 한 장을 통째로 놓치면 그 장의 네 가족이 조용히 사라지므로, 숫자만
 // 봐도 어디를 봐야 할지 알 수 있게 한다.
 console.log(`[점검] 명부가 아니라고 본 페이지 ${skippedPages.length}장: ${skippedPages.join(' ') || '없음'}`);
+if (kept.length) {
+  console.log(`[점검] 이름 없이 남긴 줄 ${kept.length}개(검색에는 안 걸립니다):`);
+  for (const k of kept) console.log(`   · ${k}`);
+}
 if (dropped.length) {
   console.log(`[점검] 버린 줄 ${dropped.length}개:`);
   for (const d of dropped) console.log(`   · ${d}`);
