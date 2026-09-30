@@ -195,6 +195,7 @@ const rows = []; // {cell, names, buf, w, h}
 // 빠진 사람을 찾기 위한 기록 — 어느 쪽에서 몇 줄이 버려졌는지 남긴다
 const dropped = [];
 const kept = [];
+const nameSamples = [];
 const skippedPages = [];
 // 머리글 OCR이 빠진 명부 페이지를 위해 직전 페이지의 열 위치를 기억
 let lastNameX = null;
@@ -206,13 +207,6 @@ for (let i = 0; i < files.length; i++) {
   const pageImg = sharp(readFileSync(pageFile));
   const { width: imgW, height: imgH } = await pageImg.metadata();
 
-  // [점검] PDF 안에 진짜 글자층이 있는지 — 있으면 OCR 없이 정확한 이름을
-  // 그대로 가져올 수 있다(OCR은 "문 장석"을 통째로 놓치는 등 깨진다)
-  if (px && i + 1 >= 10 && i + 1 <= 12) {
-    const t = textsOf(px.body).filter((w) => w.s);
-    console.log(`  [점검] p${i + 1} 글자층 ${t.length}개: ${t.slice(0, 24).map((w) => w.s).join(' | ')}`);
-  }
-
   // 명부 페이지 판별 — OCR로 표 머리글(Photo/Name/Cell) 확인
   // 작은 장식 이미지(구분선·로고)는 사진으로 치지 않는다
   const rawImages = px ? imagesOf(px.body) : [];
@@ -223,14 +217,20 @@ for (let i = 0; i < files.length; i++) {
   let nameX = null;
   let cellX = null;
   let words300 = [];
+  // 이름 칸만 잘라 다시 읽을 때 쓴다 — 아래 줄 나누기에서도 필요해 밖에 둔다
+  let ocrFile = null;
+  let ocrW = 0;
+  let ocrH = 0;
   // 사진이 1장뿐인 명부 페이지(마지막 장에 한 명만 남는 경우)도 잡는다 —
   // 머리글(Photo/Name/Cell)이 OCR로 확인될 때만 명부로 취급하므로
   // 큰 사진 한 장짜리 소개 페이지가 명부로 오인되지는 않는다
   if (photos.length >= 1) {
     // 셀·머리글은 150dpi(검증된 결과), 이름은 300dpi(한글 정확도) — 이중 OCR
     words = ocrWords(pageFile);
-    const ocrFile = join(dir, ocrFiles[i]);
+    ocrFile = join(dir, ocrFiles[i]);
     const om = await sharp(readFileSync(ocrFile)).metadata();
+    ocrW = om.width;
+    ocrH = om.height;
     const k = imgH / om.height;
     words300 = ocrWords(ocrFile).map((w) => ({
       ...w,
@@ -305,7 +305,7 @@ for (let i = 0; i < files.length; i++) {
     let cellList = allCells(cellText);
     let cell = cellList[0] ?? normCell(cellText);
     // 이름 열 — 300dpi OCR(한글 정확도)로 검색용 이름 추출
-    const names = words300
+    const namesPage = words300
       // 이름은 검색 색인용 — 신뢰도 문턱을 낮춰(12) 흐리게 읽힌 이름도
       // 검색에 걸리게 한다 (잡음이 섞여도 포함 검색이라 해가 없다)
       .filter((w) => inRow(w) && w.conf >= 12 && w.left >= nameX - 20 && w.left < cellX - 20)
@@ -313,6 +313,52 @@ for (let i = 0; i < files.length; i++) {
       .map((w) => w.text)
       .join(' ')
       .trim();
+    // 같은 자리를 "이름 칸만 잘라내어" 한 번 더 읽는다.
+    //
+    // 페이지를 통째로 읽으면 옆 칸 사진과 표선이 함께 들어가 글자가 깨진다
+    // (2026년 9월 앨범에서 "문 장석"이 통째로 빠지고 "백대호"가 "HH 대호"로
+    // 읽혔다). 이름 칸만 남기고 잘라 주면 글자만 보게 되어 훨씬 잘 읽는다.
+    // 두 번 읽은 결과를 합쳐 쓴다 — 검색은 포함 검색이라 겹쳐도 해가 없고,
+    // 한쪽이 놓친 이름을 다른 쪽이 건질 수 있다.
+    let namesCrop = '';
+    if (ocrFile) {
+      try {
+        const sx = ocrW / imgW;
+        const sy = ocrH / imgH;
+        const cropLeft = Math.max(0, Math.round((nameX - 12) * sx));
+        const cropRight = Math.min(ocrW, Math.round((cellX - 8) * sx));
+        const cropTop = Math.max(0, Math.round(startPx * sy));
+        const cropBot = Math.min(ocrH, Math.round(endPx * sy));
+        if (cropRight - cropLeft > 40 && cropBot - cropTop > 40) {
+          const cropFile = join(dir, `name-${i + 1}-${r + 1}.png`);
+          await sharp(readFileSync(ocrFile))
+            .extract({
+              left: cropLeft,
+              top: cropTop,
+              width: cropRight - cropLeft,
+              height: cropBot - cropTop,
+            })
+            // 글자를 또렷하게 — 회색으로 바꾸고 명암을 세운 뒤 조금 키운다
+            .greyscale()
+            .normalise()
+            .resize({ width: Math.round((cropRight - cropLeft) * 1.5) })
+            .png()
+            .toFile(cropFile);
+          namesCrop = ocrWords(cropFile)
+            .filter((w) => w.conf >= 12)
+            .sort((a, b) => a.top - b.top || a.left - b.left)
+            .map((w) => w.text)
+            .join(' ')
+            .trim();
+        }
+      } catch {
+        /* 잘라 읽기에 실패해도 페이지 전체에서 읽은 이름은 그대로 쓴다 */
+      }
+    }
+    // 두 결과를 합치되 같은 낱말은 한 번만
+    const names = [
+      ...new Set([...namesCrop.split(/\s+/), ...namesPage.split(/\s+/)].filter(Boolean)),
+    ].join(' ');
     // 글자가 전혀 없는 줄(장식 이미지로 생긴 가짜 줄)은 버린다
     // 이름을 한 글자도 못 읽은 줄 — 예전에는 그냥 버렸는데, 그러면 사진은
     // 멀쩡히 있는데 그 가족이 앨범에서 통째로 사라진다(실제로 네 가족이
@@ -367,6 +413,7 @@ for (let i = 0; i < files.length; i++) {
     );
     const buf = await encode(slice.resize({ width: 1000, withoutEnlargement: true }));
     total += buf.length;
+    if (nameSamples.length < 12) nameSamples.push(`p${i + 1}-${r + 1} [${cell}] ${names}`);
     rows.push({ cell, extra, names, buf, w: imgW, h: cropH });
   }
   console.log(
@@ -464,6 +511,8 @@ console.log(
 // 빠진 사람 찾기 — 명부가 아니라고 본 페이지와 버린 줄을 그대로 남긴다.
 // 명부 한 장을 통째로 놓치면 그 장의 네 가족이 조용히 사라지므로, 숫자만
 // 봐도 어디를 봐야 할지 알 수 있게 한다.
+console.log(`[점검] 읽어낸 이름 맛보기 ${nameSamples.length}줄:`);
+for (const n of nameSamples) console.log(`   · ${n}`);
 console.log(`[점검] 명부가 아니라고 본 페이지 ${skippedPages.length}장: ${skippedPages.join(' ') || '없음'}`);
 if (kept.length) {
   console.log(`[점검] 이름 없이 남긴 줄 ${kept.length}개(검색에는 안 걸립니다):`);
