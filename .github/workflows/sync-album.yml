@@ -42,7 +42,7 @@ jobs:
 
       - name: Install deps
         if: env.skip != 'true'
-        run: npm install --no-save firebase-admin sharp
+        run: npm install --no-save firebase-admin sharp google-auth-library
 
       - name: Sync album
         if: env.skip != 'true'

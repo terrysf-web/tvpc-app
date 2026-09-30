@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { GoogleAuth } from 'google-auth-library';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import sharp from 'sharp';
@@ -125,7 +126,87 @@ const imagesOf = (body) =>
     h: Number(m[4]),
   }));
 
-// 명부 페이지는 텍스트 층이 없어(이름·셀이 그림) OCR로 읽는다
+/**
+ * 명부 페이지 글자 읽기 — 구글 Vision.
+ *
+ * 명부 페이지에는 글자층이 아예 없어(확인함: 0개) 그림에서 글자를 읽어낼
+ * 수밖에 없다. 그동안 쓰던 tesseract는 이 인쇄 품질의 한글에서 한계가
+ * 뚜렷했다 — "문 장석"이 통째로 빠지고, "안철주"가 "주 안 철"로 흩어지고,
+ * "백대호"가 "HH 대호"로 읽혔다. 자르는 방식을 손봐도 몇 명은 계속 틀렸다.
+ *
+ * 구글 Vision은 같은 그림에서 한글을 훨씬 정확히 읽는다. 앨범은 한 해에
+ * 몇 번만 바뀌므로 비용도 한 번에 10센트쯤이다.
+ *
+ * 콘솔에서 Vision API를 아직 안 켰으면 조용히 tesseract로 돌아간다 —
+ * 앨범 자체는 그대로 만들어진다(이름 검색만 예전만큼 덜 정확할 뿐).
+ */
+const visionAuth = new GoogleAuth({
+  credentials: JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT),
+  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+});
+let visionOff = null; // 못 쓰는 이유(한 번만 알리고 그 뒤로는 조용히)
+
+async function visionWords(file) {
+  if (visionOff) return null;
+  try {
+    const client = await visionAuth.getClient();
+    const { token } = await client.getAccessToken();
+    const res = await fetch('https://vision.googleapis.com/v1/images:annotate', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: readFileSync(file).toString('base64') },
+            features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
+            imageContext: { languageHints: ['ko', 'en'] },
+          },
+        ],
+      }),
+    });
+    const body = await res.json();
+    if (!res.ok || body.error || body.responses?.[0]?.error) {
+      const msg =
+        body.error?.message ?? body.responses?.[0]?.error?.message ?? `HTTP ${res.status}`;
+      visionOff = msg;
+      console.log(`  ! 구글 Vision을 쓸 수 없어 예전 방식으로 읽습니다: ${msg}`);
+      return null;
+    }
+    const ann = body.responses?.[0]?.fullTextAnnotation;
+    if (!ann) return [];
+    const words = [];
+    for (const page of ann.pages ?? []) {
+      for (const block of page.blocks ?? []) {
+        for (const para of block.paragraphs ?? []) {
+          for (const w of para.words ?? []) {
+            const text = (w.symbols ?? []).map((sym) => sym.text).join('');
+            if (!text.trim()) continue;
+            const xs = (w.boundingBox?.vertices ?? []).map((v) => v.x ?? 0);
+            const ys = (w.boundingBox?.vertices ?? []).map((v) => v.y ?? 0);
+            if (!xs.length) continue;
+            const left = Math.min(...xs);
+            const top = Math.min(...ys);
+            words.push({
+              left,
+              top,
+              w: Math.max(...xs) - left,
+              h: Math.max(...ys) - top,
+              text,
+              conf: 99,
+            });
+          }
+        }
+      }
+    }
+    return words;
+  } catch (e) {
+    visionOff = e?.message ?? String(e);
+    console.log(`  ! 구글 Vision을 쓸 수 없어 예전 방식으로 읽습니다: ${visionOff}`);
+    return null;
+  }
+}
+
+// 예전 방식(tesseract) — Vision을 못 쓸 때만 쓴다
 function ocrWords(file) {
   const out = execFileSync(
     'tesseract',
@@ -196,6 +277,7 @@ const rows = []; // {cell, names, buf, w, h}
 const dropped = [];
 const kept = [];
 const nameSamples = [];
+let visionPages = 0;
 const skippedPages = [];
 // 머리글 OCR이 빠진 명부 페이지를 위해 직전 페이지의 열 위치를 기억
 let lastNameX = null;
@@ -221,24 +303,38 @@ for (let i = 0; i < files.length; i++) {
   let ocrFile = null;
   let ocrW = 0;
   let ocrH = 0;
+  let vision3 = false;
   // 사진이 1장뿐인 명부 페이지(마지막 장에 한 명만 남는 경우)도 잡는다 —
   // 머리글(Photo/Name/Cell)이 OCR로 확인될 때만 명부로 취급하므로
   // 큰 사진 한 장짜리 소개 페이지가 명부로 오인되지는 않는다
   if (photos.length >= 1) {
-    // 셀·머리글은 150dpi(검증된 결과), 이름은 300dpi(한글 정확도) — 이중 OCR
-    words = ocrWords(pageFile);
     ocrFile = join(dir, ocrFiles[i]);
     const om = await sharp(readFileSync(ocrFile)).metadata();
     ocrW = om.width;
     ocrH = om.height;
     const k = imgH / om.height;
-    words300 = ocrWords(ocrFile).map((w) => ({
-      ...w,
-      left: Math.round(w.left * k),
-      top: Math.round(w.top * k),
-      w: Math.round(w.w * k),
-      h: Math.round(w.h * k),
-    }));
+    // 300dpi에서 읽은 자리를 화면용(150dpi) 자리로 옮긴다 — 아래 줄 나누기가
+    // 모두 화면용 좌표를 쓰기 때문
+    const toPage = (ws) =>
+      ws.map((w) => ({
+        ...w,
+        left: Math.round(w.left * k),
+        top: Math.round(w.top * k),
+        w: Math.round(w.w * k),
+        h: Math.round(w.h * k),
+      }));
+    // 구글 Vision으로 한 번에 읽는다(머리글·셀·이름 모두). 못 쓰면 예전 방식.
+    const vision = await visionWords(ocrFile);
+    if (vision) {
+      visionPages++;
+      vision3 = true;
+      words = toPage(vision);
+      words300 = words;
+    } else {
+      // 셀·머리글은 150dpi(검증된 결과), 이름은 300dpi(한글 정확도) — 이중 OCR
+      words = ocrWords(pageFile);
+      words300 = toPage(ocrWords(ocrFile));
+    }
     const hdr = (re) =>
       words.filter((w) => w.conf >= 30 && re.test(w.text)).sort((a, b) => a.top - b.top)[0];
     const hName = hdr(/^Name$/i);
@@ -321,7 +417,7 @@ for (let i = 0; i < files.length; i++) {
     // 두 번 읽은 결과를 합쳐 쓴다 — 검색은 포함 검색이라 겹쳐도 해가 없고,
     // 한쪽이 놓친 이름을 다른 쪽이 건질 수 있다.
     let namesCrop = '';
-    if (ocrFile) {
+    if (ocrFile && !vision3) {
       try {
         const sx = ocrW / imgW;
         const sy = ocrH / imgH;
@@ -511,6 +607,11 @@ console.log(
 // 빠진 사람 찾기 — 명부가 아니라고 본 페이지와 버린 줄을 그대로 남긴다.
 // 명부 한 장을 통째로 놓치면 그 장의 네 가족이 조용히 사라지므로, 숫자만
 // 봐도 어디를 봐야 할지 알 수 있게 한다.
+console.log(
+  visionPages
+    ? `[점검] 글자 읽기: 구글 Vision으로 ${visionPages}장`
+    : `[점검] 글자 읽기: 예전 방식(tesseract) — Vision을 못 썼습니다${visionOff ? ` (${visionOff})` : ''}`,
+);
 console.log(`[점검] 읽어낸 이름 맛보기 ${nameSamples.length}줄:`);
 for (const n of nameSamples) console.log(`   · ${n}`);
 console.log(`[점검] 명부가 아니라고 본 페이지 ${skippedPages.length}장: ${skippedPages.join(' ') || '없음'}`);
