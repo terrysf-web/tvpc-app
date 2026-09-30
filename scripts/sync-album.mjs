@@ -77,7 +77,11 @@ console.log(`  ✓ ${Math.round(pdfBuf.length / 1024)}KB`);
 const CONVERTER_VERSION = 19;
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const meta = await db.doc('albums/current').get();
+// FORCE=1이면 같은 PDF라도 다시 만든다 — 읽기(OCR·줄 나누기)를 손본 뒤
+// 확인할 때 쓴다(변환 방식 번호를 올리지 않고도 다시 돌릴 수 있게)
+const FORCE = process.env.FORCE === '1';
 if (
+  !FORCE &&
   meta.exists &&
   meta.get('pdfHash') === pdfHash &&
   meta.get('converterVersion') === CONVERTER_VERSION
@@ -85,6 +89,7 @@ if (
   console.log('완료: 앨범이 이미 최신입니다 (변경 없음).');
   process.exit(0);
 }
+if (FORCE) console.log('  (다시 만들기: 같은 PDF라도 새로 변환합니다)');
 
 const dir = mkdtempSync(join(tmpdir(), 'album-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
@@ -187,6 +192,9 @@ for (const coll of ['albums/current/pages', 'albums/current/rows']) {
 let introCount = 0;
 let total = 0;
 const rows = []; // {cell, names, buf, w, h}
+// 빠진 사람을 찾기 위한 기록 — 어느 쪽에서 몇 줄이 버려졌는지 남긴다
+const dropped = [];
+const skippedPages = [];
 // 머리글 OCR이 빠진 명부 페이지를 위해 직전 페이지의 열 위치를 기억
 let lastNameX = null;
 let lastCellX = null;
@@ -199,11 +207,10 @@ for (let i = 0; i < files.length; i++) {
 
   // 명부 페이지 판별 — OCR로 표 머리글(Photo/Name/Cell) 확인
   // 작은 장식 이미지(구분선·로고)는 사진으로 치지 않는다
-  const photos = px
-    ? imagesOf(px.body)
-        .filter((p) => p.w > px.w * 0.08 && p.h > px.h * 0.05)
-        .sort((a, b) => a.top - b.top)
-    : [];
+  const rawImages = px ? imagesOf(px.body) : [];
+  const photos = rawImages
+    .filter((p) => p.w > px.w * 0.08 && p.h > px.h * 0.05)
+    .sort((a, b) => a.top - b.top);
   let words = [];
   let nameX = null;
   let cellX = null;
@@ -242,6 +249,7 @@ for (let i = 0; i < files.length; i++) {
   }
 
   if (nameX === null || cellX === null) {
+    skippedPages.push(`p${i + 1}(사진 ${photos.length}개/후보 ${rawImages.length}개)`);
     // 소개·단체사진 페이지는 통째로
     // 화면 표시 폭(≤520 CSS px)에는 1000px면 충분 — 용량을 줄여 로딩을 빠르게
     const buf = await encode(pageImg.clone().resize({ width: 1000, withoutEnlargement: true }));
@@ -298,7 +306,10 @@ for (let i = 0; i < files.length; i++) {
       .join(' ')
       .trim();
     // 글자가 전혀 없는 줄(장식 이미지로 생긴 가짜 줄)은 버린다
-    if (!/[가-힣A-Za-z]/.test(`${names} ${cellText}`)) continue;
+    if (!/[가-힣A-Za-z]/.test(`${names} ${cellText}`)) {
+      dropped.push(`p${i + 1} ${r + 1}번째 줄: 글자를 하나도 못 읽음`);
+      continue;
+    }
     // 셀을 못 찾았으면 두 해상도 OCR 단어 전체에서 셀 패턴을 직접 찾는다
     if (cell === '기타') {
       const cand = [...words, ...words300]
@@ -313,7 +324,10 @@ for (let i = 0; i < files.length; i++) {
     }
     const extra = cellList.slice(1).join(', ');
     const cropH = endPx - startPx;
-    if (cropH < 30) continue;
+    if (cropH < 30) {
+      dropped.push(`p${i + 1} ${r + 1}번째 줄: 잘린 높이가 너무 얇음(${cropH}px) — "${names}"`);
+      continue;
+    }
     const slice = sharp(
       await pageImg.clone().extract({ left: 0, top: startPx, width: imgW, height: cropH }).toBuffer(),
     );
@@ -321,7 +335,9 @@ for (let i = 0; i < files.length; i++) {
     total += buf.length;
     rows.push({ cell, extra, names, buf, w: imgW, h: cropH });
   }
-  console.log(`  p${i + 1}: 명부 ${photos.length}줄 (OCR 단어 ${words.length}개)`);
+  console.log(
+    `  p${i + 1}: 명부 ${photos.length}줄 (사진 후보 ${rawImages.length}개, OCR 단어 ${words.length}개)`,
+  );
 }
 
 // 그룹 라벨 후처리 — 오독은 알려진 그룹만 인정하고('CVA'→'CYA' 보정),
@@ -410,3 +426,14 @@ await db.doc('albums/current').set({
 console.log(
   `완료: 소개 ${introCount}페이지 + 명부 ${rows.length}줄(${cellOrder.length}개 셀: ${cellOrder.join(', ')}) — 총 ${Math.round(total / 1024)}KB`,
 );
+
+// 빠진 사람 찾기 — 명부가 아니라고 본 페이지와 버린 줄을 그대로 남긴다.
+// 명부 한 장을 통째로 놓치면 그 장의 네 가족이 조용히 사라지므로, 숫자만
+// 봐도 어디를 봐야 할지 알 수 있게 한다.
+console.log(`[점검] 명부가 아니라고 본 페이지 ${skippedPages.length}장: ${skippedPages.join(' ') || '없음'}`);
+if (dropped.length) {
+  console.log(`[점검] 버린 줄 ${dropped.length}개:`);
+  for (const d of dropped) console.log(`   · ${d}`);
+} else {
+  console.log('[점검] 버린 줄 없음');
+}
