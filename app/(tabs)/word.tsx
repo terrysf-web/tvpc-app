@@ -32,31 +32,14 @@ import { colors, font, scrim, shadows, textShadow } from '../../src/theme';
 import { useVerseBg } from '../../src/verseBg';
 import { useUnread } from '../../src/unread';
 
-type WordTab = 'text' | 'note' | 'med' | 'app' | 'pray';
+type WordTab = 'text' | 'note';
 
-// 평일(새벽예배) 말씀 — 본문·묵상·적용·기도·메모. 목사님이 사역자
-// 페이지에서 등록하신 묵상·적용·기도가 여기로 들어온다(안 쓰신 날은 읽기를
-// 돕는 기본 안내 문구가 대신 나온다).
+// 본문과 메모 둘뿐이다. 말씀을 읽고 적어두는 것이 이 화면이 할 일이고,
+// 칸이 많으면 어느 칸에 무엇이 있었는지 헷갈린다.
 const TABS: { key: WordTab; label: string }[] = [
   { key: 'text', label: '본문' },
-  { key: 'med', label: '묵상' },
-  { key: 'app', label: '적용' },
-  { key: 'pray', label: '기도' },
   { key: 'note', label: '메모' },
 ];
-
-// 주일은 본문·메모만. 주일 성경봉독은 예배에서 설교로 듣는 본문이라,
-// 앱이 만든 묵상·적용·기도를 따로 붙일 자리가 아니다.
-const SUNDAY_TABS: { key: WordTab; label: string }[] = [
-  { key: 'text', label: '본문' },
-  { key: 'note', label: '메모' },
-];
-
-/** 그날이 주일인가 — 주일이면 성경봉독(예배 본문)이다 */
-function isSundayVerse(date: string): boolean {
-  const d = new Date(`${date}T00:00:00`);
-  return !Number.isNaN(d.getTime()) && d.getDay() === 0;
-}
 
 /** 글씨크기 3단계 */
 const FONT_SCALES = [1, 1.15, 1.3];
@@ -82,7 +65,7 @@ export default function WordScreen() {
     }, [markSeen]),
   );
 
-  const tabs = isSundayVerse(verse.date) ? SUNDAY_TABS : TABS;
+  const tabs = TABS;
   // 날짜가 바뀌어 보던 탭이 없어지면 본문으로 돌아온다(빈 화면 방지)
   useEffect(() => {
     if (!tabs.some((t) => t.key === tab)) setTab('text');
@@ -316,32 +299,6 @@ export default function WordScreen() {
             />
           )}
         </View>
-        {tab === 'med' && (
-          <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
-            {verse.meditation ||
-              '본문을 천천히 읽으며 마음에 머무는 구절을 찾아보세요. 그 구절 앞에 잠시 멈추어, 오늘 나에게 주시는 말씀으로 받아 묵상해 보세요.'}
-          </Text>
-        )}
-        {tab === 'app' &&
-          (verse.application.length
-            ? verse.application
-            : ['본문에서 받은 은혜를 오늘 삶에서 실천할 한 가지로 정해 보세요.']
-          ).map((a, i) => (
-            <View key={i} style={styles.bulletRow}>
-              <View style={styles.bulletDot} />
-              <Text
-                style={[styles.paragraph, { flex: 1, fontSize: 14.5 * scale, lineHeight: 24 * scale }]}
-              >
-                {a}
-              </Text>
-            </View>
-          ))}
-        {tab === 'pray' && (
-          <Text style={[styles.paragraph, { fontSize: 14.5 * scale, lineHeight: 25 * scale }]}>
-            {verse.prayer ||
-              '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
-          </Text>
-        )}
       </ScrollView>
 
       {/* 하단 액션 바 */}

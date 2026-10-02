@@ -43,7 +43,7 @@ function dateLabelEn(date: string): string {
  * "느헤미야  8:10-12" 같은 사소한 공백 차이는 같은 본문으로 본다). */
 const normRef = (s: string) => s.replace(/\s+/g, '');
 
-type VerseTab = 'text' | 'med' | 'app' | 'pray' | 'note';
+type VerseTab = 'text' | 'note';
 
 /** 저장한 말씀에서 열어 보는 지난 날짜의 말씀 전체 보기 */
 export default function VerseByDateScreen() {
@@ -59,30 +59,16 @@ export default function VerseByDateScreen() {
   // 주일(새벽예배 본문 등)은 개역 한글 성경만 있어 이 화면 자체가 영어
   // 모드로 오지 않는다.
   const isEn = lang === 'en';
-  // 주일은 본문·메모만 — 주일 성경봉독은 예배에서 설교로 듣는 본문이라,
-  // 앱이 만든 묵상·적용·기도를 따로 붙일 자리가 아니다.
-  // English 주보도 묵상·적용·기도를 한글로만 써 두므로 본문·메모만 쓴다.
-  const sundayVerse = (() => {
-    const d = new Date(`${date}T00:00:00`);
-    return !Number.isNaN(d.getTime()) && d.getDay() === 0;
-  })();
+  // 본문과 메모 둘뿐이다 — 말씀 화면과 같은 차림.
   const tabs: { key: VerseTab; label: string }[] = isEn
     ? [
         { key: 'text', label: 'Passage' },
         { key: 'note', label: 'Notes' },
       ]
-    : sundayVerse
-      ? [
-          { key: 'text', label: '본문' },
-          { key: 'note', label: '메모' },
-        ]
-      : [
-          { key: 'text', label: '본문' },
-          { key: 'med', label: '묵상' },
-          { key: 'app', label: '적용' },
-          { key: 'pray', label: '기도' },
-          { key: 'note', label: '메모' },
-        ];
+    : [
+        { key: 'text', label: '본문' },
+        { key: 'note', label: '메모' },
+      ];
   // 이 화면은 항상 "그 날짜 하나"만 다룬다 — 오늘이 며칠이든 상관없이, 주일
   // 주보의 성경봉독이면 그 주보의 괄호 채우기·나눔 질문을 그대로 함께 보여준다.
   // (요일별 새벽 본문에는 이 문서가 아예 없어 자연히 빈 배열로 안 나온다.)
@@ -252,40 +238,6 @@ export default function VerseByDateScreen() {
                   </View>
                 ))
               )}
-            </View>
-          )}
-
-          {/* 묵상·적용·기도 — 목사님이 사역자 페이지에서 쓰신 글이 여기로
-              들어오고, 안 쓰신 날은 읽기를 돕는 기본 안내 문구가 나온다 */}
-          {tab === 'med' && (
-            <View style={[styles.sectionCard, shadows.card]}>
-              <Text style={styles.verseText}>
-                {verse.meditation?.trim() ||
-                  '본문을 천천히 읽으며 마음에 머무는 구절을 찾아보세요. 그 구절 앞에 잠시 멈추어, 오늘 나에게 주시는 말씀으로 받아 묵상해 보세요.'}
-              </Text>
-            </View>
-          )}
-
-          {tab === 'app' && (
-            <View style={[styles.sectionCard, shadows.card]}>
-              {(verse.application?.filter((a) => a.trim()).length
-                ? verse.application.filter((a) => a.trim())
-                : ['본문에서 받은 은혜를 오늘 삶에서 실천할 한 가지로 정해 보세요.']
-              ).map((a, i) => (
-                <View key={i} style={styles.verseRow}>
-                  <Text style={styles.verseNum}>·</Text>
-                  <Text style={styles.verseText}>{a}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {tab === 'pray' && (
-            <View style={[styles.sectionCard, shadows.card]}>
-              <Text style={styles.verseText}>
-                {verse.prayer?.trim() ||
-                  '오늘 주신 말씀에 감사드리며, 그 말씀대로 살아갈 힘을 주시도록 기도해 보세요.'}
-              </Text>
             </View>
           )}
 
