@@ -1323,10 +1323,42 @@ function orderVaryCols(detailLines, detailCols = []) {
 // 공백·'*'·'.'(점선 구분선)·끝 중 하나일 때만(=단어 경계) 라벨로 인정한다.
 // '.'은 2026-09-06부터 "설교........하나님은..."처럼 라벨과 내용 사이 점선을
 // 공백 없이 바로 붙여 찍는 항목이 생겨서 추가했다.
+/** 띄어쓰기를 뗀 모양 — 주보마다 띄어쓰기가 달라 비교는 뗀 모양으로 한다 */
+const squash = (s) => String(s).replace(/\s+/g, '');
+
+/**
+ * 줄 맨 앞이 예배 순서 항목 이름인지 본다.
+ *
+ * 띄어쓰기는 무시한다 — 2026-10-04 주보는 PDF 안에 띄어쓰기가 아예 없이
+ * 찍혀 나왔다("1부특송", "허성영목사"). 그래서 "1부 특송"을 못 알아보고
+ * 1부·2부 특송이 둘 다 봉헌 칸에 쏟아져 들어갔다.
+ *
+ * 이름 바로 뒤에 한글이 더 붙어 있으면 그건 더 긴 낱말이지 이 항목이
+ * 아니다("찬송"과 "찬송가", "성찬"과 "성찬식"). 그때만 아니라고 본다 —
+ * 뒤에 '*'·'['·숫자·점선이 붙거나 거기서 끝나면 이 항목이 맞다.
+ */
 function matchOrderLabel(t) {
-  return ORDER_LABELS.find(
-    (l) => t.startsWith(l) && (t.length === l.length || ' *.'.includes(t[l.length])),
-  );
+  const ts = squash(t);
+  return ORDER_LABELS.find((l) => {
+    const ls = squash(l);
+    if (!ts.startsWith(ls)) return false;
+    const next = ts[ls.length];
+    return next === undefined || !/[가-힣]/.test(next);
+  });
+}
+
+/**
+ * 원문에서 항목 이름이 차지한 글자 수 — 띄어쓰기를 뗀 모양으로 맞췄으므로
+ * 원문에서 몇 글자를 떼어내야 하는지 따로 세어 준다.
+ */
+function labelLen(t, label) {
+  const need = squash(label).length;
+  let seen = 0;
+  for (let i = 0; i < t.length; i++) {
+    if (!/\s/.test(t[i])) seen++;
+    if (seen === need) return i + 1;
+  }
+  return t.length;
 }
 
 // 몇몇 항목 라벨은 원본 PDF에서 한 글자씩 넓게 벌려 크게 강조한다
@@ -1415,7 +1447,11 @@ function extractOrderAndSermon(lines) {
     // 이 줄이 어떤 라벨의 앞부분과 정확히 일치하면 다음 줄과 이어붙여 다시
     // 확인한다. 안 그러면 라벨을 못 찾아 앞 항목 상세줄로 잘못 붙어버린다.
     let j = i;
-    while (!label && ORDER_LABELS.some((l) => l !== t && l.startsWith(t)) && j + 1 < cleaned.length) {
+    while (
+      !label &&
+      ORDER_LABELS.some((l) => squash(l) !== squash(t) && squash(l).startsWith(squash(t))) &&
+      j + 1 < cleaned.length
+    ) {
       j++;
       t = `${t} ${cleaned[j]}`;
       tCols = [...tCols, ...(colsArr[j] ?? [])];
@@ -1428,7 +1464,7 @@ function extractOrderAndSermon(lines) {
       // 에서 이미 채움) — 원문에서 만나도 새 항목을 만들지 않고 건너뛴다.
       // 2026-09-06부터 라벨과 내용 사이를 점선(".......")으로 잇는 항목이
       // 있다 — 내용에 점선이 그대로 남지 않게 앞쪽 공백·점을 걷어낸다.
-      const restRaw = t.slice(label.length).replace(/^[\s.]+/, '');
+      const restRaw = t.slice(labelLen(t, label)).replace(/^[\s.]+/, '');
       // 라벨 바로 뒤의 ¶ 하나는 "라벨 칸과 내용 칸의 경계"지, 1부 칸이
       // 비었다는 뜻이 아니다. 떼지 않으면 한 칸짜리 내용이 늘 2부로 밀린다
       // (2026-09-13 주보의 "성도의 교제 ¶ 교회 소식"이 2부 칸에 들어갔다).
@@ -1452,7 +1488,7 @@ function extractOrderAndSermon(lines) {
             name: pillarLabel,
             detailLines: [
               ...(star ? ['*'] : []),
-              afterPillar.slice(pillarLabel.length).replace(/^[\s.]+/, ''),
+              afterPillar.slice(labelLen(afterPillar, pillarLabel)).replace(/^[\s.]+/, ''),
             ],
             detailCols: [...(star ? [[]] : []), afterCols],
           });
@@ -1477,7 +1513,7 @@ function extractOrderAndSermon(lines) {
         if (subLabel) {
           raw.push({
             name: subLabel,
-            detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')],
+            detailLines: [afterPillar.slice(labelLen(afterPillar, subLabel)).replace(/^[\s.]+/, '')],
             detailCols: [afterCols],
           });
         }
@@ -1493,7 +1529,7 @@ function extractOrderAndSermon(lines) {
         });
         raw.push({
           name: subLabel,
-          detailLines: [afterPillar.slice(subLabel.length).replace(/^[\s.]+/, '')],
+          detailLines: [afterPillar.slice(labelLen(afterPillar, subLabel)).replace(/^[\s.]+/, '')],
           detailCols: [afterCols],
         });
       } else {
