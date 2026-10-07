@@ -7,6 +7,11 @@ on:
       count:
         description: '최근 몇 개를 볼지 (기본 3)'
         required: false
+      try_fix:
+        description: '손볼 값을 실제로 입혀 보고 전·후를 나란히 재기'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   check:
@@ -24,4 +29,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           COUNT: ${{ inputs.count }}
+          TRY: ${{ inputs.try_fix && '1' || '' }}
         run: node scripts/check-sermon-tone.mjs
