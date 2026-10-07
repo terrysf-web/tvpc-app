@@ -69,6 +69,16 @@ function loudness(file) {
   }
 }
 
+/**
+ * 손질 값 — functions/index.js의 SERMON_AUDIO_FIX와 같은 값이다.
+ * (낮은 울림 걷어내기 + 웅웅대는 대역 덜기 + 말소리 대역 올리기 + 크기 맞추기)
+ */
+const SERMON_AUDIO_FIX =
+  'highpass=f=80,' +
+  'equalizer=f=230:t=q:w=1.0:g=-3.5,' +
+  'equalizer=f=2800:t=q:w=1.0:g=3.5,' +
+  'loudnorm=I=-16:TP=-1.5:LRA=11';
+
 const tmp = mkdtempSync(join(tmpdir(), 'mono-'));
 const [files] = await bucket.getFiles({ prefix: 'sermonAudio/' });
 console.log(`설교 녹음 ${files.length}개 살펴보기${DRY ? ' (고치지 않음)' : ''}`);
@@ -98,7 +108,7 @@ for (const file of files) {
         '-y', '-i', src,
         '-vn',
         '-ac', '1',
-        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+        '-af', SERMON_AUDIO_FIX,
         '-ar', '48000',
         '-c:a', 'aac', '-b:a', '128k',
         out,

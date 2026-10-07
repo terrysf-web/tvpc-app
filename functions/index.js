@@ -573,6 +573,30 @@ async function uploadWithToken(bucket, localPath, destination, contentType) {
 }
 
 /** 파일 이름에서 날짜·기본 이름 꺼내기 */
+/**
+ * 설교 녹음 손질 — 예배당에서 폰으로 담은 소리를 듣기 좋게 고른다.
+ *
+ * 왜 이렇게 잡았나(2026-10-07 실제 녹음 네 개를 재어 보고 정했다) —
+ * 낮은 음(100~300Hz)은 넉넉한데 말이 또렷하게 들리는 대역(1~4kHz)이
+ * 9~10dB 눌려 있었다. 그래서 "웅웅거리고 또렷하지 않다"고 하셨다.
+ *
+ *  · highpass 80   — 바닥에 깔리는 울림(발소리·에어컨)을 걷어낸다
+ *  · 230Hz −3.5dB  — 웅웅거리는 대역을 살짝 덜어낸다
+ *  · 2.8kHz +3.5dB — 말이 또렷하게 들리는 대역을 올린다
+ *  · loudnorm      — 그러고 나서 전체 크기를 방송 기준(-16 LUFS)으로 맞춘다
+ *
+ * 재어 본 결과: 웅웅대는 음과 말소리의 차이가 9.9dB → 5.9dB로 좁아졌고
+ * 목소리 바탕(300~1k)과 전체 크기는 그대로다(=작아지지 않는다).
+ *
+ * 같은 값을 scripts/check-sermon-tone.mjs(재어 보는 도구)와
+ * scripts/fix-sermon-audio-mono.mjs(지난 녹음 손보기)에도 그대로 둔다.
+ */
+const SERMON_AUDIO_FIX =
+  'highpass=f=80,' +
+  'equalizer=f=230:t=q:w=1.0:g=-3.5,' +
+  'equalizer=f=2800:t=q:w=1.0:g=3.5,' +
+  'loudnorm=I=-16:TP=-1.5:LRA=11';
+
 function sermonBase(name) {
   const file = name.replace(/^sermon(Audio|Cover)\//, '');
   const base = file.replace(/\.\w+$/, '').replace(/(-lvl|-mono|-fix)+$/, '');
@@ -617,13 +641,13 @@ export const makeSermonVideo = onObjectFinalized(SERMON_AUDIO_OPTS, async (event
   try {
     await bucket.file(name).download({ destination: tmpIn });
 
-    // 1) 소리 바로잡기 — 한 줄로, 크기는 방송 기준으로
+    // 1) 소리 바로잡기 — 한 줄로, 말소리가 또렷하게, 크기는 방송 기준으로
     if (!already) {
       await runFfmpeg([
         '-y', '-i', tmpIn,
         '-vn',
         '-ac', '1',
-        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+        '-af', SERMON_AUDIO_FIX,
         '-ar', '48000',
         '-c:a', 'aac', '-b:a', '128k',
         tmpFixed,
