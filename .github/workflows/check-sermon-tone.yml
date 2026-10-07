@@ -1,0 +1,27 @@
+# 설교 녹음의 대역별 세기를 재어 "웅웅거림"을 숫자로 본다(읽기 전용).
+name: Check sermon tone (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '최근 몇 개를 볼지 (기본 3)'
+        required: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install ffmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+      - name: Check
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          COUNT: ${{ inputs.count }}
+        run: node scripts/check-sermon-tone.mjs
