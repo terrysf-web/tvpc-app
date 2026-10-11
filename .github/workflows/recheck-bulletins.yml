@@ -1,0 +1,69 @@
+# 지난 주보 되돌아보기 — 예배 순서 읽기를 고친 뒤 이걸 한 번 돌린다.
+#
+# 지난 몇 주 주보를 다시 읽어, 지금 앱에 들어 있는 내용과 달라지는 주가
+# 있는지 본다. 달라지는 주가 있으면 이번 수정이 그 주를 망가뜨렸다는
+# 뜻이다(또는 그 주를 고쳤다는 뜻이다 — 어느 쪽인지는 사람이 본다).
+#
+# 2026-10-04 주보의 띄어쓰기 문제를 고치면서 2026-10-11 주보의 경배와 기도
+# 칸이 비게 됐는데, 그때 이 확인을 안 해서 교인들이 먼저 보셨다.
+name: Recheck past bulletins
+
+on:
+  workflow_dispatch:
+    inputs:
+      weeks:
+        description: '지난 몇 주를 되돌아볼지 (기본 6)'
+        required: false
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install poppler
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+
+      - name: Install deps
+        run: npm install --no-save firebase-admin sharp playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Recheck
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
+          TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+          WEEKS: ${{ inputs.weeks }}
+        run: |
+          WEEKS="${WEEKS:-6}"
+          # 가장 가까운 지난 주일부터 한 주씩 거슬러 올라간다
+          SUNDAY=$(date -u -d "last sunday" +%Y-%m-%d)
+          [ "$(date -u +%u)" = "7" ] && SUNDAY=$(date -u +%Y-%m-%d)
+          CHANGED=""
+          for i in $(seq 0 $((WEEKS - 1))); do
+            D=$(date -u -d "$SUNDAY - $i week" +%Y-%m-%d)
+            echo "::group::$D"
+            OUT=$(TARGET_BULLETIN_DATE="$D" node scripts/sync-bulletin.mjs 2>&1) || true
+            echo "$OUT"
+            echo "::endgroup::"
+            if echo "$OUT" | grep -q "텍스트 내용 갱신.*order"; then
+              CHANGED="$CHANGED $D"
+              echo "  ⚠ $D — 예배 순서가 예전과 달라졌습니다. 위 '[예배순서] 만들어진 항목'을 확인하세요."
+            else
+              echo "  ✓ $D — 예전과 같습니다."
+            fi
+          done
+          echo ""
+          echo "=============================================="
+          if [ -n "$CHANGED" ]; then
+            echo "달라진 주:$CHANGED"
+            echo "(고쳐진 것인지 망가진 것인지는 위 항목 목록을 보고 판단하세요)"
+          else
+            echo "지난 $WEEKS주 모두 예전과 같습니다 — 망가진 주 없음."
+          fi
