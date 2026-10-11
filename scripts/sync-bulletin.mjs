@@ -1230,6 +1230,28 @@ const ORDER_LABELS = [
   '1부 특송', '2부 특송', '축복과 파송',
 ];
 const VARY_LABELS = new Set(['성도의 교제', '경배와 기도']);
+
+/**
+ * 1부/2부로 나뉜 주보에서 "경배와 기도" 칸 안에 들어가는 글들.
+ *
+ * 이 이름들은 다른 서식(2026-09-06 성찬주일 서식, 야외예배 주보)에서는
+ * 저마다 독립된 예배 순서라 라벨 목록에 들어 있다. 그런데 1부/2부 주보에서
+ * 라벨로 잡아 버리면 경배와 기도 칸이 비고, 1부·2부로 나뉘어 있던 내용이
+ * 한 줄에 통째로 쏟아진다(2026-10-11 주보에서 그렇게 됐다).
+ *
+ * 그래서 "경배와 기도" 항목을 이미 만든 주보에서는 이 이름들을 라벨로 보지
+ * 않고 그 칸의 내용으로 둔다. 두 서식은 같은 주보에 섞여 나오지 않는다 —
+ * 경배와 기도가 있으면 1부/2부 서식이고, 없으면 다른 서식이다.
+ */
+const INSIDE_WORSHIP_SET = new Set([
+  '참회의 기도/신앙고백',
+  '참회의 기도',
+  '신앙고백',
+  '용서의 선언',
+  '평화의 나눔',
+  '찬송',
+  '찬송 / 헌금',
+]);
 // 2026-09-06 서식은 예배 전체를 "모임·말씀·성찬·파송" 네 흐름으로 크게
 // 나누고, 그 제목 밑에 작은 부제를 하나씩 곁들인다(모임=하나님 앞으로,
 // 말씀=듣고 응답함, 성찬=믿음의 재고백, 파송=세상으로). 이 짝은 매주
@@ -1441,7 +1463,23 @@ function extractOrderAndSermon(lines) {
     const star = stars[i];
     // 이 줄 ¶ 조각들의 가로 자리 — 아래에서 라벨 조각을 떼며 함께 따라간다
     let tCols = colsArr[i] ?? [];
-    let label = matchOrderLabel(t);
+    // "경배와 기도"가 이미 있는 주보(1부/2부 서식)에서는 그 칸 안에 드는
+    // 글을 새 항목으로 떼어내지 않는다 — 위 INSIDE_WORSHIP_SET 설명 참고
+    const inWorshipSet = raw.some((r) => r.name === '경배와 기도');
+    const keepAsDetail = (l) => !!l && inWorshipSet && INSIDE_WORSHIP_SET.has(l);
+    const found = matchOrderLabel(t);
+    if (keepAsDetail(found)) {
+      if (raw.length) {
+        if (star) {
+          raw[raw.length - 1].detailLines.push('*');
+          raw[raw.length - 1].detailCols.push([]);
+        }
+        raw[raw.length - 1].detailLines.push(cleaned[i]);
+        raw[raw.length - 1].detailCols.push(colsArr[i] ?? []);
+      }
+      continue;
+    }
+    let label = found;
     // "참회의 기도/신앙고백"·"교회소식 / 새가족환영"처럼 긴 라벨은 칸이 좁으면
     // 원본 PDF 자체에서 두 줄로 줄바꿈돼 나온다("참회의" / "기도/신앙고백*") —
     // 이 줄이 어떤 라벨의 앞부분과 정확히 일치하면 다음 줄과 이어붙여 다시
