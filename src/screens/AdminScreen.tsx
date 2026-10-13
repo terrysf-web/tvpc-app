@@ -1567,7 +1567,7 @@ export default function AdminScreen() {
               </View>
             ))}
             <Text style={styles.hintText}>
-              승인된 교인은 교우 앨범·주소록·기도요청·내 헌금 내역을 이용할 수 있습니다.
+              승인된 교인은 교우 앨범과 기도요청을 이용할 수 있습니다.
             </Text>
           </View>
         )}
