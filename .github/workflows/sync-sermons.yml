@@ -39,7 +39,7 @@ jobs:
 
       - name: Install firebase-admin
         if: env.skip != 'true'
-        run: npm install --no-save firebase-admin
+        run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
 
       # 백필 모드에서 채널 전체 영상 목록 조회에 사용 (RSS는 최근 15개만 제공)
       - name: Install yt-dlp

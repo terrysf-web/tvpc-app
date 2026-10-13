@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-save firebase-admin
+      - run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
       - env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node scripts/check-sermon-files.mjs

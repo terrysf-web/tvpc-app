@@ -37,7 +37,7 @@ jobs:
 
       - name: Install firebase-admin
         if: env.skip != 'true'
-        run: npm install --no-save firebase-admin
+        run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
 
       - name: Sync news & events
         if: env.skip != 'true'

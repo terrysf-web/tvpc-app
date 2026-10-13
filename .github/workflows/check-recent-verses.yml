@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: 22
       - name: Install firebase-admin
-        run: npm install --no-save firebase-admin
+        run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
       - name: Check
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

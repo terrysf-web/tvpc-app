@@ -28,7 +28,7 @@ jobs:
 
       - name: Install firebase-admin
         if: env.skip != 'true'
-        run: npm install --no-save firebase-admin
+        run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
 
       - name: Sync photos
         if: env.skip != 'true'

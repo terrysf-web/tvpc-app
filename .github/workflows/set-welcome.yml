@@ -25,7 +25,7 @@ jobs:
           fi
 
       - name: Install firebase-admin
-        run: npm install --no-save firebase-admin
+        run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
 
       - name: Set welcome
         env:

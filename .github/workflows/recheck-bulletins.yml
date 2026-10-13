@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
 
       - name: Install deps
-        run: npm install --no-save firebase-admin sharp playwright
+        run: npm install --no-save firebase-admin sharp playwright @google-cloud/firestore @google-cloud/storage
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium

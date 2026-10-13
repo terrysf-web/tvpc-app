@@ -29,7 +29,7 @@ jobs:
           fi
 
       - name: Install deps
-        run: npm install --no-save sharp firebase-admin
+        run: npm install --no-save sharp firebase-admin @google-cloud/firestore @google-cloud/storage
 
       - name: Regrade
         env:
