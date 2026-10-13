@@ -46,7 +46,9 @@ export const UNREAD_GROUPS: Record<string, UnreadKey[]> = {
   bulletin: ['bulletin'],
   sermon: ['sermon.recent', 'sermon.dawn', 'sermon.podcast'],
   news: ['news.notice', 'news.event', 'news.schedule'],
-  media: ['media.photo', 'media.video', 'media.praise'],
+  // 찬양 탭을 숨긴 동안에는 빨간 점도 세지 않는다 — 열어서 지울 자리가
+  // 없으면 미디어 카드에 점이 영영 남는다(탭을 되살릴 때 함께 되돌린다).
+  media: ['media.photo', 'media.video'],
 };
 
 const PREFIX = 'tvpc.seen.';

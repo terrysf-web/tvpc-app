@@ -18,7 +18,9 @@ type MediaTab = 'photo' | 'video' | 'praise';
 const TABS: { key: MediaTab; label: string }[] = [
   { key: 'photo', label: '사진' },
   { key: 'video', label: '영상' },
-  { key: 'praise', label: '찬양' },
+  // 찬양 탭은 당분간 숨김 — 아래 찬양 목록 코드와 가져오기(sync-praise)는
+  // 그대로 두었으니, 이 줄만 되살리면 다시 보인다.
+  // { key: 'praise', label: '찬양' },
 ];
 
 /** 찬양 탭 유튜브 썸네일 — sermonThumb과 같은 규칙(hqdefault) */
