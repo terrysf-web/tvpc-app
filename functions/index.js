@@ -482,9 +482,10 @@ const githubPat = defineSecret('GITHUB_PAT');
 const BULLETIN_REPO = 'terrysf-web/tvpc-app';
 const BULLETIN_BRANCH = 'claude/react-native-firebase-app-e0vg1r';
 
-async function triggerBulletinSync() {
+/** 깃허브 워크플로 "지금 실행해" 신호 보내기 */
+async function dispatchWorkflow(file, label) {
   const res = await fetch(
-    `https://api.github.com/repos/${BULLETIN_REPO}/actions/workflows/sync-bulletin.yml/dispatches`,
+    `https://api.github.com/repos/${BULLETIN_REPO}/actions/workflows/${file}/dispatches`,
     {
       method: 'POST',
       headers: {
@@ -499,9 +500,13 @@ async function triggerBulletinSync() {
   );
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`깃허브 워크플로 트리거 실패: HTTP ${res.status} ${text}`);
+    throw new Error(`깃허브 워크플로 트리거 실패(${label}): HTTP ${res.status} ${text}`);
   }
-  console.log('주보 동기화 워크플로 트리거 성공');
+  console.log(`${label} 워크플로 트리거 성공`);
+}
+
+async function triggerBulletinSync() {
+  await dispatchWorkflow('sync-bulletin.yml', '주보 동기화');
 }
 
 const BULLETIN_TRIGGER_OPTS = {
@@ -522,6 +527,36 @@ export const triggerBulletinSyncSat = onSchedule(
 export const triggerBulletinSyncSun = onSchedule(
   { schedule: '0 0-14 * * 0', ...BULLETIN_TRIGGER_OPTS },
   triggerBulletinSync,
+);
+
+/**
+ * 긴급 알림 예비 발송 — 5분마다 "보내지 못하고 남은 알림"이 있는지 보고,
+ * 있을 때만 발송 워크플로를 깨운다.
+ *
+ * 평소에는 관리자가 알림을 등록하는 순간 sendEmergencyAlert(아래)가 바로
+ * 보내고, 앱도 워크플로를 깨운다. 이건 그 두 길이 다 막혔을 때를 위한
+ * 마지막 그물이다.
+ *
+ * 예전에는 깃허브 자체 예약(5분 cron)이 이 역할을 했는데, 공용 대기열이라
+ * 실제로는 6~10시간에 한 번씩밖에 돌지 않았다(2026-10-12 실측). 예비책이
+ * 반나절에 한 번이면 그물 구실을 못 한다. Cloud Scheduler는 구글이 직접
+ * 관리해 시각이 정확하다.
+ *
+ * 남은 알림이 없으면 아무것도 깨우지 않는다 — 5분마다 워크플로를 돌리면
+ * 하루 288번 헛돌고, 한 번 실패할 때마다 사역자에게 메일이 간다.
+ */
+export const triggerSendAlert = onSchedule(
+  { schedule: '*/5 * * * *', ...BULLETIN_TRIGGER_OPTS },
+  async () => {
+    const stuck = await getFirestore()
+      .collection('alerts')
+      .where('status', 'in', ['pending', 'sending'])
+      .limit(1)
+      .get();
+    if (stuck.empty) return; // 보낼 것이 없으면 조용히 끝낸다
+    console.log(`보내지 못한 긴급 알림이 남아 있어 예비 발송을 깨웁니다.`);
+    await dispatchWorkflow('send-alert.yml', '긴급 알림 예비 발송');
+  },
 );
 
 // ── 설교 녹음 손보기 + 유튜브에 올릴 영상 만들기 ──────────────────────
