@@ -1578,7 +1578,7 @@ export default function AdminScreen() {
             ))}
             <Text style={styles.hintText}>
               정교인은 교우 앨범과 기도요청을 이용할 수 있습니다.{'\n'}
-              손님은 로그인만 되고 교인 전용 기능은 열리지 않습니다 — 출석 교인이 아닌 분을
+              손님은 로그인만 되고 교인 전용 기능은 열리지 않습니다 — 등록 교인이 아닌 분을
               거절하지 않고 받아 두실 때 쓰세요. 나중에 아래에서 정교인으로 올리실 수 있습니다.
             </Text>
           </View>
@@ -1611,7 +1611,7 @@ export default function AdminScreen() {
               </View>
             ))}
             <Text style={styles.hintText}>
-              출석하시게 되면 「정교인으로」를 눌러 주세요 — 그때부터 교우 앨범과 기도요청이
+              등록 교인이 되시면 「정교인으로」를 눌러 주세요 — 그때부터 교우 앨범과 기도요청이
               열립니다.
             </Text>
           </View>

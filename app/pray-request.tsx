@@ -41,7 +41,7 @@ function fmtWhen(ms: number): string {
 /** 함께기도해요 — 목사님께 보내는 비공개 기도요청 작성 */
 export default function PrayRequestScreen() {
   const router = useRouter();
-  // 기도요청은 목사님께 바로 가는 글이라 출석 교인(정교인)만 보낸다.
+  // 기도요청은 목사님께 바로 가는 글이라 등록 교인(정교인)만 보낸다.
   // 보안 규칙도 같이 막지만, 다 쓰고 나서 거절당하면 허탈하니 화면에서 먼저 알린다.
   const { state: memberState, member } = useMember();
   const { isAdmin, checking: adminChecking } = useAdminAuth();
@@ -134,9 +134,9 @@ export default function PrayRequestScreen() {
                 : '아직 보내실 수 없습니다'}
             </Text>
             <Text style={styles.hint}>
-              기도 제목은 목사님께 바로 전해지는 글이라 출석 교인만 보내실 수 있습니다.{'\n'}
+              기도 제목은 목사님께 바로 전해지는 글이라 등록 교인만 보내실 수 있습니다.{'\n'}
               {memberState === 'guest'
-                ? '예배에 나오셔서 교역자에게 말씀해 주시면 열어 드립니다.'
+                ? '교역자에게 말씀해 주시면 열어 드립니다.'
                 : memberState === 'pending'
                   ? '가입 승인을 기다리는 중입니다. 승인되면 보내실 수 있습니다.'
                   : 'Google 계정으로 로그인하고 가입 승인을 받으시면 보내실 수 있습니다.'}

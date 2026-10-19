@@ -243,7 +243,7 @@ export function useApprovedMembers(enabled: boolean) {
   return rows;
 }
 
-/** 손님 목록 — 관리자 전용. 출석하시게 되면 여기서 정교인으로 올린다 */
+/** 손님 목록 — 관리자 전용. 등록 교인이 되시면 여기서 정교인으로 올린다 */
 export function useGuestMembers(enabled: boolean) {
   const [rows, setRows] = useState<MemberDoc[]>([]);
   useEffect(() => {
@@ -289,11 +289,11 @@ export async function approveMember(uid: string): Promise<void> {
 }
 
 /**
- * 손님으로 받기 — 출석 교인이 아닌 분을 거절하지 않고 받아 둔다.
+ * 손님으로 받기 — 등록 교인이 아닌 분을 거절하지 않고 받아 둔다.
  *
  * 로그인은 정상으로 되고 "승인 대기 중" 문구도 안 뜨지만, 교우 앨범·
  * 기도요청 같은 교인 전용 기능은 열리지 않는다(보안 규칙이 status가
- * 'approved'일 때만 열어 준다). 나중에 출석하시면 promoteMember로 올린다.
+ * 'approved'일 때만 열어 준다). 나중에 등록 교인이 되시면 promoteMember로 올린다.
  */
 export async function guestMember(uid: string): Promise<void> {
   const by = getAuthOrNull()?.currentUser?.email ?? '';

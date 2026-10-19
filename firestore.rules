@@ -21,7 +21,7 @@ service cloud.firestore {
 
     // 정교인(approved) — 교우 앨범·주소록·기도요청을 쓸 수 있다.
     //
-    // 손님(guest)은 여기 걸리지 않는다. 출석 교인이 아닌 분을 거절하지 않고
+    // 손님(guest)은 여기 걸리지 않는다. 등록 교인이 아닌 분을 거절하지 않고
     // 받아 두는 자리라, 로그인은 되지만 교인 전용 기능은 열리지 않는다.
     function isApprovedMember() {
       return request.auth != null
