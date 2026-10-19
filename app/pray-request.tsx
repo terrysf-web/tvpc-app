@@ -136,7 +136,7 @@ export default function PrayRequestScreen() {
             <Text style={styles.hint}>
               기도 제목은 목사님께 바로 전해지는 글이라 등록 교인만 보내실 수 있습니다.{'\n'}
               {memberState === 'guest'
-                ? '현재 등록 교인에게만 열려 있음을 양해 바랍니다.'
+                ? '교인 등록을 하지 않으시면 열어 드릴 수 없는 점 양해 바랍니다.'
                 : memberState === 'pending'
                   ? '가입 승인을 기다리는 중입니다. 승인되면 보내실 수 있습니다.'
                   : 'Google 계정으로 로그인하고 가입 승인을 받으시면 보내실 수 있습니다.'}
