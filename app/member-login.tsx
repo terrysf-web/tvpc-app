@@ -170,8 +170,7 @@ export default function MemberLoginScreen() {
             <Text style={styles.title}>{member?.name ?? ''}님, 반갑습니다</Text>
             <Text style={styles.sub}>
               로그인되었습니다. 주보·말씀·설교·교회 소식은 모두 보실 수 있습니다.{'\n\n'}
-              교우 앨범과 기도요청은 등록 교인에게만 열려 있습니다. 교인 등록을 하지 않으시면
-              열어 드릴 수 없는 점 양해 바랍니다.
+              단 교우 앨범과 기도요청은 등록 교인에게만 사용 하도록 열려 있음을 양해 바랍니다.
             </Text>
             <Pressable
               style={styles.primaryBtn}
