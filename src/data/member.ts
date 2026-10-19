@@ -19,7 +19,15 @@ export interface MemberDoc {
   memberType: 'existing' | 'new';
   /** 새로 가입하는 분의 자기소개 — 기존 교인은 비워 둠 */
   bio: string;
-  status: 'pending' | 'approved' | 'revoked';
+  /**
+   * pending  — 가입 신청, 승인 대기
+   * approved — 정교인. 교우 앨범·기도요청·주소록을 쓴다
+   * guest    — 손님. 로그인은 되지만 교인 전용 기능은 열리지 않는다.
+   *            출석 교인이 아닌 분을 거절하지 않고 받아 두는 자리다.
+   *            나중에 출석하시면 사역자 화면에서 정교인으로 올린다.
+   * revoked  — 승인 해제
+   */
+  status: 'pending' | 'approved' | 'guest' | 'revoked';
   createdAt: number;
   /** 승인 해제된 시각·처리자·사유 — audit trail로 리포트에 남기기 위함 */
   revokedAt?: number;
@@ -29,6 +37,12 @@ export interface MemberDoc {
   reapprovedAt?: number;
   reapprovedBy?: string;
   reapproveReason?: string;
+  /** 손님으로 받은 시각·처리자 */
+  guestAt?: number;
+  guestBy?: string;
+  /** 손님에서 정교인으로 올린 시각·처리자 */
+  promotedAt?: number;
+  promotedBy?: string;
 }
 
 export type MemberState =
@@ -36,13 +50,15 @@ export type MemberState =
   | 'none' // 로그인 안 함(또는 익명)
   | 'noProfile' // 계정 로그인은 됐지만 교인 정보 미등록 (기존 관리자 계정 등)
   | 'pending' // 가입 신청, 승인 대기
-  | 'approved'; // 승인된 교인
+  | 'guest' // 손님 — 로그인은 됐지만 교인 전용 기능은 열리지 않음
+  | 'approved'; // 승인된 교인(정교인)
 
 /**
  * 교인 인증 상태 훅. 로그인은 Google 계정으로만(이메일/비밀번호 없음) —
  * 로그인 후 members/{uid} 문서가 없으면 이름·교인구분·자기소개만 받아
  * pending으로 등록 → 관리자 승인 후 approved.
- * 교우 앨범·주소록·헌금 내역·기도요청은 approved 교인만 이용한다(보안 규칙 강제).
+ * 교우 앨범·주소록·기도요청은 approved(정교인)만 이용한다(보안 규칙 강제).
+ * 손님(guest)은 로그인만 되고 교인 전용 기능은 열리지 않는다.
  *
  * 해제(revoked)된 교인이 다시 로그인하면 "거절당했다"는 인상을 주지 않도록,
  * 화면엔 그냥 pending(승인 대기)으로만 보여주고 조용히 새 가입 신청으로
@@ -91,7 +107,11 @@ export function useMember() {
             return;
           }
           setMember(m);
-          setState(m.status === 'approved' ? 'approved' : 'pending');
+          // 손님(guest)은 "대기 중"이 아니다 — 처리가 끝난 분이라 그렇게
+          // 보여드려야 한다. 교인 전용 기능만 안 열릴 뿐이다.
+          setState(
+            m.status === 'approved' ? 'approved' : m.status === 'guest' ? 'guest' : 'pending',
+          );
         },
         () => setState('none'),
       );

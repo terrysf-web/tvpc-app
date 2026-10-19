@@ -19,7 +19,10 @@ service cloud.firestore {
       return 'source' in data && data.source is string && data.source.matches('^test.*');
     }
 
-    // 승인된 교인 — 주소록·헌금 내역·기도요청 이용 가능
+    // 정교인(approved) — 교우 앨범·주소록·기도요청을 쓸 수 있다.
+    //
+    // 손님(guest)은 여기 걸리지 않는다. 출석 교인이 아닌 분을 거절하지 않고
+    // 받아 두는 자리라, 로그인은 되지만 교인 전용 기능은 열리지 않는다.
     function isApprovedMember() {
       return request.auth != null
         && exists(/databases/$(database)/documents/members/$(request.auth.uid))
@@ -214,7 +217,9 @@ service cloud.firestore {
       allow list: if request.auth != null
         && request.auth.token.email != null
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'pastor';
-      allow create: if request.auth != null
+      // 보내기는 정교인만 — 목사님께 바로 가는 글이라 교회에 속한 분만
+      // 보내시게 한다(손님·대기 중인 분은 보낼 수 없다).
+      allow create: if isApprovedMember()
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 2000

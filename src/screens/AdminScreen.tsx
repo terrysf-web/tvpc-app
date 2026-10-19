@@ -25,10 +25,12 @@ import { SegmentTabs } from '../components/SegmentTabs';
 import {
   addOfferingRecord,
   approveMember,
+  guestMember,
   loadVerse,
   parsePassage,
   passageToText,
   reapproveMember,
+  promoteMember,
   rejectMember,
   revokeMember,
   saveEvent,
@@ -40,6 +42,7 @@ import {
   useApprovedMembers,
   usePendingMembers,
   refreshSermonCover,
+  useGuestMembers,
   useRevokedMembers,
   useSermonVideoUrl,
 } from '../data/admin';
@@ -464,6 +467,7 @@ export default function AdminScreen() {
   const pending = usePendingMembers(isAdmin);
   const approved = useApprovedMembers(isAdmin);
   const revoked = useRevokedMembers(isAdmin);
+  const guests = useGuestMembers(isAdmin);
   const [oEmail, setOEmail] = useState('');
   const [oItem, setOItem] = useState('');
   const [oDate, setODate] = useState(today());
@@ -1554,9 +1558,15 @@ export default function AdminScreen() {
                 </View>
                 <Pressable
                   style={styles.approveBtn}
-                  onPress={() => submit(() => approveMember(m.id), `${m.name}님을 승인했습니다.`)}
+                  onPress={() => submit(() => approveMember(m.id), `${m.name}님을 정교인으로 승인했습니다.`)}
                 >
-                  <Text style={styles.approveBtnText}>승인</Text>
+                  <Text style={styles.approveBtnText}>정교인</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.guestBtn}
+                  onPress={() => submit(() => guestMember(m.id), `${m.name}님을 손님으로 받았습니다.`)}
+                >
+                  <Text style={styles.guestBtnText}>손님</Text>
                 </Pressable>
                 <Pressable
                   style={styles.rejectBtn}
@@ -1567,7 +1577,42 @@ export default function AdminScreen() {
               </View>
             ))}
             <Text style={styles.hintText}>
-              승인된 교인은 교우 앨범과 기도요청을 이용할 수 있습니다.
+              정교인은 교우 앨범과 기도요청을 이용할 수 있습니다.{'\n'}
+              손님은 로그인만 되고 교인 전용 기능은 열리지 않습니다 — 출석 교인이 아닌 분을
+              거절하지 않고 받아 두실 때 쓰세요. 나중에 아래에서 정교인으로 올리실 수 있습니다.
+            </Text>
+          </View>
+        )}
+
+        {tab === 'members' && guests.length > 0 && (
+          <View style={[styles.card, shadows.card, { marginTop: 14 }]}>
+            <Text style={styles.blockTitle}>손님 ({guests.length})</Text>
+            {guests.map((m) => (
+              <View key={m.id} style={styles.pendingRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingName}>{m.name}</Text>
+                  <Text style={styles.pendingMeta}>
+                    {[m.email, m.memberType === 'new' ? '새로 가입' : '기존 교인']
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                  {m.memberType === 'new' && !!m.bio && (
+                    <Text style={styles.pendingBio}>“{m.bio}”</Text>
+                  )}
+                </View>
+                <Pressable
+                  style={styles.approveBtn}
+                  onPress={() =>
+                    submit(() => promoteMember(m.id), `${m.name}님을 정교인으로 올렸습니다.`)
+                  }
+                >
+                  <Text style={styles.approveBtnText}>정교인으로</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Text style={styles.hintText}>
+              출석하시게 되면 「정교인으로」를 눌러 주세요 — 그때부터 교우 앨범과 기도요청이
+              열립니다.
             </Text>
           </View>
         )}
@@ -2149,6 +2194,13 @@ const styles = StyleSheet.create({
   alertStatus: { fontFamily: font.bold, fontSize: 12, color: colors.tagGreenText },
   approveBtn: { backgroundColor: colors.primary, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
   approveBtnText: { fontFamily: font.bold, fontSize: 12.5, color: '#FFFFFF' },
+  guestBtn: {
+    backgroundColor: colors.tagBlueBg,
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  guestBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.primary },
   rejectBtn: { backgroundColor: colors.tagGrayBg, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 8 },
   rejectBtnText: { fontFamily: font.bold, fontSize: 12.5, color: colors.muted },
   revokeBtn: {

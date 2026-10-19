@@ -159,6 +159,35 @@ export default function MemberLoginScreen() {
 
 
   // 승인 완료
+  // 손님 — 가입은 처리됐지만 교인 전용 기능은 열리지 않는다.
+  // "대기 중"이나 "거절"로 보이지 않게, 환영하되 할 수 있는 일을 분명히 적는다.
+  if (state === 'guest') {
+    return (
+      <View style={styles.screen}>
+        <OverlayHeader title="교인 로그인" />
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.title}>{member?.name ?? ''}님, 반갑습니다</Text>
+            <Text style={styles.sub}>
+              로그인되었습니다. 주보·말씀·설교·교회 소식은 모두 보실 수 있습니다.{'\n\n'}
+              교우 앨범과 기도요청은 출석 교인에게만 열려 있습니다. 예배에 나오셔서 교역자에게
+              말씀해 주시면 열어 드립니다.
+            </Text>
+            <Pressable
+              style={styles.primaryBtn}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+            >
+              <Text style={styles.primaryBtnText}>홈으로</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryBtn} onPress={signOut}>
+              <Text style={styles.secondaryBtnText}>로그아웃</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   if (state === 'approved') {
     return (
       <View style={styles.screen}>
@@ -166,7 +195,9 @@ export default function MemberLoginScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={[styles.card, shadows.card]}>
             <Text style={styles.title}>✓ {member?.name ?? '교인'}님, 환영합니다</Text>
-            <Text style={styles.sub}>가입이 승인되어 교우 앨범을 보실 수 있습니다.</Text>
+            <Text style={styles.sub}>
+              가입이 승인되어 교우 앨범과 기도요청을 이용하실 수 있습니다.
+            </Text>
             <Pressable
               style={styles.primaryBtn}
               onPress={() => (router.canGoBack() ? router.back() : router.replace('/album'))}

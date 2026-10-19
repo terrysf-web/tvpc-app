@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { OverlayHeader } from '../src/components/OverlayHeader';
+import { useAdminAuth } from '../src/data/admin';
+import { useMember } from '../src/data/member';
 import {
   type MyPrayer,
   getMyPrayers,
@@ -39,6 +41,12 @@ function fmtWhen(ms: number): string {
 /** 함께기도해요 — 목사님께 보내는 비공개 기도요청 작성 */
 export default function PrayRequestScreen() {
   const router = useRouter();
+  // 기도요청은 목사님께 바로 가는 글이라 출석 교인(정교인)만 보낸다.
+  // 보안 규칙도 같이 막지만, 다 쓰고 나서 거절당하면 허탈하니 화면에서 먼저 알린다.
+  const { state: memberState, member } = useMember();
+  const { isAdmin, checking: adminChecking } = useAdminAuth();
+  const canSend = memberState === 'approved' || isAdmin;
+  const memberChecking = memberState === 'loading' || adminChecking;
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -75,6 +83,13 @@ export default function PrayRequestScreen() {
     }
   };
 
+  // 정교인은 이름이 이미 있으니 적어 두지 않으셔도 되게 미리 채운다
+  useEffect(() => {
+    if (member?.name && !name) setName(sanitizeName(member.name));
+    // 이름을 지우고 다시 쓰실 수 있게 처음 한 번만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member?.name]);
+
   const send = async () => {
     // 목사님이 기도 대상을 부르며 기도하시길 원해 이름을 꼭 받는다 —
     // 이전엔 비워두면 익명으로 보냈지만, 이제 이름은 필수다.
@@ -106,7 +121,33 @@ export default function PrayRequestScreen() {
     >
       <OverlayHeader title="함께기도해요" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {done ? (
+        {memberChecking ? (
+          <View style={[styles.card, shadows.card]}>
+            <Text style={styles.hint}>확인 중…</Text>
+          </View>
+        ) : !canSend ? (
+          <View style={[styles.card, shadows.card, { alignItems: 'center' }]}>
+            <Text style={styles.doneEmoji}>🙏</Text>
+            <Text style={styles.doneTitle}>
+              {memberState === 'none' || memberState === 'noProfile'
+                ? '교인 로그인이 필요합니다'
+                : '아직 보내실 수 없습니다'}
+            </Text>
+            <Text style={styles.hint}>
+              기도 제목은 목사님께 바로 전해지는 글이라 출석 교인만 보내실 수 있습니다.{'\n'}
+              {memberState === 'guest'
+                ? '예배에 나오셔서 교역자에게 말씀해 주시면 열어 드립니다.'
+                : memberState === 'pending'
+                  ? '가입 승인을 기다리는 중입니다. 승인되면 보내실 수 있습니다.'
+                  : 'Google 계정으로 로그인하고 가입 승인을 받으시면 보내실 수 있습니다.'}
+            </Text>
+            <Pressable style={styles.sendBtn} onPress={() => router.push('/member-login')}>
+              <Text style={styles.sendBtnText}>
+                {memberState === 'none' || memberState === 'noProfile' ? '교인 로그인' : '내 가입 상태 보기'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : done ? (
           <View style={[styles.card, shadows.card, { alignItems: 'center' }]}>
             <Text style={styles.doneEmoji}>🙏</Text>
             <Text style={styles.doneTitle}>목사님께 전달되었습니다</Text>

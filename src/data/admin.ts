@@ -243,6 +243,26 @@ export function useApprovedMembers(enabled: boolean) {
   return rows;
 }
 
+/** 손님 목록 — 관리자 전용. 출석하시게 되면 여기서 정교인으로 올린다 */
+export function useGuestMembers(enabled: boolean) {
+  const [rows, setRows] = useState<MemberDoc[]>([]);
+  useEffect(() => {
+    const db = getDb();
+    if (!db || !enabled) return;
+    const q = query(collection(db, 'members'), where('status', '==', 'guest'));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ ...(d.data() as Omit<MemberDoc, 'id'>), id: d.id }));
+        list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+        setRows(list);
+      },
+      () => setRows([]),
+    );
+  }, [enabled]);
+  return rows;
+}
+
 /** 승인 해제된 교인 목록 — 관리자 전용, 언제 해제했는지 리포트에 남기기 위함 */
 export function useRevokedMembers(enabled: boolean) {
   const [rows, setRows] = useState<MemberDoc[]>([]);
@@ -266,6 +286,32 @@ export function useRevokedMembers(enabled: boolean) {
 /** 교인 가입 승인 */
 export async function approveMember(uid: string): Promise<void> {
   await updateDoc(doc(requireDb(), 'members', uid), { status: 'approved' });
+}
+
+/**
+ * 손님으로 받기 — 출석 교인이 아닌 분을 거절하지 않고 받아 둔다.
+ *
+ * 로그인은 정상으로 되고 "승인 대기 중" 문구도 안 뜨지만, 교우 앨범·
+ * 기도요청 같은 교인 전용 기능은 열리지 않는다(보안 규칙이 status가
+ * 'approved'일 때만 열어 준다). 나중에 출석하시면 promoteMember로 올린다.
+ */
+export async function guestMember(uid: string): Promise<void> {
+  const by = getAuthOrNull()?.currentUser?.email ?? '';
+  await updateDoc(doc(requireDb(), 'members', uid), {
+    status: 'guest',
+    guestAt: Date.now(),
+    guestBy: by,
+  });
+}
+
+/** 손님을 정교인으로 올리기 — 손님으로 받았던 이력(guestAt)은 남겨 둔다 */
+export async function promoteMember(uid: string): Promise<void> {
+  const by = getAuthOrNull()?.currentUser?.email ?? '';
+  await updateDoc(doc(requireDb(), 'members', uid), {
+    status: 'approved',
+    promotedAt: Date.now(),
+    promotedBy: by,
+  });
 }
 
 /** 교인 가입 거절 — 신청 문서 삭제 (다시 신청 가능) */
