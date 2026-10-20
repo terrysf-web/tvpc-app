@@ -652,8 +652,15 @@ export default function AlbumScreen() {
               <View style={styles.iconChip}>
                 <Lock size={22} color={colors.primary} strokeWidth={1.9} />
               </View>
-              <Text style={styles.cardTitle}>로그인이 필요합니다</Text>
-              {memberState === 'pending' ? (
+              <Text style={styles.cardTitle}>
+                {memberState === 'guest' ? '등록 교인에게만 열려 있습니다' : '로그인이 필요합니다'}
+              </Text>
+              {memberState === 'guest' ? (
+                <Text style={styles.cardSub}>
+                  {member?.name ? `${member.name}님, ` : ''}교우 앨범은 등록 교인에게만 사용 하도록
+                  열려 있음을 양해 바랍니다.
+                </Text>
+              ) : memberState === 'pending' ? (
                 <Text style={styles.cardSub}>
                   {member?.name ? `${member.name}님, ` : ''}가입 승인 대기 중입니다.
                 </Text>
@@ -661,7 +668,11 @@ export default function AlbumScreen() {
                 <View style={{ height: 16 }} />
               )}
               <Pressable style={styles.primaryBtn} onPress={() => router.push('/member-login')}>
-                <Text style={styles.primaryBtnText}>로그인</Text>
+                <Text style={styles.primaryBtnText}>
+                  {memberState === 'none' || memberState === 'noProfile'
+                    ? '로그인'
+                    : '내 가입 상태 보기'}
+                </Text>
               </Pressable>
             </View>
           </ScrollView>
