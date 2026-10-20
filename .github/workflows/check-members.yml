@@ -1,0 +1,25 @@
+# 교인 명단을 상태별로 확인(읽기 전용).
+name: Check members (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      find:
+        description: '이름·이메일로 한 사람 자세히 보기 (비워도 됨)'
+        required: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
+      - name: Check
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIND: ${{ inputs.find }}
+        run: node scripts/check-members.mjs
