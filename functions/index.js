@@ -231,6 +231,93 @@ export const notifyPrayerAnswer = onDocumentUpdated(
 );
 
 /**
+ * 정교인이 되시면 본인에게 알린다.
+ *
+ * 전에는 손님으로 받아 두었다가 교회에 나오기 시작해 정교인으로 올려
+ * 드려도, 또 가입 신청이 승인되어도 본인은 모르셨다 — 교우 앨범을 다시
+ * 열어 보셔야 열린 걸 아셨다. 그래서 상태가 approved로 바뀌는 순간
+ * 그분 기기로만 알림을 보낸다.
+ *
+ * 내릴 때(손님으로·해제)는 알리지 않는다. 기분 상하실 일을 알림으로
+ * 받으실 필요는 없고, 앨범을 열어 보시면 안내가 나온다.
+ *
+ * 그분 기기를 찾는 길은 pushTokens.email 하나다. 알림을 켤 때 로그인
+ * 상태였으면 이메일이 함께 적히고, 나중에 로그인하셔도 교인 정보가
+ * 확인되는 순간 채워 넣는다(src/data/member.ts → syncPushTokenIdentity).
+ */
+export const notifyMemberApproved = onDocumentUpdated(
+  { document: 'members/{uid}', memory: '256MiB', timeoutSeconds: 60, retry: false },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    // 올라가는 순간에만 — 이미 정교인이던 분의 이름 수정 등에는 반응하지 않는다.
+    // (아래에서 문서에 발송 기록을 남기면 이 함수가 한 번 더 돌지만, 그때는
+    //  before도 approved이므로 여기서 멈춘다)
+    if (before.status === 'approved' || after.status !== 'approved') return;
+
+    const db = getFirestore();
+    const email = String(after.email || '').trim().toLowerCase();
+    const name = String(after.name || '').trim();
+    const uid = event.params.uid;
+    if (!email) {
+      console.log(`${uid}: 이메일이 없어 승인 알림을 건너뜁니다.`);
+      return;
+    }
+
+    const tokensSnap = await db.collection('pushTokens').where('email', '==', email).get();
+    const tokens = tokensSnap.docs.map((d) => d.id);
+    if (tokens.length === 0) {
+      // 알림을 아직 안 켜신 분 — 보낼 곳이 없다. 사역자 화면에서 확인할 수
+      // 있게 기록은 남긴다(왜 못 갔는지 나중에 알 수 있도록).
+      console.log(`${name || uid}: 알림을 켠 기기가 없어 승인 알림을 보내지 못했습니다.`);
+      await event.data.after.ref
+        .update({ approvedNotifiedAt: Date.now(), approvedNotifiedCount: 0 })
+        .catch(() => {});
+      return;
+    }
+
+    const title =
+      before.status === 'guest'
+        ? '🎉 등록 교인이 되셨습니다'
+        : before.status === 'revoked'
+          ? '🎉 다시 이용하실 수 있습니다'
+          : '🎉 가입이 승인되었습니다';
+
+    const res = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title,
+        body: `${name ? `${name}님, ` : ''}이제 교우 앨범과 기도요청을 쓰실 수 있습니다.`,
+      },
+      webpush: {
+        notification: { icon: '/icon-192.png', tag: `member-approved-${uid}` },
+        // 누르면 교우 앨범이 바로 열린다 — 열렸다는 걸 눈으로 보시게
+        fcmOptions: { link: 'https://app.tvpc.church/album' },
+      },
+    });
+
+    // 무효 토큰 정리 — 기기를 바꾸거나 알림을 끈 뒤 남은 등록
+    for (let i = 0; i < res.responses.length; i++) {
+      const code = res.responses[i].error?.code || '';
+      if (
+        code.includes('registration-token-not-registered') ||
+        code.includes('invalid-argument')
+      ) {
+        await db.doc(`pushTokens/${tokens[i]}`).delete().catch(() => {});
+      }
+    }
+
+    await event.data.after.ref
+      .update({ approvedNotifiedAt: Date.now(), approvedNotifiedCount: res.successCount })
+      .catch(() => {});
+    console.log(
+      `승인 알림(${before.status}→approved) ${name || uid}: 기기 ${tokens.length}대 중 ${res.successCount}대 발송`,
+    );
+  },
+);
+
+/**
  * "오늘의 말씀" + "감사일기" 예약 발송 — 태평양 시각 08:00/12:30/19:00
  * 정각에 맞춰 보낸다.
  *

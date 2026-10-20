@@ -97,6 +97,37 @@ function friendlyPushError(e: unknown, context: string): string {
 }
 
 /**
+ * 이 기기의 알림 등록에 "누구"인지를 채워 넣는다.
+ *
+ * 이메일·이름은 알림을 켜는 그 순간에만 적힌다. 그런데 실제 순서는
+ * 거꾸로인 경우가 많다 — 앱을 깔고 알림부터 켜고, 한참 뒤에 교인
+ * 로그인을 하신다. 그러면 등록에는 email이 비어 있어서, 그분 한 분께만
+ * 보내는 알림(가입 승인 등)이 갈 곳을 못 찾는다.
+ *
+ * 그래서 교인 정보가 확인될 때마다 한 번 맞춰 둔다. 이미 같은 값이면
+ * 아무것도 쓰지 않는다(열 때마다 쓰기가 생기지 않게).
+ */
+export async function syncPushTokenIdentity(
+  email: string | null,
+  name: string | null,
+): Promise<void> {
+  const token = savedPushToken();
+  if (!token || !email) return;
+  const db = getDb();
+  if (!db) return;
+  try {
+    const ref = doc(db, 'pushTokens', token);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    const next = { email: email.toLowerCase(), name: name ?? null };
+    if (snap.get('email') === next.email && (snap.get('name') ?? null) === next.name) return;
+    await updateDoc(ref, next);
+  } catch {
+    // 못 채워도 알림 자체는 그대로 온다 — 한 분께만 보내는 알림만 못 간다
+  }
+}
+
+/**
  * 푸시 알림 on/off + 알림 종류·시각 선택 훅.
  * 켜면 브라우저 알림 권한을 받고 FCM 토큰을 Firestore pushTokens에 등록한다.
  * 긴급 공지는 이 등록만으로 무조건 받고(선택 불가), 그 외 알림 종류(오늘의

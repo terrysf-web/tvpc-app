@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { adminSignOut, firebaseEnabled, getAuthOrNull, getDb, watchUser } from '../firebase';
+import { syncPushTokenIdentity } from '../push';
 
 /** 교인 프로필 — members/{uid}. 승인된 교인의 정보가 곧 교회 주소록이 된다 */
 export interface MemberDoc {
@@ -43,6 +44,13 @@ export interface MemberDoc {
   /** 손님에서 정교인으로 올린 시각·처리자 */
   promotedAt?: number;
   promotedBy?: string;
+  /**
+   * 정교인이 되셨다는 알림을 보낸 시각과 받은 기기 수(functions의
+   * notifyMemberApproved가 적는다). 0이면 그분이 알림을 안 켜 두셔서
+   * 보낼 곳이 없었다는 뜻 — 못 간 것을 나중에 알 수 있게 남긴다.
+   */
+  approvedNotifiedAt?: number;
+  approvedNotifiedCount?: number;
 }
 
 export type MemberState =
@@ -107,6 +115,9 @@ export function useMember() {
             return;
           }
           setMember(m);
+          // 이 기기 알림 등록에 누구인지 적어 둔다 — 가입 승인처럼 한 분께만
+          // 보내는 알림이 이 이메일로 기기를 찾는다
+          void syncPushTokenIdentity(m.email ?? user.email ?? null, m.name ?? null);
           // 손님(guest)은 "대기 중"이 아니다 — 처리가 끝난 분이라 그렇게
           // 보여드려야 한다. 교인 전용 기능만 안 열릴 뿐이다.
           setState(
