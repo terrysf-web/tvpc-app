@@ -531,7 +531,7 @@ export default function AdminScreen() {
         m.memberType === 'new' ? '새로 가입' : '기존 교인',
         m.bio ?? '',
         new Date(m.createdAt).toLocaleDateString('ko-KR'),
-        m.status === 'revoked' ? '해제됨' : '승인됨',
+        m.status === 'revoked' ? '해제됨' : m.status === 'guest' ? '손님' : '승인됨',
         m.revokedAt ? new Date(m.revokedAt).toLocaleDateString('ko-KR') : '',
         m.revokedBy ?? '',
         m.revokeReason ?? '',
@@ -541,7 +541,9 @@ export default function AdminScreen() {
       ]
         .map(escape)
         .join(',');
-    const rows = [...approved, ...revoked].map(toRow);
+    // 손님도 리포트에 함께 담는다 — 명단에서 빠지면 누가 왜 앨범을 못 보는지
+    // 나중에 확인할 길이 없다
+    const rows = [...approved, ...guests, ...revoked].map(toRow);
     // 앞에 BOM을 붙여야 엑셀에서 한글이 안 깨진다
     const csv = '\uFEFF' + [header.map(escape).join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1584,9 +1586,15 @@ export default function AdminScreen() {
           </View>
         )}
 
-        {tab === 'members' && guests.length > 0 && (
+        {tab === 'members' && (
           <View style={[styles.card, shadows.card, { marginTop: 14 }]}>
             <Text style={styles.blockTitle}>손님 ({guests.length})</Text>
+            {guests.length === 0 && (
+              <Text style={styles.emptyText}>
+                손님으로 받은 분이 없습니다. 등록 교인이 아닌 분은 가입 승인에서 「손님」을,
+                이미 승인한 분은 아래 목록에서 「손님으로」를 눌러 주세요.
+              </Text>
+            )}
             {guests.map((m) => (
               <View key={m.id} style={styles.pendingRow}>
                 <View style={{ flex: 1 }}>
@@ -1649,6 +1657,12 @@ export default function AdminScreen() {
                   )}
                 </View>
                 <Pressable
+                  style={styles.guestBtn}
+                  onPress={() => submit(() => guestMember(m.id), `${m.name}님을 손님으로 바꿨습니다.`)}
+                >
+                  <Text style={styles.guestBtnText}>손님으로</Text>
+                </Pressable>
+                <Pressable
                   style={styles.revokeBtn}
                   onPress={() => {
                     setReasonText('');
@@ -1662,6 +1676,8 @@ export default function AdminScreen() {
               </View>
             ))}
             <Text style={styles.hintText}>
+              「손님으로」는 교우 앨범·기도요청만 닫고 로그인은 그대로 둡니다. 「해제」는 가입
+              자체를 푸는 것이라 사유를 남깁니다.{'\n'}
               해제 후 재승인 가능합니다. 웹 브라우저에서 CSV로 내려받아 리포트로 제출할 수
               있습니다.
             </Text>
