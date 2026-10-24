@@ -300,10 +300,26 @@ async function encode(img) {
   throw new Error('페이지 이미지가 너무 큽니다.');
 }
 
-// 기존 데이터 정리 후 새로 기록
-for (const coll of ['albums/current/pages', 'albums/current/rows']) {
+/**
+ * 남은 옛 자료 지우기 — 반드시 새로 다 쓴 "뒤에" 부른다.
+ *
+ * 전에는 변환을 시작하면서 먼저 싹 지웠다. 그래서 변환이 도는 5분
+ * 남짓 동안 앨범이 텅 비었고, 그 사이에 여신 분들께는 앨범이 사라진
+ * 것처럼 보였다(실제로 그렇게 보신 적이 있다).
+ *
+ * 이제는 같은 번호에 덮어쓰고, 끝난 뒤에 새 것보다 뒤 번호로 남은
+ * 것만 지운다(앨범이 전보다 짧아진 경우). 변환 중에는 잠깐 옛 장과
+ * 새 장이 섞여 보일 수 있지만, 비어 있는 것보다는 낫다.
+ */
+async function deleteLeftovers(coll, keep) {
   const old = await db.collection(coll).get();
-  for (const d of old.docs) await d.ref.delete();
+  const stale = old.docs.filter((d) => Number(d.id) >= keep || !Number.isFinite(Number(d.id)));
+  for (let i = 0; i < stale.length; i += 400) {
+    const batch = db.batch();
+    for (const d of stale.slice(i, i + 400)) batch.delete(d.ref);
+    await batch.commit();
+  }
+  if (stale.length) console.log(`  ${coll}: 남은 옛 자료 ${stale.length}개 정리`);
 }
 
 let introCount = 0;
@@ -617,6 +633,10 @@ for (let i = 0; i < rows.length; i++) {
     h: rows[i].h,
   });
 }
+
+// 새 자료를 다 쓴 뒤에야 옛 것을 지운다 — 변환 중에 앨범이 비지 않게
+await deleteLeftovers('albums/current/pages', introCount);
+await deleteLeftovers('albums/current/rows', rows.length);
 
 // 셀 필터 목록에는 추가 소속 셀도 포함한다 (그 셀로 걸러도 나오게)
 const allCellList = [
