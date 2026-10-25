@@ -297,12 +297,50 @@ function stripKoreanDuplicates(text: string): string {
     .trim();
 }
 
+/**
+ * 종이 주보에서 칸이 좁아 곡 제목이 두 줄로 끊긴 것을 도로 한 줄로 잇는다.
+ *
+ * 2026-10-25 2부 "경배와 기도"가 이렇게 들어왔다 —
+ *   성가대 / [주님과 같이 / 경배하리 주 / 하나님]
+ * 대괄호가 열린 채 줄이 바뀌어서, 줄 단위로 나눈 뒤에 곡 제목을 찾는
+ * 아래 과정에서 "[주님과 같이 / 경배하리 주"와 "하나님]" 어느 쪽도 짝이
+ * 맞지 않았다. 그래서 ♪ 배지로 바뀌지 못하고 대괄호가 그대로 보였다.
+ * (1부는 같은 제목이 한 줄에 다 들어가서 멀쩡했다.)
+ *
+ * 닫는 대괄호가 나올 때까지 다음 줄을 이어 붙인다. 끝내 닫히지 않으면
+ * 원래 줄 그대로 둔다 — 짐작으로 닫아 버리면 없는 제목이 생긴다.
+ */
+function joinWrappedBrackets(lines: string[]): string[] {
+  const out: string[] = [];
+  // 대괄호가 열린 채 이어지는 중인 줄들
+  let held: string[] = [];
+  for (const line of lines) {
+    if (held.length) {
+      held.push(line);
+      if (line.includes(']')) {
+        out.push(held.join(' '));
+        held = [];
+      }
+      continue;
+    }
+    const opened = (line.match(/\[/g) ?? []).length;
+    const closed = (line.match(/\]/g) ?? []).length;
+    if (opened > closed) held = [line];
+    else out.push(line);
+  }
+  // 끝내 닫히지 않았으면 모아 둔 줄을 원래대로 되돌린다
+  out.push(...held);
+  return out;
+}
+
 /** "경배와 기도"처럼 한 항목을 여러 파트(찬양팀 → 정국휘 집사 → 성가대 …)가
  * 나눠 맡을 때, 줄바꿈으로만 이어붙여 놓으면 한 문단처럼 보여 몇 파트인지
  * 구분이 안 된다. 각 줄을 한 파트로 보되, "[찬송 제목]"처럼 대괄호만 있는
  * 줄은 새 파트가 아니라 바로 앞 파트(부른 곡 제목)에 붙인다. */
 function splitDetailParts(detail: string): string[] {
-  const lines = detail.split('\n').map((l) => l.trim()).filter(Boolean);
+  const lines = joinWrappedBrackets(
+    detail.split('\n').map((l) => l.trim()).filter(Boolean),
+  );
   const parts: string[] = [];
   for (const line of lines) {
     if (/^[[(].*[\])]$/.test(line) && parts.length) {
