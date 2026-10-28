@@ -20,6 +20,8 @@ const CHANNEL_HANDLE = process.env.CHANNEL_HANDLE || '@tri-valley';
 // 올리고 내리는 일이 된다.
 const CHURCH_VIDEOS_LIST =
   process.env.CHURCH_VIDEOS_LIST || 'PLbDbHDX38DM3TPI_tDcWtAr8GYkizgbeZ';
+/** 저장된 날짜를 믿지 않고 유튜브에서 다시 읽는다(날짜 바로잡기용) */
+const REFRESH_CHURCH_DATES = process.env.REFRESH_CHURCH_DATES === '1';
 const MAX_VIDEOS = Number(process.env.MAX_VIDEOS || 15);
 const PREACHER_DEFAULT = process.env.PREACHER_DEFAULT || '허성영 담임목사';
 
@@ -178,14 +180,33 @@ async function fetchAllUploads(channelId) {
 }
 
 /** 영상 업로드 날짜 — 시청 페이지에서 추출 */
+/** "2023. 9. 24." → "2023-09-24" (유튜브 한글 페이지 날짜 표기) */
+function fromKoreanDate(text) {
+  const m = String(text).match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null;
+}
+
+/**
+ * 영상 업로드 날짜 — 시청 페이지에서 읽는다.
+ *
+ * 유튜브가 표기를 바꿔서, 예전 모양("uploadDate":"2023-09-24")은 이제
+ * 아무 페이지에도 없다. 한글 페이지(hl=ko)에서는 사람이 읽는 글자로만
+ * 들어 있다 — "publishDate":{"simpleText":"2023. 9. 24."}. 그래서 날짜를
+ * 못 읽는 줄도 모르고 오늘 날짜로 채우고 있었다(교회 영상 38개 중 14개).
+ * 옛 모양도 그대로 두고 한글 표기를 덧붙인다.
+ */
 async function fetchUploadDate(id) {
   try {
     const html = await fetchText(`https://www.youtube.com/watch?v=${id}&hl=ko`);
-    const m =
+    const iso =
       html.match(/"uploadDate":"(\d{4}-\d{2}-\d{2})/) ||
       html.match(/itemprop="datePublished" content="(\d{4}-\d{2}-\d{2})/) ||
       html.match(/"publishDate":"(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : null;
+    if (iso) return iso[1];
+    const ko =
+      html.match(/"publishDate":\{"simpleText":"([^"]+)"/) ||
+      html.match(/"dateText":\{"simpleText":"([^"]+)"/);
+    return ko ? fromKoreanDate(ko[1]) : null;
   } catch {
     return null;
   }
@@ -691,6 +712,7 @@ async function syncChurchVideos() {
   console.log(`\n교회 영상 재생목록 "${name}" — ${videos.length}개`);
 
   const inList = new Set();
+  const unknownDates = [];
   for (let i = 0; i < videos.length; i++) {
     const v = videos[i];
     const id = `yt-${v.id}`;
@@ -700,13 +722,19 @@ async function syncChurchVideos() {
     // 날짜 — 제목의 [MM/DD/YYYY], 없으면 이미 저장된 값, 그것도 없으면
     // 유튜브 시청 페이지에서 한 번 읽어 온다(다음부터는 저장된 값을 쓴다).
     const fromTitle = v.title.match(/\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]/);
-    const date =
-      (fromTitle
-        ? `${fromTitle[3]}-${fromTitle[1].padStart(2, '0')}-${fromTitle[2].padStart(2, '0')}`
-        : null) ||
-      cur.get('date') ||
-      (await fetchUploadDate(v.id)) ||
-      new Date().toISOString().slice(0, 10);
+    // REFRESH_CHURCH_DATES=1이면 저장된 날짜를 믿지 않고 유튜브에서 다시
+    // 읽는다 — 날짜 읽기가 고장났던 동안 오늘 날짜로 채워진 것을 바로잡을 때.
+    const titleDate = fromTitle
+      ? `${fromTitle[3]}-${fromTitle[1].padStart(2, '0')}-${fromTitle[2].padStart(2, '0')}`
+      : null;
+    let date = titleDate || (REFRESH_CHURCH_DATES ? null : cur.get('date'));
+    if (!date) date = (await fetchUploadDate(v.id)) || cur.get('date') || null;
+    if (!date) {
+      // 끝내 못 읽었다 — 날짜 없이 저장하면 목록 조회(날짜순)에서 빠져
+      // 영상이 아예 안 보이므로 오늘로 두되, 조용히 넘어가지는 않는다.
+      date = new Date().toISOString().slice(0, 10);
+      unknownDates.push(`${v.title} (${v.id})`);
+    }
     const p = parseVideo(v.title, `${date}T00:00:00Z`);
     const payload = { churchVideo: true, churchVideoOrder: i };
     if (!cur.exists) {
@@ -739,6 +767,10 @@ async function syncChurchVideos() {
     off++;
   }
   console.log(`교회 영상: ${videos.length}개 표시${off ? `, ${off}개 내림` : ''}`);
+  if (unknownDates.length) {
+    console.log(`! 날짜를 못 읽어 오늘로 둔 영상 ${unknownDates.length}개:`);
+    for (const t of unknownDates) console.log(`    · ${t}`);
+  }
 }
 
 await syncChurchVideos();
