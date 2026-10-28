@@ -12,8 +12,14 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { fetchPlaylist } from './lib/youtube.mjs';
 
 const CHANNEL_HANDLE = process.env.CHANNEL_HANDLE || '@tri-valley';
+// 교회가 직접 고른 "교회 영상" 재생목록 — 앱 "교회 미디어 > 영상" 탭이
+// 그대로 이 목록을 보여준다. 교회에서 목록에 넣고 빼는 것이 곧 앱에
+// 올리고 내리는 일이 된다.
+const CHURCH_VIDEOS_LIST =
+  process.env.CHURCH_VIDEOS_LIST || 'PLbDbHDX38DM3TPI_tDcWtAr8GYkizgbeZ';
 const MAX_VIDEOS = Number(process.env.MAX_VIDEOS || 15);
 const PREACHER_DEFAULT = process.env.PREACHER_DEFAULT || '허성영 담임목사';
 
@@ -655,6 +661,87 @@ if (wrote > 0) {
     }
   }
 }
+
+/**
+ * "교회 영상" 재생목록 → 앱 영상 탭.
+ *
+ * 예전에는 제목에 "찬양·선교영상" 같은 낱말이 있는지로 짐작해 영상 탭에
+ * 넣었다. 그러다 보니 성가대 주일찬양·반주곡이 영상 탭을 채우고, 정작
+ * VBS·세례식·임직식 같은 교회 영상은 하나도 없었다. 무엇을 보여줄지는
+ * 교회가 정하는 게 맞으므로, 교회가 직접 고른 재생목록을 그대로 쓴다.
+ *
+ * 목록에 있으면 churchVideo를 켜고 놓인 차례(churchVideoOrder)를 적는다.
+ * 목록에서 빠지면 꺼서 앱에서도 내려간다 — 문서는 지우지 않는다(설교로도
+ * 쓰이는 영상이 있을 수 있고, 다시 넣으면 그대로 살아난다).
+ */
+async function syncChurchVideos() {
+  let name, videos;
+  try {
+    ({ name, videos } = await fetchPlaylist(CHURCH_VIDEOS_LIST));
+  } catch (e) {
+    console.log(`! 교회 영상 재생목록을 읽지 못했습니다: ${e.message}`);
+    return;
+  }
+  if (videos.length === 0) {
+    // 읽기는 됐는데 0개 — 유튜브 쪽 일시 오류일 수 있다. 이때 기존 표시를
+    // 지우면 영상 탭이 통째로 비므로, 아무것도 건드리지 않고 넘어간다.
+    console.log('! 교회 영상 재생목록이 비어 보여 이번에는 건너뜁니다.');
+    return;
+  }
+  console.log(`\n교회 영상 재생목록 "${name}" — ${videos.length}개`);
+
+  const inList = new Set();
+  for (let i = 0; i < videos.length; i++) {
+    const v = videos[i];
+    const id = `yt-${v.id}`;
+    inList.add(id);
+    const ref = db.doc(`sermons/${id}`);
+    const cur = await ref.get();
+    // 날짜 — 제목의 [MM/DD/YYYY], 없으면 이미 저장된 값, 그것도 없으면
+    // 유튜브 시청 페이지에서 한 번 읽어 온다(다음부터는 저장된 값을 쓴다).
+    const fromTitle = v.title.match(/\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]/);
+    const date =
+      (fromTitle
+        ? `${fromTitle[3]}-${fromTitle[1].padStart(2, '0')}-${fromTitle[2].padStart(2, '0')}`
+        : null) ||
+      cur.get('date') ||
+      (await fetchUploadDate(v.id)) ||
+      new Date().toISOString().slice(0, 10);
+    const p = parseVideo(v.title, `${date}T00:00:00Z`);
+    const payload = { churchVideo: true, churchVideoOrder: i };
+    if (!cur.exists) {
+      // 처음 보는 영상만 내용을 채운다 — 이미 있는 문서(설교 등)는 제목·
+      // 분류를 건드리지 않는다. 홈페이지에서 보강해 둔 내용이 덮이면 안 된다.
+      Object.assign(payload, {
+        category: p.category === 'sermon' ? 'etc' : p.category,
+        title: p.title,
+        subtitle: LABEL[p.category === 'sermon' ? 'etc' : p.category],
+        scripture: p.scripture,
+        date,
+        service: LABEL[p.category === 'sermon' ? 'etc' : p.category],
+        duration: '',
+        series: '교회 영상',
+        youtubeId: v.id,
+        imageUrl: null,
+      });
+    }
+    await ref.set(payload, { merge: true });
+    console.log(`  ${cur.exists ? '✓' : '+'} ${date}  ${p.title}`);
+  }
+
+  // 목록에서 빠진 영상은 표시를 끈다
+  const marked = await db.collection('sermons').where('churchVideo', '==', true).get();
+  let off = 0;
+  for (const d of marked.docs) {
+    if (inList.has(d.id)) continue;
+    await d.ref.update({ churchVideo: false });
+    console.log(`  – 목록에서 빠짐: ${d.get('title')}`);
+    off++;
+  }
+  console.log(`교회 영상: ${videos.length}개 표시${off ? `, ${off}개 내림` : ''}`);
+}
+
+await syncChurchVideos();
 
 // 홈페이지 정식 설교 정보(제목·본문·설교자·이미지)로 보강 — 항상 마지막에 실행
 try {

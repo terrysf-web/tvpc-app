@@ -43,6 +43,13 @@ export interface SermonDoc {
   series: string;
   youtubeId?: string | null;
   imageUrl?: string | null;
+  /**
+   * 교회가 고른 "교회 영상" 재생목록에 들어 있는가 — 앱 "교회 미디어 >
+   * 영상" 탭이 이 표시만 보고 보여준다. churchVideoOrder는 재생목록에
+   * 놓인 차례(교회가 정한 순서를 그대로 따른다).
+   */
+  churchVideo?: boolean;
+  churchVideoOrder?: number;
   /** 교회 홈페이지 개별 설교 페이지 — 영상이 없을 때 대체 링크 */
   sermonUrl?: string | null;
   featured?: boolean;
