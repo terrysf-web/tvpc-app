@@ -1,0 +1,21 @@
+# 유튜브 시청 페이지의 업로드 날짜 표기를 확인(읽기 전용).
+name: Probe upload date (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_ids:
+        description: '영상 ID 쉼표로 구분'
+        required: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - env:
+          VIDEO_IDS: ${{ inputs.video_ids }}
+        run: node scripts/probe-upload-date.mjs
