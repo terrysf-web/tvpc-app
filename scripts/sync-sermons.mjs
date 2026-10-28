@@ -713,6 +713,7 @@ async function syncChurchVideos() {
 
   const inList = new Set();
   const unknownDates = [];
+  const fixedDates = [];
   for (let i = 0; i < videos.length; i++) {
     const v = videos[i];
     const id = `yt-${v.id}`;
@@ -753,8 +754,18 @@ async function syncChurchVideos() {
         imageUrl: null,
       });
     }
+    // 이미 있는 문서의 날짜는 평소엔 건드리지 않는다(홈페이지에서 보강해 둔
+    // 설교 날짜가 덮이면 안 된다). 다만 날짜 바로잡기로 돌렸을 때는 다시
+    // 읽은 값을 실제로 적어야 한다 — 전에는 여기서 막혀, 로그에는 제대로
+    // 찍히는데 저장은 안 되는 상태였다.
+    let mark = cur.exists ? '✓' : '+';
+    if (cur.exists && REFRESH_CHURCH_DATES && date && cur.get('date') !== date) {
+      payload.date = date;
+      mark = '↻';
+      fixedDates.push(`${p.title}: ${cur.get('date')} → ${date}`);
+    }
     await ref.set(payload, { merge: true });
-    console.log(`  ${cur.exists ? '✓' : '+'} ${date}  ${p.title}`);
+    console.log(`  ${mark} ${date}  ${p.title}`);
   }
 
   // 목록에서 빠진 영상은 표시를 끈다
@@ -767,6 +778,10 @@ async function syncChurchVideos() {
     off++;
   }
   console.log(`교회 영상: ${videos.length}개 표시${off ? `, ${off}개 내림` : ''}`);
+  if (fixedDates.length) {
+    console.log(`날짜 바로잡음 ${fixedDates.length}개:`);
+    for (const t of fixedDates) console.log(`    · ${t}`);
+  }
   if (unknownDates.length) {
     console.log(`! 날짜를 못 읽어 오늘로 둔 영상 ${unknownDates.length}개:`);
     for (const t of unknownDates) console.log(`    · ${t}`);
