@@ -23,6 +23,9 @@ const TABS: { key: MediaTab; label: string }[] = [
   // { key: 'praise', label: '찬양' },
 ];
 
+/** 찬양 탭이 지금 보이는가 — 숨겨 두면 그쪽으로 보낸 영상이 갈 곳이 없다 */
+const PRAISE_TAB_SHOWN = TABS.some((t) => t.key === 'praise');
+
 /** 찬양 탭 유튜브 썸네일 — sermonThumb과 같은 규칙(hqdefault) */
 function praiseThumb(v: PraiseVideoDoc): string | null {
   return v.youtubeId ? `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg` : null;
@@ -57,9 +60,17 @@ export default function MediaScreen() {
   // 단 "은혜안에 워십팀" 영상은 교회 채널에 올라온 것이라도 찬양 탭으로
   // 보낸다(아래 praiseItems) — 보는 사람 입장에선 어느 채널에 올라왔는지가
   // 아니라 같은 찬양팀 영상인지가 중요하다.
+  //
+  // 단, 찬양 탭을 숨겨 두었으면 보낼 곳이 없다. 그대로 빼면 교회가 올린
+  // 영상이 앱 어디에도 안 나온다 — 실제로 그래서 영상 탭이 7월 27일에
+  // 멈춰 있었다(10/13 설립 44주년 집회 찬양 등 5개가 통째로 숨어 있었다).
+  // 그래서 탭이 보일 때만 빼낸다. TABS에서 바로 읽으므로 나중에 탭을
+  // 되살려도 여기를 같이 고칠 필요가 없다.
   const isEunhyeane = (s: SermonDoc) => /은혜안에/.test(s.title) && !!s.youtubeId;
   const videos = sermons.filter(
-    (s) => (s.category === 'praise' || s.category === 'etc') && !isEunhyeane(s),
+    (s) =>
+      (s.category === 'praise' || s.category === 'etc') &&
+      (!PRAISE_TAB_SHOWN || !isEunhyeane(s)),
   );
 
   // 찬양 탭 — 은혜안에 찬양팀 채널에서 가져온 것 + 교회 채널에 올라온
