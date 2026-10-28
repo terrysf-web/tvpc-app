@@ -17,6 +17,11 @@ on:
         description: '채널 전체 영상 백필 (true = 과거 팟캐스트·설교 전부 가져오기)'
         required: false
         default: 'false'
+      refresh_church_dates:
+        description: '교회 영상 날짜를 유튜브에서 다시 읽기 (날짜가 틀어졌을 때)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -51,4 +56,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           BACKFILL: ${{ inputs.backfill || 'false' }}
+          REFRESH_CHURCH_DATES: ${{ inputs.refresh_church_dates && '1' || '0' }}
         run: node scripts/sync-sermons.mjs
