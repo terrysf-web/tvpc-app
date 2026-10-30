@@ -7,6 +7,7 @@ initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT
 const db = getFirestore();
 
 const only = (process.env.DATE || '').trim();
+const find = (process.env.FIND || '').trim();
 const snap = await db.collection('sermons').get();
 const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -21,7 +22,14 @@ const show = (s) =>
     ].join('\n'),
   );
 
-if (only) {
+if (find) {
+  const n = (t) => String(t).replace(/\s/g, '').toLowerCase();
+  const rows = all
+    .filter((s) => n(s.title).includes(n(find)))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  console.log(`=== 제목에 "${find}" 들어간 문서 ${rows.length}개 ===`);
+  rows.forEach(show);
+} else if (only) {
   const rows = all.filter((s) => s.date === only);
   console.log(`=== ${only} 문서 ${rows.length}개 ===`);
   rows.forEach(show);

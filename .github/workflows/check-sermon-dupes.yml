@@ -7,6 +7,9 @@ on:
       date:
         description: '특정 날짜만 보기 YYYY-MM-DD (비우면 전체에서 겹치는 것)'
         required: false
+      find:
+        description: '제목으로 찾기 (띄어쓰기 무시)'
+        required: false
 
 jobs:
   check:
@@ -20,4 +23,5 @@ jobs:
       - env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           DATE: ${{ inputs.date }}
+          FIND: ${{ inputs.find }}
         run: node scripts/check-sermon-dupes.mjs
