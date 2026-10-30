@@ -25,7 +25,10 @@ const nonSunday = rows.filter((s) => {
 console.log(`설교 ${rows.length}편 중 주일이 아닌 날 ${nonSunday.length}편 (새벽 제외)`);
 console.log('— 이 설교들이 "특별예배"로 바뀝니다 —\n');
 for (const s of nonSunday)
-  console.log(`  ${s.date}(${W[dow(s.date)]})  지금 "${s.service ?? '-'}"  ${s.title}`);
+  console.log(
+    `  ${s.date}(${W[dow(s.date)]})  "${s.service ?? '-'}"  ${s.title}\n` +
+      `      문서 ${s.id}   유튜브 ${s.youtubeId ?? '(없음)'}   홈페이지 ${s.sermonUrl ? '있음' : '없음'}`,
+  );
 
 const noDate = rows.filter((s) => dow(s.date) === null);
 if (noDate.length) {
