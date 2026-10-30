@@ -212,6 +212,36 @@ async function fetchUploadDate(id) {
   }
 }
 
+/**
+ * 볼 내용이 있는 영상인가.
+ *
+ * 예배를 유튜브로 생중계하다 보면, 방송을 걸어 두기만 하고 실제로는
+ * 나가지 않은 빈 방송이 채널에 남는다. 제목은 멀쩡한 설교 제목이라
+ * 목록에서는 똑같이 보이는데 눌러도 아무것도 안 나온다. 실제로
+ * 2026-10-10 새벽집회가 그래서 같은 제목으로 두 개가 올라왔다 —
+ * 하나는 934회 본 진짜 녹화, 하나는 0분짜리 빈 방송.
+ *
+ * 유튜브는 그런 영상의 날짜 자리에 "현재 실시간 스트림 상태: 오프라인"을
+ * 적고 길이를 0으로 둔다. 그 두 가지로 가린다. 페이지를 못 받으면
+ * 괜찮은 것으로 본다 — 확인이 안 됐다고 멀쩡한 설교를 빼면 안 된다.
+ */
+async function isPlayable(id) {
+  let html;
+  try {
+    html = await fetchText(`https://www.youtube.com/watch?v=${id}&hl=ko`, 2);
+  } catch {
+    return { ok: true };
+  }
+  const dateText =
+    html.match(/"dateText":\{"simpleText":"([^"]+)"/)?.[1] ??
+    html.match(/"publishDate":\{"simpleText":"([^"]+)"/)?.[1] ??
+    '';
+  if (/실시간 스트림 상태|[Ll]ive stream offline/.test(dateText))
+    return { ok: false, why: dateText };
+  if (html.match(/"lengthSeconds":"0"/)) return { ok: false, why: '길이 0초' };
+  return { ok: true };
+}
+
 /** RSS 피드 파싱 — 의존성 없이 정규식으로 entry 추출 */
 function parseFeed(xml) {
   const entries = [];
@@ -275,6 +305,19 @@ function parseVideo(rawTitle, published) {
       speaker = applyNameFixes(speakerMatch[1].replace(/\s*,\s*/g, ' · ').trim());
       title = title.slice(speakerMatch[0].length).trim();
     }
+  }
+
+  // 설교 제목 끝에 "/ 임은미 선교사"처럼 설교자가 붙는 경우(초청 강사·집회
+  // 강사 등). 이걸 안 읽으면 설교는 무조건 담임목사로 적혀서, 제목에는
+  // "임은미 선교사"라고 쓰여 있는데 아래에는 "허성영 담임목사"라고 나왔다.
+  // 성경구절보다 먼저 떼어 낸다 — 뒤에 이게 붙어 있으면 구절이 끝에
+  // 오지 않아 본문도 같이 못 읽는다.
+  const guest = title.match(
+    /\s*[/|]\s*([가-힣]{2,4})\s*(담임목사|목사|선교사|전도사|강도사|사모|장로|집사)\s*$/,
+  );
+  if (guest) {
+    speaker = applyNameFixes(`${guest[1]} ${guest[2]}`);
+    title = title.slice(0, guest.index).trim();
   }
 
   // 성경구절 접미 "(시편 23:6)" — 숫자가 포함된 괄호만
@@ -636,6 +679,26 @@ if (BACKFILL) {
 
 if (videos.length === 0) console.log('가져올 영상이 없습니다.');
 
+// 빈 방송 걸러내기 — 백필(수백 개)에서는 건너뛰고 평소 목록(최대 15개)에서만
+// 확인한다. 이미 올라가 있던 빈 방송도 여기서 지워져 저절로 정리된다.
+if (!BACKFILL && videos.length > 0) {
+  const good = [];
+  for (const v of videos) {
+    const { ok, why } = await isPlayable(v.id);
+    if (ok) {
+      good.push(v);
+      continue;
+    }
+    console.log(`  – 빈 방송이라 건너뜁니다(${why}): ${v.title}`);
+    const ref = db.doc(`sermons/yt-${v.id}`);
+    if ((await ref.get()).exists) {
+      await ref.delete();
+      console.log(`    (이미 올라가 있던 문서도 지웠습니다)`);
+    }
+  }
+  videos = good;
+}
+
 const LABEL = { sermon: '설교', podcast: '팟캐스트', praise: '찬양', etc: '기타' };
 
 let wrote = 0;
@@ -660,10 +723,12 @@ for (const v of videos) {
     youtubeId: v.id,
     imageUrl: null,
   };
-  if (p.category === 'sermon') {
-    payload.preacher = PREACHER_DEFAULT;
-  } else if (p.speaker) {
+  // 제목에 설교자가 적혀 있으면 그 이름이 맞다 — 담임목사 기본값은 제목에서
+  // 아무도 못 찾았을 때만 쓴다(그동안은 설교면 무조건 담임목사로 덮었다).
+  if (p.speaker) {
     payload.preacher = p.speaker;
+  } else if (p.category === 'sermon') {
+    payload.preacher = PREACHER_DEFAULT;
   } else if (MANUAL_PREACHER_OVERRIDES[v.id]) {
     payload.preacher = MANUAL_PREACHER_OVERRIDES[v.id];
   }
