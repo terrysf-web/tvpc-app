@@ -25,10 +25,12 @@ function fromKoreanDate(text) {
   return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 /** 영상의 실제 예배일 — 제목의 [MM/DD/YYYY] 우선, 없으면 올린 날짜 */
 async function videoDate(id) {
   try {
-    const html = await fetchText(`https://www.youtube.com/watch?v=${id}&hl=ko`, 2);
+    const html = await fetchText(`https://www.youtube.com/watch?v=${id}&hl=ko`, 4);
     const t = html.match(/"title":\{"runs":\[\{"text":"([^"]+)"/)?.[1] ?? '';
     const m = t.match(/\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]/);
     if (m) return { date: `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`, from: '제목', title: t };
@@ -51,7 +53,11 @@ const rows = snap.docs
 console.log(`설교 ${rows.length}편 확인${APPLY ? ' (고칩니다)' : ' (보기만 합니다 — 고치려면 APPLY)'}\n`);
 let changed = 0;
 let unread = 0;
+// 한 번에 몰아 치면 유튜브가 막는다(429). 사이를 두고 천천히 간다.
+let first = true;
 for (const s of rows) {
+  if (!first) await sleep(1500);
+  first = false;
   const v = await videoDate(s.youtubeId);
   if (!v) {
     unread++;

@@ -16,10 +16,13 @@ export async function fetchText(url, attempts = 3) {
       return await res.text();
     } catch (e) {
       lastErr = e;
-      // 유튜브 쪽 일시적 오류(레이트리밋 등) 대비
+      // 유튜브 쪽 일시적 오류 대비. 너무 빨리 많이 물어보면 429로 막는데,
+      // 그때는 짧게 쉬어서는 소용이 없어 넉넉히 기다렸다 다시 묻는다.
       if (i < attempts - 1) {
-        console.log(`  ! 요청 실패, 재시도 ${i + 1}/${attempts - 1}: ${e.message}`);
-        await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+        const tooMany = /HTTP 429/.test(e.message);
+        const wait = tooMany ? 8000 * (i + 1) : 2000 * (i + 1);
+        console.log(`  ! 요청 실패, 재시도 ${i + 1}/${attempts - 1} (${Math.round(wait / 1000)}초 뒤): ${e.message}`);
+        await new Promise((r) => setTimeout(r, wait));
       }
     }
   }
