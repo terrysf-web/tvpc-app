@@ -3,6 +3,10 @@ name: Check channel videos (one-off)
 
 on:
   workflow_dispatch:
+    inputs:
+      channel_id:
+        description: '채널 ID (비우면 교회 채널)'
+        required: false
 
 jobs:
   check:
@@ -12,4 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/check-channel-videos.mjs
+      - env:
+          CHANNEL_ID: ${{ inputs.channel_id }}
+        run: node scripts/check-channel-videos.mjs
