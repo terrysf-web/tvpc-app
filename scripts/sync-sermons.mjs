@@ -552,8 +552,19 @@ async function syncWebSermons() {
 
 /** 제목 키워드로 예배 종류 분류 */
 function classify(title) {
+  // "성령집회"에도 '집회'가 들어 있으므로 금요부터 가린다
   if (/금요|성령집회/.test(title)) return '금요성령집회';
   if (/수요/.test(title)) return '수요예배';
+  // 부흥회·말씀집회는 주일·새벽 정규 예배가 아니다. 하루에 새벽·저녁
+  // 두 번 모이는 일이 많아서 아무 말 없이 "주일예배"로 뭉뚱그리면 어느
+  // 모임인지 알 수 없다 — 실제로 2026-10-10 집회가 새벽은 "새벽기도회",
+  // 저녁은 "주일예배"(토요일인데!)로 나왔다. 제목에 적힌 새벽·저녁을
+  // 그대로 살린다.
+  if (/집회|부흥회/.test(title)) {
+    if (/새벽/.test(title)) return '말씀집회 새벽';
+    if (/저녁|밤/.test(title)) return '말씀집회 저녁';
+    return '말씀집회';
+  }
   if (/새벽/.test(title)) return '새벽기도회';
   return '주일예배';
 }
