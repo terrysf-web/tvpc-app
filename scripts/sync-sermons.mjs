@@ -358,7 +358,11 @@ function parseVideo(rawTitle, published) {
 /* ---------------- 교회 홈페이지(/wp/sermons/) 정식 설교 정보 ---------------- */
 
 const WEB_SERMONS_URL = process.env.WEB_SERMONS_URL || 'https://tvpc.church/wp/sermons/';
-const WEB_SERMON_PAGES = Number(process.env.WEB_SERMON_PAGES || 3);
+// 홈페이지 설교 목록은 한 쪽에 9건씩이고 2024년 12월까지 108건이 있다.
+// 3쪽(27건)만 읽고 있어서 그보다 오래된 설교는 앱에 들어올 길이 없었고,
+// 그래서 지난 설교를 고치려 해도 목록에 없어 손을 못 댔다. 넉넉히 읽되
+// 빈 쪽이 나오면 거기서 멈춘다.
+const WEB_SERMON_PAGES = Number(process.env.WEB_SERMON_PAGES || 20);
 
 function decodeEntities(s) {
   return (s || '')
