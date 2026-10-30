@@ -553,22 +553,22 @@ async function syncWebSermons() {
         docs.find((x) => x.id.startsWith('web-') && x.id.endsWith(`-${hash}`))?.youtubeId ??
         (await extractYoutubeId(w.url));
 
-      // 홈페이지 날짜는 글을 올린 날이라 실제 예배일과 다를 때가 있다.
-      // 실제로 성금요일(4/3) 설교가 4/6으로, 4/19·4/26 주일 설교가
-      // 4/21·4/27로 들어와 있었다 — 있지도 않은 날이고, 주일도 아니다.
-      // 영상이 있으면 유튜브가 더 정확하다(교회가 제목에 예배일을 적는다).
-      let date = w.date;
-      if (youtubeId) {
-        const real = await fetchVideoDate(youtubeId);
-        if (real && real !== w.date) {
-          console.log(`  · 날짜 바로잡음 ${w.date} → ${real}  ${w.title}`);
-          date = real;
-        }
-      }
+      // 날짜는 홈페이지에 적힌 설교일(preached-date)을 그대로 쓴다.
+      //
+      // 유튜브 제목의 [MM/DD/YYYY]로 덮어쓴 적이 있는데, 교회에서 고칠
+      // 곳이 한 군데(홈페이지)로 모이는 편이 낫다고 하셔서 되돌렸다.
+      // 홈페이지 날짜가 틀리면 앱도 같이 틀리므로, 고치실 곳은 홈페이지다.
+      const date = w.date;
       const id = `web-${date}-${hash}`;
-      // 날짜를 바로잡았으면 옛 날짜로 만들어 둔 문서는 지운다
-      if (date !== w.date) {
-        await db.doc(`sermons/web-${w.date}-${hash}`).delete().catch(() => {});
+      // 같은 설교를 다른 날짜로 만들어 둔 문서가 있으면 지운다 — 날짜가
+      // 바뀌면 문서 번호도 바뀌는데, 옛 번호를 그대로 두면 같은 설교가
+      // 두 번 보인다(번호 뒤의 해시가 설교 주소에서 나오므로 같은 설교끼리
+      // 짝이 맞는다).
+      for (const stale of docs.filter(
+        (x) => x.id !== id && x.id.startsWith('web-') && x.id.endsWith(`-${hash}`),
+      )) {
+        await stale.ref.delete().catch(() => {});
+        console.log(`  – 같은 설교의 옛 문서 지움: ${stale.id} (→ ${id})`);
       }
 
       // 그 영상의 유튜브 문서가 이미 있으면 새로 만들지 않고 그쪽에 병합
