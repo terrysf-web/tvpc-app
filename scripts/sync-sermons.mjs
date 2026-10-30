@@ -551,21 +551,26 @@ async function syncWebSermons() {
 }
 
 /** 제목 키워드로 예배 종류 분류 */
-function classify(title) {
+/**
+ * 예배 구분 — 제목의 낱말로 정규 예배를 먼저 가리고, 나머지는 달력을 본다.
+ *
+ * 예전에는 금요·수요·새벽만 알고 나머지를 전부 "주일예배"로 떨어뜨렸다.
+ * 그래서 44주년 집회가 금요일 것도 토요일 저녁 것도 "주일예배"로 나왔다.
+ * 낱말로 집회를 알아내려고도 해 봤지만, 집회 이름은 해마다 달라지니
+ * 따라갈 수가 없다. 주일이 아닌 날에 드린 예배는 주일예배가 아니라는
+ * 사실이 더 확실하므로, 날짜의 요일로 가린다.
+ */
+function classify(title, date) {
   // "성령집회"에도 '집회'가 들어 있으므로 금요부터 가린다
   if (/금요|성령집회/.test(title)) return '금요성령집회';
   if (/수요/.test(title)) return '수요예배';
-  // 부흥회·말씀집회는 주일·새벽 정규 예배가 아니다. 하루에 새벽·저녁
-  // 두 번 모이는 일이 많아서 아무 말 없이 "주일예배"로 뭉뚱그리면 어느
-  // 모임인지 알 수 없다 — 실제로 2026-10-10 집회가 새벽은 "새벽기도회",
-  // 저녁은 "주일예배"(토요일인데!)로 나왔다. 제목에 적힌 새벽·저녁을
-  // 그대로 살린다.
-  if (/집회|부흥회/.test(title)) {
-    if (/새벽/.test(title)) return '말씀집회 새벽';
-    if (/저녁|밤/.test(title)) return '말씀집회 저녁';
-    return '말씀집회';
-  }
+  // 새벽은 집회 중이든 아니든 새벽예배다
   if (/새벽/.test(title)) return '새벽기도회';
+  // 주일이 아닌 날 — 집회·절기·행사 예배. 날짜를 모르면 건드리지 않는다.
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+    if (!Number.isNaN(dow) && dow !== 0) return '특별예배';
+  }
   return '주일예배';
 }
 
@@ -734,7 +739,7 @@ const LABEL = { sermon: '설교', podcast: '팟캐스트', praise: '찬양', etc
 let wrote = 0;
 for (const v of videos) {
   const p = parseVideo(v.title, v.published);
-  const service = p.category === 'sermon' ? classify(v.title) : LABEL[p.category];
+  const service = p.category === 'sermon' ? classify(v.title, p.date) : LABEL[p.category];
   // 팟캐스트는 담임목사님이 아니라 매회 다른 성도가 발표한다 — 이름은
   // 제목 맨 앞 대괄호에서 그대로 읽는다(더 이상 썸네일을 OCR로 읽지 않음).
   // 이름을 제목에 넣기 시작한 건 최근 영상부터라, 그 이전 영상은 제목에서

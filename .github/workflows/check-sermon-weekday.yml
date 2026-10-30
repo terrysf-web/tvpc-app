@@ -1,0 +1,18 @@
+# 설교 날짜의 요일을 확인(읽기 전용).
+name: Check sermon weekday (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
+      - env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/check-sermon-weekday.mjs
