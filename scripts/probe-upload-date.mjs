@@ -13,6 +13,12 @@ for (const id of ids) {
     continue;
   }
   console.log(`  페이지 ${Math.round(html.length / 1024)}KB`);
+  const len = html.match(/"lengthSeconds":"(\d+)"/);
+  const views = html.match(/"views":\{"simpleText":"([^"]+)"/);
+  const title = html.match(/"title":\{"runs":\[\{"text":"([^"]+)"/);
+  if (title) console.log(`  제목 ${title[1]}`);
+  if (len) console.log(`  길이 ${Math.floor(len[1] / 60)}분 ${len[1] % 60}초`);
+  if (views) console.log(`  ${views[1]}`);
   const pats = {
     'uploadDate":"YYYY-MM-DD': /"uploadDate":"(\d{4}-\d{2}-\d{2})/,
     'itemprop datePublished': /itemprop="datePublished" content="(\d{4}-\d{2}-\d{2})/,
