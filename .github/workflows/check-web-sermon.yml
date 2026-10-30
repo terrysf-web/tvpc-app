@@ -1,0 +1,21 @@
+# 교회 홈페이지 설교 목록에 한 건이 어떻게 적혀 있는지 확인(읽기 전용).
+name: Check website sermon (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      find:
+        description: '제목 일부'
+        required: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - env:
+          FIND: ${{ inputs.find }}
+        run: node scripts/check-web-sermon.mjs
