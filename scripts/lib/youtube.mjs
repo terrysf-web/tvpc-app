@@ -104,7 +104,22 @@ export async function fetchPlaylist(listId) {
   if (first) walk(first);
   if (videos.length === 0) {
     console.log(`  ! ${listId}: 페이지·browse 둘 다 영상 0개`);
-    if (first) console.log(`    browse 최상위 키: ${Object.keys(first).join(', ')}`);
+    if (first) {
+      console.log(`    browse 최상위 키: ${Object.keys(first).join(', ')}`);
+      // 유튜브가 이유를 알려 주는 자리들 — 비공개·삭제 등
+      const texts = [];
+      const collect = (n) => {
+        if (!n || typeof n !== 'object') return;
+        if (Array.isArray(n)) return n.forEach(collect);
+        if (typeof n.simpleText === 'string') texts.push(n.simpleText);
+        if (Array.isArray(n.runs)) texts.push(n.runs.map((r) => r.text).join(''));
+        for (const k in n) collect(n[k]);
+      };
+      collect(first.alerts ?? null);
+      collect(first.contents ?? null);
+      const uniq = [...new Set(texts.filter((t) => t && t.length < 120))].slice(0, 12);
+      for (const t of uniq) console.log(`    · ${t}`);
+    }
   } else if (fromPage && videos.length === fromPage) {
     console.log(`  (페이지에서 ${fromPage}개 읽음)`);
   }
