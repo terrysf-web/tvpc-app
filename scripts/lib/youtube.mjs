@@ -86,8 +86,28 @@ export async function fetchPlaylist(listId) {
     return res.json();
   };
 
+  // ① 재생목록 페이지에 박혀 있는 자료를 먼저 읽는다. browse API는 목록에
+  //    따라 빈 응답을 주기도 하는데(설교 말씀 목록이 그랬다), 페이지 쪽은
+  //    사람이 보는 그대로라 더 확실하다.
+  const blob = html.match(/var ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+  if (blob) {
+    try {
+      walk(JSON.parse(blob[1]));
+    } catch {
+      /* 페이지에서 못 읽으면 아래 browse로 */
+    }
+  }
+  const fromPage = videos.length;
+
+  // ② 나머지는 browse API로 이어 받는다
   const first = await browse({ browseId: `VL${listId}` });
   if (first) walk(first);
+  if (videos.length === 0) {
+    console.log(`  ! ${listId}: 페이지·browse 둘 다 영상 0개`);
+    if (first) console.log(`    browse 최상위 키: ${Object.keys(first).join(', ')}`);
+  } else if (fromPage && videos.length === fromPage) {
+    console.log(`  (페이지에서 ${fromPage}개 읽음)`);
+  }
 
   let guard = 0;
   while (continuation && guard++ < 80) {
