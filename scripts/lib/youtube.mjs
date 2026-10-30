@@ -134,3 +134,71 @@ export async function fetchPlaylist(listId) {
   }
   return { name, videos };
 }
+
+/**
+ * 채널 "동영상" 탭 전체 목록.
+ *
+ * 지금까지는 RSS(최근 15개)만 봐서, 그보다 오래된 설교는 유튜브로
+ * 들어올 길이 없었다. 그래서 홈페이지 날짜를 그대로 받아썼고, 4/19
+ * 주일설교가 4/21로 들어가는 일이 생겼다. 채널 목록을 통째로 읽으면
+ * 모든 설교가 유튜브 제목([MM/DD/YYYY])으로 들어온다.
+ */
+export async function fetchChannelVideos(channelId) {
+  const html = await fetchText(`https://www.youtube.com/channel/${channelId}/videos?hl=ko`);
+  const apiKey =
+    html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1] ??
+    'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+
+  const videos = [];
+  const seen = new Set();
+  let continuation = null;
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) return node.forEach(walk);
+    const v = node.videoRenderer || node.gridVideoRenderer || node.playlistVideoRenderer;
+    if (v?.videoId && !seen.has(v.videoId)) {
+      seen.add(v.videoId);
+      videos.push({
+        id: v.videoId,
+        title: (v.title?.runs || []).map((r) => r.text).join('') || v.title?.simpleText || '',
+        seconds: Number(v.lengthSeconds || 0),
+      });
+    }
+    const tok =
+      node.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ||
+      node.nextContinuationData?.continuation;
+    if (tok) continuation = tok;
+    for (const k in node) walk(node[k]);
+  };
+
+  const blob = html.match(/var ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+  if (blob) {
+    try {
+      walk(JSON.parse(blob[1]));
+    } catch {
+      /* 아래 browse로 */
+    }
+  }
+
+  const browse = async (body) => {
+    const res = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': UA },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240401.00.00', hl: 'ko', gl: 'US' } },
+        ...body,
+      }),
+    });
+    return res.ok ? res.json() : null;
+  };
+
+  let guard = 0;
+  while (continuation && guard++ < 80) {
+    const token = continuation;
+    continuation = null;
+    const j = await browse({ continuation: token });
+    if (!j) break;
+    walk(j);
+  }
+  return videos;
+}

@@ -1,0 +1,15 @@
+# 채널 "동영상" 탭 전체를 읽어 본다(읽기 전용).
+name: Check channel videos (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-channel-videos.mjs
