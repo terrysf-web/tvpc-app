@@ -242,6 +242,31 @@ async function isPlayable(id) {
   return { ok: true };
 }
 
+/**
+ * 영상의 실제 예배 날짜.
+ *
+ * 교회가 제목 앞에 [MM/DD/YYYY]로 예배일을 적어 두므로 그게 가장 정확하다.
+ * 없으면 올린(생중계 시작) 날짜를 쓴다.
+ */
+async function fetchVideoDate(id) {
+  try {
+    const html = await fetchText(`https://www.youtube.com/watch?v=${id}&hl=ko`, 2);
+    const t = html.match(/"title":\{"runs":\[\{"text":"([^"]+)"/)?.[1] ?? '';
+    const m = t.match(/\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]/);
+    if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+    const iso =
+      html.match(/"uploadDate":"(\d{4}-\d{2}-\d{2})/) ||
+      html.match(/"publishDate":"(\d{4}-\d{2}-\d{2})/);
+    if (iso) return iso[1];
+    const ko =
+      html.match(/"publishDate":\{"simpleText":"([^"]+)"/) ||
+      html.match(/"dateText":\{"simpleText":"([^"]+)"/);
+    return ko ? fromKoreanDate(ko[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** RSS 피드 파싱 — 의존성 없이 정규식으로 entry 추출 */
 function parseFeed(xml) {
   const entries = [];
@@ -513,7 +538,7 @@ async function syncWebSermons() {
       );
     } else {
       // 같은 날짜에 설교가 두 건일 수 있어(부활절·성금요일) URL 해시로 ID 구분
-      const id = `web-${w.date}-${createHash('md5').update(w.url).digest('hex').slice(0, 6)}`;
+      const hash = createHash('md5').update(w.url).digest('hex').slice(0, 6);
       // 예전 형식(web-{날짜})으로 만든 문서는 새 ID로 대체
       const legacy = db.doc(`sermons/web-${w.date}`);
       if ((await legacy.get()).exists) await legacy.delete();
@@ -521,7 +546,26 @@ async function syncWebSermons() {
       // 개별 페이지에 임베드된 유튜브 영상 ID — 채널 목록에 없는 설교도
       // 앱에서 직접 재생되게 한다 (이미 확보한 ID는 페이지 재요청 생략)
       const youtubeId =
-        docs.find((x) => x.id === id)?.youtubeId ?? (await extractYoutubeId(w.url));
+        docs.find((x) => x.id.startsWith('web-') && x.id.endsWith(`-${hash}`))?.youtubeId ??
+        (await extractYoutubeId(w.url));
+
+      // 홈페이지 날짜는 글을 올린 날이라 실제 예배일과 다를 때가 있다.
+      // 실제로 성금요일(4/3) 설교가 4/6으로, 4/19·4/26 주일 설교가
+      // 4/21·4/27로 들어와 있었다 — 있지도 않은 날이고, 주일도 아니다.
+      // 영상이 있으면 유튜브가 더 정확하다(교회가 제목에 예배일을 적는다).
+      let date = w.date;
+      if (youtubeId) {
+        const real = await fetchVideoDate(youtubeId);
+        if (real && real !== w.date) {
+          console.log(`  · 날짜 바로잡음 ${w.date} → ${real}  ${w.title}`);
+          date = real;
+        }
+      }
+      const id = `web-${date}-${hash}`;
+      // 날짜를 바로잡았으면 옛 날짜로 만들어 둔 문서는 지운다
+      if (date !== w.date) {
+        await db.doc(`sermons/web-${w.date}-${hash}`).delete().catch(() => {});
+      }
 
       // 그 영상의 유튜브 문서가 이미 있으면 새로 만들지 않고 그쪽에 병합
       const ytDoc = youtubeId ? docs.find((x) => x.id === `yt-${youtubeId}`) : null;
@@ -534,11 +578,13 @@ async function syncWebSermons() {
       await db.doc(`sermons/${id}`).set(
         {
           category: 'sermon',
-          subtitle: '주일예배',
-          service: '주일예배',
+          // 날짜를 바로잡은 뒤에 구분한다 — 성금요일 설교가 "주일예배"로
+          // 박히지 않게(여기만 예배 구분을 박아 두고 있었다)
+          subtitle: classify(w.title, date),
+          service: classify(w.title, date),
           duration: '',
           youtubeId,
-          date: w.date,
+          date,
           ...info,
         },
         { merge: true },
