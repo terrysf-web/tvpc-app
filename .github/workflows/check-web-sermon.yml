@@ -4,9 +4,12 @@ name: Check website sermon (one-off)
 on:
   workflow_dispatch:
     inputs:
-      find:
-        description: '제목 일부'
-        required: true
+      pages:
+        description: '몇 페이지까지 볼지 (비우면 12)'
+        required: false
+      show:
+        description: '앞 N건의 날짜 후보를 자세히 (비우면 0)'
+        required: false
 
 jobs:
   check:
@@ -17,5 +20,6 @@ jobs:
         with:
           node-version: 22
       - env:
-          FIND: ${{ inputs.find }}
+          PAGES: ${{ inputs.pages }}
+          SHOW: ${{ inputs.show }}
         run: node scripts/check-web-sermon.mjs
