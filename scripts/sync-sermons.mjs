@@ -467,9 +467,28 @@ async function syncWebSermons() {
     const nw = normTitle(w.title);
 
     // ① 같은 날짜의 영상 문서 (주일예배 우선) ② 제목 근사 일치(±10일)
+    //
+    // 하루에 설교가 한 편일 때는 날짜만으로 짝이 맞는다. 그런데 집회처럼
+    // 하루에 새벽·저녁 두 편이 있으면 날짜만 보고는 어느 영상인지 알 수
+    // 없다. 그대로 두면 두 설교가 같은 영상 문서에 차례로 쓰이고 나중
+    // 것이 앞의 것을 덮는다 — 실제로 2026-10-10 집회에서 저녁 설교
+    // ("나의 참된 소유는 무엇인가?")가 새벽 설교 제목으로 덮여 앱에서
+    // 통째로 사라졌다. 그래서 그런 날은 제목까지 맞는 영상에만 쓴다.
     const videoDocs = docs.filter((d) => !d.id.startsWith('web-'));
+    const sameDay = webItems.filter((x) => x.date === w.date).length;
     let targets = videoDocs.filter((d) => d.date === w.date);
-    if (targets.some((d) => d.service === '주일예배')) {
+    if (sameDay > 1) {
+      const before = targets.length;
+      targets = targets.filter((d) => {
+        const nd = normTitle(d.title);
+        return nd && nw && (nd === nw || nd.includes(nw) || nw.includes(nd));
+      });
+      if (targets.length === 0 && before > 0) {
+        // 짝을 못 찾았으면 아무것도 건드리지 않는다 — 엉뚱한 영상에
+        // 덮어쓰면 그 영상이 통째로 다른 설교가 되어 버린다.
+        console.log(`  · ${w.date}  ${w.title} — 같은 날 설교가 여럿인데 짝을 못 찾아 건너뜁니다`);
+      }
+    } else if (targets.some((d) => d.service === '주일예배')) {
       targets = targets.filter((d) => d.service === '주일예배');
     }
     if (targets.length === 0 && nw.length >= 4) {
