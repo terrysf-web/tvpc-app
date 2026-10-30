@@ -1,0 +1,25 @@
+# 예배 구분을 날짜에 맞춘다(일요일 아니면 특별예배). apply를 켜야 실제로 고친다.
+name: Fix sermon services (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 고치기 (끄면 보기만)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save firebase-admin @google-cloud/firestore @google-cloud/storage
+      - env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          APPLY: ${{ inputs.apply && '1' || '0' }}
+        run: node scripts/fix-sermon-services.mjs
