@@ -37,6 +37,11 @@ on:
         required: false
         type: boolean
         default: false
+      debug_offering:
+        description: '헌금 표를 읽어들인 줄을 그대로 기록에 남김(서식이 바뀐 주보를 살필 때).'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -80,4 +85,5 @@ jobs:
           TARGET_BULLETIN_DATE: ${{ inputs.target_date }}
           TARGET_BULLETIN_URL: ${{ inputs.target_url }}
           DEBUG_ORDER: ${{ inputs.debug_order && '1' || '' }}
+          DEBUG_OFFERING: ${{ inputs.debug_offering && '1' || '' }}
         run: node scripts/sync-bulletin.mjs

@@ -1956,6 +1956,19 @@ function extractNotices(lines) {
 function extractOffering(lines) {
   const start = lines.findIndex((l) => /지난주일\s*헌금/.test(l));
   if (start < 0) return null;
+  // 헌금 표가 어긋날 때 원본 줄을 그대로 보기 위한 것(워크플로 입력
+  // debug_offering으로 켠다) — 칸은 ¶ 로 나뉜 그대로 보여준다
+  if (process.env.DEBUG_OFFERING) {
+    console.log('[헌금] 읽어들인 줄:');
+    for (let i = start; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (/예배위원\s*안내/.test(t)) {
+        console.log(`   ${String(i).padStart(3)} | ${t}   ← 여기서 끝`);
+        break;
+      }
+      console.log(`   ${String(i).padStart(3)} | ${splitPillar(t).map((c) => `[${c}]`).join(' ')}`);
+    }
+  }
   let columns = null;
   const rows = [];
   let total = '';
