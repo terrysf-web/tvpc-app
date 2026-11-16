@@ -2050,6 +2050,42 @@ function extractOffering(lines) {
 }
 
 /**
+ * 주보에 잘못 인쇄된 헌금 숫자를 바로잡는다.
+ *
+ * 주보를 그대로 옮기는 것이 원칙이다. 다만 인쇄된 숫자 자체가 틀린 때가
+ * 있고, 그대로 두면 앱에서도 합계가 안 맞는다. 동기화는 매번 PDF를 다시
+ * 읽으므로 데이터베이스만 고치면 다음 주에 도로 돌아간다 — 그래서 여기
+ * 적어 둔다.
+ *
+ * 교회에서 확인해 주신 값만 적는다. 짐작으로 고치지 않는다.
+ */
+const OFFERING_FIXES = {
+  // 2026-11-15: 감사헌금 한어부가 1,915.00으로 인쇄됐는데 1,195.00이 맞다
+  // (교회 확인). 1,195로 하면 인쇄된 합계 12,646.00과 정확히 맞는다.
+  '2026-11-15': [{ row: '감사헌금', column: '한어부', value: '1,195.00' }],
+};
+
+/** 위 목록대로 고치고, 무엇을 고쳤는지 남긴다 */
+function applyOfferingFixes(off, forDate) {
+  const fixes = OFFERING_FIXES[forDate];
+  if (!off || !fixes) return off;
+  for (const f of fixes) {
+    const row = off.rows.find((r) => r.label.replace(/\s+/g, '') === f.row.replace(/\s+/g, ''));
+    const col = off.columns.findIndex(
+      (c) => c.replace(/\s+/g, '') === f.column.replace(/\s+/g, ''),
+    );
+    if (!row || col < 0) {
+      console.log(`  ! 헌금 바로잡기 건너뜀(${f.row}/${f.column} 칸을 못 찾음)`);
+      continue;
+    }
+    if (row.values[col] === f.value) continue;
+    console.log(`  · 헌금 바로잡음 ${f.row} ${f.column}: ${row.values[col]} → ${f.value} (교회 확인)`);
+    row.values[col] = f.value;
+  }
+  return off;
+}
+
+/**
  * 헌금 표 검산 — 각 칸을 더한 값이 주보에 인쇄된 합계와 맞는지 본다.
  *
  * 헌금 표는 PDF에서 글자 위치만 보고 다시 짜 맞추는 것이라, 교회가
@@ -2352,7 +2388,7 @@ try {
   }
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
-    offering = extractOffering(financeFace);
+    offering = applyOfferingFixes(extractOffering(financeFace), date);
     offeringWarning = checkOffering(offering);
     if (offeringWarning) console.log(`  ! ${offeringWarning}`);
     duty = extractDuty(financeFace);
