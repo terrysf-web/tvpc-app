@@ -360,6 +360,8 @@ export default function AdminScreen() {
   const [verseFails, setVerseFails] = useState<string[]>([]);
   // 헌금 표를 주보에서 제대로 옮겼는지 스스로 검산한 결과 — 어긋나면 여기 뜬다
   const [offeringWarn, setOfferingWarn] = useState<string | null>(null);
+  // 주보를 읽다 깨진 조각들 — 주보 자체는 올라가지만 그 부분이 비어 있다
+  const [troubles, setTroubles] = useState<string[]>([]);
   useEffect(() => {
     const db = getDb();
     if (!db) return;
@@ -371,6 +373,7 @@ export default function AdminScreen() {
         }
         setVerseFails((snap.get('verseFailures') as string[] | null) ?? []);
         setOfferingWarn((snap.get('offeringWarning') as string | null) ?? null);
+        setTroubles((snap.get('troubles') as string[] | null) ?? []);
         const at = (snap.get('at') as Timestamp | null)?.toDate();
         const when = at
           ? at.toLocaleString('ko-KR', {
@@ -913,6 +916,17 @@ export default function AdminScreen() {
             <Text style={styles.failText}>{verseFails.join('\n')}</Text>
             <Text style={styles.failText}>
               주보의 성경 책 이름 표기가 성경과 다를 때 생깁니다. 확인해 주세요.
+            </Text>
+          </View>
+        )}
+
+        {role !== 'pastor' && troubles.length > 0 && (
+          <View style={styles.failBox}>
+            <Text style={styles.failTitle}>주보를 읽다 문제가 있었습니다</Text>
+            <Text style={styles.failText}>{troubles.map((t) => `· ${t}`).join('\n')}</Text>
+            <Text style={styles.failText}>
+              주보는 올라갔지만 위 부분이 비어 있거나 잘못 들어갔을 수 있습니다. 앱에서 그
+              부분을 한 번 봐 주세요.
             </Text>
           </View>
         )}

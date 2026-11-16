@@ -454,17 +454,32 @@ function fixDayLabel(label) {
  */
 const verseFailures = [];
 
+/**
+ * 주보를 읽다가 생긴 문제들 — 끝에 한 번에 사역자에게 알린다.
+ *
+ * 주보 읽기는 어느 한 부분이 깨져도 나머지는 올라가도록 조각마다 따로
+ * 감싸 두었다. 그 덕에 주보 자체는 늘 올라가지만, 깨진 조각은 기록에만
+ * 남고 아무도 안 봐서 교인들이 먼저 발견하곤 했다. 그런 자리를 여기
+ * 모아 두고 끝에 한 번 알린다.
+ */
+const troubles = [];
+function trouble(what, why) {
+  const line = why ? `${what}: ${why}` : what;
+  console.log(`  ! ${line}`);
+  troubles.push(line);
+}
+
 try {
   await syncDawnVerses();
 } catch (e) {
-  console.log(`  ! 새벽예배 본문 등록 실패(주보 등록은 계속): ${e.message}`);
+  trouble('새벽예배 본문 등록', e.message);
 }
 
 // ── 3.6 주보의 주일 성경봉독 → 그 주일의 말씀(verses/{주일}) 자동 등록 ──
 try {
   await syncSundayReading();
 } catch (e) {
-  console.log(`  ! 주일 성경봉독 등록 실패(주보 등록은 계속): ${e.message}`);
+  trouble('주일 성경봉독 등록', e.message);
 }
 
 /** 개역개정 본문 로드 — 책이름 → 장별 절 배열 */
@@ -1072,6 +1087,42 @@ async function notifyAdmins({ what, title, body, tag }) {
   } catch (e) {
     console.log(`  ! ${what} 알림 보내기 실패(무해): ${e.message}`);
   }
+}
+
+/**
+ * 주보를 읽다 생긴 문제들을 기록하고, 사역자에게 한 번에 알린다.
+ *
+ * 조각마다 알림을 보내면 울려 대기만 하므로 끝에 모아 한 번 보낸다.
+ * 주보 동기화는 토·일 내내 여러 번 도니, 지난번과 똑같은 문제면 기록만
+ * 남기고 알림은 건너뛴다. 문제가 없어지면 기록도 지워 사역자 화면에
+ * 묵은 경고가 남지 않게 한다.
+ */
+async function notifyTroubles() {
+  let prev = [];
+  try {
+    prev = (await db.doc('syncStatus/bulletin').get()).get('troubles') ?? [];
+  } catch {
+    /* 못 읽으면 새 문제로 본다 */
+  }
+  if (troubles.length === 0) {
+    await writeStatusField({ troubles: [], troubledAt: null });
+    return;
+  }
+  await writeStatusField({ troubles, troubledAt: FieldValue.serverTimestamp() });
+  if (JSON.stringify(prev) === JSON.stringify(troubles)) {
+    console.log('  (주보 읽기 문제는 지난번과 같아 알림은 보내지 않습니다)');
+    return;
+  }
+  const head = troubles[0];
+  await notifyAdmins({
+    what: '주보 읽기',
+    title: '⚠️ 주보를 읽다 문제가 있었습니다',
+    body:
+      troubles.length === 1
+        ? `${date} 주보 — ${head}`
+        : `${date} 주보 — ${head} 외 ${troubles.length - 1}건`,
+    tag: 'bulletin-trouble',
+  });
 }
 
 /**
@@ -2370,6 +2421,7 @@ try {
     sermonInfo = r.sermon;
     serviceHeading = r.serviceHeading;
     if (orderOfWorship.length) console.log(`[주보] 예배 순서 ${orderOfWorship.length}개 항목 추출`);
+    else trouble('예배 순서를 못 읽었습니다', '주보 서식이 바뀌었을 수 있습니다');
     if (serviceHeading) console.log(`[주보] 예배 안내 줄 추출: ${serviceHeading}`);
     // "새벽예배" 표는 주보마다 실리는 면이 다르다 — 예배 순서와 같은 면일
     // 때도 있고(2026-09-13), 사역캘린더·섬기는 사람들과 같은 면일 때도
@@ -2414,7 +2466,7 @@ try {
       console.log('[주보] 새벽예배 표를 읽지 못했습니다 — 어느 면에서도 못 찾음');
     }
   } catch (e) {
-    console.log(`  ! 예배 순서 추출 실패(무해): ${e.message}`);
+    trouble('예배 순서 읽기', e.message);
   }
   try {
     noticesFace = faces.find(
@@ -2426,7 +2478,7 @@ try {
     if (notices.length) console.log(`[주보] 교회 소식 ${notices.length}건 추출`);
     if (familyNews.length) console.log(`[주보] 교우 동정 ${familyNews.length}건 추출`);
   } catch (e) {
-    console.log(`  ! 교회 소식 추출 실패(무해): ${e.message}`);
+    trouble('교회 소식 읽기', e.message);
   }
   try {
     const hr = extractHymnsAndScriptures(faces, [orderFace, noticesFace]);
@@ -2435,7 +2487,7 @@ try {
     if (hymns.length) console.log(`[주보] 찬송가 가사 ${hymns.length}곡 추출`);
     if (scriptures.length) console.log(`[주보] 성경 본문 ${scriptures.length}건 추출`);
   } catch (e) {
-    console.log(`  ! 찬송가/성경 본문 추출 실패(무해): ${e.message}`);
+    trouble('찬송가·성경 본문 읽기', e.message);
   }
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
@@ -2445,19 +2497,21 @@ try {
     if (offeringWarning) console.log(`  ! ${offeringWarning}`);
     duty = extractDuty(financeFace);
     if (offering) console.log('[주보] 지난주일 헌금 표 추출');
+    else trouble('지난주일 헌금 표를 못 읽었습니다', '표 서식이 바뀌었을 수 있습니다');
     if (duty.length) console.log(`[주보] 예배위원 안내 ${duty.length}개 표 추출`);
+    else trouble('예배위원 안내를 못 읽었습니다', '표 서식이 바뀌었을 수 있습니다');
   } catch (e) {
-    console.log(`  ! 헌금/예배위원 추출 실패(무해): ${e.message}`);
+    trouble('헌금·예배위원 읽기', e.message);
   }
   try {
     const staffFace = findFaceByMarker(faces, /섬기는\s*사람들/);
     staff = extractStaff(staffFace);
     if (staff.length) console.log(`[주보] 섬기는 사람들 ${staff.length}건 추출`);
   } catch (e) {
-    console.log(`  ! 섬기는 사람들 추출 실패(무해): ${e.message}`);
+    trouble('섬기는 사람들 읽기', e.message);
   }
 } catch (e) {
-  console.log(`  ! 설교 노트 추출 실패(무해): ${e.message}`);
+  trouble('주보 읽기', e.message);
 }
 
 /**
@@ -2525,6 +2579,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   await writeStatus(false, '이미 최신 (변경 없음)');
   await notifyOfferingWarning();
   await notifyVerseFailures();
+  await notifyTroubles();
   process.exit(0);
 }
 
@@ -2598,4 +2653,5 @@ await syncNoticesToNews();
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
 await notifyOfferingWarning();
 await notifyVerseFailures();
+await notifyTroubles();
 console.log(`완료: ${date} 주보 ${ordered.length}페이지 등록`);
