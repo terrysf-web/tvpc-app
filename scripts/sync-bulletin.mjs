@@ -1026,6 +1026,23 @@ async function notifyVerseFailures() {
   }
   const lines = verseFailures.join(', ');
   await writeStatusField({ verseFailures, verseFailedAt: FieldValue.serverTimestamp() });
+  await notifyAdmins({
+    what: '등록 실패',
+    title: '⚠️ 말씀 등록 실패',
+    body: `${lines} — 주보 본문 표기를 확인해 주세요.`,
+    tag: 'verse-fail',
+  });
+}
+
+/**
+ * 사역자(목회자 제외)의 알림 켠 기기로 보낸다.
+ *
+ * 주보를 자동으로 읽다 보면 사람이 봐야 할 일이 생긴다 — 말씀을 등록하지
+ * 못했거나, 헌금 표 숫자가 서로 안 맞거나. 그동안은 사역자 화면에 적어
+ * 두기만 해서, 들어가 보셔야 알 수 있었다. 눌러서 바로 사역자 화면으로
+ * 가게 한다.
+ */
+async function notifyAdmins({ what, title, body, tag }) {
   try {
     const { getMessaging } = await import('firebase-admin/messaging');
     const adminsSnap = await db.collection('admins').get();
@@ -1034,30 +1051,60 @@ async function notifyVerseFailures() {
       .map((d) => String(d.data().email || d.id).toLowerCase())
       .slice(0, 30);
     if (emails.length === 0) {
-      console.log('  ! 등록 실패 알림: 관리자 계정이 없어 건너뜁니다.');
+      console.log(`  ! ${what} 알림: 관리자 계정이 없어 건너뜁니다.`);
       return;
     }
     const tokensSnap = await db.collection('pushTokens').where('email', 'in', emails).get();
     const tokens = tokensSnap.docs.map((d) => d.id);
     if (tokens.length === 0) {
-      console.log('  ! 등록 실패 알림: 사역자 로그인 기기에 알림 등록이 없어 건너뜁니다.');
+      console.log(`  ! ${what} 알림: 사역자 로그인 기기에 알림 등록이 없어 건너뜁니다.`);
       return;
     }
     const res = await getMessaging().sendEachForMulticast({
       tokens,
-      notification: {
-        title: '⚠️ 말씀 등록 실패',
-        body: `${lines} — 주보 본문 표기를 확인해 주세요.`,
-      },
+      notification: { title, body },
       webpush: {
-        notification: { icon: '/icon-192.png', tag: 'verse-fail' },
+        notification: { icon: '/icon-192.png', tag },
         fcmOptions: { link: 'https://app.tvpc.church/admin' },
       },
     });
-    console.log(`  → 등록 실패 알림: 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
+    console.log(`  → ${what} 알림: 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
   } catch (e) {
-    console.log(`  ! 등록 실패 알림 보내기 실패(무해): ${e.message}`);
+    console.log(`  ! ${what} 알림 보내기 실패(무해): ${e.message}`);
   }
+}
+
+/**
+ * 헌금 표 검산 결과를 기록하고, 어긋났으면 사역자에게 알린다.
+ *
+ * 주보 동기화는 토·일 내내 여러 번 돈다. 같은 경고를 그때마다 다시 보내면
+ * 알림이 울려 대기만 하고 아무도 안 보게 된다 — 지난번과 글자까지 똑같으면
+ * 기록만 남기고 알림은 건너뛴다.
+ */
+async function notifyOfferingWarning() {
+  let prev = null;
+  try {
+    prev = (await db.doc('syncStatus/bulletin').get()).get('offeringWarning') ?? null;
+  } catch {
+    /* 못 읽으면 새 경고로 본다 */
+  }
+  await writeStatusField({
+    offeringWarning: offeringWarning ?? null,
+    offeringWarnedAt: offeringWarning ? FieldValue.serverTimestamp() : null,
+  });
+  if (!offeringWarning) return;
+  if (offeringWarning === prev) {
+    console.log('  (헌금 표 경고는 지난번과 같아 알림은 보내지 않습니다)');
+    return;
+  }
+  await notifyAdmins({
+    what: '헌금 표',
+    title: '⚠️ 헌금 표가 주보와 맞지 않습니다',
+    body: offeringCheck
+      ? `${date} 주보 — 칸을 더하면 ${offeringCheck.sum}, 인쇄된 합계는 ${offeringCheck.printed}입니다.`
+      : `${date} 주보 헌금 표를 확인해 주세요.`,
+    tag: 'offering-mismatch',
+  });
 }
 
 /** syncStatus/bulletin에 항목만 덧붙인다(다른 값은 건드리지 않는다) */
@@ -2112,11 +2159,14 @@ function checkOffering(off) {
   const gap = Math.round((sum - printed) * 100) / 100;
   if (Math.abs(gap) < 0.005) return null;
   const money = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2 });
-  return (
-    `지난주일 헌금 표: 칸을 더하면 ${money(sum)}인데 주보에 인쇄된 합계는 ` +
-    `${money(printed)}입니다(${gap > 0 ? '+' : ''}${money(gap)} 차이). ` +
-    `옮기는 과정에서 빠진 숫자가 있거나, 주보 숫자가 서로 안 맞습니다.`
-  );
+  return {
+    sum: money(sum),
+    printed: money(printed),
+    message:
+      `지난주일 헌금 표: 칸을 더하면 ${money(sum)}인데 주보에 인쇄된 합계는 ` +
+      `${money(printed)}입니다(${gap > 0 ? '+' : ''}${money(gap)} 차이). ` +
+      `옮기는 과정에서 빠진 숫자가 있거나, 주보 숫자가 서로 안 맞습니다.`,
+  };
 }
 
 /** 예배위원 표 한 구간(주일/금요) 안에서, 담당별 칸 값을 채운다""" — 라벨 줄이
@@ -2297,8 +2347,9 @@ let serviceHeading = null;
 let notices = [];
 let familyNews = [];
 let offering = null;
-// 헌금 표 검산 결과 — 어긋나면 사역자 화면에 그대로 띄운다
+// 헌금 표 검산 결과 — 어긋나면 사역자 화면에 띄우고 알림도 보낸다
 let offeringWarning = null;
+let offeringCheck = null;
 let duty = [];
 let staff = [];
 let dawnReadings = [];
@@ -2389,7 +2440,8 @@ try {
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
     offering = applyOfferingFixes(extractOffering(financeFace), date);
-    offeringWarning = checkOffering(offering);
+    offeringCheck = checkOffering(offering);
+    offeringWarning = offeringCheck?.message ?? null;
     if (offeringWarning) console.log(`  ! ${offeringWarning}`);
     duty = extractDuty(financeFace);
     if (offering) console.log('[주보] 지난주일 헌금 표 추출');
@@ -2471,7 +2523,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   }
   await syncNoticesToNews();
   await writeStatus(false, '이미 최신 (변경 없음)');
-  await writeStatusField({ offeringWarning: offeringWarning ?? null });
+  await notifyOfferingWarning();
   await notifyVerseFailures();
   process.exit(0);
 }
@@ -2544,6 +2596,6 @@ await db.doc(`bulletins/${date}`).set({
 });
 await syncNoticesToNews();
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
-await writeStatusField({ offeringWarning: offeringWarning ?? null });
+await notifyOfferingWarning();
 await notifyVerseFailures();
 console.log(`완료: ${date} 주보 ${ordered.length}페이지 등록`);
