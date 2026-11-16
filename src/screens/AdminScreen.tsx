@@ -3,7 +3,7 @@ import LogOut from 'lucide-react-native/dist/esm/icons/log-out.mjs';
 import { useLocalSearchParams } from 'expo-router';
 // '오류' 탭은 개발 확인용이라 다른 관리자에게는 안 보이고 이 계정에만 보인다
 import { OWNER_EMAIL } from '../roles';
-import { doc, getDoc, type Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, type Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -131,6 +131,12 @@ function isSundayDate(date: string): boolean {
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** "2026-09-27" → "9월 27일 " (경고가 어느 주보 이야기인지 밝힌다) */
+function bulletinLabel(date: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? '');
+  return m ? `${Number(m[2])}월 ${Number(m[3])}일 ` : '';
 }
 
 function Field({
@@ -362,18 +368,27 @@ export default function AdminScreen() {
   const [offeringWarn, setOfferingWarn] = useState<string | null>(null);
   // 주보를 읽다 깨진 조각들 — 주보 자체는 올라가지만 그 부분이 비어 있다
   const [troubles, setTroubles] = useState<string[]>([]);
+  // 경고가 어느 주보 이야기인지
+  const [warnDate, setWarnDate] = useState<string | null>(null);
+  const [troublesDate, setTroublesDate] = useState<string | null>(null);
+  // 한 번만 읽으면, 문제가 고쳐진 뒤에도 화면을 띄워 둔 동안에는 묵은 경고가
+  // 그대로 남는다(실제로 이미 지워진 9/27 경고를 계속 보고 계셨다).
+  // 지켜보기로 바꿔, 고쳐지는 순간 화면에서도 사라지게 한다.
   useEffect(() => {
     const db = getDb();
     if (!db) return;
-    getDoc(doc(db, 'syncStatus', 'bulletin'))
-      .then((snap) => {
+    return onSnapshot(
+      doc(db, 'syncStatus', 'bulletin'),
+      (snap) => {
         if (!snap.exists()) {
           setSyncInfo('아직 자동 확인 기록이 없습니다 (이번 토요일 오후 5:45 첫 실행)');
           return;
         }
         setVerseFails((snap.get('verseFailures') as string[] | null) ?? []);
         setOfferingWarn((snap.get('offeringWarning') as string | null) ?? null);
+        setWarnDate((snap.get('offeringWarningDate') as string | null) ?? null);
         setTroubles((snap.get('troubles') as string[] | null) ?? []);
+        setTroublesDate((snap.get('troublesDate') as string | null) ?? null);
         const at = (snap.get('at') as Timestamp | null)?.toDate();
         const when = at
           ? at.toLocaleString('ko-KR', {
@@ -387,8 +402,9 @@ export default function AdminScreen() {
         setSyncInfo(
           `마지막 자동 확인: ${when} ✓ · ${String(snap.get('bulletinDate') ?? '')} 주보 — ${String(snap.get('note') ?? '')}`,
         );
-      })
-      .catch(() => setSyncInfo(null));
+      },
+      () => setSyncInfo(null),
+    );
   }, []);
 
   // 긴급 알림 폼
@@ -922,7 +938,9 @@ export default function AdminScreen() {
 
         {role !== 'pastor' && troubles.length > 0 && (
           <View style={styles.failBox}>
-            <Text style={styles.failTitle}>주보를 읽다 문제가 있었습니다</Text>
+            <Text style={styles.failTitle}>
+              {bulletinLabel(troublesDate)}주보를 읽다 문제가 있었습니다
+            </Text>
             <Text style={styles.failText}>{troubles.map((t) => `· ${t}`).join('\n')}</Text>
             <Text style={styles.failText}>
               주보는 올라갔지만 위 부분이 비어 있거나 잘못 들어갔을 수 있습니다. 앱에서 그
@@ -933,7 +951,9 @@ export default function AdminScreen() {
 
         {role !== 'pastor' && offeringWarn && (
           <View style={styles.failBox}>
-            <Text style={styles.failTitle}>헌금 표가 주보와 맞지 않습니다</Text>
+            <Text style={styles.failTitle}>
+              {bulletinLabel(warnDate)}헌금 표가 주보와 맞지 않습니다
+            </Text>
             <Text style={styles.failText}>{offeringWarn}</Text>
             <Text style={styles.failText}>
               주보의 헌금 표를 앱으로 옮기면서 숫자가 빠졌을 수 있습니다. 주보와 앱의 「지난주일

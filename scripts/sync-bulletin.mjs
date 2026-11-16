@@ -1105,10 +1105,14 @@ async function notifyTroubles() {
     /* 못 읽으면 새 문제로 본다 */
   }
   if (troubles.length === 0) {
-    await writeStatusField({ troubles: [], troubledAt: null });
+    await writeStatusField({ troubles: [], troublesDate: null, troubledAt: null });
     return;
   }
-  await writeStatusField({ troubles, troubledAt: FieldValue.serverTimestamp() });
+  await writeStatusField({
+    troubles,
+    troublesDate: date,
+    troubledAt: FieldValue.serverTimestamp(),
+  });
   if (JSON.stringify(prev) === JSON.stringify(troubles)) {
     console.log('  (주보 읽기 문제는 지난번과 같아 알림은 보내지 않습니다)');
     return;
@@ -1141,6 +1145,9 @@ async function notifyOfferingWarning() {
   }
   await writeStatusField({
     offeringWarning: offeringWarning ?? null,
+    // 어느 주보 이야기인지 함께 적는다 — 경고만 보고는 알 수가 없었다.
+    // 지난 주보를 다시 돌리면 그 주보의 경고가 남으므로 더욱 그렇다.
+    offeringWarningDate: offeringWarning ? date : null,
     offeringWarnedAt: offeringWarning ? FieldValue.serverTimestamp() : null,
   });
   if (!offeringWarning) return;
