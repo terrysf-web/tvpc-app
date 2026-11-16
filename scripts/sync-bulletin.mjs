@@ -2049,7 +2049,41 @@ function extractOffering(lines) {
   return { columns, rows, total };
 }
 
-/** 예배위원 표 한 구간(주일/금요) 안에서, 담당별 칸 값을 채운다 — 라벨 줄이
+/**
+ * 헌금 표 검산 — 각 칸을 더한 값이 주보에 인쇄된 합계와 맞는지 본다.
+ *
+ * 헌금 표는 PDF에서 글자 위치만 보고 다시 짜 맞추는 것이라, 교회가
+ * 서식을 조금만 바꿔도(라벨이 한 줄 내려가거나, 칸이 하나 비거나, 부서가
+ * 늘거나) 숫자가 통째로 빠지거나 다른 칸으로 밀린다. 그동안 그걸 사람이
+ * 눈으로 보고 알려 줘야 했다.
+ *
+ * 다행히 주보에는 합계가 함께 인쇄돼 있다. 더해 보면 제대로 옮겼는지
+ * 스스로 확인할 수 있다 — 안 맞으면 뭔가 잘못 옮긴 것이다(또는 주보
+ * 숫자 자체가 안 맞는 것이고, 그것도 알아야 할 일이다).
+ *
+ * 반환: 맞으면 null, 아니면 사람이 읽을 설명.
+ */
+function checkOffering(off) {
+  if (!off || !off.total) return null;
+  const num = (v) => {
+    const t = String(v ?? '').replace(/[,\s]/g, '');
+    return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
+  };
+  const printed = num(off.total);
+  if (printed === null) return null;
+  let sum = 0;
+  for (const r of off.rows) for (const v of r.values) sum += num(v) ?? 0;
+  const gap = Math.round((sum - printed) * 100) / 100;
+  if (Math.abs(gap) < 0.005) return null;
+  const money = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2 });
+  return (
+    `지난주일 헌금 표: 칸을 더하면 ${money(sum)}인데 주보에 인쇄된 합계는 ` +
+    `${money(printed)}입니다(${gap > 0 ? '+' : ''}${money(gap)} 차이). ` +
+    `옮기는 과정에서 빠진 숫자가 있거나, 주보 숫자가 서로 안 맞습니다.`
+  );
+}
+
+/** 예배위원 표 한 구간(주일/금요) 안에서, 담당별 칸 값을 채운다""" — 라벨 줄이
  * 없는 값 줄(칸이 두 줄에 걸친 경우)은 직전까지 확정된 담당에 붙인다.
  *
  * 값 줄이 실제 칸 수와 똑같이 나오면("헌금" 담당의 "안현숙[1부]"가 매주
@@ -2227,6 +2261,8 @@ let serviceHeading = null;
 let notices = [];
 let familyNews = [];
 let offering = null;
+// 헌금 표 검산 결과 — 어긋나면 사역자 화면에 그대로 띄운다
+let offeringWarning = null;
 let duty = [];
 let staff = [];
 let dawnReadings = [];
@@ -2317,6 +2353,8 @@ try {
   try {
     const financeFace = findFaceByMarker(faces, /지난주일\s*헌금/);
     offering = extractOffering(financeFace);
+    offeringWarning = checkOffering(offering);
+    if (offeringWarning) console.log(`  ! ${offeringWarning}`);
     duty = extractDuty(financeFace);
     if (offering) console.log('[주보] 지난주일 헌금 표 추출');
     if (duty.length) console.log(`[주보] 예배위원 안내 ${duty.length}개 표 추출`);
@@ -2397,6 +2435,7 @@ if (existing.exists && existing.get('pdfHash') === pdfHash) {
   }
   await syncNoticesToNews();
   await writeStatus(false, '이미 최신 (변경 없음)');
+  await writeStatusField({ offeringWarning: offeringWarning ?? null });
   await notifyVerseFailures();
   process.exit(0);
 }
@@ -2469,5 +2508,6 @@ await db.doc(`bulletins/${date}`).set({
 });
 await syncNoticesToNews();
 await writeStatus(true, `새 주보 ${ordered.length}면 등록`);
+await writeStatusField({ offeringWarning: offeringWarning ?? null });
 await notifyVerseFailures();
 console.log(`완료: ${date} 주보 ${ordered.length}페이지 등록`);

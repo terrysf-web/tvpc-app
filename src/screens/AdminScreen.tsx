@@ -358,6 +358,8 @@ export default function AdminScreen() {
   const [syncInfo, setSyncInfo] = useState<string | null>(null);
   // 주보 오타 등으로 그날 말씀이 등록되지 못한 경우 — 알림과 별개로 화면에도 남긴다
   const [verseFails, setVerseFails] = useState<string[]>([]);
+  // 헌금 표를 주보에서 제대로 옮겼는지 스스로 검산한 결과 — 어긋나면 여기 뜬다
+  const [offeringWarn, setOfferingWarn] = useState<string | null>(null);
   useEffect(() => {
     const db = getDb();
     if (!db) return;
@@ -368,6 +370,7 @@ export default function AdminScreen() {
           return;
         }
         setVerseFails((snap.get('verseFailures') as string[] | null) ?? []);
+        setOfferingWarn((snap.get('offeringWarning') as string | null) ?? null);
         const at = (snap.get('at') as Timestamp | null)?.toDate();
         const when = at
           ? at.toLocaleString('ko-KR', {
@@ -910,6 +913,17 @@ export default function AdminScreen() {
             <Text style={styles.failText}>{verseFails.join('\n')}</Text>
             <Text style={styles.failText}>
               주보의 성경 책 이름 표기가 성경과 다를 때 생깁니다. 확인해 주세요.
+            </Text>
+          </View>
+        )}
+
+        {role !== 'pastor' && offeringWarn && (
+          <View style={styles.failBox}>
+            <Text style={styles.failTitle}>헌금 표가 주보와 맞지 않습니다</Text>
+            <Text style={styles.failText}>{offeringWarn}</Text>
+            <Text style={styles.failText}>
+              주보의 헌금 표를 앱으로 옮기면서 숫자가 빠졌을 수 있습니다. 주보와 앱의 「지난주일
+              헌금」을 한 번 맞춰 봐 주세요.
             </Text>
           </View>
         )}
