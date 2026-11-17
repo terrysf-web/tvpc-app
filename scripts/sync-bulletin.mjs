@@ -1098,6 +1098,11 @@ async function notifyAdmins({ what, title, body, tag }) {
  * 묵은 경고가 남지 않게 한다.
  */
 async function notifyTroubles() {
+  // 지난 주보 다시 보기는 알리지 않는다 — notifyOfferingWarning 쪽 설명 참고
+  if (TARGET_DATE) {
+    if (troubles.length) console.log(`  (지난 주보 다시 보기 — 알림은 보내지 않습니다)`);
+    return;
+  }
   let prev = [];
   try {
     prev = (await db.doc('syncStatus/bulletin').get()).get('troubles') ?? [];
@@ -1137,6 +1142,14 @@ async function notifyTroubles() {
  * 기록만 남기고 알림은 건너뛴다.
  */
 async function notifyOfferingWarning() {
+  // 지난 주보를 일부러 다시 돌린 것(TARGET_BULLETIN_DATE)은 알리지 않는다.
+  // 사역자 화면의 상태 칸은 "지금 올라와 있는 주보" 하나를 가리키므로,
+  // 지난 주보 결과로 덮으면 이미 지난 일로 경고가 뜬다 — 실제로 지난 8주를
+  // 되돌아본 뒤 9/27 경고가 남아 한참을 헷갈리게 했다. 기록에 남기기만 한다.
+  if (TARGET_DATE) {
+    if (offeringWarning) console.log(`  (지난 주보 다시 보기 — 알림은 보내지 않습니다)`);
+    return;
+  }
   let prev = null;
   try {
     prev = (await db.doc('syncStatus/bulletin').get()).get('offeringWarning') ?? null;
