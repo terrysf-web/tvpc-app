@@ -1437,7 +1437,12 @@ const TITLE_WORDS = [
 // 붙은 것도 다 띄어진다(앞 글자를 먹어 버리면 다음 낱말을 놓친다).
 const TITLE_WORD_RE = new RegExp(`(?<=[가-힣])(${TITLE_WORDS.join('|')})`, 'g');
 
-function spaceTitle(s) {
+/**
+ * 틀릴 수 없는 자리에서만 띄운다 — 예배 순서 내용에도 그대로 쓴다.
+ * (한글 낱말 가르기는 여기 넣지 않는다. 교우 이름에 '사랑'·'은혜'가 들어
+ *  있으면 "김 사랑집사"처럼 이름이 갈라진다.)
+ */
+function spaceMechanical(s) {
   if (!s) return s;
   return s
     .replace(/([,，])(?=\S)/g, '$1 ')
@@ -1445,9 +1450,14 @@ function spaceTitle(s) {
     .replace(/([가-힣])([A-Za-z])/g, '$1 $2')
     .replace(/([A-Za-z])([가-힣])/g, '$1 $2')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(TITLE_WORD_RE, ' $1')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+/** 설교 제목 — 위의 기계적인 띄어쓰기에 더해, 제목에 늘 나오는 낱말도 띄운다 */
+function spaceTitle(s) {
+  if (!s) return s;
+  return spaceMechanical(s).replace(TITLE_WORD_RE, ' $1').replace(/\s{2,}/g, ' ').trim();
 }
 
 function spaceServiceName(s) {
@@ -1875,7 +1885,9 @@ function extractOrderAndSermon(lines) {
       .map((s) => s.trim())
       .filter(Boolean);
     const hasStar = pieces.some((p) => p === '*');
-    const shared = cleanText(pieces.filter((p) => p !== '*').join(' · ')) + (hasStar ? '*' : '');
+    const shared =
+      spaceMechanical(cleanText(pieces.filter((p) => p !== '*').join(' · '))) +
+      (hasStar ? '*' : '');
     return { name: item.name, shared };
   });
 

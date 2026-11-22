@@ -49,12 +49,13 @@ import type {
 } from '../data/bulletin';
 import { useAdminAuth } from '../data/admin';
 import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../data/bulletin';
+import { isScriptureRef, scriptureRefsEn } from '../data/bibleEn';
 import {
-  isScriptureRef,
-  scriptureRefEn,
-  scriptureRefsEn,
-  stripBookParens,
-} from '../data/bibleEn';
+  stripEnglishDuplicates,
+  stripKoreanDuplicates,
+  translateNamesEn,
+  translateOrderDetail,
+} from '../data/bulletinEn';
 import { useEvents, useNews } from '../data/hooks';
 import { useServices } from '../data/services';
 import { firebaseEnabled } from '../firebase';
@@ -245,93 +246,6 @@ const ORDER_LABELS_EN: Record<string, string> = {
   어린이찬양: "Children's Song",
 };
 
-// 늘 순서표에 등장하는 사역자 — 그 주 직함 표기가 "목사"든 "담임목사"든
-// 상관없이 항상 같은 영어 직함·성으로 통일해서 부른다(사람마다 매주 표기가
-// 달라 다르게 번역되면 안 되니까).
-const STAFF_EN: Record<string, { title: string; surname: string }> = {
-  허성영: { title: 'Senior Pastor', surname: 'Huh' },
-  최재하: { title: 'Youth Pastor', surname: 'Choi' },
-  안현신: { title: 'Pastor', surname: 'Ahn' },
-  안현숙: { title: 'CE Director', surname: 'Ahn' },
-  조재희: { title: 'Elder', surname: 'Cho' },
-};
-// 위 목록에 없는 사람(매주 바뀌는 안내·헌금 위원 등)은 그 주 직함 단어만 영어로.
-const TITLE_EN: Record<string, string> = {
-  담임목사: 'Senior Pastor',
-  원로목사: 'Pastor Emeritus',
-  협동목사: 'Associate Pastor',
-  부목사: 'Associate Pastor',
-  목사: 'Pastor',
-  전도사: 'Rev.',
-  교육사: 'CE Director',
-  시무장로: 'Elder',
-  장로: 'Elder',
-  시무안수집사: 'Deacon',
-  안수집사: 'Deacon',
-  집사: 'Deacon',
-  권사: 'Kwonsa',
-};
-// 이름 없이 역할만 적힌 한 단어 — 그대로 사전 치환
-const ROLE_WORD_EN: Record<string, string> = {
-  인도자: 'Worship Leader',
-  다같이: 'All',
-  없음: 'None',
-};
-
-/** 예배 순서 세부 내용(설교자·헌금 위원 등)을 눌러 English로 바꿨을 때 —
- * "이름 + 직함" 조각을 "직함 + (아는 사람이면 성, 모르면 이름 그대로)"로 바꾼다.
- * '/' '·'로 여러 사람이 이어진 경우도 각각 처리하고, 매칭 안 되는 부분(설교
- * 제목처럼 이미 영어가 섞인 문장 등)은 원문 그대로 둔다. */
-function translateNamesEn(text: string): string {
-  if (!text) return text;
-  const hasStar = text.endsWith('*');
-  const body = hasStar ? text.slice(0, -1) : text;
-  const TITLE_SUFFIX = /^(.*?)\s*(담임목사|원로목사|협동목사|부목사|시무안수집사|안수집사|시무장로|목사|전도사|교육사|장로|집사|권사)$/;
-  const translated = body
-    .split(/(\s*[·/]\s*)/)
-    .map((piece, i) => {
-      if (i % 2 === 1) return piece; // 구분자( · , / ) 그대로
-      const seg = piece.trim();
-      if (!seg) return piece;
-      if (ROLE_WORD_EN[seg]) return ROLE_WORD_EN[seg];
-      const m = seg.match(TITLE_SUFFIX);
-      if (!m) return piece;
-      const name = m[1].trim();
-      const known = STAFF_EN[name];
-      if (known) return `${known.title} ${known.surname}`;
-      const titleEn = TITLE_EN[m[2]];
-      if (!name) return titleEn;
-      return `${titleEn} ${name}`;
-    })
-    .join('');
-  return translated + (hasStar ? '*' : '');
-}
-
-/** English 모드에서 "한글 [English]"나 '"한글"(English)'처럼 같은 내용을
- * 한글·영어로 겹쳐 적어 둔 부분은 영어만 남긴다 — 한글은 안 보여도 되니까. */
-function stripKoreanDuplicates(text: string): string {
-  return stripBookParens(text)
-    .replace(/[가-힣][가-힣\s]*\[([A-Za-z][^\]]*)\]/g, '$1')
-    .replace(/["“][^"”]*["”]\s*\(([^)]+)\)/g, '$1')
-    // "이사야(Isaiah)43:1"처럼 성경 책 이름 뒤에 바로 괄호로 영어를 덧붙인
-    // 것도 영어만 남긴다(찬양 제목은 건드리지 않는다 — stripBookParens 참고)
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-/**
- * 종이 주보에서 칸이 좁아 곡 제목이 두 줄로 끊긴 것을 도로 한 줄로 잇는다.
- *
- * 2026-10-25 2부 "경배와 기도"가 이렇게 들어왔다 —
- *   성가대 / [주님과 같이 / 경배하리 주 / 하나님]
- * 대괄호가 열린 채 줄이 바뀌어서, 줄 단위로 나눈 뒤에 곡 제목을 찾는
- * 아래 과정에서 "[주님과 같이 / 경배하리 주"와 "하나님]" 어느 쪽도 짝이
- * 맞지 않았다. 그래서 ♪ 배지로 바뀌지 못하고 대괄호가 그대로 보였다.
- * (1부는 같은 제목이 한 줄에 다 들어가서 멀쩡했다.)
- *
- * 닫는 대괄호가 나올 때까지 다음 줄을 이어 붙인다. 끝내 닫히지 않으면
- * 원래 줄 그대로 둔다 — 짐작으로 닫아 버리면 없는 제목이 생긴다.
- */
 function joinWrappedBrackets(lines: string[]): string[] {
   const out: string[] = [];
   // 대괄호가 열린 채 이어지는 중인 줄들
@@ -406,46 +320,6 @@ function splitSongBadges(part: string, songOnly = false): { text: string; isSong
   const after = part.slice(last);
   if (after) segments.push({ text: after, isSong: false });
   return segments;
-}
-
-/** 한글 모드에서는 반대로 영어를 없앤다 — 칸이 좁은데 "책이름 [English]"
- * 처럼 뒤에 괄호로 덧붙은 영어까지 다 보여줄 필요는 없으니까. */
-function stripEnglishDuplicates(text: string): string {
-  return text
-    .replace(/([가-힣][가-힣\s]*)\[[A-Za-z][^\]]*\]/g, '$1')
-    .replace(/(["“][^"”]*["”])\s*\([^)]+\)/g, '$1')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-// 이 항목들은 세부 내용이 통째로 "찬송가 N장 [제목]" / "책이름 장:절" 인용
-// 그 자체다 — 실제 저장된 영어 제목·본문 참조로 완전히 바꿔치기해도 안전하다.
-// '어린이 설교'처럼 설교 제목·설교자까지 같이 적힌 줄은(장·절이 우연히 섞여
-// 있어도) 인용만 남기면 나머지 내용을 잃으므로 이름·직함만 옮긴다.
-const PURE_CITATION_ITEMS = new Set(['찬송 / 헌금', '찬송', '성경봉독']);
-
-/** 예배 순서 한 줄의 세부 내용을 English로 — 찬송·본문 인용 전용 줄이면 실제
- * 저장된 영어 제목/본문 참조를 쓰고(추측 아님), 그 외엔 이름·직함만 사전으로
- * 옮긴다. 끝의 '*'(일어서 주시기 바랍니다)는 번역 여부와 무관하게 그대로 남긴다. */
-function translateOrderDetail(
-  itemName: string,
-  rawDetail: string,
-  hymn: BulletinHymn | null,
-  scripture: BulletinScripture | null,
-): string {
-  if (PURE_CITATION_ITEMS.has(itemName)) {
-    const star = rawDetail.trim().endsWith('*') ? '*' : '';
-    if (hymn) return `Hymn ${hymn.number}${hymn.titleEn ? ` [${hymn.titleEn}]` : ''}${star}`;
-    if (scripture) return `${scriptureRefEn(scripture.reference)}${star}`;
-  }
-  // 인용 전용 줄이 아니거나, 그 주 성경 본문이 저장되지 않아 위에서 못 바꾼
-  // 경우 — 글 안에 섞인 성경 참조와 "찬송가 N장" 표기만이라도 영어로 바꾼다.
-  // (2026-11-22 "성경봉독 [하박국3:17-19]"이 scriptures가 비어 있어서 English
-  //  탭에서도 한글 그대로 남아 있었다.)
-  return scriptureRefsEn(stripKoreanDuplicates(translateNamesEn(rawDetail))).replace(
-    /찬송가\s*(\d+)\s*장/g,
-    'Hymn $1',
-  );
 }
 
 function OrderIcon({ name }: { name: string }) {
@@ -614,9 +488,12 @@ function BulletinCards({
   // 합쳐 쓰므로, "항목에 service1/service2가 있는지"만으로는 더 이상
   // 평소 주·단일 예배 주를 구분할 수 없다 — serviceHeading 유무로만 본다.
   const isSingleService = !!bulletin.serviceHeading;
-  // 단일 예배 주의 한글/English 탭 — 히어로 카드(설교 차례)도 이 탭을 따라
-  // 제목을 바꿔 보여준다.
-  const langEn = isSingleService && orderLang === 'en';
+  // 한글/English 전환 탭은 연합예배 주에만 둔다 — 영어권 교우들이 함께
+  // 드리는 예배라 종이 주보도 영어를 같이 적어 둔다. 야외예배처럼 그냥
+  // 예배가 하나인 주는 영어가 필요 없다(관리자 확인).
+  // 히어로 카드(설교 차례)도 이 탭을 따라 제목을 바꿔 보여준다.
+  const hasEnglishTab = /연합/.test(bulletin.serviceHeading ?? '');
+  const langEn = hasEnglishTab && orderLang === 'en';
   // "1부 특송"/"2부 특송"은 이름 자체가 그 부에서만 하는 순서라는 뜻이라,
   // service1/service2처럼 부마다 다른 내용을 나눠 담는 게 아니라 아예 그
   // 부를 볼 때만 목록에 나와야 한다(예전 서식엔 없던 항목이라 svcDetail의
@@ -968,7 +845,8 @@ function BulletinCards({
           {/* 1부/2부가 있는 주 — 예배 선택 탭 / 단일 예배 주 — 한글·English 전환 탭 */}
           <View style={styles.svcTabRow}>
             {isSingleService
-              ? (['ko', 'en'] as const).map((l) => {
+              ? hasEnglishTab
+                ? (['ko', 'en'] as const).map((l) => {
                   const active = orderLang === l;
                   return (
                     <Pressable
@@ -982,6 +860,7 @@ function BulletinCards({
                     </Pressable>
                   );
                 })
+                : null
               : SERVICE_INFO.map((s) => {
                   const active = svcTab === s.tab;
                   return (
