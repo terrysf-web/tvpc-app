@@ -300,6 +300,23 @@ function parseCalendarGrid(html) {
       if (!t) continue;
       const summary = unescape(t[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
       if (!summary) continue;
+      // 늦은 밤 일정이 다음 날까지 번지는 것 걷어내기 ─────────────────
+      // 구글 캘린더의 "성찬주일"은 12:00 AM – 1:00 AM 짜리 한 시간 일정인데,
+      // 달력 플러그인이 그걸 12/06~12/07 이틀에 걸쳐 그린다(multiday_first +
+      // multiday_last). 그대로 받으면 일정 탭에 "12.06 일요일~12.07 월요일"로
+      // 뜬다 — 12/07에는 아무것도 없는데.
+      // 시간이 적힌(time_in_hover_block) 일정이 여러 날로 그려졌다면 그건 진짜
+      // 며칠짜리가 아니라 자정을 넘긴 것뿐이므로 첫날만 남긴다. 안식주간·VBS
+      // 처럼 진짜 며칠 가는 일정은 시간 표기가 없어 그대로 둔다.
+      const hasHoverTime = li.includes('class="time_in_hover_block"');
+      const spillover = /class="[^"]*multiday_(?:middle|last)/.test(li);
+      if (hasHoverTime && spillover) {
+        if (process.env.DEBUG_CALENDAR) {
+          console.log(`  [달력] ${d8} ${summary} — 자정 넘긴 일정의 다음 날 조각, 건너뜀`);
+        }
+        continue;
+      }
+
       const desc = li.match(/<div class="eventdesc">([\s\S]*?)<\/div>/);
       const detail = desc
         ? unescape(desc[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
