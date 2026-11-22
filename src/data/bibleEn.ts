@@ -19,23 +19,22 @@ export const BIBLE_BOOK_EN: Record<string, string> = {
   요한삼서: '3 John', 요한3서: '3 John', 유다서: 'Jude', 요한계시록: 'Revelation',
 };
 
-/** 성경 참조(예: "창세기 1:31")를 영어로 — 책 이름만 사전에서 바꾸고 장:절은 그대로 둔다.
- * 사전에 없는 책이면(오타 등) 원문을 그대로 돌려준다 — 틀리게 보여주는 것보다 낫다. */
-export function scriptureRefEn(reference: string): string {
-  const m = reference.match(/^([가-힣0-9]+)\s*(.+)$/);
-  if (!m) return reference;
-  const en = BIBLE_BOOK_EN[m[1]];
-  return en ? `${en} ${m[2]}` : reference;
-}
 
 /** 사전에 있는 책 이름을 긴 것부터 — "요한복음"이 "요한일서"보다 먼저 걸리지
- * 않도록(둘 다 "요한"으로 시작한다) 길이 순으로 세워 둔다. */
-const BOOK_RE = new RegExp(
-  `(${Object.keys(BIBLE_BOOK_EN)
-    .sort((a, b) => b.length - a.length)
-    .join('|')})\\s*(?=\\d)`,
-  'g',
-);
+ * 않도록(둘 다 "요한"으로 시작한다) 길이 순으로 세워 둔다.
+ * 글자 사이에 띄어쓰기가 들어간 표기도 잡는다 — 주보에 "데살로니가 전서"처럼
+ * 띄어 적힌 것이 실제로 있다. */
+const BOOK_NAMES = Object.keys(BIBLE_BOOK_EN).sort((a, b) => b.length - a.length);
+const BOOK_ALT = BOOK_NAMES.map((k) => k.split('').join('\\s*')).join('|');
+const EN_ALT = [...new Set(Object.values(BIBLE_BOOK_EN))]
+  .sort((a, b) => b.length - a.length)
+  .join('|');
+
+// 앞 글자가 한글이면 다른 낱말의 일부다("아가"가 "좋아 가"에 걸리지 않게).
+// 뒤에는 장·절 숫자가 와야 한다 — 그래야 평범한 글 속의 낱말을 안 건드린다.
+const BOOK_RE = new RegExp(`(?<![가-힣])(${BOOK_ALT})\\s*(?=\\d)`, 'g');
+// "데살로니가 전서 1 Thessalonians 5:16-18"처럼 한글·영어를 나란히 적어 둔 것
+const BOOK_BILINGUAL_RE = new RegExp(`(?<![가-힣])(${BOOK_ALT})\\s*(${EN_ALT})`, 'g');
 
 /**
  * 글 안에 섞여 있는 성경 참조를 전부 영어로 바꾼다 — "[하박국3:17-19]" →
@@ -46,10 +45,24 @@ const BOOK_RE = new RegExp(
  * 들어 있거나 설교자 이름과 한 줄에 같이 적힌 참조가 많아서, English로
  * 바꿔도 책 이름만 한글로 남아 섞여 보였다.
  *
- * 뒤에 장·절 숫자가 붙은 것만 바꾼다 — 그래야 설교 제목 같은 평범한 글 속의
- * 낱말을 건드리지 않는다. 사전에 없는 책 이름은 그대로 둔다.
+ * 사전에 없는 책 이름은 그대로 둔다 — 틀리게 보여주는 것보다 낫다.
  */
 export function scriptureRefsEn(text: string): string {
   if (!text) return text;
-  return text.replace(BOOK_RE, (_full, book: string) => `${BIBLE_BOOK_EN[book]} `);
+  return text
+    // 한글·영어를 나란히 적었으면 영어만 남긴다
+    .replace(BOOK_BILINGUAL_RE, (full, ko: string, en: string) =>
+      BIBLE_BOOK_EN[ko.replace(/\s+/g, '')] === en ? en : full,
+    )
+    .replace(BOOK_RE, (full) => {
+      const en = BIBLE_BOOK_EN[full.replace(/\s+/g, '')];
+      return en ? `${en} ` : full;
+    });
+}
+
+/** 성경 참조 한 건(예: "창세기 1:31")을 영어로 — 책 이름만 바꾸고 장:절은
+ * 그대로 둔다. "데살로니가 전서 5:16"처럼 띄어 적힌 것도 같이 처리하려고
+ * scriptureRefsEn()에 맡긴다. 사전에 없는 책이면 원문 그대로 둔다. */
+export function scriptureRefEn(reference: string): string {
+  return scriptureRefsEn(reference);
 }
