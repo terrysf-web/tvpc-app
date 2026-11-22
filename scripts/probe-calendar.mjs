@@ -44,7 +44,8 @@ for (const ics of [
     const g = (k) => b.match(new RegExp(`^${k}[^:]*:(.*)$`, 'm'))?.[1]?.trim() ?? '';
     console.log(
       `  SUMMARY=${g('SUMMARY')}  DTSTART=${g('DTSTART')}  DTEND=${g('DTEND')}` +
-        `  RRULE=${g('RRULE')}  UID=${g('UID').slice(0, 40)}`,
+        `  RRULE=${g('RRULE')}  UID=${g('UID').slice(0, 40)}\n` +
+        `      CREATED=${g('CREATED')}  LAST-MODIFIED=${g('LAST-MODIFIED')}  SEQUENCE=${g('SEQUENCE')}`,
     );
   }
 }
