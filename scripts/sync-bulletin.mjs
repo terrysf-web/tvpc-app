@@ -1527,6 +1527,17 @@ const ORDER_END =
 // 안내하는 데 쓴다(1부/2부 없는 단일 예배 주 등).
 const SERVICE_HEADING = /\((?:오전|오후)\s*\d{1,2}시.*?\)/;
 
+// 괄호 없이 시각만 한 줄로 찍히는 주보도 있다 — 2026-11-22 추수감사주일
+// 연합예배가 그랬다:
+//     추수감사주일연합예배
+//     오전11시            ← 괄호가 없다
+// 괄호가 있을 때만 단일 예배로 알아봐서, 1부/2부가 없는 연합예배인데도
+// 1부·2부 칸으로 갈려 나왔다. 시각만 있는 줄도 알아보고, 바로 앞의
+// 예배 이름 줄과 묶어 "추수감사주일 연합예배 (오전 11시)"로 만든다.
+const SERVICE_TIME_ONLY = /^(?:오전|오후)\s*\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?$/;
+/** 예배 이름처럼 보이는 줄인가 — "…예배", "…연합예배" 등 */
+const SERVICE_NAME_LINE = /예배$/;
+
 /** 1면 — 예배 순서(1부/2부 다른 부분은 두 칸) + 설교 제목/본문/설교자 */
 function extractOrderAndSermon(lines) {
   const raw = [];
@@ -1706,6 +1717,17 @@ function extractOrderAndSermon(lines) {
       raw[raw.length - 1].detailCols.push(colsArr[i] ?? []);
     } else if (!serviceHeading && SERVICE_HEADING.test(cleaned[i])) {
       serviceHeading = cleanText(cleaned[i]);
+    } else if (!serviceHeading && SERVICE_TIME_ONLY.test(cleanText(cleaned[i]))) {
+      // 시각만 있는 줄 — 바로 앞의 예배 이름 줄과 묶는다
+      const time = cleanText(cleaned[i]);
+      let name = '';
+      for (let k = i - 1; k >= 0 && k >= i - 3; k--) {
+        const prev = cleanText(cleaned[k]);
+        if (!prev) continue;
+        if (SERVICE_NAME_LINE.test(prev.replace(/\s+/g, ''))) name = prev;
+        break;
+      }
+      serviceHeading = name ? `${name} (${time})` : time;
     }
   }
   if (!raw.length) return { order: [], sermon: null, serviceHeading };
