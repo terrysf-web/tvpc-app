@@ -1525,16 +1525,9 @@ const ORDER_END =
 // 예배 순서 항목 라벨이 시작되기 전, "주일 야외예배 (오전 10시)"처럼 그 주
 // 예배 자체를 소개하는 줄 — 있으면 홈 화면이 그 주만 다른 예배 시간·형태를
 // 안내하는 데 쓴다(1부/2부 없는 단일 예배 주 등).
-const SERVICE_HEADING = /\((?:오전|오후)\s*\d{1,2}시.*?\)/;
+// 예배 시각 표기 — 한글("오전 11시", "오후 7시 30분")과 영문("8:50AM", "11AM") 둘 다.
+const SERVICE_TIME = /(?:오전|오후)\s*\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?|\d{1,2}(?::\d{2})?\s*[AaPp]\.?[Mm]\.?/g;
 
-// 괄호 없이 시각만 한 줄로 찍히는 주보도 있다 — 2026-11-22 추수감사주일
-// 연합예배가 그랬다:
-//     추수감사주일연합예배
-//     오전11시            ← 괄호가 없다
-// 괄호가 있을 때만 단일 예배로 알아봐서, 1부/2부가 없는 연합예배인데도
-// 1부·2부 칸으로 갈려 나왔다. 시각만 있는 줄도 알아보고, 바로 앞의
-// 예배 이름 줄과 묶어 "추수감사주일 연합예배 (오전 11시)"로 만든다.
-const SERVICE_TIME_ONLY = /^(?:오전|오후)\s*\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?$/;
 /** 예배 이름처럼 보이는 줄인가 — "…예배", "…연합예배" 등 */
 const SERVICE_NAME_LINE = /예배$/;
 
@@ -1542,6 +1535,8 @@ const SERVICE_NAME_LINE = /예배$/;
 function extractOrderAndSermon(lines) {
   const raw = [];
   let serviceHeading = null;
+  // 예배 순서가 시작되기 전에 나오는 줄들(날짜·예배 이름·시각)
+  const headLines = [];
   // 야외예배 주보는 pdftohtml 스팬 사이 공백이 두 칸 이상으로 나오기도 해
   // 라벨 매칭 전에 연속 공백을 하나로 줄인다(정상 주보엔 영향 없음). 넓게
   // 벌려 찍은 라벨("찬       양")은 그 정리로 없어지지 않는 공백 한 칸이
@@ -1715,21 +1710,45 @@ function extractOrderAndSermon(lines) {
       }
       raw[raw.length - 1].detailLines.push(cleaned[i]);
       raw[raw.length - 1].detailCols.push(colsArr[i] ?? []);
-    } else if (!serviceHeading && SERVICE_HEADING.test(cleaned[i])) {
-      serviceHeading = cleanText(cleaned[i]);
-    } else if (!serviceHeading && SERVICE_TIME_ONLY.test(cleanText(cleaned[i]))) {
-      // 시각만 있는 줄 — 바로 앞의 예배 이름 줄과 묶는다
-      const time = cleanText(cleaned[i]);
+    } else {
+      // 예배 순서 항목이 시작되기 전의 줄들 — 날짜·예배 이름·시각 등.
+      // 여기서 바로 판단하지 않고 모아 두었다가, 아래에서 시각이 몇 개인지
+      // 세어 단일 예배인지 가린다.
+      const t = cleanText(cleaned[i]);
+      if (t) headLines.push(t);
+    }
+  }
+  /**
+   * 예배가 하나인가 — 시각이 몇 번 적혔는지로 가린다.
+   *
+   * 1부·2부가 있는 주보는 머리에 시각이 둘 적힌다:
+   *     이른 비(1부 8:50AM) ¶ 큰 비(2부 11AM)
+   * 하나뿐인 주보는 하나만 적힌다(괄호가 있든 없든) —
+   *     주일 야외예배 (오전 10시)        / 추수감사주일연합예배 + 오전11시
+   *
+   * 예전에는 "(오전 10시)"처럼 괄호가 있을 때만 단일 예배로 봤다. 그래서
+   * 2026-11-22 추수감사주일 연합예배가 괄호 없이 시각만 찍혔다고 1부·2부로
+   * 갈려 나왔다. 괄호가 아니라 시각 개수로 가린다 — 시간이 하나면 예배도
+   * 하나다.
+   */
+  const times = headLines.join(' | ').match(SERVICE_TIME) ?? [];
+  if (times.length === 1) {
+    const time = times[0].trim();
+    const at = headLines.findIndex((l) => l.includes(time));
+    const line = headLines[at] ?? time;
+    // 시각만 달랑 있는 줄이면 바로 앞의 예배 이름 줄과 묶는다
+    if (line.replace(/\s+/g, '') === time.replace(/\s+/g, '')) {
       let name = '';
-      for (let k = i - 1; k >= 0 && k >= i - 3; k--) {
-        const prev = cleanText(cleaned[k]);
-        if (!prev) continue;
-        if (SERVICE_NAME_LINE.test(prev.replace(/\s+/g, ''))) name = prev;
+      for (let k = at - 1; k >= 0 && k >= at - 2; k--) {
+        if (SERVICE_NAME_LINE.test(headLines[k].replace(/\s+/g, ''))) name = headLines[k];
         break;
       }
       serviceHeading = name ? `${name} (${time})` : time;
+    } else {
+      serviceHeading = line;
     }
   }
+
   if (!raw.length) return { order: [], sermon: null, serviceHeading };
 
   const scriptureItem = raw.find((r) => r.name === '성경봉독');
