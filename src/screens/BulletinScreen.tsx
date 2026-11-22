@@ -49,7 +49,7 @@ import type {
 } from '../data/bulletin';
 import { useAdminAuth } from '../data/admin';
 import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../data/bulletin';
-import { scriptureRefEn, scriptureRefsEn } from '../data/bibleEn';
+import { isScriptureRef, scriptureRefEn, scriptureRefsEn } from '../data/bibleEn';
 import { useEvents, useNews } from '../data/hooks';
 import { useServices } from '../data/services';
 import { firebaseEnabled } from '../firebase';
@@ -234,6 +234,10 @@ const ORDER_LABELS_EN: Record<string, string> = {
   '특별 찬양': 'Special Music',
   특별찬양: 'Special Music',
   광고: 'Announcements',
+  송영: 'Doxology',
+  찬송가: 'Hymn',
+  '어린이 찬양': "Children's Song",
+  어린이찬양: "Children's Song",
 };
 
 // 늘 순서표에 등장하는 사역자 — 그 주 직함 표기가 "목사"든 "담임목사"든
@@ -379,7 +383,11 @@ function splitSongBadges(part: string): { text: string; isSong: boolean }[] {
   while ((m = re.exec(part))) {
     const before = part.slice(last, m.index);
     if (before) segments.push({ text: before, isSong: false });
-    segments.push({ text: m[1].trim(), isSong: true });
+    const inner = m[1].trim();
+    // 주보를 만드는 분이 곡 제목과 성경 본문에 똑같이 대괄호를 쓰신다 —
+    // "[하박국 3:17-19]"가 ♪ 배지로 나와 찬양처럼 보였다. 대괄호 안이
+    // 성경 참조면 배지로 만들지 않고 글 그대로 둔다.
+    segments.push({ text: inner, isSong: !isScriptureRef(inner) });
     last = re.lastIndex;
   }
   const after = part.slice(last);

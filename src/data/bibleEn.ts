@@ -26,9 +26,8 @@ export const BIBLE_BOOK_EN: Record<string, string> = {
  * 띄어 적힌 것이 실제로 있다. */
 const BOOK_NAMES = Object.keys(BIBLE_BOOK_EN).sort((a, b) => b.length - a.length);
 const BOOK_ALT = BOOK_NAMES.map((k) => k.split('').join('\\s*')).join('|');
-const EN_ALT = [...new Set(Object.values(BIBLE_BOOK_EN))]
-  .sort((a, b) => b.length - a.length)
-  .join('|');
+const EN_BOOK_SET = new Set(Object.values(BIBLE_BOOK_EN));
+const EN_ALT = [...EN_BOOK_SET].sort((a, b) => b.length - a.length).join('|');
 
 // 앞 글자가 한글이면 다른 낱말의 일부다("아가"가 "좋아 가"에 걸리지 않게).
 // 뒤에는 장·절 숫자가 와야 한다 — 그래야 평범한 글 속의 낱말을 안 건드린다.
@@ -65,4 +64,21 @@ export function scriptureRefsEn(text: string): string {
  * scriptureRefsEn()에 맡긴다. 사전에 없는 책이면 원문 그대로 둔다. */
 export function scriptureRefEn(reference: string): string {
   return scriptureRefsEn(reference);
+}
+
+/**
+ * 대괄호 안의 글이 성경 참조인지 — "[하박국 3:17-19]", "[이사야(Isaiah)43:1,4)]".
+ *
+ * 주보를 만드는 분이 찬양 곡 제목과 성경 본문에 똑같이 대괄호를 쓰셔서,
+ * 앱이 본문까지 ♪ 배지(찬양)로 보여 주고 있었다. 책 이름으로 시작하고
+ * 장·절 숫자가 따라오면 성경 참조로 본다.
+ */
+export function isScriptureRef(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  // 영어로 이미 바뀐 뒤일 수도 있으니 두 가지 모두 본다
+  const head = t.match(/^[가-힣\s]+/)?.[0]?.replace(/\s+/g, '') ?? '';
+  const koBook = !!BIBLE_BOOK_EN[head];
+  const enBook = EN_BOOK_SET.has(t.match(new RegExp(`^(${EN_ALT})`))?.[1] ?? '');
+  return (koBook || enBook) && /\d{1,3}\s*[:：]\s*\d{1,3}/.test(t);
 }
