@@ -210,17 +210,13 @@ export default function HomeScreen() {
   // 그래서 추수감사절 연합예배(단일 예배)에도 야외예배 사진이 떴다.
   // 이제 주보의 예배 안내 줄("추수감사주일연합예배")을 보고 고른다.
   // 어디에도 안 맞으면 평소처럼 관리자가 등록한 주일 배경을 쓴다.
+  // 위에서부터 먼저 맞는 것을 쓴다. 새 특별예배 배경은 여기에 한 줄 추가.
   const SPECIAL_SERVICE_BG: { test: RegExp; uri: string }[] = [
+    { test: /성탄|크리스마스|christmas/i, uri: '/hero-christmas.jpg' },
     { test: /추수\s*감사/, uri: '/hero-thanksgiving.jpg' },
     { test: /야외|체육대회/, uri: '/hero-outdoor-2026.jpg' },
   ];
-  // 지금은 관리자가 올려 주신 추수감사절 사진을 주일예배 카드에 그대로 쓴다.
-  // 다른 배경으로 돌릴 때는 PINNED_BG 를 null 로 두면 위 표대로 예배 제목을
-  // 보고 고르고, 거기에도 안 맞으면 평소 주일 배경을 쓴다.
-  const PINNED_BG: string | null = '/hero-thanksgiving.jpg';
-  const specialBg = PINNED_BG
-    ? { uri: PINNED_BG }
-    : SPECIAL_SERVICE_BG.find((b) => b.test.test(latestServiceHeading ?? ''));
+  const specialBg = SPECIAL_SERVICE_BG.find((b) => b.test.test(latestServiceHeading ?? ''));
   const sb = specialBg ? { uri: specialBg.uri, dark: true } : (sunday.bg ?? bg);
   // 단일 예배 주는 히어로 큰 글씨도 "오늘은 주일입니다" 대신 오늘 예배가 실제로
   // 어떤 형태인지 안내한다 — 달력에 등록된 오늘 일정 제목("야외 예배 및
