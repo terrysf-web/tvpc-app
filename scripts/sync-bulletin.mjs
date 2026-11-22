@@ -1398,6 +1398,30 @@ const TEXT_FIXES = [
   { from: '거룩하신하니님', to: '거룩하신 하나님' },
 ];
 
+/**
+ * 예배 이름의 띄어쓰기 되살리기.
+ *
+ * pdftotext는 글자 사이 띄어쓰기를 지워 버려서 "추수감사주일연합예배"처럼
+ * 한 덩어리로 들어온다. 화면에 그대로 쓰면 읽기 어렵다. 짐작으로 자르면
+ * 엉뚱해지므로, 교회가 실제로 쓰는 예배 이름만 표로 적어 둔다.
+ */
+const SERVICE_NAME_SPACING = [
+  [/추수\s*감사\s*주일\s*연합\s*예배/g, '추수 감사주일 연합예배'],
+  [/추수\s*감사\s*주일\s*예배/g, '추수 감사주일예배'],
+  [/성탄\s*주일\s*연합\s*예배/g, '성탄주일 연합예배'],
+  [/성탄\s*연합\s*예배/g, '성탄 연합예배'],
+  [/주일\s*연합\s*예배/g, '주일 연합예배'],
+  [/야외\s*예배\s*및\s*체육\s*대회/g, '야외예배 및 체육대회'],
+  [/송구\s*영신\s*예배/g, '송구영신예배'],
+  [/신년\s*주일\s*예배/g, '신년주일예배'],
+];
+
+function spaceServiceName(s) {
+  let out = s;
+  for (const [re, to] of SERVICE_NAME_SPACING) out = out.replace(re, to);
+  return out.replace(/\s{2,}/g, ' ').trim();
+}
+
 /** 위 표대로 고치고, 무엇을 고쳤는지 기록에 남긴다 */
 function applyTextFixes(s) {
   let out = s;
@@ -1757,9 +1781,9 @@ function extractOrderAndSermon(lines) {
         if (SERVICE_NAME_LINE.test(headLines[k].replace(/\s+/g, ''))) name = headLines[k];
         break;
       }
-      serviceHeading = name ? `${name} (${time})` : time;
+      serviceHeading = name ? `${spaceServiceName(name)} (${time})` : time;
     } else {
-      serviceHeading = line;
+      serviceHeading = spaceServiceName(line);
     }
   }
 
