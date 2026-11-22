@@ -27,3 +27,29 @@ export function scriptureRefEn(reference: string): string {
   const en = BIBLE_BOOK_EN[m[1]];
   return en ? `${en} ${m[2]}` : reference;
 }
+
+/** 사전에 있는 책 이름을 긴 것부터 — "요한복음"이 "요한일서"보다 먼저 걸리지
+ * 않도록(둘 다 "요한"으로 시작한다) 길이 순으로 세워 둔다. */
+const BOOK_RE = new RegExp(
+  `(${Object.keys(BIBLE_BOOK_EN)
+    .sort((a, b) => b.length - a.length)
+    .join('|')})\\s*(?=\\d)`,
+  'g',
+);
+
+/**
+ * 글 안에 섞여 있는 성경 참조를 전부 영어로 바꾼다 — "[하박국3:17-19]" →
+ * "[Habakkuk 3:17-19]".
+ *
+ * scriptureRefEn()은 "창세기 1:31"처럼 참조만 들어 있는 문자열에만 쓸 수
+ * 있었다. 그런데 주보의 예배 순서에는 "[하박국3:17-19]"처럼 대괄호 안에
+ * 들어 있거나 설교자 이름과 한 줄에 같이 적힌 참조가 많아서, English로
+ * 바꿔도 책 이름만 한글로 남아 섞여 보였다.
+ *
+ * 뒤에 장·절 숫자가 붙은 것만 바꾼다 — 그래야 설교 제목 같은 평범한 글 속의
+ * 낱말을 건드리지 않는다. 사전에 없는 책 이름은 그대로 둔다.
+ */
+export function scriptureRefsEn(text: string): string {
+  if (!text) return text;
+  return text.replace(BOOK_RE, (_full, book: string) => `${BIBLE_BOOK_EN[book]} `);
+}

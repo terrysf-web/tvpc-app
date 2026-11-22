@@ -49,7 +49,7 @@ import type {
 } from '../data/bulletin';
 import { useAdminAuth } from '../data/admin';
 import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../data/bulletin';
-import { scriptureRefEn } from '../data/bibleEn';
+import { scriptureRefEn, scriptureRefsEn } from '../data/bibleEn';
 import { useEvents, useNews } from '../data/hooks';
 import { useServices } from '../data/services';
 import { firebaseEnabled } from '../firebase';
@@ -223,6 +223,17 @@ const ORDER_LABELS_EN: Record<string, string> = {
   '교회소식 / 새가족환영': 'Announcements / Welcome New Families',
   기도: 'Prayer',
   찬송: 'Song of Response',
+  찬양: 'Praise',
+  '참회의 기도': 'Prayer of Confession',
+  신앙고백: 'Affirmation of Faith',
+  교회소식: 'Announcements',
+  입교식: 'Confirmation',
+  세례식: 'Baptism',
+  헌금: 'Offering',
+  봉헌기도: 'Offertory Prayer',
+  '특별 찬양': 'Special Music',
+  특별찬양: 'Special Music',
+  광고: 'Announcements',
 };
 
 // 늘 순서표에 등장하는 사역자 — 그 주 직함 표기가 "목사"든 "담임목사"든
@@ -293,6 +304,9 @@ function stripKoreanDuplicates(text: string): string {
   return text
     .replace(/[가-힣][가-힣\s]*\[([A-Za-z][^\]]*)\]/g, '$1')
     .replace(/["“][^"”]*["”]\s*\(([^)]+)\)/g, '$1')
+    // "이사야(Isaiah)43:1" 처럼 따옴표 없이 바로 괄호로 영어를 덧붙인 것도
+    // 영어만 남긴다. 뒤에 장·절이 붙어 있으면 띄어쓰기가 사라지므로 한 칸 둔다.
+    .replace(/[가-힣]+\(([A-Za-z][^)]*)\)/g, '$1 ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -403,7 +417,14 @@ function translateOrderDetail(
     if (hymn) return `Hymn ${hymn.number}${hymn.titleEn ? ` [${hymn.titleEn}]` : ''}${star}`;
     if (scripture) return `${scriptureRefEn(scripture.reference)}${star}`;
   }
-  return stripKoreanDuplicates(translateNamesEn(rawDetail));
+  // 인용 전용 줄이 아니거나, 그 주 성경 본문이 저장되지 않아 위에서 못 바꾼
+  // 경우 — 글 안에 섞인 성경 참조와 "찬송가 N장" 표기만이라도 영어로 바꾼다.
+  // (2026-11-22 "성경봉독 [하박국3:17-19]"이 scriptures가 비어 있어서 English
+  //  탭에서도 한글 그대로 남아 있었다.)
+  return scriptureRefsEn(stripKoreanDuplicates(translateNamesEn(rawDetail))).replace(
+    /찬송가\s*(\d+)\s*장/g,
+    'Hymn $1',
+  );
 }
 
 function OrderIcon({ name }: { name: string }) {
@@ -642,7 +663,7 @@ function BulletinCards({
               {bulletin.sermon.title ? (
                 <Text style={styles.heroTitle}>
                   {langEn
-                    ? stripKoreanDuplicates(bulletin.sermon.title)
+                    ? scriptureRefsEn(stripKoreanDuplicates(bulletin.sermon.title))
                     : stripEnglishDuplicates(bulletin.sermon.title)}
                 </Text>
               ) : null}
@@ -694,7 +715,13 @@ function BulletinCards({
     const name = langEn ? (ORDER_LABELS_EN[item.name] ?? item.name) : item.name;
     const shownDetail =
       compact && item.name === '설교' && bulletin.sermon
-        ? [stripEnglishDuplicates(bulletin.sermon.title ?? ''), bulletin.sermon.preacher]
+        ? (langEn
+            ? [
+                scriptureRefsEn(stripKoreanDuplicates(bulletin.sermon.title ?? '')),
+                translateNamesEn(bulletin.sermon.preacher),
+              ]
+            : [stripEnglishDuplicates(bulletin.sermon.title ?? ''), bulletin.sermon.preacher]
+          )
             .filter(Boolean)
             .join('\n')
         : langEn
