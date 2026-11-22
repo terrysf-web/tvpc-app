@@ -218,6 +218,10 @@ export default function HomeScreen() {
   ];
   const specialBg = SPECIAL_SERVICE_BG.find((b) => b.test.test(latestServiceHeading ?? ''));
   const sb = specialBg ? { uri: specialBg.uri, dark: true } : (sunday.bg ?? bg);
+  // 온라인 중계가 없는 예배 — 야외예배·체육대회는 본당이 아니라 중계를 안 한다.
+  // 예전엔 "1부·2부로 안 나뉜 주"면 다 중계가 없다고 보고 버튼을 숨겼는데,
+  // 추수감사절 연합예배처럼 본당에서 드리는 연합예배까지 같이 숨어 버렸다.
+  const noOnlineService = /야외|체육대회/.test(latestServiceHeading ?? '');
   // 단일 예배 주는 히어로 큰 글씨도 "오늘은 주일입니다" 대신 오늘 예배가 실제로
   // 어떤 형태인지 안내한다 — 달력에 등록된 오늘 일정 제목("야외 예배 및
   // 체육대회")을 쓰고, 마침 등록된 일정이 없으면 주보 예배 안내 줄에서
@@ -388,8 +392,8 @@ export default function HomeScreen() {
                       ? weekServiceHeading
                       : `${sundayTimes} · 본당`}
                 </Text>
-                {/* 야외예배 등 단일 예배 주는 온라인 중계가 없다 — 버튼 자체를 숨긴다. */}
-                {!isSingleServiceWeek && (
+                {/* 야외예배·체육대회는 온라인 중계가 없다 — 버튼 자체를 숨긴다. */}
+                {!noOnlineService && (
                   <View style={styles.heroBtnRow}>
                     {/* 1부는 온라인 중계가 없어 2부만 안내한다.
                         예배가 끝난 뒤(주일 오후~월요일)에는 재생목록 페이지가 아니라
@@ -404,7 +408,11 @@ export default function HomeScreen() {
                       }}
                     >
                       <Text style={[styles.heroBtnText, !sb.dark && styles.heroBtnTextDark]}>
-                        {liveEnded ? '▶ 주일 온라인예배 다시보기' : '▶ 2부 온라인예배'}
+                        {liveEnded
+                          ? '▶ 주일 온라인예배 다시보기'
+                          : isSingleServiceWeek
+                            ? '▶ 온라인예배'
+                            : '▶ 2부 온라인예배'}
                       </Text>
                     </Pressable>
                   </View>
