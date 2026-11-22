@@ -82,3 +82,19 @@ export function isScriptureRef(text: string): boolean {
   const enBook = EN_BOOK_SET.has(t.match(new RegExp(`^(${EN_ALT})`))?.[1] ?? '');
   return (koBook || enBook) && /\d{1,3}\s*[:：]\s*\d{1,3}/.test(t);
 }
+
+/**
+ * "이사야(Isaiah)43:1"처럼 성경 책 이름 뒤에 괄호로 영어를 덧붙인 것 —
+ * English에서는 영어만 남긴다.
+ *
+ * 성경 책 이름일 때만 바꾼다. 아무 한글이나 바꾸면 "거룩하신 하나님
+ * (Give Thanks)" 같은 찬양 제목이 "거룩하신 Give Thanks"가 돼 버린다.
+ */
+export function stripBookParens(text: string): string {
+  if (!text) return text;
+  return text.replace(
+    new RegExp(`(?<![가-힣])(${BOOK_ALT})\\s*\\(([A-Za-z][^)]*)\\)`, 'g'),
+    (full, ko: string, en: string) =>
+      BIBLE_BOOK_EN[ko.replace(/\s+/g, '')] ? `${en} ` : full,
+  );
+}

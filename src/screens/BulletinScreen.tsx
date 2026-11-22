@@ -49,7 +49,12 @@ import type {
 } from '../data/bulletin';
 import { useAdminAuth } from '../data/admin';
 import { useBulletin, useBulletinDates, useLatestBulletinDate } from '../data/bulletin';
-import { isScriptureRef, scriptureRefEn, scriptureRefsEn } from '../data/bibleEn';
+import {
+  isScriptureRef,
+  scriptureRefEn,
+  scriptureRefsEn,
+  stripBookParens,
+} from '../data/bibleEn';
 import { useEvents, useNews } from '../data/hooks';
 import { useServices } from '../data/services';
 import { firebaseEnabled } from '../firebase';
@@ -305,12 +310,11 @@ function translateNamesEn(text: string): string {
 /** English 모드에서 "한글 [English]"나 '"한글"(English)'처럼 같은 내용을
  * 한글·영어로 겹쳐 적어 둔 부분은 영어만 남긴다 — 한글은 안 보여도 되니까. */
 function stripKoreanDuplicates(text: string): string {
-  return text
+  return stripBookParens(text)
     .replace(/[가-힣][가-힣\s]*\[([A-Za-z][^\]]*)\]/g, '$1')
     .replace(/["“][^"”]*["”]\s*\(([^)]+)\)/g, '$1')
-    // "이사야(Isaiah)43:1" 처럼 따옴표 없이 바로 괄호로 영어를 덧붙인 것도
-    // 영어만 남긴다. 뒤에 장·절이 붙어 있으면 띄어쓰기가 사라지므로 한 칸 둔다.
-    .replace(/[가-힣]+\(([A-Za-z][^)]*)\)/g, '$1 ')
+    // "이사야(Isaiah)43:1"처럼 성경 책 이름 뒤에 바로 괄호로 영어를 덧붙인
+    // 것도 영어만 남긴다(찬양 제목은 건드리지 않는다 — stripBookParens 참고)
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -375,7 +379,16 @@ function splitDetailParts(detail: string): string[] {
  * [꽃들도]"처럼 곡이 여러 개 이어질 수 있는데, 예전엔 문구 끝에 있는
  * 마지막 대괄호 하나만 배지로 바꾸고 앞쪽 대괄호는 원문 그대로("[나는
  * 믿네]") 보여서 대괄호 표기를 안 쓰기로 한 원칙이 깨졌었다. */
-function splitSongBadges(part: string): { text: string; isSong: boolean }[] {
+/** 내용이 통째로 곡 제목인 예배 순서 — 주보에 대괄호 없이 제목만 적혀 있다.
+ * (송영 "거룩하신 하나님(Give Thanks)", 어린이 찬양 "Thank you, Lord!") */
+const SONG_ONLY_ITEMS = new Set(['송영', '어린이 찬양', '어린이찬양', '특별 찬양', '특별찬양']);
+
+function splitSongBadges(part: string, songOnly = false): { text: string; isSong: boolean }[] {
+  // 대괄호가 없는 줄이라도 이런 항목은 그 줄 전체가 곡 제목이다 — ♪ 배지로.
+  if (songOnly && !part.includes('[')) {
+    const t = part.trim();
+    return t ? [{ text: t, isSong: !isScriptureRef(t) }] : [];
+  }
   const segments: { text: string; isSong: boolean }[] = [];
   const re = /\[([^\]]+)\]/g;
   let last = 0;
@@ -744,9 +757,11 @@ function BulletinCards({
     const detail = asteriskOnly ? '' : compact ? shownDetail.replace(/\*/g, '').trim() : shownDetail;
     const displayName = asteriskOnly && !compact ? `${name}*` : name;
     const parts = detail ? splitDetailParts(detail) : [];
-    const detailBelow = compact && parts.some((p) => splitSongBadges(p).some((sg) => sg.isSong));
+    const songOnly = SONG_ONLY_ITEMS.has(item.name);
+    const detailBelow =
+      compact && parts.some((p) => splitSongBadges(p, songOnly).some((sg) => sg.isSong));
     const detailBlock = parts.map((part, pi) => {
-      const segments = splitSongBadges(part);
+      const segments = splitSongBadges(part, songOnly);
       return (
         <Text key={pi} style={[styles.orderIconDetail, pi > 0 && styles.orderIconDetailPart]}>
           {parts.length > 1 ? '· ' : ''}

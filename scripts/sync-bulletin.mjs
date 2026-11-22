@@ -1385,7 +1385,32 @@ const PREACHER_SUFFIX = /(목사|전도사|강도사|선교사|장로|집사|권
 // '*'(또는 새 서식의 '✻')는 "일어서 주시기 바랍니다" 표시라 그대로 남긴다.
 // '¶'는 원본 디자인의 장식 따옴표(“ ”)가 폰트 인식 오류로 깨져 나온 것이라
 // 항상 제거한다.
-const cleanText = (s) => s.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim();
+/**
+ * 종이 주보의 오타·붙어 버린 글자를 바로잡는 표.
+ *
+ * 주보는 그대로 옮기는 게 원칙이라, 관리자가 "이건 고쳐 달라"고 짚어 준
+ * 것만 여기에 적는다. 짐작으로 고치지 않는다. pdftotext가 글자 사이
+ * 띄어쓰기를 지워 버리는 탓에, 띄어쓰기까지 같이 되살릴 수 있게 찾을 글도
+ * 띄어쓰기를 뗀 모양으로 둔다.
+ */
+const TEXT_FIXES = [
+  // 2026-11-22 송영 — 주보에 "거룩하신하니님"으로 인쇄됨(관리자 확인)
+  { from: '거룩하신하니님', to: '거룩하신 하나님' },
+];
+
+/** 위 표대로 고치고, 무엇을 고쳤는지 기록에 남긴다 */
+function applyTextFixes(s) {
+  let out = s;
+  for (const f of TEXT_FIXES) {
+    if (!out.includes(f.from)) continue;
+    out = out.split(f.from).join(f.to);
+    console.log(`  · 주보 글자 바로잡기: "${f.from}" → "${f.to}"`);
+  }
+  return out;
+}
+
+const cleanText = (s) =>
+  applyTextFixes(s.replace(/¶/g, ' ').replace(/\s+/g, ' ').trim());
 
 /**
  * 1부/2부에서 서로 다른 항목의 두 칸(줄바꿈으로 이어붙임).
