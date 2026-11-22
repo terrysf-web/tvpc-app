@@ -1416,6 +1416,40 @@ const SERVICE_NAME_SPACING = [
   [/신년\s*주일\s*예배/g, '신년주일예배'],
 ];
 
+/**
+ * 설교 제목의 띄어쓰기 되살리기.
+ *
+ * pdftotext가 띄어쓰기를 지워서 '"그럼에도,여전히하나님/Yet,StillGod"'처럼
+ * 다 붙어 들어온다. 한글을 낱말로 가르는 건 기계가 함부로 할 일이 아니라서,
+ * 틀릴 수 없는 자리에서만 띄운다 —
+ *   · 쉼표 뒤          "그럼에도,여전히" → "그럼에도, 여전히"
+ *   · 빗금 양쪽        "하나님/Yet"      → "하나님 / Yet"
+ *   · 한글과 영문 사이 "하나님Yet"       → "하나님 Yet"
+ *   · 영문 대문자 앞   "StillGod"        → "Still God"
+ * 그리고 설교 제목에 거의 늘 나오는 낱말 앞(아래 표)에서만 한 칸 띄운다.
+ * 표에 없는 한글 붙음은 그대로 둔다 — 짐작으로 자르면 없는 말이 생긴다.
+ */
+const TITLE_WORDS = [
+  '하나님', '예수님', '예수', '그리스도', '성령', '주님',
+  '말씀', '복음', '교회', '기도', '은혜', '사랑', '믿음', '감사', '소망',
+];
+// 뒤돌아보기(lookbehind)로 찾아야 "예수그리스도"처럼 표의 낱말이 잇달아
+// 붙은 것도 다 띄어진다(앞 글자를 먹어 버리면 다음 낱말을 놓친다).
+const TITLE_WORD_RE = new RegExp(`(?<=[가-힣])(${TITLE_WORDS.join('|')})`, 'g');
+
+function spaceTitle(s) {
+  if (!s) return s;
+  return s
+    .replace(/([,，])(?=\S)/g, '$1 ')
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/([가-힣])([A-Za-z])/g, '$1 $2')
+    .replace(/([A-Za-z])([가-힣])/g, '$1 $2')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(TITLE_WORD_RE, ' $1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function spaceServiceName(s) {
   let out = s;
   for (const [re, to] of SERVICE_NAME_SPACING) out = out.replace(re, to);
@@ -1824,7 +1858,7 @@ function extractOrderAndSermon(lines) {
         .catch(() => {});
     }
   }
-  const title = cleanText(titleParts.join(' '));
+  const title = spaceTitle(cleanText(titleParts.join(' ')));
 
   const order = raw.map((item) => {
     // 큰 흐름 구간 제목(모임/말씀/성찬/파송) — 부제(subtitle)만 있고
