@@ -203,12 +203,19 @@ export default function HomeScreen() {
   const { serviceHeading: latestServiceHeading } = useLatestBulletinWeekInfo(isSunday);
   const isSingleServiceWeek = !!latestServiceHeading;
   const weekServiceHeading = isSingleServiceWeek ? latestServiceHeading : null;
-  // 야외예배 당일만 쓰는 배경 사진(작년 야외예배 사진) — 어두운 사진이라
-  // 기존 sb.dark=true 톤(흰 글씨)을 그대로 쓰면 된다. 다른 주는 기존처럼
-  // 관리자가 등록한 주일 배경(또는 시간대 배경)을 그대로 쓴다.
-  const sb = isSingleServiceWeek
-    ? { uri: '/hero-outdoor-2026.jpg', dark: true }
-    : (sunday.bg ?? bg);
+  // 특별한 예배로 드리는 주는 그 예배에 맞는 배경 사진을 쓴다 — 어두운
+  // 사진들이라 기존 sb.dark=true 톤(흰 글씨)을 그대로 쓰면 된다.
+  //
+  // 예전엔 "1부·2부로 나뉘지 않은 주"면 무조건 야외예배 사진을 썼다.
+  // 그래서 추수감사절 연합예배(단일 예배)에도 야외예배 사진이 떴다.
+  // 이제 주보의 예배 안내 줄("추수감사주일연합예배")을 보고 고른다.
+  // 어디에도 안 맞으면 평소처럼 관리자가 등록한 주일 배경을 쓴다.
+  const SPECIAL_SERVICE_BG: { test: RegExp; uri: string }[] = [
+    { test: /추수\s*감사/, uri: '/hero-thanksgiving.jpg' },
+    { test: /야외|체육대회/, uri: '/hero-outdoor-2026.jpg' },
+  ];
+  const specialBg = SPECIAL_SERVICE_BG.find((b) => b.test.test(latestServiceHeading ?? ''));
+  const sb = specialBg ? { uri: specialBg.uri, dark: true } : (sunday.bg ?? bg);
   // 단일 예배 주는 히어로 큰 글씨도 "오늘은 주일입니다" 대신 오늘 예배가 실제로
   // 어떤 형태인지 안내한다 — 달력에 등록된 오늘 일정 제목("야외 예배 및
   // 체육대회")을 쓰고, 마침 등록된 일정이 없으면 주보 예배 안내 줄에서
