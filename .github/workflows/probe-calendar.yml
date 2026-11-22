@@ -4,6 +4,9 @@ name: Probe church calendar (one-off)
 on:
   workflow_dispatch:
     inputs:
+      raw:
+        description: 'li 원본 HTML도 출력 (1)'
+        required: false
       find:
         description: '찾을 낱말 (비우면 성찬)'
         required: false
@@ -18,4 +21,5 @@ jobs:
           node-version: 22
       - env:
           FIND: ${{ inputs.find }}
+          RAW: ${{ inputs.raw }}
         run: node scripts/probe-calendar.mjs
