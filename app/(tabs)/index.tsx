@@ -214,7 +214,13 @@ export default function HomeScreen() {
     { test: /추수\s*감사/, uri: '/hero-thanksgiving.jpg' },
     { test: /야외|체육대회/, uri: '/hero-outdoor-2026.jpg' },
   ];
-  const specialBg = SPECIAL_SERVICE_BG.find((b) => b.test.test(latestServiceHeading ?? ''));
+  // 지금은 관리자가 올려 주신 추수감사절 사진을 주일예배 카드에 그대로 쓴다.
+  // 다른 배경으로 돌릴 때는 PINNED_BG 를 null 로 두면 위 표대로 예배 제목을
+  // 보고 고르고, 거기에도 안 맞으면 평소 주일 배경을 쓴다.
+  const PINNED_BG: string | null = '/hero-thanksgiving.jpg';
+  const specialBg = PINNED_BG
+    ? { uri: PINNED_BG }
+    : SPECIAL_SERVICE_BG.find((b) => b.test.test(latestServiceHeading ?? ''));
   const sb = specialBg ? { uri: specialBg.uri, dark: true } : (sunday.bg ?? bg);
   // 단일 예배 주는 히어로 큰 글씨도 "오늘은 주일입니다" 대신 오늘 예배가 실제로
   // 어떤 형태인지 안내한다 — 달력에 등록된 오늘 일정 제목("야외 예배 및
