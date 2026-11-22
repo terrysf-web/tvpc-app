@@ -12,6 +12,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { notifyAdmins as notifyAdminsTo } from './lib/notify.mjs';
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1050,43 +1051,15 @@ async function notifyVerseFailures() {
 }
 
 /**
- * 사역자(목회자 제외)의 알림 켠 기기로 보낸다.
+ * 관리자(목회자 제외)의 알림 켠 기기로 보낸다 — scripts/lib/notify.mjs 를 쓴다.
  *
  * 주보를 자동으로 읽다 보면 사람이 봐야 할 일이 생긴다 — 말씀을 등록하지
- * 못했거나, 헌금 표 숫자가 서로 안 맞거나. 그동안은 사역자 화면에 적어
- * 두기만 해서, 들어가 보셔야 알 수 있었다. 눌러서 바로 사역자 화면으로
+ * 못했거나, 헌금 표 숫자가 서로 안 맞거나. 그동안은 관리자 화면에 적어
+ * 두기만 해서, 들어가 보셔야 알 수 있었다. 눌러서 바로 관리자 화면으로
  * 가게 한다.
  */
-async function notifyAdmins({ what, title, body, tag }) {
-  try {
-    const { getMessaging } = await import('firebase-admin/messaging');
-    const adminsSnap = await db.collection('admins').get();
-    const emails = adminsSnap.docs
-      .filter((d) => d.data().role !== 'pastor')
-      .map((d) => String(d.data().email || d.id).toLowerCase())
-      .slice(0, 30);
-    if (emails.length === 0) {
-      console.log(`  ! ${what} 알림: 관리자 계정이 없어 건너뜁니다.`);
-      return;
-    }
-    const tokensSnap = await db.collection('pushTokens').where('email', 'in', emails).get();
-    const tokens = tokensSnap.docs.map((d) => d.id);
-    if (tokens.length === 0) {
-      console.log(`  ! ${what} 알림: 사역자 로그인 기기에 알림 등록이 없어 건너뜁니다.`);
-      return;
-    }
-    const res = await getMessaging().sendEachForMulticast({
-      tokens,
-      notification: { title, body },
-      webpush: {
-        notification: { icon: '/icon-192.png', tag },
-        fcmOptions: { link: 'https://app.tvpc.church/admin' },
-      },
-    });
-    console.log(`  → ${what} 알림: 기기 ${tokens.length}대 중 ${res.successCount}대 발송`);
-  } catch (e) {
-    console.log(`  ! ${what} 알림 보내기 실패(무해): ${e.message}`);
-  }
+function notifyAdmins(args) {
+  return notifyAdminsTo(db, args);
 }
 
 /**

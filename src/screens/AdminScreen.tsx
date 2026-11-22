@@ -371,6 +371,8 @@ export default function AdminScreen() {
   // 경고가 어느 주보 이야기인지
   const [warnDate, setWarnDate] = useState<string | null>(null);
   const [troublesDate, setTroublesDate] = useState<string | null>(null);
+  // 이름에 요일이 든 일정이 그 요일에 없을 때 — "성찬주일"이 화요일에 올라간 적이 있다
+  const [eventWarns, setEventWarns] = useState<string[]>([]);
   // 한 번만 읽으면, 문제가 고쳐진 뒤에도 화면을 띄워 둔 동안에는 묵은 경고가
   // 그대로 남는다(실제로 이미 지워진 9/27 경고를 계속 보고 계셨다).
   // 지켜보기로 바꿔, 고쳐지는 순간 화면에서도 사라지게 한다.
@@ -404,6 +406,21 @@ export default function AdminScreen() {
         );
       },
       () => setSyncInfo(null),
+    );
+  }, []);
+
+  // 일정(홈페이지 달력·구글 캘린더)에서 요일이 어긋난 건 — 같은 자리에 띄운다
+  useEffect(() => {
+    const db = getDb();
+    if (!db) return;
+    return onSnapshot(
+      doc(db, 'syncStatus', 'events'),
+      (snap) => {
+        setEventWarns(
+          snap.exists() ? ((snap.get('weekdayWarnings') as string[] | null) ?? []) : [],
+        );
+      },
+      () => {},
     );
   }, []);
 
@@ -945,6 +962,17 @@ export default function AdminScreen() {
             <Text style={styles.failText}>
               주보는 올라갔지만 위 부분이 비어 있거나 잘못 들어갔을 수 있습니다. 앱에서 그
               부분을 한 번 봐 주세요.
+            </Text>
+          </View>
+        )}
+
+        {role !== 'pastor' && eventWarns.length > 0 && (
+          <View style={styles.failBox}>
+            <Text style={styles.failTitle}>일정의 요일이 맞지 않습니다</Text>
+            <Text style={styles.failText}>{eventWarns.map((t) => `· ${t}`).join('\n')}</Text>
+            <Text style={styles.failText}>
+              이름에 요일이 들어 있는데 다른 요일에 올라간 일정입니다. 교회 달력(구글 캘린더)의
+              반복 설정이나 날짜를 한 번 봐 주세요.
             </Text>
           </View>
         )}

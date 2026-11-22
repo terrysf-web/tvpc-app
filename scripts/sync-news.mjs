@@ -20,6 +20,7 @@
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createHash } from 'node:crypto';
+import { notifyAdmins } from './lib/notify.mjs';
 
 const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!saRaw) {
@@ -152,11 +153,37 @@ function expandRrule(rule, first, exdates, horizon) {
   if (!freq || freq === 'DAILY') return [first];
   const interval = Number(rule.match(/INTERVAL=(\d+)/)?.[1] || 1);
   const until = icalDate(rule.match(/UNTIL=([\dTZ]+)/)?.[1])?.date;
+  // BYDAY는 "SU"처럼 요일만 오기도 하고, "1SU"(첫째 주일) · "-1SU"(마지막
+  // 주일)처럼 순서가 붙어 오기도 한다. 순서를 버리면 성찬주일(매월 첫 주일)이
+  // 엉뚱한 날로 간다 — 2026-12-01(화)이 성찬주일로 올라간 게 그 때문이었다.
   const byday = (rule.match(/BYDAY=([^;]+)/)?.[1] || '')
     .split(',')
-    .map((d) => ICAL_DOW[d.slice(-2)])
-    .filter((n) => n !== undefined);
-  const days = byday.length ? byday : [first.getDay()];
+    .map((s) => s.trim().match(/^([+-]?\d+)?([A-Z]{2})$/))
+    .map((m) => (m && ICAL_DOW[m[2]] !== undefined
+      ? { ord: m[1] ? Number(m[1]) : 0, dow: ICAL_DOW[m[2]] }
+      : null))
+    .filter(Boolean);
+  const bymonthday = (rule.match(/BYMONTHDAY=([^;]+)/)?.[1] || '')
+    .split(',')
+    .map((v) => Number(v.trim()))
+    .filter((n) => Number.isFinite(n) && n !== 0);
+  const bymonth = (rule.match(/BYMONTH=([^;]+)/)?.[1] || '')
+    .split(',')
+    .map((v) => Number(v.trim()) - 1)
+    .filter((n) => n >= 0 && n <= 11);
+  const days = byday.length ? byday.map((p) => p.dow) : [first.getDay()];
+  // 그 달에서 이 날이 몇 번째 해당 요일인지(1,2,3…) / 끝에서 몇 번째인지(-1,-2…)
+  const daysInMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const weekOfMonth = (d) => Math.floor((d.getDate() - 1) / 7) + 1;
+  const weekFromEnd = (d) => -(Math.floor((daysInMonth(d) - d.getDate()) / 7) + 1);
+  const matchesByday = (d) =>
+    byday.some(
+      (p) =>
+        p.dow === d.getDay() &&
+        (p.ord === 0 || p.ord === weekOfMonth(d) || p.ord === weekFromEnd(d)),
+    );
+  const matchesMonthday = (d) =>
+    bymonthday.some((n) => (n > 0 ? d.getDate() === n : d.getDate() === daysInMonth(d) + 1 + n));
 
   const out = [];
   const startScan = new Date(Math.max(first.getTime(), Date.now() - 86400e3));
@@ -172,9 +199,22 @@ function expandRrule(rule, first, exdates, horizon) {
     } else if (freq === 'MONTHLY') {
       const months =
         (d.getFullYear() - first.getFullYear()) * 12 + d.getMonth() - first.getMonth();
-      hit = d.getDate() === first.getDate() && months % interval === 0;
+      hit =
+        months % interval === 0 &&
+        (byday.length
+          ? matchesByday(d)
+          : bymonthday.length
+            ? matchesMonthday(d)
+            : d.getDate() === first.getDate());
     } else if (freq === 'YEARLY') {
-      hit = d.getDate() === first.getDate() && d.getMonth() === first.getMonth();
+      const inMonth = bymonth.length ? bymonth.includes(d.getMonth()) : d.getMonth() === first.getMonth();
+      hit =
+        inMonth &&
+        (byday.length
+          ? matchesByday(d)
+          : bymonthday.length
+            ? matchesMonthday(d)
+            : d.getDate() === first.getDate());
     }
     if (hit && !exdates.has(ymd(d))) out.push(d);
   }
@@ -614,6 +654,72 @@ if (eventsWrote > 0) {
     }
   }
 }
+
+// ── 요일이 이름에 박힌 일정 검산 ──────────────────────────────────────
+// "성찬주일"이 화요일에, "금요예배"가 수요일에 올라가도 아무도 모른 채
+// 넘어갔다(2026-12-01 성찬주일). 이름에 요일이 들어 있으면 그 요일에만
+// 있어야 한다 — 어긋나면 관리자에게 알린다. 반복 규칙을 잘못 펼쳤거나
+// 홈페이지 달력이 틀렸다는 신호다.
+const WEEKDAY_IN_TITLE = [
+  [/주일(?!학교)|일요일/, 0, '일요일'],
+  [/월요(?:일|예배|모임|기도)/, 1, '월요일'],
+  [/화요(?:일|예배|모임|기도)/, 2, '화요일'],
+  [/수요(?:일|예배|모임|기도)/, 3, '수요일'],
+  [/목요(?:일|예배|모임|기도)/, 4, '목요일'],
+  [/금요(?:일|예배|모임|기도)/, 5, '금요일'],
+  [/토요(?:일|예배|모임|기도)/, 6, '토요일'],
+];
+const KDAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+
+async function checkEventWeekdays(list) {
+  const bad = [];
+  for (const e of list) {
+    // 여러 날에 걸친 일정은 시작일만 보고 판단할 수 없으니 건너뛴다
+    if (e.rangeLabel) continue;
+    for (const [re, want, wantName] of WEEKDAY_IN_TITLE) {
+      if (!re.test(e.summary)) continue;
+      if (e.start.getDay() === want) continue;
+      bad.push(
+        `${ymd(e.start)}(${KDAY_NAMES[e.start.getDay()]}) ${e.summary} — ${wantName}이어야 합니다`,
+      );
+      break;
+    }
+  }
+  for (const line of bad) console.log(`  ! 요일이 맞지 않는 일정: ${line}`);
+
+  const ref = db.doc('syncStatus/events');
+  let prev = [];
+  try {
+    prev = (await ref.get()).get('weekdayWarnings') ?? [];
+  } catch {
+    /* 못 읽으면 새 문제로 본다 */
+  }
+  await ref.set(
+    {
+      weekdayWarnings: bad,
+      weekdayWarningsAt: bad.length ? new Date() : null,
+      at: new Date(),
+    },
+    { merge: true },
+  );
+  if (bad.length === 0) return;
+  // 소식 동기화는 하루에 여러 번 돈다 — 지난번과 똑같으면 알림은 건너뛴다
+  if (prev.length === bad.length && prev.every((v, i) => v === bad[i])) {
+    console.log('  (지난번과 같은 문제 — 알림은 다시 보내지 않습니다)');
+    return;
+  }
+  await notifyAdmins(db, {
+    what: '일정 요일',
+    title: '일정의 요일이 맞지 않습니다',
+    body:
+      bad.length === 1
+        ? bad[0]
+        : `${bad[0]} 외 ${bad.length - 1}건 — 관리자 화면에서 확인해 주세요`,
+    tag: 'event-weekday',
+  });
+}
+
+await checkEventWeekdays(collapsed);
 
 console.log(`완료: 일정 ${eventsWrote}건 동기화`);
 if (eventsWrote === 0) {
