@@ -445,12 +445,13 @@ const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
 
 // ── PPTX 같이 읽어 보기(시험) ─────────────────────────────────────
-// 아직 앱에는 PDF로 읽은 것만 들어간다. DEBUG_PPTX 일 때만, 같은 게시글에
-// 올라온 PPTX도 읽어서 나란히 찍어 본다 — 두 방식이 같은 결과를 내는지
-// 몇 주 지켜보고 나서 바꾼다.
-if (process.env.DEBUG_PPTX) {
+// 앱에 들어가는 내용은 PDF로 읽은 것 그대로다. 같은 게시글에 PPTX가 같이
+// 올라와 있으면 그것도 읽어서 기록에만 남긴다 — 두 방식이 같은 결과를
+// 내는지 몇 주 지켜보고 나서 바꾼다. 읽다 실패해도 주보 동기화에는 영향이
+// 없다(아래 전부 try로 감싸 두었다).
+{
   if (!pptxUrl) {
-    console.log('\n[PPTX] 이 게시글에 PPTX 첨부가 없습니다.');
+    if (process.env.DEBUG_PPTX) console.log('\n[PPTX] 이 게시글에 PPTX 첨부가 없습니다.');
   } else {
     console.log(`\n[PPTX] ${abs(pptxUrl)}`);
     try {
