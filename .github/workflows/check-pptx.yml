@@ -1,0 +1,25 @@
+# 주보 PPTX 시험 읽기(읽기 전용) — PDF로 읽은 것과 비교해 보는 도구.
+name: Check bulletin PPTX (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: '주보 PPTX 주소 (홈페이지에 올린 파일 링크)'
+        required: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download
+        env:
+          URL: ${{ inputs.url }}
+          TVPC_WEB_USER: ${{ secrets.TVPC_WEB_USER }}
+          TVPC_WEB_PASS: ${{ secrets.TVPC_WEB_PASS }}
+        run: curl -fsSL --user "$TVPC_WEB_USER:$TVPC_WEB_PASS" "$URL" -o bulletin.pptx && ls -la bulletin.pptx
+      - run: node scripts/check-pptx.mjs bulletin.pptx
