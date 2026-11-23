@@ -334,11 +334,17 @@ if (!pdfUrl) {
     const pp = findPptxInPost(postAnchors);
     if (pp) pptxUrl = pp.href.startsWith('?') ? `${postUrl.split('?')[0]}${pp.href}` : pp.href;
     if (process.env.DEBUG_PPTX) {
-      console.log('    · 이 게시글의 첨부 링크:');
-      for (const a of postAnchors) {
-        if (!/kboard_file_download|kboard-file-download|download|attach|\.(pdf|pptx)/i.test(a.href))
-          continue;
-        console.log(`        "${a.text}"  ${a.href.slice(0, 120)}`);
+      console.log('    · 이 게시글의 첨부(원본 마크업):');
+      for (const m of postHtml.matchAll(
+        /[^"'\s<>()]*(?:action=kboard_file_download|kboard-file-download)[^"'\s<>()]*/g,
+      )) {
+        const at = m.index ?? 0;
+        const around = postHtml
+          .slice(Math.max(0, at - 300), at + 400)
+          .replace(/\s+/g, ' ');
+        console.log(`        링크: ${m[0].slice(0, 140)}`);
+        console.log(`        주변: ${around}`);
+        console.log('        ---');
       }
     }
     break;
