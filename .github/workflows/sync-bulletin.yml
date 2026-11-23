@@ -37,6 +37,11 @@ on:
         required: false
         type: boolean
         default: false
+      debug_pptx:
+        description: '같은 게시글의 PPTX도 같이 읽어 기록에 남김(시험).'
+        required: false
+        type: boolean
+        default: false
       debug_pdf_info:
         description: '주보 PDF가 어떤 프로그램에서 나왔는지 기록에 남김(서식 의논용).'
         required: false
@@ -92,4 +97,5 @@ jobs:
           DEBUG_ORDER: ${{ inputs.debug_order && '1' || '' }}
           DEBUG_OFFERING: ${{ inputs.debug_offering && '1' || '' }}
           DEBUG_PDF_INFO: ${{ inputs.debug_pdf_info && '1' || '' }}
+          DEBUG_PPTX: ${{ inputs.debug_pptx && '1' || '' }}
         run: node scripts/sync-bulletin.mjs

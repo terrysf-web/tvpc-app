@@ -196,6 +196,27 @@ function findPdfInPost(postHtml, postAnchors) {
   );
 }
 
+/**
+ * 같은 게시글에 PPTX(파워포인트) 주보가 같이 올라와 있으면 그 링크.
+ *
+ * PDF는 "글자 + 좌표"뿐이라 띄어쓰기도 칸도 좌표로 되짚어야 하는데, PPTX는
+ * 글자·문단·표가 그대로 들어 있다. 아직 앱에 쓰지는 않고, DEBUG_PPTX 로
+ * 돌려 PDF로 읽은 것과 맞춰 보는 중이다.
+ */
+function findPptxInPost(postAnchors) {
+  return (
+    postAnchors.find((a) => /\.pptx(\?|$)/i.test(a.href)) ??
+    postAnchors.find(
+      (a) =>
+        /kboard_file_download|kboard-file-download|download|attach/i.test(a.href) &&
+        /\.pptx\b/i.test(a.text),
+    ) ??
+    null
+  );
+}
+// 찾은 PPTX 링크 — 아래 PDF 처리가 끝난 뒤 DEBUG_PPTX 일 때만 쓴다
+let pptxUrl = null;
+
 if (!pdfUrl && TARGET_URL) {
   // 게시글 URL을 직접 지정한 경우 — 목록에서 후보를 고르지 않고 그 글만 연다.
   const postUrl = abs(TARGET_URL);
@@ -216,6 +237,8 @@ if (!pdfUrl && TARGET_URL) {
   }
   pdfLabel = cand.text || pdfLabel;
   pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
+  const pp = findPptxInPost(postAnchors);
+  if (pp) pptxUrl = pp.href.startsWith('?') ? `${postUrl.split('?')[0]}${pp.href}` : pp.href;
 }
 
 if (!pdfUrl) {
@@ -308,6 +331,16 @@ if (!pdfUrl) {
     pdfLabel = post.text;
     pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
     if (!pdfLabel) pdfLabel = cand.text;
+    const pp = findPptxInPost(postAnchors);
+    if (pp) pptxUrl = pp.href.startsWith('?') ? `${postUrl.split('?')[0]}${pp.href}` : pp.href;
+    if (process.env.DEBUG_PPTX) {
+      console.log('    · 이 게시글의 첨부 링크:');
+      for (const a of postAnchors) {
+        if (!/kboard_file_download|kboard-file-download|download|attach|\.(pdf|pptx)/i.test(a.href))
+          continue;
+        console.log(`        "${a.text}"  ${a.href.slice(0, 120)}`);
+      }
+    }
     break;
   }
   if (!pdfUrl) {
@@ -356,6 +389,51 @@ const date = TARGET_DATE ?? bulletinDate();
 const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
+
+// ── PPTX 같이 읽어 보기(시험) ─────────────────────────────────────
+// 아직 앱에는 PDF로 읽은 것만 들어간다. DEBUG_PPTX 일 때만, 같은 게시글에
+// 올라온 PPTX도 읽어서 나란히 찍어 본다 — 두 방식이 같은 결과를 내는지
+// 몇 주 지켜보고 나서 바꾼다.
+if (process.env.DEBUG_PPTX) {
+  if (!pptxUrl) {
+    console.log('\n[PPTX] 이 게시글에 PPTX 첨부가 없습니다.');
+  } else {
+    console.log(`\n[PPTX] ${abs(pptxUrl)}`);
+    try {
+      const r = await jfetch(abs(pptxUrl));
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.subarray(0, 2).toString() !== 'PK') {
+        console.log(`[PPTX] 파워포인트 파일이 아닙니다 (HTTP ${r.status}, ${buf.length}B)`);
+      } else {
+        const pptxPath = join(dir, 'in.pptx');
+        writeFileSync(pptxPath, buf);
+        console.log(`[PPTX] 받음 ${Math.round(buf.length / 1024)}KB`);
+        const { readPptx } = await import('./lib/pptx.mjs');
+        for (const sl of readPptx(pptxPath)) {
+          for (const sh of sl.shapes) {
+            if (sh.kind !== 'table') continue;
+            console.log(`[PPTX] 표 ${sh.rows.length}행`);
+            for (const row of sh.rows) {
+              console.log(`        | ${row.map((c) => c ?? '').join(' | ')}`);
+            }
+          }
+        }
+        const all = readPptx(pptxPath).flatMap((sl) => sl.shapes);
+        const NAME_HINTS = ['예배의 부름', '성경봉독', '설교', '축도', '기도'];
+        const nameBox = all
+          .filter((t) => t.kind === 'text')
+          .map((t) => ({ t, hits: NAME_HINTS.filter((h) => t.lines.some((l) => l.trim() === h)).length }))
+          .sort((a, b) => b.hits - a.hits)[0];
+        if (nameBox && nameBox.hits >= 3) {
+          const names = nameBox.t.lines.filter((l) => l.trim());
+          console.log(`[PPTX] 예배 순서 이름 ${names.length}개: ${names.map((n) => n.trim()).join(' · ')}`);
+        }
+      }
+    } catch (e) {
+      console.log(`[PPTX] 읽기 실패: ${e.message}`);
+    }
+  }
+}
 
 // 주보 PDF가 어떤 프로그램에서 나왔고, 글자가 어떻게 들어 있는지 — 서식을
 // 바꿀지 의논할 때(스캔인지, Canva 같은 디자인 도구 내보내기인지) 쓴다.
