@@ -167,12 +167,40 @@ const skipShortcut = TARGET_DATE || TARGET_URL;
 let pdfUrl = skipShortcut ? null : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.href ?? null;
 let pdfLabel = skipShortcut ? '' : anchors.find((a) => /\.pdf(\?|$)/i.test(a.href))?.text ?? '';
 
+/**
+ * 게시글의 첨부 목록 — KBoard는 다운로드 단추의 onclick 안에 주소를 넣고,
+ * 단추 글씨에 파일 이름을 쓴다. 주보 글에 PDF와 PPTX가 같이 올라오면서
+ * "첫 번째 다운로드 링크"를 집던 예전 방식으로는 둘을 가릴 수 없게 됐다
+ * (2026-11-22 글에 PPTX만 올라왔을 때 그걸 PDF로 알고 받아 와 멈췄다).
+ */
+function attachmentsInPost(postHtml) {
+  const out = [];
+  for (const m of postHtml.matchAll(
+    /<button[^>]*onclick="[^"]*?'([^']*(?:action=kboard_file_download|kboard-file-download)[^']*)'[^"]*"[^>]*>([\s\S]*?)<\/button>/g,
+  )) {
+    out.push({
+      href: unescapeHtml(m[1]),
+      text: unescapeHtml(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(),
+    });
+  }
+  return out;
+}
+
+/** 첨부 중 확장자가 맞는 것 */
+const attachByExt = (postHtml, ext) =>
+  attachmentsInPost(postHtml).find((a) => new RegExp(`\\.${ext}\\s*$`, 'i').test(a.text)) ?? null;
+
 /** 게시글 HTML에서 주보 PDF 링크 찾기 — 없으면 null */
 function findPdfInPost(postHtml, postAnchors) {
   return (
+    // 첨부 이름이 .pdf 로 끝나는 것을 가장 먼저 — PPTX가 같이 올라와도 안 헷갈린다
+    attachByExt(postHtml, 'pdf') ??
     postAnchors.find((a) => /\.pdf(\?|$)/i.test(a.href)) ??
-    // KBoard 첨부파일 다운로드 링크 (파일명이 표시 텍스트에 옴)
-    postAnchors.find((a) => /kboard_file_download|kboard-file-download/i.test(a.href)) ??
+    // KBoard 첨부파일 다운로드 링크 (파일명이 표시 텍스트에 옴) — pptx는 뺀다
+    postAnchors.find(
+      (a) =>
+        /kboard_file_download|kboard-file-download/i.test(a.href) && !/\.pptx\s*$/i.test(a.text),
+    ) ??
     postAnchors.find(
       (a) =>
         /download|attach|action=file/i.test(a.href) &&
@@ -185,8 +213,10 @@ function findPdfInPost(postHtml, postAnchors) {
         postHtml.match(/(?:src|data|href)="([^"]+\.pdf[^"]*)"/i);
       return m ? { href: unescapeHtml(m[1]), text: '' } : null;
     })() ??
-    // KBoard 다운로드 버튼 — URL이 onclick/data 속성 안에 있는 경우: HTML 전체에서 탐색
+    // KBoard 다운로드 버튼 — URL이 onclick/data 속성 안에 있는 경우: HTML 전체에서
+    // 탐색. 단, 첨부가 PPTX뿐이면 집지 않는다(그걸 PDF로 알고 받으면 멈춘다).
     (() => {
+      if (attachmentsInPost(postHtml).some((a) => /\.pptx\s*$/i.test(a.text))) return null;
       const m = postHtml.match(
         /[^"'\s<>()]*(?:action=kboard_file_download|kboard-file-download)[^"'\s<>()]*/,
       );
@@ -203,19 +233,17 @@ function findPdfInPost(postHtml, postAnchors) {
  * 글자·문단·표가 그대로 들어 있다. 아직 앱에 쓰지는 않고, DEBUG_PPTX 로
  * 돌려 PDF로 읽은 것과 맞춰 보는 중이다.
  */
-function findPptxInPost(postAnchors) {
+function findPptxInPost(postHtml, postAnchors) {
   return (
+    attachByExt(postHtml, 'pptx') ??
     postAnchors.find((a) => /\.pptx(\?|$)/i.test(a.href)) ??
-    postAnchors.find(
-      (a) =>
-        /kboard_file_download|kboard-file-download|download|attach/i.test(a.href) &&
-        /\.pptx\b/i.test(a.text),
-    ) ??
     null
   );
 }
 // 찾은 PPTX 링크 — 아래 PDF 처리가 끝난 뒤 DEBUG_PPTX 일 때만 쓴다
 let pptxUrl = null;
+// PDF 없이 PPTX만 올라온 글을 만났을 때 그 파일 이름 (안내 문구에 쓴다)
+let lastPptxName = null;
 
 if (!pdfUrl && TARGET_URL) {
   // 게시글 URL을 직접 지정한 경우 — 목록에서 후보를 고르지 않고 그 글만 연다.
@@ -237,7 +265,7 @@ if (!pdfUrl && TARGET_URL) {
   }
   pdfLabel = cand.text || pdfLabel;
   pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
-  const pp = findPptxInPost(postAnchors);
+  const pp = findPptxInPost(postHtml, postAnchors);
   if (pp) pptxUrl = pp.href.startsWith('?') ? `${postUrl.split('?')[0]}${pp.href}` : pp.href;
 }
 
@@ -324,14 +352,20 @@ if (!pdfUrl) {
     }
     const cand = findPdfInPost(postHtml, postAnchors);
     if (!cand) {
-      console.log('    · PDF 첨부가 없습니다 — 이전 주보 글을 확인합니다.');
+      const pp = findPptxInPost(postHtml, postAnchors);
+      if (pp) lastPptxName ??= pp.text || 'PPTX';
+      console.log(
+        pp
+          ? `    · PDF 첨부가 없습니다 (PPTX "${pp.text}" 만 있음) — 이전 주보 글을 확인합니다.`
+          : '    · PDF 첨부가 없습니다 — 이전 주보 글을 확인합니다.',
+      );
       last = { postHtml, postAnchors };
       continue;
     }
     pdfLabel = post.text;
     pdfUrl = cand.href.startsWith('?') ? `${postUrl.split('?')[0]}${cand.href}` : cand.href;
     if (!pdfLabel) pdfLabel = cand.text;
-    const pp = findPptxInPost(postAnchors);
+    const pp = findPptxInPost(postHtml, postAnchors);
     if (pp) pptxUrl = pp.href.startsWith('?') ? `${postUrl.split('?')[0]}${pp.href}` : pp.href;
     if (process.env.DEBUG_PPTX) {
       console.log('    · 이 게시글의 첨부(원본 마크업):');
@@ -350,6 +384,20 @@ if (!pdfUrl) {
     break;
   }
   if (!pdfUrl) {
+    // PPTX만 올라온 경우 — 앱은 주보를 그림으로도 보여줘야 해서 PDF가 꼭 필요하다
+    if (lastPptxName) {
+      console.error(
+        `  ✗ 이 주보 글에는 "${lastPptxName}" 하나만 올라와 있습니다 — PDF가 없습니다.`,
+      );
+      console.error('    앱은 주보를 그림으로도 보여주기 때문에 PDF가 꼭 있어야 합니다.');
+      await notifyAdmins({
+        what: '주보 PDF 없음',
+        title: '주보 PDF가 올라오지 않았습니다',
+        body: `게시글에 ${lastPptxName} 만 있습니다. PDF도 같이 올려 주세요.`,
+        tag: 'bulletin-no-pdf',
+      });
+      process.exit(1);
+    }
     console.error('  ✗ 최근 주보 게시글 어디에서도 PDF 링크를 찾지 못했습니다.');
     if (last) {
       dumpInteresting(last.postAnchors, last.postHtml);
