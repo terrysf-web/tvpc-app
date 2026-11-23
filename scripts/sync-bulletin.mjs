@@ -357,6 +357,32 @@ const pdfHash = createHash('sha256').update(pdfBuf).digest('hex');
 const dir = mkdtempSync(join(tmpdir(), 'jubo-'));
 writeFileSync(join(dir, 'in.pdf'), pdfBuf);
 
+// 주보 PDF가 어떤 프로그램에서 나왔고, 글자가 어떻게 들어 있는지 — 서식을
+// 바꿀지 의논할 때(스캔인지, Canva 같은 디자인 도구 내보내기인지) 쓴다.
+if (process.env.DEBUG_PDF_INFO) {
+  const show = (cmd, args) => {
+    try {
+      console.log(`\n[PDF정보] ${cmd}\n${execFileSync(cmd, args).toString().trim()}`);
+    } catch (e) {
+      console.log(`[PDF정보] ${cmd} 실패: ${e.message}`);
+    }
+  };
+  show('pdfinfo', [join(dir, 'in.pdf')]);
+  show('pdffonts', [join(dir, 'in.pdf')]);
+  try {
+    execFileSync('pdftotext', ['-f', '1', '-l', '1', join(dir, 'in.pdf'), join(dir, 'probe.txt')]);
+    const t = readFileSync(join(dir, 'probe.txt'), 'utf8');
+    const words = t.split(/\s+/).filter(Boolean);
+    console.log(
+      `\n[PDF정보] 1면에서 뽑은 글자 ${t.length}자, 덩어리 ${words.length}개` +
+        ` — 글자가 아예 안 나오면 스캔(그림)이고, 나오면 디지털 PDF다.`,
+    );
+    console.log(`[PDF정보] 1면 앞부분:\n${t.slice(0, 400)}`);
+  } catch (e) {
+    console.log(`[PDF정보] 글자 뽑기 실패: ${e.message}`);
+  }
+}
+
 /**
  * 주보에서 읽은 본문을 그날 말씀(verses/{날짜})에 적는다.
  *
