@@ -36,6 +36,37 @@ const BOOK_RE = new RegExp(`(?<![가-힣])(${BOOK_ALT})\\s*(?=\\d)`, 'g');
 const BOOK_BILINGUAL_RE = new RegExp(`(?<![가-힣])(${BOOK_ALT})\\s*(${EN_ALT})`, 'g');
 
 /**
+ * 줄여 쓴 책 이름(개역개정 약어) — "합 3:17-19", "고전 13:4".
+ *
+ * 전체 이름과 달리 한 글자짜리가 많아서("시"=시편, "전"=전도서, "요"=요한복음),
+ * 글 속에서 함부로 바꾸면 "오전 11시 2:00" 같은 데까지 건드린다. 그래서
+ * 약어는 뒤에 장:절이 분명히 붙어 있을 때만 성경으로 본다.
+ */
+export const BIBLE_ABBR_EN: Record<string, string> = {
+  창: 'Genesis', 출: 'Exodus', 레: 'Leviticus', 민: 'Numbers', 신: 'Deuteronomy',
+  수: 'Joshua', 삿: 'Judges', 룻: 'Ruth',
+  삼상: '1 Samuel', 삼하: '2 Samuel', 왕상: '1 Kings', 왕하: '2 Kings',
+  대상: '1 Chronicles', 대하: '2 Chronicles', 스: 'Ezra', 느: 'Nehemiah', 에: 'Esther',
+  욥: 'Job', 시: 'Psalms', 잠: 'Proverbs', 전: 'Ecclesiastes', 아: 'Song of Songs',
+  사: 'Isaiah', 렘: 'Jeremiah', 애: 'Lamentations', 겔: 'Ezekiel', 단: 'Daniel',
+  호: 'Hosea', 욜: 'Joel', 암: 'Amos', 옵: 'Obadiah', 욘: 'Jonah', 미: 'Micah',
+  나: 'Nahum', 합: 'Habakkuk', 습: 'Zephaniah', 학: 'Haggai', 슥: 'Zechariah', 말: 'Malachi',
+  마: 'Matthew', 막: 'Mark', 눅: 'Luke', 요: 'John', 행: 'Acts',
+  롬: 'Romans', 고전: '1 Corinthians', 고후: '2 Corinthians', 갈: 'Galatians',
+  엡: 'Ephesians', 빌: 'Philippians', 골: 'Colossians',
+  살전: '1 Thessalonians', 살후: '2 Thessalonians',
+  딤전: '1 Timothy', 딤후: '2 Timothy', 딛: 'Titus', 몬: 'Philemon',
+  히: 'Hebrews', 약: 'James', 벧전: '1 Peter', 벧후: '2 Peter',
+  요일: '1 John', 요이: '2 John', 요삼: '3 John', 유: 'Jude', 계: 'Revelation',
+};
+
+const ABBR_NAMES = Object.keys(BIBLE_ABBR_EN).sort((a, b) => b.length - a.length);
+const ABBR_ALT = ABBR_NAMES.join('|');
+// 앞 글자가 한글이나 숫자면 다른 말의 일부다("금요일 3:00"의 "요일", "11시 2:00"의 "시").
+// 뒤에는 반드시 장:절이 와야 한다 — 전체 이름보다 훨씬 깐깐하게 본다.
+const ABBR_RE = new RegExp(`(?<![가-힣0-9])(${ABBR_ALT})\\s*(?=\\d{1,3}\\s*[:：]\\s*\\d)`, 'g');
+
+/**
  * 글 안에 섞여 있는 성경 참조를 전부 영어로 바꾼다 — "[하박국3:17-19]" →
  * "[Habakkuk 3:17-19]".
  *
@@ -55,6 +86,10 @@ export function scriptureRefsEn(text: string): string {
     )
     .replace(BOOK_RE, (full) => {
       const en = BIBLE_BOOK_EN[full.replace(/\s+/g, '')];
+      return en ? `${en} ` : full;
+    })
+    .replace(ABBR_RE, (full) => {
+      const en = BIBLE_ABBR_EN[full.replace(/\s+/g, '')];
       return en ? `${en} ` : full;
     });
 }
@@ -78,7 +113,8 @@ export function isScriptureRef(text: string): boolean {
   if (!t) return false;
   // 영어로 이미 바뀐 뒤일 수도 있으니 두 가지 모두 본다
   const head = t.match(/^[가-힣\s]+/)?.[0]?.replace(/\s+/g, '') ?? '';
-  const koBook = !!BIBLE_BOOK_EN[head];
+  // 줄여 쓴 이름도 본다 — "합 3:17-19", "고전 13:4"
+  const koBook = !!BIBLE_BOOK_EN[head] || !!BIBLE_ABBR_EN[head];
   const enBook = EN_BOOK_SET.has(t.match(new RegExp(`^(${EN_ALT})`))?.[1] ?? '');
   return (koBook || enBook) && /\d{1,3}\s*[:：]\s*\d{1,3}/.test(t);
 }
