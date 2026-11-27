@@ -904,7 +904,21 @@ async function syncDawnVerses() {
     }
   }
   if (dayLine < 0 && days.length < 3) {
-    console.log('  → 새벽예배 요일표를 찾지 못해 매일 말씀 등록을 건너뜁니다.');
+    // 요일표 자체를 못 읽었다. 예전에는 여기서 끝내서 그 주 내내 말씀 카드에
+    // 지난 주일 본문이 오늘 것처럼 남았다. 새벽예배 본문을 모르는 날은
+    // 생명의 삶 본문으로 채운다 — 날짜에 맞는 그날 본문이라 순서가 맞는다.
+    trouble('새벽예배 본문', '주보에서 새벽예배 요일표를 읽지 못했습니다');
+    console.log('  → 새벽예배 요일표를 못 읽었습니다 — 화~토를 생명의 삶 본문으로 채웁니다.');
+    const { gunzipSync } = await import('node:zlib');
+    const scriptDir = new URL('.', import.meta.url).pathname;
+    const bible = JSON.parse(
+      gunzipSync(readFileSync(join(scriptDir, 'data', 'gae.json.gz'))).toString(),
+    );
+    const toIso = (d) => (d ? d.toISOString().slice(0, 10) : null);
+    const dates = ['화', '수', '목', '금', '토']
+      .map((dow) => toIso(bulletinWeekDate(dow, null)))
+      .filter(Boolean);
+    if (dates.length) await syncQtVerses(dates, bible, (n) => findBookIn(bible, n));
     return;
   }
 
