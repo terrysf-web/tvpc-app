@@ -835,6 +835,12 @@ async function syncSundayReading() {
   console.log(`[말씀] 주일 성경봉독 등록: ${date}  ${ref} (${picked.length}절)`);
 }
 
+/** 그 주 새벽예배를 쉰다는 표시 — 주보에 "안식 주간"처럼 적힌다 */
+const REST_MARK = /안식주간|새벽기도없음|새벽예배없음|없음|휴무/;
+function isRestMark(p) {
+  return REST_MARK.test(String(p ?? '').replace(/\s+/g, ''));
+}
+
 async function syncDawnVerses() {
   const lines = pdfText().split('\n');
 
@@ -2102,10 +2108,6 @@ function extractOrderAndSermon(lines) {
 // 책이름과 장 사이 공백은 있을 수도 없을 수도 있다("이사야 39장"/"이사야39장").
 const DAWN_CELL = /[가-힣A-Za-z]+\s*\d+장|생명의\s*삶/g;
 /** DAWN_CELL과 같은 판정을 공백을 아예 지운 문자열에 대해 쓸 때(줄 뒤섞임 대응용) */
-/** 그 주 새벽예배를 쉰다는 표시 — 주보에 "안식 주간"처럼 적힌다 */
-const REST_MARK = /안식주간|새벽기도없음|새벽예배없음|없음|휴무/;
-const isRestMark = (p) => REST_MARK.test(String(p ?? '').replace(/\s+/g, ''));
-
 function looksLikeDawnPassage(p) {
   const s = p.replace(/\s+/g, '');
   return /[가-힣A-Za-z]+\d+장/.test(s) || /생명의삶/.test(s) || isRestMark(s);
