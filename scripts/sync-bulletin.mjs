@@ -835,10 +835,15 @@ async function syncSundayReading() {
   console.log(`[말씀] 주일 성경봉독 등록: ${date}  ${ref} (${picked.length}절)`);
 }
 
-/** 그 주 새벽예배를 쉰다는 표시 — 주보에 "안식 주간"처럼 적힌다 */
-const REST_MARK = /안식주간|새벽기도없음|새벽예배없음|없음|휴무/;
+/**
+ * 그 주 새벽예배를 쉰다는 표시 — 주보에 "안식 주간"처럼 적힌다.
+ * (정규식을 함수 안에 둔다 — 이 파일 위쪽에서 먼저 불리므로, 바깥 const로
+ *  두면 아직 만들어지기 전이라 'before initialization' 오류가 난다.)
+ */
 function isRestMark(p) {
-  return REST_MARK.test(String(p ?? '').replace(/\s+/g, ''));
+  return /안식주간|새벽기도없음|새벽예배없음|없음|휴무/.test(
+    String(p ?? '').replace(/\s+/g, ''),
+  );
 }
 
 async function syncDawnVerses() {
