@@ -429,9 +429,11 @@ export default function HomeScreen() {
               <View style={styles.heroTopRow}>
                 <View style={[styles.heroBadge, !verse.imageUrl && !bg.dark && styles.heroBadgeDark]}>
                   <Text style={styles.heroBadgeText}>
-                    {verse.passageTitle?.includes('새벽예배')
-                      ? '오늘의 말씀 · 새벽예배'
-                      : '오늘의 말씀'}
+                    {verse.restWeek
+                      ? '오늘의 말씀 · 생명의 삶'
+                      : verse.passageTitle?.includes('새벽예배')
+                        ? '오늘의 말씀 · 새벽예배'
+                        : '오늘의 말씀'}
                   </Text>
                 </View>
                 <Text style={[styles.heroDate, !verse.imageUrl && !bg.dark && styles.heroDateDark]}>
@@ -443,6 +445,17 @@ export default function HomeScreen() {
                     흰 글씨가 묻힐 수 있다 — 뒤에 반투명 어두운 패널을 깔아
                     어떤 사진이 와도 늘 또렷하게 */}
                 <View style={verse.imageUrl ? styles.heroTextPanelDark : undefined}>
+                  {/* 안식 주간 — 왜 새벽예배 본문이 아닌지 먼저 알려드린다 */}
+                  {!!verse.restNote && (
+                    <Text
+                      style={[
+                        styles.heroRestNote,
+                        !verse.imageUrl && !bg.dark && styles.heroRestNoteDark,
+                      ]}
+                    >
+                      {verse.restNote}
+                    </Text>
+                  )}
                   <Text style={[styles.heroRef, !verse.imageUrl && !bg.dark && styles.heroRefDark]}>
                     {verse.reference}
                   </Text>
@@ -467,6 +480,9 @@ export default function HomeScreen() {
                       말씀 보기
                     </Text>
                   </Pressable>
+                  {/* 그날 설교가 없으면 단추를 아예 안 보여준다 — 안식 주간처럼
+                      새벽예배가 없는 주에 눌러 봐야 "준비 중"만 떴다. */}
+                  {!!sermonUrl && (
                   <Pressable
                     style={[styles.heroBtn, !verse.imageUrl && !bg.dark && styles.heroBtnDark]}
                     // 설교는 이 카드에서 바로 튼다 — 화면을 옮기면 "말씀 보기"와
@@ -488,6 +504,7 @@ export default function HomeScreen() {
                           : '설교 듣기'}
                     </Text>
                   </Pressable>
+                  )}
                 </View>
                 {/* 듣는 동안 어디쯤인지 — 한 번이라도 튼 뒤에만 나온다.
                     막대를 손가락으로 끌어 듣던 자리를 옮길 수 있다(얇은 막대는
@@ -734,6 +751,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     ...textShadow,
   },
+  // 안식 주간 안내 — 본문 표기 바로 위에 작게
+  heroRestNote: {
+    fontFamily: font.bold,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.92)',
+    marginBottom: 4,
+    ...textShadow,
+  },
+  heroRestNoteDark: { color: colors.primary },
   heroVerse: {
     fontFamily: font.extraBold,
     fontSize: 21.5,

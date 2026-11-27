@@ -24,6 +24,11 @@ export interface VerseDoc {
   /** 그날 설교를 유튜브에 올리실 수 있게 만들어 둔 영상(mp4) 주소.
    *  녹음을 올리면 서버가 배경 그림을 입혀 자동으로 만든다(목회자만 보인다). */
   sermonVideoUrl?: string | null;
+  /** 안식 주간 — 그 주는 새벽예배가 없어 생명의 삶 본문으로 대신한다.
+   *  설교 녹음도 없으므로 "설교 듣기"를 보여주지 않는다. */
+  restWeek?: boolean;
+  /** 안식 주간 안내 문구 — 예: "안식 주간으로 새벽예배가 없습니다" */
+  restNote?: string | null;
 }
 
 export type SermonCategory = 'sermon' | 'podcast' | 'praise' | 'etc';

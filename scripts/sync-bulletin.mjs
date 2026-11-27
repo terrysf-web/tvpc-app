@@ -880,6 +880,11 @@ async function syncDawnVerses() {
       }
       DAY_TOKEN.lastIndex = 0;
       if (bm) passages.push({ book: bm[1], chapter: Number(bm[2]), col });
+      // 본문이 아니라 "안식 주간"처럼 쉰다는 표시일 수 있다 — 그 줄 나머지를 적어 둔다
+      days[days.length - 1].note = lines[i]
+        .slice(m.index + m[0].length)
+        .replace(/^[\s:：]+/, '')
+        .trim();
       // 표 모양이 주보마다 달라, 읽어들인 줄을 늘 기록에 남긴다
       console.log(
         `      | ${lines[i].replace(/\s+/g, ' ').trim().slice(0, 100)}` +
@@ -928,9 +933,17 @@ async function syncDawnVerses() {
       if (t) console.log(`      | ${t.slice(0, 120)}`);
     }
   }
-  if (!passages.length) {
+  // 안식 주간처럼 그 주 새벽예배를 통째로 쉬는 주는 성경 본문 칸이 하나도
+  // 없다. 예전에는 여기서 그냥 끝내 버려서, 홈 화면 말씀 카드에 지난 주일
+  // 본문이 오늘 것처럼 남아 있었다. 이제는 끝내지 않고 그대로 내려간다 —
+  // 본문이 없는 날은 아래에서 '생명의 삶' 본문으로 채워진다.
+  const restWeek = !passages.length && days.some((d) => isRestMark(d.note));
+  if (!passages.length && !restWeek) {
     console.log('  → 새벽예배 본문을 찾지 못해 매일 말씀 등록을 건너뜁니다.');
     return;
+  }
+  if (restWeek) {
+    console.log('  → 안식 주간입니다 — 새벽예배 본문 대신 생명의 삶 본문으로 채웁니다.');
   }
   console.log(
     `      · 요일 ${days.map((d) => `${d.dom}일@${Math.round(d.col)}`).join(' ')} / ` +
@@ -1069,13 +1082,19 @@ async function syncDawnVerses() {
   // 새벽예배 본문이 성경 장이 아닌 날은 '생명의 삶' QT를 보는 날이다 —
   // 두란노 공지의 월별 본문표에서 그날 본문 범위를 가져와 등록한다.
   const pending = emptyDates.filter((d) => !usedDates.has(d));
-  if (pending.length) await syncQtVerses(pending, bible, findBook);
+  if (pending.length) await syncQtVerses(pending, bible, findBook, restWeek);
 }
 
-/** 생명의 삶(두란노 QT) 본문표로 그날 말씀 등록 */
-async function syncQtVerses(dates, bible, findBook) {
+/**
+ * 생명의 삶(두란노 QT) 본문표로 그날 말씀 등록.
+ * restWeek — 안식 주간이라 새벽예배 자체가 없는 주. 안내 문구가 달라지고,
+ * 앱에서 '설교 듣기'를 숨기도록 문서에 표시를 남긴다.
+ */
+async function syncQtVerses(dates, bible, findBook, restWeek = false) {
   const { fetchQtMonth } = await import('./qt-passages.mjs');
-  console.log('[말씀] 생명의 삶 QT 본문 등록:');
+  console.log(
+    restWeek ? '[말씀] 안식 주간 — 생명의 삶 본문 등록:' : '[말씀] 생명의 삶 QT 본문 등록:',
+  );
   // 두란노 페이지는 EUC-KR
   const fetchText = async (url) => {
     const res = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'ko,en' } });
@@ -1133,12 +1152,18 @@ async function syncQtVerses(dates, bible, findBook) {
         date: d,
         reference: ref,
         heroText: first.length > 90 ? `${first.slice(0, 90)}…` : first,
-        passageTitle: `${ref} (생명의 삶 본문)`,
+        passageTitle: restWeek
+          ? `${ref} (안식 주간 · 생명의 삶 본문)`
+          : `${ref} (생명의 삶 본문)`,
         passage: picked,
+        restWeek,
+        restNote: restWeek ? '안식 주간으로 새벽예배가 없습니다' : null,
       },
       {
       meditation:
-        `오늘 새벽예배는 생명의 삶 본문으로 드립니다. 오늘 본문은 ${ref}, 모두 ${picked.length}절입니다.\n\n` +
+        (restWeek
+          ? `안식 주간으로 새벽예배가 없습니다. 생명의 삶 본문으로 함께합니다. 오늘 본문은 ${ref}, 모두 ${picked.length}절입니다.\n\n`
+          : `오늘 새벽예배는 생명의 삶 본문으로 드립니다. 오늘 본문은 ${ref}, 모두 ${picked.length}절입니다.\n\n`) +
         `천천히 소리 내어 읽으며, 마음에 머무는 한 구절을 찾아보세요. ` +
         `그 구절 앞에 잠시 멈추어 오늘 나에게 주시는 말씀으로 받아보세요.`,
       application: [
@@ -2077,9 +2102,13 @@ function extractOrderAndSermon(lines) {
 // 책이름과 장 사이 공백은 있을 수도 없을 수도 있다("이사야 39장"/"이사야39장").
 const DAWN_CELL = /[가-힣A-Za-z]+\s*\d+장|생명의\s*삶/g;
 /** DAWN_CELL과 같은 판정을 공백을 아예 지운 문자열에 대해 쓸 때(줄 뒤섞임 대응용) */
+/** 그 주 새벽예배를 쉰다는 표시 — 주보에 "안식 주간"처럼 적힌다 */
+const REST_MARK = /안식주간|새벽기도없음|새벽예배없음|없음|휴무/;
+const isRestMark = (p) => REST_MARK.test(String(p ?? '').replace(/\s+/g, ''));
+
 function looksLikeDawnPassage(p) {
   const s = p.replace(/\s+/g, '');
-  return /[가-힣A-Za-z]+\d+장/.test(s) || /생명의삶/.test(s);
+  return /[가-힣A-Za-z]+\d+장/.test(s) || /생명의삶/.test(s) || isRestMark(s);
 }
 
 /**
